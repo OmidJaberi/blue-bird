@@ -4,4 +4,4 @@
 int init_server(int port);
 void start_server();
 
-#endif
+#endif // NETWORK_H
