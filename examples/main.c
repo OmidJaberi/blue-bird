@@ -1,7 +1,8 @@
-#include <stdio.h>
+#include "core/network.h"
 
 int main()
 {
-    printf("Hello Blue-Bird!\n");
+    init_server(8080);
+    start_server();
     return 0;
 }
