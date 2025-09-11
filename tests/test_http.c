@@ -6,10 +6,14 @@
 void test_request_creation()
 {
     Request req;
-    req.method = "GET";
-    req.path = "/hello";
+    req.method[0] = '\0';
+    req.path[0] = '\0';
+    req.version[0] = '\0';
+    int res = parse_request("GET /hello HTTP/1.1\r\nHost: localhost\r\n", &req);
+    assert(res == 0);
     assert(strcmp(req.method, "GET") == 0);
     assert(strcmp(req.path, "/hello") == 0);
+    assert(strcmp(req.version, "HTTP/1.1") == 0);
 }
 
 void test_response_creation()
