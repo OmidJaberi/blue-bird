@@ -1,33 +1,46 @@
 #include "core/router.h"
-#include "core/http.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
 
-int called = 0;
 
-void test_handler(Request *req, int client_fd)
+void handler_root(Request *req, Response *res)
 {
-    called++;
+    create_response(res, 200, "Root OK");
 }
 
-void test_router_basic()
+void handler_hello(Request *req, Response *res)
+{
+    create_response(res, 200, "Hello OK");
+}
+
+void test_route_match()
+{
+    add_route("/", handler_root);
+    add_route("/hello", handler_hello);
+
+    Request req;
+    Response res;
+    strcpy(req.path, "/hello");
+
+    handle_request(&req, &res);
+    assert(strcmp(res.body, "Hello OK") == 0);
+}
+
+void test_route_not_found()
 {
     Request req;
-    strcpy(req.method, "GET");
-    strcpy(req.path, "/test");
-    strcpy(req.version, "HTTP/1.1");
+    Response res;
+    strcpy(req.path, "/doesnotexist");
 
-    add_route("/test", test_handler);
-
-    called = 0;
-    handle_request(&req, 0); // dummy client_fd
-    assert(called == 1);
+    handle_request(&req, &res);
+    assert(strcmp(res.body, "Not Found") == 0);
 }
 
 int main()
 {
-    test_router_basic();
-    printf("Router tests passed.\n");
+    test_route_match();
+    test_route_not_found();
+    printf("All Router tests passed.\n");
     return 0;
 }
