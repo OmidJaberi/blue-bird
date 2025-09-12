@@ -1,5 +1,6 @@
 #include "core/network.h"
 #include "core/http.h"
+#include "core/router.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,21 +75,18 @@ void start_server()
         Request req;
         if (parse_request(buffer, &req) == 0)
         {
-            printf("Parsed request:\n\tMETHOD: %s\n\tPATH: %s \n\tVERSION: %s\n", req.method, req.path, req.version);
+            handle_request(&req, new_socket);
         }
         else
         {
-            printf("Failed to parse request.\n");
+            char *bad_request = "HTTP/1.1 400 Bad Request\\r\\n"
+                                "Content-Type: text/plain\\r\\n"
+                                "Content-Length: 11\\r\\n"
+                                "\\r\\n"
+                                "Bad Request";
+            write(new_socket, bad_request, strlen(bad_request));
         }
 
-        // Send response (hardcoded, for now)
-        char *response = "HTTP/1.1 200 OK\r\n"
-                         "Content-Type: text/plain\r\n"
-                         "Content-Length: 20\r\n"
-                         "\r\n"
-                         "Hello from Blue-Bird!\n";
-        write(new_socket, response, strlen(response));
- 
         close(new_socket);
     }
 }

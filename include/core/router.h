@@ -1,0 +1,16 @@
+#ifndef ROUTER_H
+#define ROUTER_H
+
+#include "http.h"
+
+typedef void (*RouteHandler)(Request *req, int client_fd);
+
+typedef struct {
+    const char *path;
+    RouteHandler handler;
+} Route;
+
+void add_route(const char *path, RouteHandler handler);
+void handle_request(Request *req, int client_fd);
+
+#endif // ROUTER_H
