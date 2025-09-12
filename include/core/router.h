@@ -3,7 +3,7 @@
 
 #include "http.h"
 
-typedef void (*RouteHandler)(Request *req, int client_fd);
+typedef void (*RouteHandler)(Request *req, Response *res);
 
 typedef struct {
     const char *path;
@@ -11,6 +11,6 @@ typedef struct {
 } Route;
 
 void add_route(const char *path, RouteHandler handler);
-void handle_request(Request *req, int client_fd);
+void handle_request(Request *req, Response *res);
 
 #endif // ROUTER_H

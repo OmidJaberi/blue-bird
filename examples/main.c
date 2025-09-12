@@ -4,24 +4,14 @@
 #include <unistd.h>
 #include <string.h>
 
-void hello_handler(Request *req, int client_fd)
+void hello_handler(Request *req, Response *res)
 {
-    char *response = "HTTP/1.1 200 OK\r\n"
-                     "Content-Type: text/plain\r\n"
-                     "Content-Length: 5\r\n"
-                     "\r\n"
-                     "Hello";
-    write(client_fd, response, strlen(response));
+    create_response(res, 200, "Hello");
 }
 
-void root_handler(Request *req, int client_fd)
+void root_handler(Request *req, Response *res)
 {
-    char *response = "HTTP/1.1 200 OK\r\n"
-                     "Content-Type: text/plain\r\n"
-                     "Content-Length: 12\r\n"
-                     "\r\n"
-                     "Blue-Bird :)";
-    write(client_fd, response, strlen(response));
+    create_response(res, 200, "Blue-Bird :)");
 }
 
 int main()

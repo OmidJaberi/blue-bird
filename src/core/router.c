@@ -20,22 +20,17 @@ void add_route(const char *path, RouteHandler handler)
     route_count++;
 }
 
-void handle_request(Request *req, int client_fd)
+void handle_request(Request *req, Response *res)
 {
     for (int i = 0; i < route_count; i++)
     {
         if (strcmp(req->path, routes[i].path) == 0)
         {
-            routes[i].handler(req, client_fd);
+            routes[i].handler(req, res);
             return;
         }
     }
 
     // Default 404
-    char *not_found = "HTTP/1.1 404 Not Found\r\n"
-                      "Content-Type: text/plain\r\n"
-                      "Content-Length: 9\r\n"
-                      "\r\n"
-                      "Not Found";
-    write(client_fd, not_found, strlen(not_found));
+    create_response(res, 404, "Not Found");
 }

@@ -52,7 +52,7 @@ int init_server(int port)
 
 void start_server()
 {
-    int new_socket;
+    int client_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
     char buffer[3000] = {0};
@@ -61,32 +61,28 @@ void start_server()
     while (1)
     {
         // Accept new connection
-        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0)
+        if ((client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0)
         {
             perror("accept failed");
             continue;
         }
 
         // Read request (not parsed, yet)
-        read(new_socket, buffer, sizeof(buffer));
+        read(client_fd, buffer, sizeof(buffer));
         printf("Received request:\n%s\n", buffer);
 
         // Parse request
         Request req;
+        Response res;
         if (parse_request(buffer, &req) == 0)
-        {
-            handle_request(&req, new_socket);
-        }
+            handle_request(&req, &res);
         else
-        {
-            char *bad_request = "HTTP/1.1 400 Bad Request\\r\\n"
-                                "Content-Type: text/plain\\r\\n"
-                                "Content-Length: 11\\r\\n"
-                                "\\r\\n"
-                                "Bad Request";
-            write(new_socket, bad_request, strlen(bad_request));
-        }
+            create_response(&res, 404, "Bad Request");
 
-        close(new_socket);
+        send_response(client_fd, &res);
+
+        free(res.headers);
+        free(res.body);
+        close(client_fd);
     }
 }
