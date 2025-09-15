@@ -79,7 +79,7 @@ int serialize_response(Response *res, char *buffer, int buffer_size)
     int body_len = res->body ? strlen(res->body) : 0;
     // Conent_Length added here:
     written += snprintf(buffer + written, buffer_size - written,
-            "Content_Length: %d\r\n\r\n",
+            "Content-Length: %d\r\n\r\n",
             body_len);
 
     if (res->body)
