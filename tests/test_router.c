@@ -6,12 +6,16 @@
 
 void handler_root(Request *req, Response *res)
 {
-    create_response(res, 200, "Root OK");
+    init_response(res);
+    set_header(res, "Content-Type", "text/plain");
+    set_body(res, "Root OK");
 }
 
 void handler_hello(Request *req, Response *res)
 {
-    create_response(res, 200, "Hello OK");
+    init_response(res);
+    set_header(res, "Content-Type", "text/plain");
+    set_body(res, "Hello OK");
 }
 
 void test_route_match()
@@ -34,7 +38,7 @@ void test_route_not_found()
     strcpy(req.path, "/doesnotexist");
 
     handle_request(&req, &res);
-    assert(strcmp(res.body, "Not Found") == 0);
+    assert(strcmp(res.body, "Route Not Found") == 0);
 }
 
 int main()
