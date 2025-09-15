@@ -1,5 +1,6 @@
 #include "core/network.h"
-#include "core/http.h"
+#include "core/request.h"
+#include "core/response.h"
 #include "core/router.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,12 +78,15 @@ void start_server()
         if (parse_request(buffer, &req) == 0)
             handle_request(&req, &res);
         else
-            create_response(&res, 404, "Bad Request");
+        {
+            init_response(&res);
+            set_status(&res, 400);
+            set_header(&res, "Content-Type", "text/plain");
+            set_body(&res, "Bad Request");
+        }
 
         send_response(client_fd, &res);
-
-        free(res.headers);
-        free(res.body);
+        destroy_response(&res);
         close(client_fd);
     }
 }

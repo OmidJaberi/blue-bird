@@ -4,55 +4,98 @@
 #include <string.h>
 #include <unistd.h>
 
-int create_response(Response *res, int status, const char *content)
+void init_response(Response *res)
 {
-    const char *status_text;
-    switch (status)
+    res->status_code = 200;
+    res->status_text = strdup("OK");
+    res->headers = NULL;
+    res->header_count = 0;
+    res->body = NULL;
+}
+
+void destroy_response(Response *res)
+{
+    free(res->status_text);
+    for (int i = 0; i < res->header_count; i++)
     {
-        case 200: status_text = "OK"; break;
-        case 404: status_text = "Not Found"; break;
-        case 500: status_text = "Internal Server Error"; break;
-        default: status_text = "Unknown"; break;
+        free(res->headers[i].name);
+        free(res->headers[i].value);
     }
+    free(res->headers);
+    free(res->body);
+}
 
-    size_t content_len = strlen(content);
-
-    res->body = malloc(content_len + 1);
-    if (!res->body) return -1;
-    strcpy(res->body, content);
-
-    size_t header_len = snprintf(NULL, 0,
-        "HTTP/1.1 %d %s\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: %zu\r\n"
-        "\r\n",
-        status, status_text, content_len);
-
-    res->headers = malloc(header_len + 1);
-    if (!res->headers)
+char *status_text_for_code(int code)
+{
+    switch (code)
     {
-        free(res->body);
-        return -1;
+        case 200: return "OK";
+        case 201: return "Created";
+        case 204: return "No Content";
+        case 301: return "Moved Permanently";
+        case 302: return "Found";
+        case 400: return "Bad Request";
+        case 401: return "Unauthorized";
+        case 403: return "Forbidden";
+        case 404: return "Not Found";
+        case 500: return "Internal Server Error";
+        case 503: return "Service Unavailable";
+        default: return "Unknown";
     }
+}
 
-    snprintf(res->headers, header_len + 1,
-        "HTTP/1.1 %d %s\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: %zu\r\n"
-        "\r\n",
-        status, status_text, content_len);
+void set_status(Response *res, int code)
+{
+    res->status_code = code;
+    snprintf(res->status_text, sizeof(res->status_text), "%s", status_text_for_code(code));
+}
 
-    res->status = status;
-    return 0;
+void set_header(Response *res, const char *name, const char *value)
+{
+    res->headers = realloc(res->headers, (res->header_count + 1)* sizeof(*res->headers));
+    res->headers[res->header_count].name = strdup(name);
+    res->headers[res->header_count].value = strdup(value);
+    res->header_count++;
+}
+
+void set_body(Response *res, char *body)
+{
+    free(res->body);
+    res->body = strdup(body);
+}
+
+int serialize_response(Response *res, char *buffer, int buffer_size)
+{
+    int written = snprintf(buffer, buffer_size,
+                           "HTTP/1.1 %d %s\r\n",
+                           res->status_code, res->status_text);
+    
+    for (int i = 0; i < res->header_count; i++)
+        written += snprintf(buffer + written, buffer_size - written,
+                "%s: %s\r\n",
+                res->headers[i].name,
+                res->headers[i].value);
+
+    int body_len = res->body ? strlen(res->body) : 0;
+    // Conent_Length added here:
+    written += snprintf(buffer + written, buffer_size - written,
+            "Content_Length: %d\r\n\r\n",
+            body_len);
+
+    if (res->body)
+        written += snprintf(buffer + written, buffer_size - written,
+                "%s", res->body);
+
+    return written;
 }
 
 int send_response(int sock_fd, Response *res)
 {
-    size_t headers_len = strlen(res->headers);
-    size_t body_len = strlen(res->body);
+    char outbuf[8192];
+    int len = serialize_response(res, outbuf, sizeof(outbuf));
 
-    if (write(sock_fd, res->headers, headers_len) < 0) return -1;
-    if (write(sock_fd, res->body, body_len) < 0) return -1;
+    if (write(sock_fd, outbuf, len) < 0)
+        return -1;
 
     return 0;
 }

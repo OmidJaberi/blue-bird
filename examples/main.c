@@ -6,12 +6,16 @@
 
 void hello_handler(Request *req, Response *res)
 {
-    create_response(res, 200, "Hello");
+    init_response(res);
+    set_header(res, "Content-Type", "text/plain");
+    set_body(res, "Hello");
 }
 
 void root_handler(Request *req, Response *res)
 {
-    create_response(res, 200, "Blue-Bird :)");
+    init_response(res);
+    set_header(res, "Content-Type", "text/plain");
+    set_body(res, "Blue-Bird :)");
 }
 
 int main()

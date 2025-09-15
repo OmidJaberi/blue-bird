@@ -32,5 +32,9 @@ void handle_request(Request *req, Response *res)
     }
 
     // Default 404
-    create_response(res, 404, "Not Found");
+    init_response(res);
+    set_status(res, 404);
+    set_header(res, "Content-Type", "text/plain");
+    //set_header(res, "Content-Length", "0");
+    set_body(res, "Route Not Found");
 }
