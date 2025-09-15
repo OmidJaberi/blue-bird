@@ -16,7 +16,7 @@ typedef struct {
 
 void init_response(Response *res);
 void destroy_response(Response *res);
-void set_status(Response *res, int code);
+int set_status(Response *res, int code);
 void set_header(Response *res, const char *name, const char *value);
 void set_body(Response *res, char *body);
 int serialize_response(Response *res, char *buffer, int buffer_size);

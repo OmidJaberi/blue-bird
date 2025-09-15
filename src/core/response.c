@@ -44,10 +44,15 @@ char *status_text_for_code(int code)
     }
 }
 
-void set_status(Response *res, int code)
+int set_status(Response *res, int code)
 {
     res->status_code = code;
-    snprintf(res->status_text, sizeof(res->status_text), "%s", status_text_for_code(code));
+    res->status_text = strdup(status_text_for_code(code));
+    if (!res->status_text)
+    {
+        return -1;
+    }
+    return 0;
 }
 
 void set_header(Response *res, const char *name, const char *value)
