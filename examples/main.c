@@ -4,11 +4,18 @@
 #include <unistd.h>
 #include <string.h>
 
-void hello_handler(Request *req, Response *res)
+void hello_get_handler(Request *req, Response *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Hello");
+    set_body(res, "Hello via GET!");
+}
+
+void hello_post_handler(Request *req, Response *res)
+{
+    init_response(res);
+    set_header(res, "Content-Type", "text/plain");
+    set_body(res, "Hello via POST!");
 }
 
 void root_handler(Request *req, Response *res)
@@ -20,8 +27,9 @@ void root_handler(Request *req, Response *res)
 
 int main()
 {
-    add_route("/", root_handler);
-    add_route("/hello", hello_handler);
+    add_route("GET", "/", root_handler);
+    add_route("POST", "/hello", hello_post_handler);
+    add_route("GET", "/hello", hello_get_handler);
 
     init_server(8080);
     start_server();
