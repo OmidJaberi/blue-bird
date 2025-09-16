@@ -14,4 +14,8 @@ typedef struct {
 void add_route(const char *method, const char *path, RouteHandler handler);
 void handle_request(Request *req, Response *res);
 
+// Just for unit testing, temporaty:
+void clear_routes();
+
+
 #endif // ROUTER_H

@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdio.h>
 
-
 void handler_root(Request *req, Response *res)
 {
     init_response(res);
@@ -27,6 +26,8 @@ void handler_hello_post(Request *req, Response *res)
 
 void test_route_match_get()
 {
+    clear_routes();
+
     add_route("GET", "/", handler_root);
     add_route("GET", "/hello", handler_hello_get);
 
@@ -41,6 +42,8 @@ void test_route_match_get()
 
 void test_route_match_post()
 {
+    clear_routes();
+
     add_route("POST", "/hello", handler_hello_post);
 
     Request req;
@@ -54,6 +57,8 @@ void test_route_match_post()
 
 void test_route_not_found()
 {
+    clear_routes();
+
     Request req;
     Response res;
     strcpy(req.method, "GET");

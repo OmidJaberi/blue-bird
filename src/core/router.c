@@ -39,3 +39,9 @@ void handle_request(Request *req, Response *res)
     //set_header(res, "Content-Length", "0");
     set_body(res, "Route Not Found");
 }
+
+// Just for unit testing, temporaty:
+void clear_routes()
+{
+    route_count = 0;
+}
