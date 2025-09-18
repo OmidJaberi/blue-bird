@@ -44,7 +44,7 @@ void test_route_match_get()
     add_route("GET", "/", handler_root);
     add_route("GET", "/hello", handler_hello_get);
 
-    Request req;
+    Request req = {0};
     Response res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/hello");
@@ -59,7 +59,7 @@ void test_route_match_post()
 
     add_route("POST", "/hello", handler_hello_post);
 
-    Request req;
+    Request req = {0};
     Response res;
     strcpy(req.method, "POST");
     strcpy(req.path, "/hello");
@@ -72,7 +72,7 @@ void test_route_not_found()
 {
     clear_routes();
 
-    Request req;
+    Request req = {0};
     Response res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/doesnotexist");
@@ -87,7 +87,7 @@ void test_route_with_param()
 
     add_route("GET", "/users/:id", handler_user);
 
-    Request req;
+    Request req = {0};
     Response res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/users/42");
