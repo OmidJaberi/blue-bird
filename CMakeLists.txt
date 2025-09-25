@@ -9,10 +9,8 @@ include_directories(include)
 file(GLOB CORE_SOURCES "src/core/*.c")
 add_library(bluebird_core STATIC ${CORE_SOURCES})
 
-# Example server
-file(GLOB EXAMPLE_SOURCES "examples/*.c")
-add_executable(bluebird_server ${EXAMPLE_SOURCES})
-target_link_libraries(bluebird_server bluebird_core)
+# Examples
+add_subdirectory(examples)
 
 # Unit tests
 file(GLOB TEST_SOURCES "tests/*.c")
