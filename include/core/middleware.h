@@ -11,4 +11,7 @@ void use_middleware(Middleware mw);
 
 int run_middleware(Request *req, Response *res);
 
+// Just for unit testing, temporaty:
+void clear_middleware();
+
 #endif // MIDDLEWARE_H

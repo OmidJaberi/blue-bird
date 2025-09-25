@@ -24,3 +24,9 @@ int run_middleware(Request *req, Response *res)
     }
     return 0;
 }
+
+// Just for unit testing, temporaty:
+void clear_middleware()
+{
+    middleware_count = 0;
+}
