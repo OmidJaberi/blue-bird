@@ -2,6 +2,7 @@
 #include "core/request.h"
 #include "core/response.h"
 #include "core/router.h"
+#include "core/middleware.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,8 +76,12 @@ void start_server()
         // Parse request
         Request req;
         Response res;
+        init_response(&res);
         if (parse_request(buffer, &req) == 0)
-            handle_request(&req, &res);
+        {
+            if (run_middleware(&req, &res) == 0)
+                handle_request(&req, &res);
+        }
         else
         {
             init_response(&res);
