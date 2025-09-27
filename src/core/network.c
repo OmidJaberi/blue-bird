@@ -91,6 +91,7 @@ void start_server()
         }
 
         send_response(client_fd, &res);
+        destroy_request(&req);
         destroy_response(&res);
         close(client_fd);
     }

@@ -22,6 +22,7 @@ void test_request()
     res = parse_request(bad_request, &req);
     assert(res != 0);
 
+    destroy_request(&req);
 }
 
 void test_response_basic()
