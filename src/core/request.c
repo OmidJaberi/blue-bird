@@ -3,14 +3,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+const char *get_header(Request *req, const char *name)
+{
+    for (int i = 0; i < req->header_count; i++)
+        if (strcmp(req->headers[i].name, name) == 0)
+            return req->headers[i].value;
+    return NULL;
+}
+
 int parse_request(const char *raw, Request *req)
 {
     if (!raw || !req) return -1;
 
     req->param_count = 0;
+    req->header_count = 0;
     req->body = NULL;
     req->body_len = 0;
 
+    // Parse request line
     const char *line_end = strstr(raw, "\r\n");
     if (!line_end) return -1;
 
@@ -26,14 +36,49 @@ int parse_request(const char *raw, Request *req)
     }
 
     // TODO: Parse headers
+    const char *headers_start = line_end + 2;
+    const char *p = headers_start;
 
+    while (*p && !(p[0] == '\r' && p[1] == '\n'))
+    {
+        const char *colon = strchr(p, ':');
+        if (!colon) break;
+
+        const char *end = strstr(p, "\r\n");
+        if (!end) break;
+
+        size_t name_len = colon - p;
+        size_t value_len = end - (colon + 1);
+
+        if (req->header_count < MAX_HEADERS)
+        {
+            strncpy(req->headers[req->header_count].name, p, name_len);
+            req->headers[req->header_count].name[name_len] = '\0';
+
+            // Skip leading space in value
+            const char *val_start = colon + 1;
+            while (*val_start == 0 && value_len > 0)
+            {
+                val_start++;
+                value_len--;
+            }
+            strncpy(req->headers[req->header_count].value, val_start, value_len);
+            req->headers[req->header_count].value[value_len] = '\0';
+
+            req->header_count++;
+        }
+        p = end + 2; // next line
+    }
+
+    // Parse Body
     const char *body_start = strstr(raw, "\r\n\r\n");
-    if (!body_start)
-        return 0;
+    if (!body_start) return 0;
 
     body_start += 4; // skip "\r\n\r\n"
-    size_t body_len = strlen(body_start);
-    if (body_len == 0)
+    const char *content_length = get_header(req, "Content-Length");
+    size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
+
+    if (body_len <= 0)
         return 0;
 
     req->body = (char *)malloc(body_len + 1);
