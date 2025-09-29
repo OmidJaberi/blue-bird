@@ -35,17 +35,17 @@ int parse_request(const char *raw, Request *req)
         return -1;
     }
 
-    // TODO: Parse headers
+    // Parse headers
     const char *headers_start = line_end + 2;
     const char *p = headers_start;
 
     while (*p && !(p[0] == '\r' && p[1] == '\n'))
     {
         const char *colon = strchr(p, ':');
-        if (!colon) break;
+        if (!colon) return -1;  // Malformed Header (missing ':')
 
         const char *end = strstr(p, "\r\n");
-        if (!end) break;
+        if (!end) return -1;    // Malformed Header (no CRLF)
 
         size_t name_len = colon - p;
         size_t value_len = end - (colon + 1);
