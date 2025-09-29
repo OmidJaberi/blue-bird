@@ -57,7 +57,7 @@ int parse_request(const char *raw, Request *req)
 
             // Skip leading space in value
             const char *val_start = colon + 1;
-            while (*val_start == 0 && value_len > 0)
+            while (*val_start == ' ' && value_len > 0)
             {
                 val_start++;
                 value_len--;
