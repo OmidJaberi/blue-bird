@@ -3,14 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-const char *get_header(Request *req, const char *name)
-{
-    for (int i = 0; i < req->header_count; i++)
-        if (strcmp(req->headers[i].name, name) == 0)
-            return req->headers[i].value;
-    return NULL;
-}
-
 int parse_request(const char *raw, Request *req)
 {
     if (!raw || !req) return -1;
@@ -112,5 +104,13 @@ const char *get_param(Request *req, const char *name)
             return req->params[i].value;
         }
     }
+    return NULL;
+}
+
+const char *get_header(Request *req, const char *name)
+{
+    for (int i = 0; i < req->header_count; i++)
+        if (strcmp(req->headers[i].name, name) == 0)
+            return req->headers[i].value;
     return NULL;
 }
