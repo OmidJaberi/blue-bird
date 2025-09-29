@@ -96,6 +96,27 @@ void test_parse_request_with_no_headers()
     destroy_request(&req);
 }
 
+void test_malformed_request()
+{
+    const char *raw = "GET /hello\r\n\r\n";
+    
+    Request req;
+    int result = parse_request(raw, &req);
+    assert(result == -1);
+}
+
+void test_request_with_invalid_header()
+{
+    const char *raw =
+        "GET /ping HTTP/1.1\r\n"
+        "Host localhost\r\n"
+        "\r\n";
+    
+    Request req;
+    int result = parse_request(raw, &req);
+    assert(result == -1);
+}
+
 int main()
 {
     printf("Running Request tests...\n");
@@ -103,6 +124,8 @@ int main()
     test_parse_get_request();
     test_parse_post_request_with_body();
     test_parse_request_with_no_headers();
+    test_malformed_request();
+    test_request_with_invalid_header();
     printf("All tests passed.\n");
     return 0;
 }
