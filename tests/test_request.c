@@ -178,6 +178,33 @@ void test_request_with_no_query_value()
     destroy_request(&req);
 }
 
+void test_request_max_query_params()
+{
+    const char *raw =
+        "GET /many?"
+        "k1=v1&k2=v2&k3=v3&k4=v4&k5=v5&"
+        "k6=v6&k7=v7&k8=v8&k9=v9&k10=v10&k11=v11&k12=v12 "
+        "HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n";
+
+    Request req;
+    int result = parse_request(raw, &req);
+    assert(result == 0);
+
+    assert(strcmp(req.path, "/many") == 0);
+
+    assert(req.query_count == MAX_QUERY_PARAMS);
+
+    assert(strcmp(get_query_param(&req, "k1"), "v1") == 0);
+    assert(strcmp(get_query_param(&req, "k10"), "v10") == 0);
+
+    assert(get_query_param(&req, "k11") == NULL);
+    assert(get_query_param(&req, "k12") == NULL);
+
+    destroy_request(&req);
+}
+
 int main()
 {
     printf("Running Request tests...\n");
@@ -190,6 +217,7 @@ int main()
     test_request_with_query_params();
     test_request_with_empty_query_value();
     test_request_with_no_query_value();
+    test_request_max_query_params();
     printf("All tests passed.\n");
     return 0;
 }
