@@ -117,6 +117,67 @@ void test_request_with_invalid_header()
     assert(result == -1);
 }
 
+void test_request_with_query_params()
+{
+    const char *raw =
+        "GET /search?q=bluebird&limit=10 HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n";
+
+    Request req;
+    int result = parse_request(raw, &req);
+    assert(result == 0);
+
+    assert(strcmp(req.method, "GET") == 0);
+    assert(strcmp(req.path, "/search") == 0);
+    assert(strcmp(req.version, "HTTP/1.1") == 0);
+
+    assert(req.query_count == 2);
+    assert(strcmp(get_query_param(&req, "q"), "bluebird") == 0);
+    assert(strcmp(get_query_param(&req, "limit"), "10") == 0);
+
+    destroy_request(&req);
+}
+
+void test_request_with_empty_query_value()
+{
+    const char *raw =
+        "GET /filter?enabled=&sort=asc HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n";
+
+    Request req;
+    int result = parse_request(raw, &req);
+    assert(result == 0);
+
+    assert(strcmp(req.path, "/filter") == 0);
+
+    assert(req.query_count == 2);
+    assert(strcmp(get_query_param(&req, "enabled"), "") == 0);
+    assert(strcmp(get_query_param(&req, "sort"), "asc") == 0);
+
+    destroy_request(&req);
+}
+
+void test_request_with_no_query_value()
+{
+    const char *raw =
+        "GET /items?flag HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n";
+
+    Request req;
+    int result = parse_request(raw, &req);
+    assert(result == 0);
+
+    assert(strcmp(req.path, "/items") == 0);
+
+    assert(req.query_count == 1);
+    assert(strcmp(get_query_param(&req, "flag"), "") == 0);
+
+    destroy_request(&req);
+}
+
 int main()
 {
     printf("Running Request tests...\n");
@@ -126,6 +187,9 @@ int main()
     test_parse_request_with_no_headers();
     test_malformed_request();
     test_request_with_invalid_header();
+    test_request_with_query_params();
+    test_request_with_empty_query_value();
+    test_request_with_no_query_value();
     printf("All tests passed.\n");
     return 0;
 }
