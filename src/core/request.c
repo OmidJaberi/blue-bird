@@ -8,6 +8,7 @@ int parse_request(const char *raw, Request *req)
     if (!raw || !req) return -1;
 
     req->param_count = 0;
+    req->query_count = 0;
     req->header_count = 0;
     req->body = NULL;
     req->body_len = 0;
@@ -62,6 +63,28 @@ int parse_request(const char *raw, Request *req)
         p = end + 2; // next line
     }
 
+    // Query Params
+    char *qmark = strchr(req->path, '?');
+    if (qmark)
+    {
+        *qmark = '\0';
+        char *query_str = qmark + 1;
+        char *pair = strtok(query_str, "&");
+        while (pair)
+        {
+            char *eq = strchr(pair, '=');
+            if (eq)
+            {
+                *eq = '\0';
+                add_query_param(req, pair, eq + 1);
+
+            }
+            else
+                add_query_param(req, pair, "");
+            pair = strtok(NULL, "&");
+        }
+    }
+
     // Parse Body
     const char *body_start = strstr(raw, "\r\n\r\n");
     if (!body_start) return 0;
@@ -102,6 +125,35 @@ const char *get_param(Request *req, const char *name)
         if (strcmp(req->params[i].name, name) == 0)
         {
             return req->params[i].value;
+        }
+    }
+    return NULL;
+}
+
+int add_query_param(Request *req, const char *key, const char *value)
+{
+    if (req->query_count >= MAX_QUERY_PARAMS)
+       return -1;
+    
+    QueryParam *qp = &req->query[req->query_count];
+
+    strncpy(qp->key, key, sizeof(qp->key) - 1);
+    qp->key[sizeof(qp->key) - 1] = '\0';
+
+    strncpy(qp->value, value, sizeof(qp->value) - 1);
+    qp->value[sizeof(qp->value) - 1] = '\0';
+
+    req->query_count++;
+    return 0;
+}
+
+const char *get_query_param(Request *req, const char *key)
+{
+    for (int i = 0; i < req->query_count; i++)
+    {
+        if (strcmp(req->query[i].key, key) == 0)
+        {
+            return req->query[i].value;
         }
     }
     return NULL;

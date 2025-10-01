@@ -5,7 +5,15 @@
 void hello_get_handler(Request *req, Response *res)
 {
     set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Hello via GET!");
+    const char *name = get_query_param(req, "name");
+    if (name)
+    {
+        char buf[256];
+        snprintf(buf, sizeof(buf), "Hello %s, via GET!", name);
+        set_body(res, buf);
+    }
+    else
+        set_body(res, "Hello via GET!");
 }
 
 void hello_post_handler(Request *req, Response *res)
