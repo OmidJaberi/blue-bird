@@ -14,6 +14,9 @@ int init_server(Server *server, int port)
     server->route_list = (RouteList *)malloc(sizeof(RouteList));
     init_route_list(server->route_list);
 
+    server->middleware_list = (MiddlewareList *)malloc(sizeof(MiddlewareList));
+    init_middleware_list(server->middleware_list);
+
     struct sockaddr_in address;
     int opt = 1;
 
@@ -58,6 +61,11 @@ void add_route(Server *server, const char *method, const char *path, RouteHandle
     add_route_to_list(server->route_list, method, path, handler);
 }
 
+void use_middleware(Server *server, Middleware mw)
+{
+    append_to_middleware_list(server->middleware_list, mw);
+}
+
 void start_server(Server *server)
 {
     int client_fd;
@@ -85,7 +93,7 @@ void start_server(Server *server)
         init_response(&res);
         if (parse_request(buffer, &req) == 0)
         {
-            if (run_middleware(&req, &res) == 0)
+            if (run_middleware(server->middleware_list, &req, &res) == 0)
                 handle_request(server->route_list, &req, &res);
         }
         else
@@ -106,4 +114,5 @@ void start_server(Server *server)
 void destroy_server(Server *server)
 {
     free(server->route_list);
+    free(server->middleware_list);
 }

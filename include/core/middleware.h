@@ -7,11 +7,13 @@
 
 typedef int (*Middleware)(Request *req, Response *res);
 
-void use_middleware(Middleware mw);
+typedef struct {
+    Middleware middleware_list[MAX_MIDDLEWARE];
+    int middleware_count;
+} MiddlewareList;
 
-int run_middleware(Request *req, Response *res);
-
-// Just for unit testing, temporaty:
-void clear_middleware();
+void init_middleware_list(MiddlewareList *list);
+void append_to_middleware_list(MiddlewareList *list, Middleware mw);
+int run_middleware(MiddlewareList *list, Request *req, Response *res);
 
 #endif // MIDDLEWARE_H

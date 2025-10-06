@@ -1,32 +1,28 @@
 #include "core/middleware.h"
 #include <stdio.h>
 
-static Middleware middleware_list[MAX_MIDDLEWARE];
-static int middleware_count = 0;
-
-void use_middleware(Middleware mw)
+void init_middleware_list(MiddlewareList *list)
 {
-    if (middleware_count >= MAX_MIDDLEWARE)
+    list->middleware_count = 0;
+}
+
+void append_to_middleware_list(MiddlewareList *list, Middleware mw)
+{
+    if (list->middleware_count >= MAX_MIDDLEWARE)
     {
         fprintf(stderr, "Max middleware reached!\n");
         return;
     }
-    middleware_list[middleware_count++] = mw;
+    list->middleware_list[list->middleware_count++] = mw;
 }
 
-int run_middleware(Request *req, Response *res)
+int run_middleware(MiddlewareList *list, Request *req, Response *res)
 {
-    for (int i = 0; i < middleware_count; i++)
+    for (int i = 0; i < list->middleware_count; i++)
     {
-        int result = middleware_list[i](req, res);
+        int result = list->middleware_list[i](req, res);
         if (result != 0)
             return result;
     }
     return 0;
-}
-
-// Just for unit testing, temporaty:
-void clear_middleware()
-{
-    middleware_count = 0;
 }
