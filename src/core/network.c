@@ -11,6 +11,9 @@
 
 int init_server(Server *server, int port)
 {
+    server->route_list = (RouteList *)malloc(sizeof(RouteList));
+    init_route_list(server->route_list);
+
     struct sockaddr_in address;
     int opt = 1;
 
@@ -78,7 +81,7 @@ void start_server(Server *server)
         if (parse_request(buffer, &req) == 0)
         {
             if (run_middleware(&req, &res) == 0)
-                handle_request(&req, &res);
+                handle_request(server->route_list, &req, &res);
         }
         else
         {
@@ -97,4 +100,5 @@ void start_server(Server *server)
 
 void destroy_server(Server *server)
 {
+    free(server->route_list);
 }

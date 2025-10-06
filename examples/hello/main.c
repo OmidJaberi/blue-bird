@@ -17,13 +17,14 @@ int main()
     use_middleware(logger_middleware);
     use_middleware(server_header_middleware);
 
-    add_route("GET", "/", root_handler);
-    add_route("POST", "/hello", hello_post_handler);
-    add_route("GET", "/hello", hello_get_handler);
-    add_route("GET", "/users/:id", user_handler);
-    add_route("GET", "/users/:id/comments", comments_handler);
-
     init_server(&server, 8080);
+
+    add_route(server.route_list, "GET", "/", root_handler);
+    add_route(server.route_list, "POST", "/hello", hello_post_handler);
+    add_route(server.route_list, "GET", "/hello", hello_get_handler);
+    add_route(server.route_list, "GET", "/users/:id", user_handler);
+    add_route(server.route_list, "GET", "/users/:id/comments", comments_handler);
+    
     start_server(&server);
     return 0;
 }

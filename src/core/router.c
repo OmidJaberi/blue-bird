@@ -3,12 +3,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define MAX_ROUTES 50
-#define MAX_SEGMENTS 20
-#define MAX_PATH_LEN 256
-
-static Route routes[MAX_ROUTES];
-static int route_count = 0;
+void init_route_list(RouteList *route_list)
+{
+    route_list->route_count = 0;
+}
 
 static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN])
 {
@@ -42,32 +40,32 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
     return count;
 }
 
-void add_route(const char *method, const char *path, RouteHandler handler)
+void add_route(RouteList *route_list, const char *method, const char *path, RouteHandler handler)
 {
-    if (route_count >= MAX_ROUTES)
+    if (route_list->route_count >= MAX_ROUTES)
     {
         fprintf(stderr, "Max routes reached!\\n");
         return;
     }
-    routes[route_count].method = method;
-    routes[route_count].path = path;
-    routes[route_count].handler = handler;
-    route_count++;
+    route_list->list[route_list->route_count].method = method;
+    route_list->list[route_list->route_count].path = path;
+    route_list->list[route_list->route_count].handler = handler;
+    route_list->route_count++;
 }
 
-void handle_request(Request *req, Response *res)
+void handle_request(RouteList *route_list, Request *req, Response *res)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(req->path, req_segments);
 
-    for (int i = 0; i < route_count; i++)
+    for (int i = 0; i < route_list->route_count; i++)
     {
-        if (strcmp(req->method, routes[i].method) != 0) continue;
+        if (strcmp(req->method, route_list->list[i].method) != 0) continue;
 
         char route_segments[MAX_SEGMENTS][MAX_PATH_LEN];
-        int route_count = split_path(routes[i].path, route_segments);
+        int route_segment_count = split_path(route_list->list[i].path, route_segments);
 
-        if (req_count != route_count) continue;
+        if (req_count != route_segment_count) continue;
 
         req->param_count = 0;
         int match = 1;
@@ -100,7 +98,7 @@ void handle_request(Request *req, Response *res)
 
         if (match)
         {
-            routes[i].handler(req, res);
+            route_list->list[i].handler(req, res);
             return;
         }
     }
@@ -115,5 +113,4 @@ void handle_request(Request *req, Response *res)
 // Just for unit testing, temporaty:
 void clear_routes()
 {
-    route_count = 0;
 }
