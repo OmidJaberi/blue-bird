@@ -36,17 +36,18 @@ int mw_stop(Request *req, Response *res)
 
 void test_middleware_order()
 {
-    clear_middleware();
+    MiddlewareList mw_list;
+    init_middleware_list(&mw_list);
     Response res;
     Request req;
     call_index = 0;
 
     init_response(&res);
-    use_middleware(mw1);
-    use_middleware(mw2);
-    use_middleware(mw3);
+    append_to_middleware_list(&mw_list, mw1);
+    append_to_middleware_list(&mw_list, mw2);
+    append_to_middleware_list(&mw_list, mw3);
 
-    int result = run_middleware(&req, &res);
+    int result = run_middleware(&mw_list, &req, &res);
     assert(result == 0);
     assert(call_order[0] == 1);
     assert(call_order[1] == 2);
@@ -57,14 +58,15 @@ void test_middleware_order()
 
 void test_middleware_stop()
 {
-    clear_middleware();
+    MiddlewareList mw_list;
+    init_middleware_list(&mw_list);
     Response res;
     Request req;
 
     init_response(&res);
-    use_middleware(mw_stop);
+    append_to_middleware_list(&mw_list, mw_stop);
 
-    int result = run_middleware(&req, &res);
+    int result = run_middleware(&mw_list, &req, &res);
     assert(result != 0);
     assert(res.status_code == 403);
     assert(strcmp(res.body, "Forbidden") == 0);
