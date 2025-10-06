@@ -40,7 +40,7 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
     return count;
 }
 
-void add_route(RouteList *route_list, const char *method, const char *path, RouteHandler handler)
+void add_route_to_list(RouteList *route_list, const char *method, const char *path, RouteHandler handler)
 {
     if (route_list->route_count >= MAX_ROUTES)
     {

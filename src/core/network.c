@@ -53,6 +53,11 @@ int init_server(Server *server, int port)
     return 0;
 }
 
+void add_route(Server *server, const char *method, const char *path, RouteHandler handler)
+{
+    add_route_to_list(server->route_list, method, path, handler);
+}
+
 void start_server(Server *server)
 {
     int client_fd;
