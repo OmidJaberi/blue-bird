@@ -39,60 +39,60 @@ void handler_user(Request *req, Response *res)
 // Tests
 void test_route_match_get()
 {
-    clear_routes();
+    RouteList route_list;
 
-    add_route("GET", "/", handler_root);
-    add_route("GET", "/hello", handler_hello_get);
+    add_route_to_list(&route_list, "GET", "/", handler_root);
+    add_route_to_list(&route_list, "GET", "/hello", handler_hello_get);
 
     Request req = {0};
     Response res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/hello");
 
-    handle_request(&req, &res);
+    handle_request(&route_list, &req, &res);
     assert(strcmp(res.body, "Hello GET OK") == 0);
 }
 
 void test_route_match_post()
 {
-    clear_routes();
+    RouteList route_list;
 
-    add_route("POST", "/hello", handler_hello_post);
+    add_route_to_list(&route_list, "POST", "/hello", handler_hello_post);
 
     Request req = {0};
     Response res;
     strcpy(req.method, "POST");
     strcpy(req.path, "/hello");
 
-    handle_request(&req, &res);
+    handle_request(&route_list, &req, &res);
     assert(strcmp(res.body, "Hello POST OK") == 0);
 }
 
 void test_route_not_found()
 {
-    clear_routes();
+    RouteList route_list;
 
     Request req = {0};
     Response res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/doesnotexist");
 
-    handle_request(&req, &res);
+    handle_request(&route_list, &req, &res);
     assert(strcmp(res.body, "Route Not Found") == 0);
 }
 
 void test_route_with_param()
 {
-    clear_routes();
+    RouteList route_list;
 
-    add_route("GET", "/users/:id", handler_user);
+    add_route_to_list(&route_list, "GET", "/users/:id", handler_user);
 
     Request req = {0};
     Response res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/users/42");
 
-    handle_request(&req, &res);
+    handle_request(&route_list, &req, &res);
     assert(strcmp(res.body, "User ID: 42") == 0);
 }
 

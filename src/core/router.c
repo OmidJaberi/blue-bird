@@ -109,8 +109,3 @@ void handle_request(RouteList *route_list, Request *req, Response *res)
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Route Not Found");
 }
-
-// Just for unit testing, temporaty:
-void clear_routes()
-{
-}

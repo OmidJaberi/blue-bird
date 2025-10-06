@@ -24,8 +24,4 @@ void init_route_list(RouteList *route_list);
 void add_route_to_list(RouteList *route_list, const char *method, const char *path, RouteHandler handler);
 void handle_request(RouteList *route_list, Request *req, Response *res);
 
-// Just for unit testing, temporaty:
-void clear_routes();
-
-
 #endif // ROUTER_H
