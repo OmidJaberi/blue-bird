@@ -9,22 +9,20 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-static int server_fd;
-
-int init_server(int port)
+int init_server(Server *server, int port)
 {
     struct sockaddr_in address;
     int opt = 1;
 
     // Create socket
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    if ((server->server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
 
     // Reuse port
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+    if (setsockopt(server->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
         perror("setsockopt failed");
         exit(EXIT_FAILURE);
@@ -35,14 +33,14 @@ int init_server(int port)
     address.sin_port = htons(port);
 
     // Bind
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
+    if (bind(server->server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
     // Listen
-    if (listen(server_fd, 3) < 0)
+    if (listen(server->server_fd, 3) < 0)
     {
         perror("listen failed");
         exit(EXIT_FAILURE);
@@ -52,7 +50,7 @@ int init_server(int port)
     return 0;
 }
 
-void start_server()
+void start_server(Server *server)
 {
     int client_fd;
     struct sockaddr_in address;
@@ -63,7 +61,7 @@ void start_server()
     while (1)
     {
         // Accept new connection
-        if ((client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0)
+        if ((client_fd = accept(server->server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0)
         {
             perror("accept failed");
             continue;
@@ -95,4 +93,8 @@ void start_server()
         destroy_response(&res);
         close(client_fd);
     }
+}
+
+void destroy_server(Server *server)
+{
 }

@@ -12,6 +12,8 @@
 
 int main()
 {
+    Server server;
+
     use_middleware(logger_middleware);
     use_middleware(server_header_middleware);
 
@@ -21,7 +23,7 @@ int main()
     add_route("GET", "/users/:id", user_handler);
     add_route("GET", "/users/:id/comments", comments_handler);
 
-    init_server(8080);
-    start_server();
+    init_server(&server, 8080);
+    start_server(&server);
     return 0;
 }

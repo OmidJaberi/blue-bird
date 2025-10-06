@@ -1,7 +1,12 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-int init_server(int port);
-void start_server();
+typedef struct {
+    int server_fd;
+} Server;
+
+int init_server(Server *server, int port);
+void start_server(Server *server);
+void destroy_server(Server *server);
 
 #endif // NETWORK_H
