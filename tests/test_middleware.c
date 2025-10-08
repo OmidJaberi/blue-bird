@@ -53,6 +53,7 @@ void test_middleware_order()
     assert(call_order[1] == 2);
     assert(call_order[2] == 3);
     
+    destroy_middleware_list(&mw_list);
     destroy_response(&res);
 }
 
@@ -71,6 +72,7 @@ void test_middleware_stop()
     assert(res.status_code == 403);
     assert(strcmp(res.body, "Forbidden") == 0);
     
+    destroy_middleware_list(&mw_list);
     destroy_response(&res);
 }
 
