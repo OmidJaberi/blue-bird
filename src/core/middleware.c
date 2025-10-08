@@ -22,11 +22,6 @@ MiddlewareObject *create_middleware_object(Middleware mw)
 
 void append_to_middleware_list(MiddlewareList *list, Middleware mw)
 {
-    if (list->middleware_count >= MAX_MIDDLEWARE)
-    {
-        fprintf(stderr, "Max middleware reached!\n");
-        return;
-    }
     MiddlewareObject *mw_obj = create_middleware_object(mw);
     if (!list->first)
         list->first = mw_obj;

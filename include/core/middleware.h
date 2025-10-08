@@ -3,8 +3,6 @@
 
 #include "core/http.h"
 
-#define MAX_MIDDLEWARE 20
-
 typedef int (*Middleware)(Request *req, Response *res);
 
 typedef struct MiddlewareObject {
