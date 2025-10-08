@@ -114,5 +114,6 @@ void start_server(Server *server)
 void destroy_server(Server *server)
 {
     free(server->route_list);
+    destroy_middleware_list(server->middleware_list);
     free(server->middleware_list);
 }

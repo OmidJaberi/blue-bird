@@ -21,5 +21,6 @@ void init_middleware_list(MiddlewareList *list);
 MiddlewareObject *create_middleware_object(Middleware mw);
 void append_to_middleware_list(MiddlewareList *list, Middleware mw);
 int run_middleware(MiddlewareList *list, Request *req, Response *res);
+void destroy_middleware_list(MiddlewareList *list);
 
 #endif // MIDDLEWARE_H

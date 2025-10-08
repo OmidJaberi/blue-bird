@@ -51,3 +51,14 @@ int run_middleware(MiddlewareList *list, Request *req, Response *res)
     }
     return 0;
 }
+
+void destroy_middleware_list(MiddlewareList *list)
+{
+    MiddlewareObject *current = list->first;
+    while (current)
+    {
+        MiddlewareObject *next = current->next;
+        free(current);
+        current = next;
+    }
+}
