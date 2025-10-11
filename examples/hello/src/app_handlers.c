@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-void hello_get_handler(Request *req, Response *res)
+int hello_get_handler(Request *req, Response *res)
 {
     set_header(res, "Content-Type", "text/plain");
     const char *name = get_query_param(req, "name");
@@ -16,19 +16,19 @@ void hello_get_handler(Request *req, Response *res)
         set_body(res, "Hello via GET!");
 }
 
-void hello_post_handler(Request *req, Response *res)
+int hello_post_handler(Request *req, Response *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello via POST!");
 }
 
-void root_handler(Request *req, Response *res)
+int root_handler(Request *req, Response *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Blue-Bird :)");
 }
 
-void user_handler(Request *req, Response *res)
+int user_handler(Request *req, Response *res)
 {
     const char *user_id = get_param(req, "id");
     set_header(res, "Content-Type", "text/plain");
@@ -37,7 +37,7 @@ void user_handler(Request *req, Response *res)
     set_body(res, msg);
 }
 
-void comments_handler(Request *req, Response *res)
+int comments_handler(Request *req, Response *res)
 {
     const char *user_id = get_param(req, "id");
     set_header(res, "Content-Type", "text/plain");

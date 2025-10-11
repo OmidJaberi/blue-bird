@@ -3,7 +3,7 @@
 
 #include "core/http.h"
 
-typedef int (*Middleware)(Request *req, Response *res);
+typedef HttpHandler Middleware;
 
 typedef struct MiddlewareObject {
     Middleware middleware;

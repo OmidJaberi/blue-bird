@@ -7,7 +7,7 @@
 #define MAX_SEGMENTS 20
 #define MAX_PATH_LEN 256
 
-typedef void (*RouteHandler)(Request *req, Response *res);
+typedef HttpHandler RouteHandler;
 
 typedef struct {
     const char *method;

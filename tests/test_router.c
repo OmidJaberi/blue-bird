@@ -4,28 +4,28 @@
 #include <stdio.h>
 
 // Handlers
-void handler_root(Request *req, Response *res)
+int handler_root(Request *req, Response *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Root OK");
 }
 
-void handler_hello_get(Request *req, Response *res)
+int handler_hello_get(Request *req, Response *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello GET OK");
 }
 
-void handler_hello_post(Request *req, Response *res)
+int handler_hello_post(Request *req, Response *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello POST OK");
 }
 
-void handler_user(Request *req, Response *res)
+int handler_user(Request *req, Response *res)
 {
     const char *id = get_param(req, "id");
     init_response(res);
