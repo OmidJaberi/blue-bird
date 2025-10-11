@@ -1,7 +1,7 @@
 #include "app_middleware.h"
 #include "app_handlers.h"
 
-#include "core/network.h"
+#include "core/server.h"
 #include "core/router.h"
 #include "core/http.h"
 #include "core/middleware.h"
