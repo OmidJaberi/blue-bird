@@ -1,5 +1,5 @@
-#ifndef NETWORK_H
-#define NETWORK_H
+#ifndef SERVER_H
+#define SERVER_H
 
 #include "core/router.h"
 #include "core/middleware.h"
@@ -16,4 +16,4 @@ void use_middleware(Server *server, Middleware mw);
 void start_server(Server *server);
 void destroy_server(Server *server);
 
-#endif // NETWORK_H
+#endif // SERVER_H
