@@ -1,7 +1,7 @@
 #ifndef HTTP_H
 #define HTTP_H
 
-#include "request.h"
-#include "response.h"
+#include "http/request.h"
+#include "http/response.h"
 
 #endif // HTTP_H

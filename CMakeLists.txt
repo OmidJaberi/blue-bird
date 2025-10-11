@@ -6,7 +6,11 @@ set(CMAKE_C_STANDARD 11)
 include_directories(include)
 
 # Core library
-file(GLOB CORE_SOURCES "src/core/*.c")
+file(GLOB CORE_SOURCES 
+    "src/core/*.c"
+    "src/core/http/*.c"
+)
+
 add_library(bluebird_core STATIC ${CORE_SOURCES})
 
 # Examples

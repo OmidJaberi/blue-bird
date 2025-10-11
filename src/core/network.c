@@ -1,6 +1,5 @@
 #include "core/network.h"
-#include "core/request.h"
-#include "core/response.h"
+#include "core/http.h"
 #include "core/router.h"
 #include "core/middleware.h"
 #include <stdio.h>
