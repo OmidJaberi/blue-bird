@@ -22,4 +22,6 @@ typedef struct {
 #define BB_ERROR(code, msg) ((BBError){code, msg})
 #define BB_FAILED(err) ((err).code != BB_OK)
 
+const char *bb_strerror(BBErrorCode code);
+
 #endif // BB_ERROR_H
