@@ -17,4 +17,9 @@ typedef struct {
     const char *msg;
 } BBError;
 
+// Helper Macros
+#define BB_SUCCESS() ((BBError){BB_OK, "OK"})
+#define BB_ERROR(code, msg) ((BBError){code, msg})
+#define BB_FAILED(err) ((err).code != BB_OK)
+
 #endif // BB_ERROR_H
