@@ -1,4 +1,5 @@
 #include "core/router.h"
+#include "error/assert.h"
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -40,17 +41,25 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
     return count;
 }
 
-void add_route_to_list(RouteList *route_list, const char *method, const char *path, RouteHandler handler)
+BBError add_route_to_list(RouteList *route_list, const char *method, const char *path, RouteHandler handler)
 {
+    // Basic sanity checks
+    BB_ASSERT(route_list != NULL, "Route list pointer is NULL");
+    BB_ASSERT(method != NULL, "HTTP method is NULL");
+    BB_ASSERT(path != NULL, "Route path is NULL");
+    BB_ASSERT(handler != NULL, "Route handler is NULL");
+
+    // Runtime validation
     if (route_list->route_count >= MAX_ROUTES)
-    {
-        fprintf(stderr, "Max routes reached!\\n");
-        return;
-    }
+        return BB_ERROR(BB_ERR_INTERNAL, "Maximum number of routes reached.");
+
+    // Add the route
     route_list->list[route_list->route_count].method = method;
     route_list->list[route_list->route_count].path = path;
     route_list->list[route_list->route_count].handler = handler;
     route_list->route_count++;
+
+    return BB_SUCCESS();
 }
 
 void handle_request(RouteList *route_list, Request *req, Response *res)
