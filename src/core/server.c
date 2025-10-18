@@ -92,7 +92,7 @@ void start_server(Server *server)
         init_response(&res);
         if (parse_request(buffer, &req) == 0)
         {
-            if (run_middleware(server->middleware_list, &req, &res) == 0)
+            if (!BB_FAILED(run_middleware(server->middleware_list, &req, &res)))
                 handle_request(server->route_list, &req, &res);
         }
         else

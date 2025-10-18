@@ -4,28 +4,31 @@
 #include <stdio.h>
 
 // Handlers
-int handler_root(Request *req, Response *res)
+BBError handler_root(Request *req, Response *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Root OK");
+    return BB_SUCCESS();
 }
 
-int handler_hello_get(Request *req, Response *res)
+BBError handler_hello_get(Request *req, Response *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello GET OK");
+    return BB_SUCCESS();
 }
 
-int handler_hello_post(Request *req, Response *res)
+BBError handler_hello_post(Request *req, Response *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello POST OK");
+    return BB_SUCCESS();
 }
 
-int handler_user(Request *req, Response *res)
+BBError handler_user(Request *req, Response *res)
 {
     const char *id = get_param(req, "id");
     init_response(res);
@@ -34,6 +37,7 @@ int handler_user(Request *req, Response *res)
     char buf[64];
     snprintf(buf, sizeof(buf), "User ID: %s", id ? id : "none");
     set_body(res, buf);
+    return BB_SUCCESS();
 }
 
 // Tests

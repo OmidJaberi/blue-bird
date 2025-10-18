@@ -3,7 +3,8 @@
 
 #include "http/request.h"
 #include "http/response.h"
+#include "error/error.h"
 
-typedef int (*HttpHandler)(Request *req, Response *res);
+typedef BBError (*HttpHandler)(Request *req, Response *res);
 
 #endif // HTTP_H

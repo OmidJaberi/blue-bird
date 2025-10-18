@@ -34,17 +34,17 @@ void append_to_middleware_list(MiddlewareList *list, Middleware mw)
     }
 }
 
-int run_middleware(MiddlewareList *list, Request *req, Response *res)
+BBError run_middleware(MiddlewareList *list, Request *req, Response *res)
 {
     MiddlewareObject *current = list->first;
     while (current)
     {
-        int result = current->middleware(req, res);
-        if (result != 0)
+        BBError result = current->middleware(req, res);
+        if (BB_FAILED(result))
             return result;
         current = current->next;
     }
-    return 0;
+    return BB_SUCCESS();
 }
 
 void destroy_middleware_list(MiddlewareList *list)

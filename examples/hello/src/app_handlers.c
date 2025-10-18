@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int hello_get_handler(Request *req, Response *res)
+BBError hello_get_handler(Request *req, Response *res)
 {
     set_header(res, "Content-Type", "text/plain");
     const char *name = get_query_param(req, "name");
@@ -14,34 +14,39 @@ int hello_get_handler(Request *req, Response *res)
     }
     else
         set_body(res, "Hello via GET!");
+    return BB_SUCCESS();
 }
 
-int hello_post_handler(Request *req, Response *res)
+BBError hello_post_handler(Request *req, Response *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello via POST!");
+    return BB_SUCCESS();
 }
 
-int root_handler(Request *req, Response *res)
+BBError root_handler(Request *req, Response *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Blue-Bird :)");
+    return BB_SUCCESS();
 }
 
-int user_handler(Request *req, Response *res)
+BBError user_handler(Request *req, Response *res)
 {
     const char *user_id = get_param(req, "id");
     set_header(res, "Content-Type", "text/plain");
     char msg[128];
     snprintf(msg, sizeof(msg), "User ID: %s", user_id ? user_id : "unknown");
     set_body(res, msg);
+    return BB_SUCCESS();
 }
 
-int comments_handler(Request *req, Response *res)
+BBError comments_handler(Request *req, Response *res)
 {
     const char *user_id = get_param(req, "id");
     set_header(res, "Content-Type", "text/plain");
     char msg[128];
     snprintf(msg, sizeof(msg), "Comments by user: %s", user_id ? user_id : "unknown");
     set_body(res, msg);
+    return BB_SUCCESS();
 }
