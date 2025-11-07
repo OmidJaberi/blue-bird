@@ -6,12 +6,15 @@ set(CMAKE_C_STANDARD 11)
 include_directories(include)
 
 # Core library
-file(GLOB CORE_SOURCES 
+file(GLOB CORE_SOURCES
     "src/core/*.c"
     "src/core/http/*.c"
+    "src/persist/*.c"
 )
 
 add_library(bluebird_core STATIC ${CORE_SOURCES})
+find_package(SQLite3 REQUIRED)
+target_link_libraries(bluebird_core PRIVATE SQLite::SQLite3)
 
 # Examples
 add_subdirectory(examples)

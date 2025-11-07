@@ -3,13 +3,6 @@
 
 #include <stddef.h>
 
-#define PERSIST_OK          0
-#define PERSIST_ERR_IO      1   /* I/O failure */
-#define PERSIST_ERR_KEY     2   /* Key not found or invalid */
-#define PERSIST_ERR_DB      3   /* Database-level error */
-#define PERSIST_ERR_PARAM   4   /* Invalid parameter */
-#define PERSIST_ERR_UNKNOWN 5   /* Unknown / unclassified */
-
 typedef struct PersistHandle PersistHandle;
 
 typedef struct PersistAPI {
