@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "persist.h"
-#include "persist_file.h"
+#include "persist/persist.h"
+#include "persist/persist_file.h"
 
 struct PersistHandle {
     char *basepath;

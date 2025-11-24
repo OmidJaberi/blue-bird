@@ -27,6 +27,7 @@ const PersistAPI *persist_get(const char *name);
 
 /* default backend */
 void persist_set_default(const char *name);
+void persist_set_default_uri(const char *uri);
 const char *persist_get_default(void);
 PersistHandle *persist_open_default(const char *uri);
 
