@@ -10,6 +10,7 @@ file(GLOB CORE_SOURCES
     "src/core/*.c"
     "src/core/http/*.c"
     "src/persist/*.c"
+    "src/log/*.c"
 )
 
 add_library(bluebird_core STATIC ${CORE_SOURCES})
