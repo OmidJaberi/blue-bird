@@ -19,13 +19,26 @@ target_link_libraries(bluebird_core PRIVATE SQLite::SQLite3)
 # Examples
 add_subdirectory(examples)
 
-# Unit tests
-file(GLOB TEST_SOURCES "tests/*.c")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/unit_tests)
+# Recursively gather test sources
+file(GLOB_RECURSE TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.c")
+
 foreach(test_file ${TEST_SOURCES})
-    get_filename_component(test_name ${test_file} NAME_WE)
-    add_executable(${test_name} ${test_file})
-    target_link_libraries(${test_name} bluebird_core)
-    set_target_properties(${test_name} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+    # Compute relative path from the tests/ directory
+    file(RELATIVE_PATH rel_path "${CMAKE_CURRENT_SOURCE_DIR}/tests" "${test_file}")
+
+    # Extract filename without extension
+    get_filename_component(target_name ${rel_path} NAME_WE)
+
+    # Build output path mirroring directory structure
+    get_filename_component(rel_dir "${rel_path}" DIRECTORY)
+    set(output_dir "${CMAKE_BINARY_DIR}/tests/${rel_dir}")
+
+    # Create the executable
+    add_executable(${target_name} ${test_file})
+    target_link_libraries(${target_name} bluebird_core)
+
+    # Set the executable output directory
+    set_target_properties(${target_name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${output_dir}"
+    )
 endforeach()
