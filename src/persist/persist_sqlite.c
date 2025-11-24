@@ -22,9 +22,9 @@ static int persist_sqlite_exec(sqlite3 *db, const char *sql)
     int rc = sqlite3_exec(db, sql, NULL, NULL, &errmsg);
     if (rc != SQLITE_OK) {
         if (errmsg) sqlite3_free(errmsg);
-        return 1; //PERSIST_ERR_DB
+        return 1;
     }
-    return 0; //PERSIST_OK
+    return 0;
 }
 
 /* =========================================================================
@@ -72,13 +72,13 @@ static int sqlite_save(PersistHandle *h,
                        size_t size)
 {
     if (!h || !key || !data)
-        return 1; //PERSIST_ERR_PARAM
+        return 1;
 
     const char *sql = "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?);";
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
-        return 1; //PERSIST_ERR_DB
+        return 1;
 
     sqlite3_bind_text(stmt, 1, key, -1, SQLITE_STATIC);
     sqlite3_bind_blob(stmt, 2, data, (int)size, SQLITE_STATIC);
@@ -86,7 +86,7 @@ static int sqlite_save(PersistHandle *h,
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
-    return (rc == SQLITE_DONE) ? 0 /*PERSIST_OK*/ : 1 /*PERSIST_ERR_DB*/;
+    return (rc == SQLITE_DONE) ? 0 : 1;
 }
 
 static int sqlite_load(PersistHandle *h,
@@ -95,27 +95,25 @@ static int sqlite_load(PersistHandle *h,
                        size_t bufsize)
 {
     if (!h || !key || !buf)
-        return 1; //ERSIST_ERR_PARAM
+        return 1;
 
     const char *sql = "SELECT value FROM kv WHERE key = ?;";
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
-        return 1; //PERSIST_ERR_DB
+        return 1;
 
     sqlite3_bind_text(stmt, 1, key, -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
-    int result = 1; //PERSIST_ERR_KEY
+    int result = 1;
 
     if (rc == SQLITE_ROW) {
         const void *data = sqlite3_column_blob(stmt, 0);
         int len = sqlite3_column_bytes(stmt, 0);
         if ((size_t)len <= bufsize) {
             memcpy(buf, data, len);
-            result = 0; //PERSIST_OK
-        } else {
-            result = 1; //PERSIST_ERR_IO  (buffer too small)
+            result = 0;
         }
     }
 
@@ -126,20 +124,20 @@ static int sqlite_load(PersistHandle *h,
 static int sqlite_remove(PersistHandle *h, const char *key)
 {
     if (!h || !key)
-        return 1; //PERSIST_ERR_PARAM
+        return 1;
 
     const char *sql = "DELETE FROM kv WHERE key = ?;";
     sqlite3_stmt *stmt = NULL;
     int rc = sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
-        return 1; //PERSIST_ERR_DB
+        return 1;
 
     sqlite3_bind_text(stmt, 1, key, -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
-    return (rc == SQLITE_DONE) ? 0 /*PERSIST_OK*/ : 1 /*PERSIST_ERR_DB*/;
+    return (rc == SQLITE_DONE) ? 0 : 1;
 }
 
 /* =========================================================================

@@ -5,47 +5,35 @@
 
 typedef struct PersistHandle PersistHandle;
 
+/* Backends expose this, and register once */
 typedef struct PersistAPI {
-    const char *name;  /**< Name of the backend, e.g. "file" or "sqlite" */
+    const char *name;
 
     PersistHandle *(*open)(const char *uri);
-    void (*close)(PersistHandle *handle);
+    void (*close)(PersistHandle *h);
 
-    int (*save)(PersistHandle *handle,
-                const char *key,
-                const void *data,
-                size_t size);
+    int (*save)(PersistHandle *h, const char *key,
+                const void *data, size_t size);
 
-    int (*load)(PersistHandle *handle,
-                const char *key,
-                void *buf,
-                size_t bufsize);
+    int (*load)(PersistHandle *h, const char *key,
+                void *buf, size_t bufsize);
 
-    int (*remove)(PersistHandle *handle,
-                  const char *key);
+    int (*remove)(PersistHandle *h, const char *key);
 } PersistAPI;
 
+/* registry */
 int persist_register(const PersistAPI *api);
-
 const PersistAPI *persist_get(const char *name);
 
-int persist_list(const char **out, int max);
-
+/* default backend */
 void persist_set_default(const char *name);
-
 const char *persist_get_default(void);
-
 PersistHandle *persist_open_default(const char *uri);
 
+/* simple wrappers using default backend */
 int persist_save(const char *key, const void *data, size_t size);
-
 int persist_load(const char *key, void *buf, size_t bufsize);
-
 int persist_remove(const char *key);
-
-int persist_init(void);
-
-void persist_shutdown(void);
 
 #endif /* BLUE_BIRD_PERSIST_H */
 
