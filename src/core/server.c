@@ -55,12 +55,12 @@ int init_server(Server *server, int port)
     return 0;
 }
 
-void add_route(Server *server, const char *method, const char *path, RouteHandler handler)
+void add_route(Server *server, const char *method, const char *path, route_handler_cb handler)
 {
     add_route_to_list(server->route_list, method, path, handler);
 }
 
-void use_middleware(Server *server, Middleware mw)
+void use_middleware(Server *server, middleware_cb mw)
 {
     append_to_middleware_list(server->middleware_list, mw);
 }

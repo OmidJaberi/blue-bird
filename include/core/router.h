@@ -8,12 +8,12 @@
 #define MAX_SEGMENTS 20
 #define MAX_PATH_LEN 256
 
-typedef HttpHandler RouteHandler;
+typedef http_handler_cb route_handler_cb;
 
 typedef struct {
     const char *method;
     const char *path;
-    RouteHandler handler;
+    route_handler_cb handler;
 } Route;
 
 typedef struct {
@@ -22,7 +22,7 @@ typedef struct {
 } RouteList;
 
 void init_route_list(RouteList *route_list);
-BBError add_route_to_list(RouteList *route_list, const char *method, const char *path, RouteHandler handler);
+BBError add_route_to_list(RouteList *route_list, const char *method, const char *path, route_handler_cb handler);
 void handle_request(RouteList *route_list, request_t *req, response_t *res);
 
 #endif // ROUTER_H

@@ -11,8 +11,8 @@ typedef struct {
 } Server;
 
 int init_server(Server *server, int port);
-void add_route(Server *server, const char *method, const char *path, RouteHandler handler);
-void use_middleware(Server *server, Middleware mw);
+void add_route(Server *server, const char *method, const char *path, route_handler_cb handler);
+void use_middleware(Server *server, middleware_cb mw);
 void start_server(Server *server);
 void destroy_server(Server *server);
 

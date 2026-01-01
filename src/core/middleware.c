@@ -8,7 +8,7 @@ void init_middleware_list(MiddlewareList *list)
     list->middleware_count = 0;
 }
 
-MiddlewareObject *create_middleware_object(Middleware mw)
+MiddlewareObject *create_middleware_object(middleware_cb mw)
 {
     MiddlewareObject *mw_obj = malloc(sizeof(MiddlewareObject));
     if (mw_obj == NULL)
@@ -20,7 +20,7 @@ MiddlewareObject *create_middleware_object(Middleware mw)
     return mw_obj;
 }
 
-void append_to_middleware_list(MiddlewareList *list, Middleware mw)
+void append_to_middleware_list(MiddlewareList *list, middleware_cb mw)
 {
     MiddlewareObject *mw_obj = create_middleware_object(mw);
     if (!list->first)

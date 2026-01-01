@@ -41,7 +41,7 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
     return count;
 }
 
-BBError add_route_to_list(RouteList *route_list, const char *method, const char *path, RouteHandler handler)
+BBError add_route_to_list(RouteList *route_list, const char *method, const char *path, route_handler_cb handler)
 {
     // Basic sanity checks
     BB_ASSERT(route_list != NULL, "Route list pointer is NULL");
