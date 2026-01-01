@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int parse_request(const char *raw, Request *req)
+int parse_request(const char *raw, request_t *req)
 {
     if (!raw || !req) return -1;
 
@@ -107,7 +107,7 @@ int parse_request(const char *raw, Request *req)
     return 0;
 }
 
-void destroy_request(Request *req)
+void destroy_request(request_t *req)
 {
     if (req->body)
     {
@@ -118,7 +118,7 @@ void destroy_request(Request *req)
     req->param_count = 0;
 }
 
-const char *get_param(Request *req, const char *name)
+const char *get_param(request_t *req, const char *name)
 {
     for (int i = 0; i < req->param_count; i++)
     {
@@ -130,12 +130,12 @@ const char *get_param(Request *req, const char *name)
     return NULL;
 }
 
-int add_query_param(Request *req, const char *key, const char *value)
+int add_query_param(request_t *req, const char *key, const char *value)
 {
     if (req->query_count >= MAX_QUERY_PARAMS)
        return -1;
     
-    QueryParam *qp = &req->query[req->query_count];
+    query_param_t *qp = &req->query[req->query_count];
 
     strncpy(qp->key, key, sizeof(qp->key) - 1);
     qp->key[sizeof(qp->key) - 1] = '\0';
@@ -147,7 +147,7 @@ int add_query_param(Request *req, const char *key, const char *value)
     return 0;
 }
 
-const char *get_query_param(Request *req, const char *key)
+const char *get_query_param(request_t *req, const char *key)
 {
     for (int i = 0; i < req->query_count; i++)
     {
@@ -159,7 +159,7 @@ const char *get_query_param(Request *req, const char *key)
     return NULL;
 }
 
-const char *get_header(Request *req, const char *name)
+const char *get_header(request_t *req, const char *name)
 {
     for (int i = 0; i < req->header_count; i++)
         if (strcmp(req->headers[i].name, name) == 0)

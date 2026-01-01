@@ -5,6 +5,6 @@
 #include "http/response.h"
 #include "error/error.h"
 
-typedef BBError (*HttpHandler)(Request *req, Response *res);
+typedef BBError (*HttpHandler)(request_t *req, response_t *res);
 
 #endif // HTTP_H

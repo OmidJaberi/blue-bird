@@ -3,7 +3,7 @@
 
 #include "core/http.h"
 
-BBError logger_middleware(Request *req, Response *res);
-BBError server_header_middleware(Request *req, Response *res);
+BBError logger_middleware(request_t *req, response_t *res);
+BBError server_header_middleware(request_t *req, response_t *res);
 
 #endif // APP_MIDDLEWARE_H

@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 // Handlers
-BBError handler_root(Request *req, Response *res)
+BBError handler_root(request_t *req, response_t *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
@@ -12,7 +12,7 @@ BBError handler_root(Request *req, Response *res)
     return BB_SUCCESS();
 }
 
-BBError handler_hello_get(Request *req, Response *res)
+BBError handler_hello_get(request_t *req, response_t *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
@@ -20,7 +20,7 @@ BBError handler_hello_get(Request *req, Response *res)
     return BB_SUCCESS();
 }
 
-BBError handler_hello_post(Request *req, Response *res)
+BBError handler_hello_post(request_t *req, response_t *res)
 {
     init_response(res);
     set_header(res, "Content-Type", "text/plain");
@@ -28,7 +28,7 @@ BBError handler_hello_post(Request *req, Response *res)
     return BB_SUCCESS();
 }
 
-BBError handler_user(Request *req, Response *res)
+BBError handler_user(request_t *req, response_t *res)
 {
     const char *id = get_param(req, "id");
     init_response(res);
@@ -48,8 +48,8 @@ void test_route_match_get()
     add_route_to_list(&route_list, "GET", "/", handler_root);
     add_route_to_list(&route_list, "GET", "/hello", handler_hello_get);
 
-    Request req = {0};
-    Response res;
+    request_t req = {0};
+    response_t res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/hello");
 
@@ -63,8 +63,8 @@ void test_route_match_post()
 
     add_route_to_list(&route_list, "POST", "/hello", handler_hello_post);
 
-    Request req = {0};
-    Response res;
+    request_t req = {0};
+    response_t res;
     strcpy(req.method, "POST");
     strcpy(req.path, "/hello");
 
@@ -76,8 +76,8 @@ void test_route_not_found()
 {
     RouteList route_list;
 
-    Request req = {0};
-    Response res;
+    request_t req = {0};
+    response_t res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/doesnotexist");
 
@@ -91,8 +91,8 @@ void test_route_with_param()
 
     add_route_to_list(&route_list, "GET", "/users/:id", handler_user);
 
-    Request req = {0};
-    Response res;
+    request_t req = {0};
+    response_t res;
     strcpy(req.method, "GET");
     strcpy(req.path, "/users/42");
 

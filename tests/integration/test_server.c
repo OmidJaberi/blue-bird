@@ -1,6 +1,6 @@
 #include "core/server.h"
 
-BBError root_handler(Request *req, Response *res)
+BBError root_handler(request_t *req, response_t *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello, Blue-Bird :)");

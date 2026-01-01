@@ -22,47 +22,47 @@
 typedef struct {
     char name[MAX_PARAM_NAME];
     char value[MAX_PARAM_VALUE];
-} Param;
+} param_t;
 
 typedef struct {
     char key[MAX_QUERY_PARAM_KEY];
     char value[MAX_QUERY_PARAM_VALUE];
-} QueryParam;
+} query_param_t;
 
 typedef struct {
     char name[MAX_HEADER_NAME];
     char value[MAX_HEADER_VALUE];
-} Header;
+} header_t;
 
 typedef struct {
     char method[METHOD_SIZE];
     char path[PATH_SIZE];
     char version[VERSION_SIZE];
 
-    Param params[MAX_PARAMS];
+    param_t params[MAX_PARAMS];
     int param_count;
 
-    QueryParam query[MAX_QUERY_PARAMS];
+    query_param_t query[MAX_QUERY_PARAMS];
     int query_count;
 
-    Header headers[MAX_HEADERS];
+    header_t headers[MAX_HEADERS];
     int header_count;
 
     char *body;
     size_t body_len;
 
-} Request;
+} request_t;
 
-int parse_request(const char *raw, Request *req);
+int parse_request(const char *raw, request_t *req);
 
-void destroy_request(Request *req);
+void destroy_request(request_t *req);
 
-const char *get_param(Request *req, const char *name);
+const char *get_param(request_t *req, const char *name);
 
-int add_query_param(Request *req, const char *key, const char *value);
+int add_query_param(request_t *req, const char *key, const char *value);
 
-const char *get_query_param(Request *req, const char *key);
+const char *get_query_param(request_t *req, const char *key);
 
-const char *get_header(Request *req, const char *name);
+const char *get_header(request_t *req, const char *name);
 
 #endif // REQUEST_H

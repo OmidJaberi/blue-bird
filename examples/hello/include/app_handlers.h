@@ -3,10 +3,10 @@
 
 #include "core/http.h"
 
-BBError hello_get_handler(Request *req, Response *res);
-BBError hello_post_handler(Request *req, Response *res);
-BBError root_handler(Request *req, Response *res);
-BBError user_handler(Request *req, Response *res);
-BBError comments_handler(Request *req, Response *res);
+BBError hello_get_handler(request_t *req, response_t *res);
+BBError hello_post_handler(request_t *req, response_t *res);
+BBError root_handler(request_t *req, response_t *res);
+BBError user_handler(request_t *req, response_t *res);
+BBError comments_handler(request_t *req, response_t *res);
 
 #endif // APP_HANDLERS_H

@@ -6,7 +6,7 @@
 
 void test_response_basic()
 {
-    Response res;
+    response_t res;
     char buffer[1024];
 
     init_response(&res);
@@ -26,7 +26,7 @@ void test_response_basic()
 
 void test_response_multiple_headers()
 {
-    Response res;
+    response_t res;
     char buffer[1024];
 
     init_response(&res);
@@ -48,7 +48,7 @@ void test_response_multiple_headers()
 
 void test_response_empty_body()
 {
-    Response res;
+    response_t res;
     char buffer[1024];
 
     init_response(&res);
@@ -64,7 +64,7 @@ void test_response_empty_body()
 
 void test_response_large_body()
 {
-    Response res;
+    response_t res;
     char buffer[65536];
 
     size_t large_size = 50 * 1000 + 1;

@@ -12,15 +12,15 @@ typedef struct {
     int header_count;
 
     char *body;
-} Response;
+} response_t;
 
-void init_response(Response *res);
-void destroy_response(Response *res);
-int set_status(Response *res, int code);
-void set_header(Response *res, const char *name, const char *value);
-void set_body(Response *res, char *body);
-int serialize_response(Response *res, char *buffer, int buffer_size);
+void init_response(response_t *res);
+void destroy_response(response_t *res);
+int set_status(response_t *res, int code);
+void set_header(response_t *res, const char *name, const char *value);
+void set_body(response_t *res, char *body);
+int serialize_response(response_t *res, char *buffer, int buffer_size);
 
-int send_response(int sock_fd, Response *res);
+int send_response(int sock_fd, response_t *res);
 
 #endif // RESPONSE_H

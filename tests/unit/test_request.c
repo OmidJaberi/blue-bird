@@ -5,7 +5,7 @@
 
 void test_request()
 {
-    Request req;
+    request_t req;
 
     req.method[0] = '\0';
     req.path[0] = '\0';
@@ -32,7 +32,7 @@ void test_parse_get_request()
         "User-Agent: TestClient\r\n"
         "\r\n";
     
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == 0);
 
@@ -59,7 +59,7 @@ void test_parse_post_request_with_body()
         "\r\n"
         "Hello World";
     
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == 0);
 
@@ -82,7 +82,7 @@ void test_parse_request_with_no_headers()
         "GET /ping HTTP/1.0\r\n"
         "\r\n";
     
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == 0);
 
@@ -100,7 +100,7 @@ void test_malformed_request()
 {
     const char *raw = "GET /hello\r\n\r\n";
     
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == -1);
 }
@@ -112,7 +112,7 @@ void test_request_with_invalid_header()
         "Host localhost\r\n"
         "\r\n";
     
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == -1);
 }
@@ -124,7 +124,7 @@ void test_request_with_query_params()
         "Host: localhost\r\n"
         "\r\n";
 
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == 0);
 
@@ -146,7 +146,7 @@ void test_request_with_empty_query_value()
         "Host: localhost\r\n"
         "\r\n";
 
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == 0);
 
@@ -166,7 +166,7 @@ void test_request_with_no_query_value()
         "Host: localhost\r\n"
         "\r\n";
 
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == 0);
 
@@ -188,7 +188,7 @@ void test_request_max_query_params()
         "Host: localhost\r\n"
         "\r\n";
 
-    Request req;
+    request_t req;
     int result = parse_request(raw, &req);
     assert(result == 0);
 

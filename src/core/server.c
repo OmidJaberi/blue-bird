@@ -87,8 +87,8 @@ void start_server(Server *server)
         printf("Received request:\n%s\n", buffer);
 
         // Parse request
-        Request req;
-        Response res;
+        request_t req;
+        response_t res;
         init_response(&res);
         if (parse_request(buffer, &req) == 0)
         {

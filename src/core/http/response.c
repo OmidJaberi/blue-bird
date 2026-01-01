@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-void init_response(Response *res)
+void init_response(response_t *res)
 {
     res->status_code = 200;
     res->status_text = strdup("OK");
@@ -13,7 +13,7 @@ void init_response(Response *res)
     res->body = NULL;
 }
 
-void destroy_response(Response *res)
+void destroy_response(response_t *res)
 {
     free(res->status_text);
     for (int i = 0; i < res->header_count; i++)
@@ -44,7 +44,7 @@ char *status_text_for_code(int code)
     }
 }
 
-int set_status(Response *res, int code)
+int set_status(response_t *res, int code)
 {
     res->status_code = code;
     res->status_text = strdup(status_text_for_code(code));
@@ -55,7 +55,7 @@ int set_status(Response *res, int code)
     return 0;
 }
 
-void set_header(Response *res, const char *name, const char *value)
+void set_header(response_t *res, const char *name, const char *value)
 {
     res->headers = realloc(res->headers, (res->header_count + 1)* sizeof(*res->headers));
     res->headers[res->header_count].name = strdup(name);
@@ -63,13 +63,13 @@ void set_header(Response *res, const char *name, const char *value)
     res->header_count++;
 }
 
-void set_body(Response *res, char *body)
+void set_body(response_t *res, char *body)
 {
     free(res->body);
     res->body = strdup(body);
 }
 
-int serialize_response(Response *res, char *buffer, int buffer_size)
+int serialize_response(response_t *res, char *buffer, int buffer_size)
 {
     int written = snprintf(buffer, buffer_size,
                            "HTTP/1.1 %d %s\r\n",
@@ -94,7 +94,7 @@ int serialize_response(Response *res, char *buffer, int buffer_size)
     return written;
 }
 
-int send_response(int sock_fd, Response *res)
+int send_response(int sock_fd, response_t *res)
 {
     char outbuf[8192];
     int len = serialize_response(res, outbuf, sizeof(outbuf));

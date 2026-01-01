@@ -62,7 +62,7 @@ BBError add_route_to_list(RouteList *route_list, const char *method, const char 
     return BB_SUCCESS();
 }
 
-void handle_request(RouteList *route_list, Request *req, Response *res)
+void handle_request(RouteList *route_list, request_t *req, response_t *res)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(req->path, req_segments);

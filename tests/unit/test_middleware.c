@@ -8,26 +8,26 @@
 static int call_order[3];
 static int call_index = 0;
 
-BBError mw1(Request *req, Response *res)
+BBError mw1(request_t *req, response_t *res)
 {
     call_order[call_index++] = 1;
     return BB_SUCCESS();
 }
 
-BBError mw2(Request *req, Response *res)
+BBError mw2(request_t *req, response_t *res)
 {
     call_order[call_index++] = 2;
     return BB_SUCCESS();
 }
 
-BBError mw3(Request *req, Response *res)
+BBError mw3(request_t *req, response_t *res)
 {
     call_order[call_index++] = 3;
     return BB_SUCCESS();
 }
 
 // Test stop middleware
-BBError mw_stop(Request *req, Response *res)
+BBError mw_stop(request_t *req, response_t *res)
 {
     set_status(res, 403);
     set_body(res, "Forbidden");
@@ -38,8 +38,8 @@ void test_middleware_order()
 {
     MiddlewareList mw_list;
     init_middleware_list(&mw_list);
-    Response res;
-    Request req;
+    response_t res;
+    request_t req;
     call_index = 0;
 
     init_response(&res);
@@ -61,8 +61,8 @@ void test_middleware_stop()
 {
     MiddlewareList mw_list;
     init_middleware_list(&mw_list);
-    Response res;
-    Request req;
+    response_t res;
+    request_t req;
 
     init_response(&res);
     append_to_middleware_list(&mw_list, mw_stop);

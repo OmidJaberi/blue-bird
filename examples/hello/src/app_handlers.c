@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-BBError hello_get_handler(Request *req, Response *res)
+BBError hello_get_handler(request_t *req, response_t *res)
 {
     set_header(res, "Content-Type", "text/plain");
     const char *name = get_query_param(req, "name");
@@ -17,21 +17,21 @@ BBError hello_get_handler(Request *req, Response *res)
     return BB_SUCCESS();
 }
 
-BBError hello_post_handler(Request *req, Response *res)
+BBError hello_post_handler(request_t *req, response_t *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello via POST!");
     return BB_SUCCESS();
 }
 
-BBError root_handler(Request *req, Response *res)
+BBError root_handler(request_t *req, response_t *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Blue-Bird :)");
     return BB_SUCCESS();
 }
 
-BBError user_handler(Request *req, Response *res)
+BBError user_handler(request_t *req, response_t *res)
 {
     const char *user_id = get_param(req, "id");
     set_header(res, "Content-Type", "text/plain");
@@ -41,7 +41,7 @@ BBError user_handler(Request *req, Response *res)
     return BB_SUCCESS();
 }
 
-BBError comments_handler(Request *req, Response *res)
+BBError comments_handler(request_t *req, response_t *res)
 {
     const char *user_id = get_param(req, "id");
     set_header(res, "Content-Type", "text/plain");
