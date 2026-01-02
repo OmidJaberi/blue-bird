@@ -2,6 +2,7 @@
 #define REQUEST_H
 
 #include <stddef.h>
+#include <core/http/message.h>
 
 #define METHOD_SIZE 8
 #define PATH_SIZE 256
@@ -15,10 +16,6 @@
 #define MAX_QUERY_PARAM_KEY 64
 #define MAX_QUERY_PARAM_VALUE 256
 
-#define MAX_HEADERS 50
-#define MAX_HEADER_NAME 64
-#define MAX_HEADER_VALUE 256
-
 typedef struct {
     char name[MAX_PARAM_NAME];
     char value[MAX_PARAM_VALUE];
@@ -30,11 +27,8 @@ typedef struct {
 } query_param_t;
 
 typedef struct {
-    char name[MAX_HEADER_NAME];
-    char value[MAX_HEADER_VALUE];
-} header_t;
+    http_message_t msg;
 
-typedef struct {
     char method[METHOD_SIZE];
     char path[PATH_SIZE];
     char version[VERSION_SIZE];
@@ -45,11 +39,11 @@ typedef struct {
     query_param_t query[MAX_QUERY_PARAMS];
     int query_count;
 
-    header_t headers[MAX_HEADERS];
-    int header_count;
+    // header_t headers[MAX_HEADERS];
+    // int header_count;
 
-    char *body;
-    size_t body_len;
+    // char *body;
+    // size_t body_len;
 
 } request_t;
 
