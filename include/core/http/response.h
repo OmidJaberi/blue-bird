@@ -1,17 +1,21 @@
 #ifndef RESPONSE_H
 #define RESPONSE_H
 
+#include <core/http/message.h>
+
 typedef struct {
+    http_message_t msg;
+
     int status_code;
     char *status_text;
 
-    struct {
-        char *name;
-        char *value;
-    } *headers;
-    int header_count;
+    // struct {
+    //     char *name;
+    //     char *value;
+    // } *headers;
+    // int header_count;
 
-    char *body;
+    // char *body;
 } response_t;
 
 void init_response(response_t *res);

@@ -57,10 +57,11 @@ int set_status(response_t *res, int code)
 
 void set_header(response_t *res, const char *name, const char *value)
 {
-    res->headers = realloc(res->headers, (res->header_count + 1)* sizeof(*res->headers));
-    res->headers[res->header_count].name = strdup(name);
-    res->headers[res->header_count].value = strdup(value);
-    res->header_count++;
+    set_message_header(res->msg, name, value);
+    // res->headers = realloc(res->headers, (res->header_count + 1)* sizeof(*res->headers));
+    // res->headers[res->header_count].name = strdup(name);
+    // res->headers[res->header_count].value = strdup(value);
+    // res->header_count++;
 }
 
 void set_body(response_t *res, char *body)

@@ -120,14 +120,15 @@ void destroy_request(request_t *req)
 
 const char *get_param(request_t *req, const char *name)
 {
-    for (int i = 0; i < req->param_count; i++)
-    {
-        if (strcmp(req->params[i].name, name) == 0)
-        {
-            return req->params[i].value;
-        }
-    }
-    return NULL;
+    return get_message_param(req->msg, name);
+    // for (int i = 0; i < req->param_count; i++)
+    // {
+    //     if (strcmp(req->params[i].name, name) == 0)
+    //     {
+    //         return req->params[i].value;
+    //     }
+    // }
+    // return NULL;
 }
 
 int add_query_param(request_t *req, const char *key, const char *value)
