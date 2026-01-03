@@ -22,4 +22,13 @@ typedef struct {
     size_t body_len;
 } http_message_t;
 
+void set_start_line(http_message_t *msg, const char *start_line);
+
+const char *get_header(http_message_t *msg, const char *name);
+
+void set_header(http_message_t *msg, const char *name, const char *value);
+
+void set_body(http_message_t *msg, const char *body);
+
+
 #endif //HTTP_MESSAGE_H
