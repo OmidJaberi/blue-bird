@@ -6,6 +6,7 @@
 void init_message(http_message_t *msg)
 {
     // Set Start Line
+    res->headers = NULL;
     msg->header_count = 0;
     msg->body = NULL;
     msg->body_len = 0;
