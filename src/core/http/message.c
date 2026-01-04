@@ -35,4 +35,10 @@ void destroy_message(http_message_t *msg)
         msg->body = NULL;
         msg->body_len = 0;
     }
+
+    if (msg->start_line)
+    {
+        free(msg->start_line);
+        msg->start_line = NULL;
+    }
 }
