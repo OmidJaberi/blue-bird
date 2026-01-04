@@ -109,12 +109,7 @@ int parse_request(const char *raw, request_t *req)
 
 void destroy_request(request_t *req)
 {
-    if (req->body)
-    {
-        free(req->body);
-        req->body = NULL;
-        req->body_len = 0;
-    }
+    destroy_message(&req->msg);
     req->param_count = 0;
 }
 
@@ -162,8 +157,9 @@ const char *get_query_param(request_t *req, const char *key)
 
 const char *get_header(request_t *req, const char *name)
 {
-    for (int i = 0; i < req->header_count; i++)
-        if (strcmp(req->headers[i].name, name) == 0)
-            return req->headers[i].value;
-    return NULL;
+    return get_message_header(&req->msg, name);
+    // for (int i = 0; i < req->header_count; i++)
+    //     if (strcmp(req->headers[i].name, name) == 0)
+    //         return req->headers[i].value;
+    // return NULL;
 }

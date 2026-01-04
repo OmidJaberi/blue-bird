@@ -16,13 +16,7 @@ void init_response(response_t *res)
 void destroy_response(response_t *res)
 {
     free(res->status_text);
-    for (int i = 0; i < res->header_count; i++)
-    {
-        free(res->headers[i].name);
-        free(res->headers[i].value);
-    }
-    free(res->headers);
-    free(res->body);
+    destroy_message(&res->msg);
 }
 
 char *status_text_for_code(int code)
