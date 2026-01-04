@@ -5,8 +5,8 @@
 
 void init_message(http_message_t *msg)
 {
-    // Set Start Line
-    res->headers = NULL;
+    msg->start_line = NULL;
+    msg->headers = NULL;
     msg->header_count = 0;
     msg->body = NULL;
     msg->body_len = 0;
@@ -77,7 +77,11 @@ void destroy_message(http_message_t *msg)
         free(msg->headers[i].name);
         free(msg->headers[i].value);
     }
-    free(msg->headers);
+
+    if (msg->headers)
+    {
+        free(msg->headers);
+    }
 
     if (msg->body)
     {

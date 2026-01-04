@@ -70,7 +70,7 @@ void test_middleware_stop()
     BBError result = run_middleware(&mw_list, &req, &res);
     assert(BB_FAILED(result));
     assert(res.status_code == 403);
-    assert(strcmp(res.body, "Forbidden") == 0);
+    assert(strcmp(res.msg.body, "Forbidden") == 0);
     
     destroy_middleware_list(&mw_list);
     destroy_response(&res);

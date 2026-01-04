@@ -43,8 +43,8 @@ void test_parse_get_request()
     assert(strcmp(get_header(&req, "Host"), "localhost:8080") == 0);
     assert(strcmp(get_header(&req, "User-Agent"), "TestClient") == 0);
     
-    assert(req.body == NULL);
-    assert(req.body_len == 0);
+    assert(req.msg.body == NULL);
+    assert(req.msg.body_len == 0);
 
     destroy_request(&req);
 }
@@ -69,9 +69,9 @@ void test_parse_post_request_with_body()
     assert(strcmp(get_header(&req, "Content-Type"), "text/plain") == 0);
     assert(strcmp(get_header(&req, "Content-Length"), "11") == 0);
 
-    assert(req.body != NULL);
-    assert(strcmp(req.body, "Hello World") == 0);
-    assert(req.body_len == 11);
+    assert(req.msg.body != NULL);
+    assert(strcmp(req.msg.body, "Hello World") == 0);
+    assert(req.msg.body_len == 11);
 
     destroy_request(&req);
 }
@@ -90,7 +90,7 @@ void test_parse_request_with_no_headers()
     assert(strcmp(req.path, "/ping") == 0);
     assert(strcmp(req.version, "HTTP/1.0") == 0);
     
-    assert(req.header_count == 0);
+    assert(req.msg.header_count == 0);
     assert(get_header(&req, "Host") == NULL);
 
     destroy_request(&req);
