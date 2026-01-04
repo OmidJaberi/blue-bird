@@ -1,5 +1,13 @@
 #include "core/http/message.h"
 
+void init_message(http_message_t *msg)
+{
+    // Set Start Line
+    msg->header_count = 0;
+    msg->body = NULL;
+    msg->body_len = 0;
+}
+
 void set_message_start_line(http_message_t *msg, const char *start_line) {}
 
 const char *get_message_header(http_message_t *msg, const char *name)

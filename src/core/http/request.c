@@ -9,9 +9,7 @@ int parse_request(const char *raw, request_t *req)
 
     req->param_count = 0;
     req->query_count = 0;
-    req->header_count = 0;
-    req->body = NULL;
-    req->body_len = 0;
+    init_message(&req->msg);
 
     // Parse request line
     const char *line_end = strstr(raw, "\r\n");
@@ -43,23 +41,31 @@ int parse_request(const char *raw, request_t *req)
         size_t name_len = colon - p;
         size_t value_len = end - (colon + 1);
 
-        if (req->header_count < MAX_HEADERS)
+        // SET HEADERS
+        char name_buf[128];
+        char value_buf[512];
+
+        // copy name
+        if (name_len >= sizeof(name_buf)) name_len = sizeof(name_buf) - 1;
+        strncpy(name_buf, p, name_len);
+        name_buf[name_len] = '\0';
+
+        // Skip leading space in value
+        const char *val_start = colon + 1;
+        while (*val_start == ' ' && value_len > 0)
         {
-            strncpy(req->headers[req->header_count].name, p, name_len);
-            req->headers[req->header_count].name[name_len] = '\0';
-
-            // Skip leading space in value
-            const char *val_start = colon + 1;
-            while (*val_start == ' ' && value_len > 0)
-            {
-                val_start++;
-                value_len--;
-            }
-            strncpy(req->headers[req->header_count].value, val_start, value_len);
-            req->headers[req->header_count].value[value_len] = '\0';
-
-            req->header_count++;
+            val_start++;
+            value_len--;
         }
+        // copy value
+        if (value_len >= sizeof(value_buf)) value_len = sizeof(value_buf) - 1;
+        strncpy(value_buf, val_start, value_len);
+        value_buf[value_len] = '\0';
+
+        // set into http_message_t
+        set_message_header(&req->msg, name_buf, value_buf);
+
+
         p = end + 2; // next line
     }
 

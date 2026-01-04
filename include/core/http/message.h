@@ -18,6 +18,8 @@ typedef struct {
     size_t body_len;
 } http_message_t;
 
+void init_message(http_message_t *msg);
+
 void set_message_start_line(http_message_t *msg, const char *start_line);
 
 const char *get_message_header(http_message_t *msg, const char *name);
