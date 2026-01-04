@@ -3,19 +3,15 @@
 
 #include <stddef.h>
 
-#define MAX_HEADERS 50
-#define MAX_HEADER_NAME 64
-#define MAX_HEADER_VALUE 256
-
 typedef struct {
-    char name[MAX_HEADER_NAME];
-    char value[MAX_HEADER_VALUE];
+    char *name;
+    char *value;
 } header_t;
 
 typedef struct {
-    char *start_line;
+    char *start_line; // Fixed size ?
 
-    header_t headers[MAX_HEADERS];
+    header_t *headers;
     int header_count;
 
     char *body;

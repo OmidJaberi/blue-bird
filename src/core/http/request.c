@@ -158,8 +158,4 @@ const char *get_query_param(request_t *req, const char *key)
 const char *get_header(request_t *req, const char *name)
 {
     return get_message_header(&req->msg, name);
-    // for (int i = 0; i < req->header_count; i++)
-    //     if (strcmp(req->headers[i].name, name) == 0)
-    //         return req->headers[i].value;
-    // return NULL;
 }
