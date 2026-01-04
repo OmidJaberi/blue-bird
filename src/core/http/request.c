@@ -21,6 +21,10 @@ int parse_request(const char *raw, request_t *req)
     strncpy(line, raw, len);
     line[len] = '\0';
 
+    // Set the start line in http_message_t
+    set_message_start_line(&req->msg, line);
+
+    // Parse method, path, version
     if (sscanf(line, "%7s %255s %15s", req->method, req->path, req->version) != 3)
     {
         return -1;
@@ -102,13 +106,15 @@ int parse_request(const char *raw, request_t *req)
     if (body_len <= 0)
         return 0;
 
-    req->body = (char *)malloc(body_len + 1);
-    if (!req->body)
-        return -1;
+    char *body_buf = (char *)malloc(body_len + 1);
+    if (!body_buf) return -1;
 
-    memcpy(req->body, body_start, body_len);
-    req->body[body_len] = '\0';
-    req->body_len = body_len;
+    memcpy(body_buf, body_start, body_len);
+    body_buf[body_len] = '\0';
+
+    // Store into message
+    set_message_body(&req->msg, body_buf);
+    free(body_buf);
 
     return 0;
 }
@@ -121,15 +127,14 @@ void destroy_request(request_t *req)
 
 const char *get_param(request_t *req, const char *name)
 {
-    return get_message_param(req->msg, name);
-    // for (int i = 0; i < req->param_count; i++)
-    // {
-    //     if (strcmp(req->params[i].name, name) == 0)
-    //     {
-    //         return req->params[i].value;
-    //     }
-    // }
-    // return NULL;
+    for (int i = 0; i < req->param_count; i++)
+    {
+        if (strcmp(req->params[i].name, name) == 0)
+        {
+            return req->params[i].value;
+        }
+    }
+    return NULL;
 }
 
 int add_query_param(request_t *req, const char *key, const char *value)
