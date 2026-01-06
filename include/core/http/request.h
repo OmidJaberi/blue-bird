@@ -2,7 +2,7 @@
 #define REQUEST_H
 
 #include <stddef.h>
-#include <core/http/message.h>
+#include "message.h"
 
 #define METHOD_SIZE 8
 #define PATH_SIZE 256

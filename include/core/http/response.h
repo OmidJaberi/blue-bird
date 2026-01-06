@@ -1,7 +1,7 @@
 #ifndef RESPONSE_H
 #define RESPONSE_H
 
-#include <core/http/message.h>
+#include "message.h"
 
 typedef struct {
     http_message_t msg;
