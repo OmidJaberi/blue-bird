@@ -39,12 +39,6 @@ typedef struct {
     query_param_t query[MAX_QUERY_PARAMS];
     int query_count;
 
-    // header_t headers[MAX_HEADERS];
-    // int header_count;
-
-    // char *body;
-    // size_t body_len;
-
 } request_t;
 
 int parse_request(const char *raw, request_t *req);
