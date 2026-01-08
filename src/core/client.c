@@ -1,5 +1,6 @@
-#include "core/http/client/http_client.h"
+#include "core/client.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,7 +13,7 @@
 BBError http_client_connect(HttpClient *client, const char *host, int port)
 {
     if (!client || !host)
-        return BB_ERROR("Invalid client or host");
+        return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or host");
 
     client->sock_fd = -1;
 
@@ -27,7 +28,7 @@ BBError http_client_connect(HttpClient *client, const char *host, int port)
 
     int rc = getaddrinfo(host, port_str, &hints, &res);
     if (rc != 0)
-        return BB_ERROR(gai_strerror(rc));
+        return BB_ERROR(BB_ERR_UNKNOWN, gai_strerror(rc));
 
     struct addrinfo *p;
     for (p = res; p != NULL; p = p->ai_next)
@@ -48,7 +49,7 @@ BBError http_client_connect(HttpClient *client, const char *host, int port)
     freeaddrinfo(res);
 
     if (client->sock_fd < 0)
-        return BB_ERROR("Failed to connect");
+        return BB_ERROR(BB_ERR_UNKNOWN, "Failed to connect");
 
     return BB_SUCCESS();
 }
@@ -56,10 +57,10 @@ BBError http_client_connect(HttpClient *client, const char *host, int port)
 BBError http_client_send(HttpClient *client, client_request_t *req)
 {
     if (!client || !req)
-        return BB_ERROR("Invalid client or request");
+        return BB_ERROR(BB_ERR_UNKNOWN,"Invalid client or request");
 
     if (client->sock_fd < 0)
-        return BB_ERROR("Client not connected");
+        return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
     /* ---- Build request start line ---- */
     const char *method = req->method ? req->method : "GET";
@@ -99,10 +100,10 @@ BBError http_client_send(HttpClient *client, client_request_t *req)
 BBError http_client_receive(HttpClient *client, client_response_t *res)
 {
     if (!client || !res)
-        return BB_ERROR("Invalid client or response");
+        return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or response");
 
     if (client->sock_fd < 0)
-        return BB_ERROR("Client not connected");
+        return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
     init_client_response(res);
 
@@ -128,7 +129,7 @@ BBError http_client_receive(HttpClient *client, client_response_t *res)
 
     /* Delegate parsing */
     if (parse_client_response(buffer, res) != 0)
-        return BB_ERROR("Failed to parse response");
+        return BB_ERROR(BB_ERR_UNKNOWN, "Failed to parse response");
 
     return BB_SUCCESS();
 }
