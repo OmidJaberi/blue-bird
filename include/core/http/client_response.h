@@ -13,5 +13,6 @@ typedef struct {
 void init_client_response(client_response_t *res);
 void destroy_client_response(client_response_t *res);
 const char *get_client_header(client_response_t *res, const char *name);
+int parse_client_response(const char *raw, client_response_t *res);
 
 #endif //CLIENT_RESPONSE_H
