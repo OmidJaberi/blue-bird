@@ -5,6 +5,7 @@
 #include "core/router.h"
 #include "core/http.h"
 #include "core/middleware.h"
+#include "log/console_logger.h"
 
 #include <unistd.h>
 #include <string.h>
@@ -12,6 +13,10 @@
 
 int main()
 {
+    Logger console_logger;
+    logger_init_console(&console_logger, LOG_LEVEL_INFO, stderr);
+    default_logger = console_logger;
+
     Server server;
     init_server(&server, 8080);
 

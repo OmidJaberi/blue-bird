@@ -2,6 +2,8 @@
 #include "core/http.h"
 #include "core/router.h"
 #include "core/middleware.h"
+#include "log/log.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,14 +24,14 @@ int init_server(Server *server, int port)
     // Create socket
     if ((server->server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
-        perror("socket failed");
+        LOG_ERROR("socket failed");
         exit(EXIT_FAILURE);
     }
 
     // Reuse port
     if (setsockopt(server->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
-        perror("setsockopt failed");
+        LOG_ERROR("setsockopt failed");
         exit(EXIT_FAILURE);
     }
 
@@ -40,18 +42,18 @@ int init_server(Server *server, int port)
     // Bind
     if (bind(server->server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
-        perror("bind failed");
+        LOG_ERROR("bind failed");
         exit(EXIT_FAILURE);
     }
 
     // Listen
     if (listen(server->server_fd, 3) < 0)
     {
-        perror("listen failed");
+        LOG_ERROR("listen failed");
         exit(EXIT_FAILURE);
     }
 
-    printf("Blue-Bird server initialized on port %d\n", port);
+    LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return 0;
 }
 
@@ -72,19 +74,19 @@ void start_server(Server *server)
     int addrlen = sizeof(address);
     char buffer[3000] = {0};
 
-    printf("Blue-Bird server started.\n");
+    LOG_INFO("Blue-Bird server started.\n");
     while (1)
     {
         // Accept new connection
         if ((client_fd = accept(server->server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0)
         {
-            perror("accept failed");
+            LOG_ERROR("accept failed");
             continue;
         }
 
         // Read request (not parsed, yet)
         read(client_fd, buffer, sizeof(buffer));
-        printf("Received request:\n%s\n", buffer);
+        LOG_INFO("Received request:\n%s\n", buffer);
 
         // Parse request
         request_t req;
