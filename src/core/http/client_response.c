@@ -6,15 +6,12 @@
 
 void init_client_response(client_response_t *res)
 {
-    res->status_code = 200;
-    res->status_text = strdup("OK");
-    init_message(&res->msg);
+    init_response(res);
 }
 
 void destroy_client_response(client_response_t *res)
 {
-    free(res->status_text);
-    destroy_message(&res->msg);
+    destroy_response(res);
 }
 
 const char *get_client_header(client_response_t *res, const char *name)

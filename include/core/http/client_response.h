@@ -1,14 +1,9 @@
 #ifndef CLIENT_RESPONSE_H
 #define CLIENT_RESPONSE_H
 
-#include "message.h"
+#include "response.h"
 
-typedef struct {
-    http_message_t msg;
-
-    int status_code;
-    char *status_text;
-} client_response_t;
+typedef response_t client_response_t;
 
 void init_client_response(client_response_t *res);
 void destroy_client_response(client_response_t *res);

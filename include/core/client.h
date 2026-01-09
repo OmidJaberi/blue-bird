@@ -14,4 +14,4 @@ BBError http_client_send(HttpClient *client, client_request_t *req);
 BBError http_client_receive(HttpClient *client, client_response_t *res);
 void http_client_close(HttpClient *client);
 
-#endif
+#endif //HTTP_CLIENT_H
