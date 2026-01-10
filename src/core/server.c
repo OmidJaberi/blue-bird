@@ -90,8 +90,8 @@ void start_server(Server *server)
 
         // Parse request
         request_t req;
-        response_t res;
-        init_response(&res);
+        server_response_t res;
+        init_server_response(&res);
         if (parse_request(buffer, &req) == 0)
         {
             if (!BB_FAILED(run_middleware(server->middleware_list, &req, &res)))
@@ -99,15 +99,14 @@ void start_server(Server *server)
         }
         else
         {
-            init_response(&res);
-            set_status(&res, 400);
-            set_header(&res, "Content-Type", "text/plain");
-            set_body(&res, "Bad Request");
+            set_server_response_status(&res, 400);
+            set_server_response_header(&res, "Content-Type", "text/plain");
+            set_server_response_body(&res, "Bad Request");
         }
 
-        send_response(client_fd, &res);
+        send_server_response(client_fd, &res);
         destroy_request(&req);
-        destroy_response(&res);
+        destroy_server_response(&res);
         close(client_fd);
     }
 }

@@ -114,7 +114,7 @@ void handle_request(RouteList *route_list, request_t *req, response_t *res)
 
     // Default 404
     init_response(res);
-    set_status(res, 404);
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Route Not Found");
+    set_response_status(res, 404);
+    set_response_header(res, "Content-Type", "text/plain");
+    set_response_body(res, "Route Not Found");
 }
