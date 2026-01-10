@@ -6,15 +6,15 @@
 
 void init_client_response(client_response_t *res)
 {
-    init_response(res);
+    init_server_response(res);
 }
 
 void destroy_client_response(client_response_t *res)
 {
-    destroy_response(res);
+    destroy_server_response(res);
 }
 
-const char *get_client_header(client_response_t *res, const char *name)
+const char *get_client_response_header(client_response_t *res, const char *name)
 {
     return get_message_header(&res->msg, name);
 }
