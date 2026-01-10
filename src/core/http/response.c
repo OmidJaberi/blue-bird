@@ -1,94 +1,23 @@
 #include "core/http/response.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
-void init_response(response_t *res)
-{
-    res->status_code = 200;
-    res->status_text = strdup("OK");
-    init_message(&res->msg);
-}
+void init_response(response_t *res) { init_server_response(res); }
 
-void destroy_response(response_t *res)
-{
-    free(res->status_text);
-    destroy_message(&res->msg);
-}
+void destroy_response(response_t *res) { destroy_server_response(res); }
 
-char *status_text_for_code(int code)
-{
-    switch (code)
-    {
-        case 200: return "OK";
-        case 201: return "Created";
-        case 204: return "No Content";
-        case 301: return "Moved Permanently";
-        case 302: return "Found";
-        case 400: return "Bad Request";
-        case 401: return "Unauthorized";
-        case 403: return "Forbidden";
-        case 404: return "Not Found";
-        case 500: return "Internal Server Error";
-        case 503: return "Service Unavailable";
-        default: return "Unknown";
-    }
-}
+// Server:
 
-int set_status(response_t *res, int code)
-{
-    res->status_code = code;
-    res->status_text = strdup(status_text_for_code(code));
-    if (!res->status_text)
-    {
-        return -1;
-    }
-    return 0;
-}
+int set_response_status(response_t *res, int code) { return set_server_response_status(res, code); }
 
-void set_header(response_t *res, const char *name, const char *value)
-{
-    set_message_header(&res->msg, name, value);
-}
+void set_response_header(response_t *res, const char *name, const char *value) { set_server_response_header(res, name, value); }
 
-void set_body(response_t *res, char *body)
-{
-    set_message_body(&res->msg, body);
-}
+void set_response_body(response_t *res, char *body) { set_server_response_body(res, body); }
 
-int serialize_response(response_t *res, char *buffer, int buffer_size)
-{
-    int written = snprintf(buffer, buffer_size,
-                           "HTTP/1.1 %d %s\r\n",
-                           res->status_code, res->status_text);
-    
-    for (int i = 0; i < res->msg.header_count; i++)
-        written += snprintf(buffer + written, buffer_size - written,
-                "%s: %s\r\n",
-                res->msg.headers[i].name,
-                res->msg.headers[i].value);
+int serialize_response(response_t *res, char *buffer, int buffer_size) { return serialize_server_response(res, buffer, buffer_size); }
 
-    int body_len = res->msg.body ? strlen(res->msg.body) : 0;
-    // Conent_Length added here:
-    written += snprintf(buffer + written, buffer_size - written,
-            "Content-Length: %d\r\n\r\n",
-            body_len);
+int send_response(int sock_fd, response_t *res) { return send_server_response(sock_fd, res); }
 
-    if (res->msg.body)
-        written += snprintf(buffer + written, buffer_size - written,
-                "%s", res->msg.body);
+// Client:
 
-    return written;
-}
+const char *get_response_header(response_t *res, const char *name) { return get_client_response_header(res, name); }
 
-int send_response(int sock_fd, response_t *res)
-{
-    char outbuf[8192];
-    int len = serialize_response(res, outbuf, sizeof(outbuf));
-
-    if (write(sock_fd, outbuf, len) < 0)
-        return -1;
-
-    return 0;
-}
+int parse_response(const char *raw, response_t *res) { return parse_client_response(raw, res); }

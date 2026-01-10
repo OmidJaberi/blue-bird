@@ -1,28 +1,31 @@
 #ifndef RESPONSE_H
 #define RESPONSE_H
 
-#include "message.h"
+#include "server_response.h"
+#include "client_response.h"
 
-typedef struct {
-    http_message_t msg;
-
-    int status_code;
-    char *status_text;
-
-} response_t;
+typedef server_response_t response_t;
 
 void init_response(response_t *res);
 
 void destroy_response(response_t *res);
 
-int set_status(response_t *res, int code);
+// Server:
 
-void set_header(response_t *res, const char *name, const char *value);
+int set_response_status(response_t *res, int code);
 
-void set_body(response_t *res, char *body);
+void set_response_header(response_t *res, const char *name, const char *value);
+
+void set_response_body(response_t *res, char *body);
 
 int serialize_response(response_t *res, char *buffer, int buffer_size);
 
 int send_response(int sock_fd, response_t *res);
+
+// Client:
+
+const char *get_response_header(response_t *res, const char *name);
+
+int parse_response(const char *raw, response_t *res);
 
 #endif // RESPONSE_H
