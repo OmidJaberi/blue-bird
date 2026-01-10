@@ -7,24 +7,24 @@
 BBError handler_root(request_t *req, response_t *res)
 {
     init_response(res);
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Root OK");
+    set_response_header(res, "Content-Type", "text/plain");
+    set_response_body(res, "Root OK");
     return BB_SUCCESS();
 }
 
 BBError handler_hello_get(request_t *req, response_t *res)
 {
     init_response(res);
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Hello GET OK");
+    set_response_header(res, "Content-Type", "text/plain");
+    set_response_body(res, "Hello GET OK");
     return BB_SUCCESS();
 }
 
 BBError handler_hello_post(request_t *req, response_t *res)
 {
     init_response(res);
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Hello POST OK");
+    set_response_header(res, "Content-Type", "text/plain");
+    set_response_body(res, "Hello POST OK");
     return BB_SUCCESS();
 }
 
@@ -32,11 +32,11 @@ BBError handler_user(request_t *req, response_t *res)
 {
     const char *id = get_param(req, "id");
     init_response(res);
-    set_header(res, "Content-Type", "text/plain");
+    set_response_header(res, "Content-Type", "text/plain");
     
     char buf[64];
     snprintf(buf, sizeof(buf), "User ID: %s", id ? id : "none");
-    set_body(res, buf);
+    set_response_body(res, buf);
     return BB_SUCCESS();
 }
 

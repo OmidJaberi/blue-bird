@@ -29,8 +29,8 @@ BBError mw3(request_t *req, response_t *res)
 // Test stop middleware
 BBError mw_stop(request_t *req, response_t *res)
 {
-    set_status(res, 403);
-    set_body(res, "Forbidden");
+    set_response_status(res, 403);
+    set_response_body(res, "Forbidden");
     return BB_ERROR(BB_ERR_BAD_REQUEST, "Forbidden"); // stop chain
 }
 

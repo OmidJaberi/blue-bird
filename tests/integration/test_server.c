@@ -2,8 +2,8 @@
 
 BBError root_handler(request_t *req, response_t *res)
 {
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Hello, Blue-Bird :)");
+    set_response_header(res, "Content-Type", "text/plain");
+    set_response_body(res, "Hello, Blue-Bird :)");
     return BB_SUCCESS();
 }
 
