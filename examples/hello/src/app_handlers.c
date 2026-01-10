@@ -4,49 +4,49 @@
 
 BBError hello_get_handler(request_t *req, response_t *res)
 {
-    set_header(res, "Content-Type", "text/plain");
+    set_response_header(res, "Content-Type", "text/plain");
     const char *name = get_query_param(req, "name");
     if (name)
     {
         char buf[256];
         snprintf(buf, sizeof(buf), "Hello %s, via GET!", name);
-        set_body(res, buf);
+        set_response_body(res, buf);
     }
     else
-        set_body(res, "Hello via GET!");
+        set_response_body(res, "Hello via GET!");
     return BB_SUCCESS();
 }
 
 BBError hello_post_handler(request_t *req, response_t *res)
 {
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Hello via POST!");
+    set_response_header(res, "Content-Type", "text/plain");
+    set_response_body(res, "Hello via POST!");
     return BB_SUCCESS();
 }
 
 BBError root_handler(request_t *req, response_t *res)
 {
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Blue-Bird :)");
+    set_response_header(res, "Content-Type", "text/plain");
+    set_response_body(res, "Blue-Bird :)");
     return BB_SUCCESS();
 }
 
 BBError user_handler(request_t *req, response_t *res)
 {
     const char *user_id = get_param(req, "id");
-    set_header(res, "Content-Type", "text/plain");
+    set_response_header(res, "Content-Type", "text/plain");
     char msg[128];
     snprintf(msg, sizeof(msg), "User ID: %s", user_id ? user_id : "unknown");
-    set_body(res, msg);
+    set_response_body(res, msg);
     return BB_SUCCESS();
 }
 
 BBError comments_handler(request_t *req, response_t *res)
 {
     const char *user_id = get_param(req, "id");
-    set_header(res, "Content-Type", "text/plain");
+    set_response_header(res, "Content-Type", "text/plain");
     char msg[128];
     snprintf(msg, sizeof(msg), "Comments by user: %s", user_id ? user_id : "unknown");
-    set_body(res, msg);
+    set_response_body(res, msg);
     return BB_SUCCESS();
 }
