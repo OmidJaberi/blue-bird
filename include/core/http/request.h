@@ -36,4 +36,16 @@ void set_request_header(request_t *req, const char *name, const char *value);
 
 void set_request_body(request_t *req, const char *body, size_t len);
 
+//Helper Macros
+#define GET_REQUEST_PATH(req) ((req).s_req.path)
+#define GET_REQUEST_PARAMS(req) ((req).s_req.params)
+#define GET_REQUEST_PARAM_COUNT(req) ((req).s_req.param_count)
+#define GET_SERVER_REQUEST_MESSAGE(req) ((req).s_req.msg) // Works only for server right now...
+
+#define GET_REQUEST_METHOD(req) ((req).c_req.method ? (req).c_req.method : (req).s_req.method)
+
+#define GET_REQUEST_MESSAGE(req) ((req).c_req.msg) // Works only for client right now...
+#define GET_REQUEST_URL(req) ((req).c_req.url)
+
+
 #endif // REQUEST_H

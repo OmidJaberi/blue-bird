@@ -1,4 +1,5 @@
 #include "core/client.h"
+#include "core/http.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -54,7 +55,7 @@ BBError http_client_connect(HttpClient *client, const char *host, int port)
     return BB_SUCCESS();
 }
 
-BBError http_client_send(HttpClient *client, client_request_t *req)
+BBError http_client_send(HttpClient *client, request_t *req)
 {
     if (!client || !req)
         return BB_ERROR(BB_ERR_UNKNOWN,"Invalid client or request");
@@ -63,8 +64,8 @@ BBError http_client_send(HttpClient *client, client_request_t *req)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
     /* ---- Build request start line ---- */
-    const char *method = req->method ? req->method : "GET";
-    const char *url = req->url ? req->url : "/";
+    const char *method = GET_REQUEST_METHOD(*req) ? GET_REQUEST_METHOD(*req) : "GET";
+    const char *url = GET_REQUEST_URL(*req) ? GET_REQUEST_URL(*req) : "/";
     
     char start_line[512];
     snprintf(start_line, sizeof(start_line),
@@ -74,13 +75,13 @@ BBError http_client_send(HttpClient *client, client_request_t *req)
     send(client->sock_fd, start_line, strlen(start_line), 0);
 
     /* ---- Send headers ---- */
-    for (int i = 0; i < req->msg.header_count; i++)
+    for (int i = 0; i < GET_REQUEST_MESSAGE(*req).header_count; i++)
     {
         char header_line[1024];
         snprintf(header_line, sizeof(header_line),
                  "%s: %s\r\n",
-                 req->msg.headers[i].name,
-                 req->msg.headers[i].value);
+                 GET_REQUEST_MESSAGE(*req).headers[i].name,
+                 GET_REQUEST_MESSAGE(*req).headers[i].value);
 
         send(client->sock_fd, header_line, strlen(header_line), 0);
     }
@@ -89,15 +90,15 @@ BBError http_client_send(HttpClient *client, client_request_t *req)
     send(client->sock_fd, "\r\n", 2, 0);
 
     /* ---- Send body if any ---- */
-    if (req->msg.body && req->msg.body_len > 0)
+    if (GET_REQUEST_MESSAGE(*req).body && GET_REQUEST_MESSAGE(*req).body_len > 0)
     {
-        send(client->sock_fd, req->msg.body, req->msg.body_len, 0);
+        send(client->sock_fd, GET_REQUEST_MESSAGE(*req).body, GET_REQUEST_MESSAGE(*req).body_len, 0);
     }
 
     return BB_SUCCESS();
 }
 
-BBError http_client_receive(HttpClient *client, client_response_t *res)
+BBError http_client_receive(HttpClient *client, response_t *res)
 {
     if (!client || !res)
         return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or response");
@@ -105,7 +106,7 @@ BBError http_client_receive(HttpClient *client, client_response_t *res)
     if (client->sock_fd < 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
-    init_client_response(res);
+    init_response(res);
 
     /* Very naive receive buffer (OK for now) */
     char buffer[8192];
@@ -128,7 +129,7 @@ BBError http_client_receive(HttpClient *client, client_response_t *res)
     buffer[total] = '\0';
 
     /* Delegate parsing */
-    if (parse_client_response(buffer, res) != 0)
+    if (parse_response(buffer, res) != 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Failed to parse response");
 
     return BB_SUCCESS();

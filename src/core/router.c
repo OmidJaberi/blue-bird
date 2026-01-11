@@ -65,18 +65,18 @@ BBError add_route_to_list(RouteList *route_list, const char *method, const char 
 void handle_request(RouteList *route_list, request_t *req, response_t *res)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
-    int req_count = split_path(req->path, req_segments);
+    int req_count = split_path(GET_REQUEST_PATH(*req), req_segments);
 
     for (int i = 0; i < route_list->route_count; i++)
     {
-        if (strcmp(req->method, route_list->list[i].method) != 0) continue;
+        if (strcmp(GET_REQUEST_METHOD(*req), route_list->list[i].method) != 0) continue;
 
         char route_segments[MAX_SEGMENTS][MAX_PATH_LEN];
         int route_segment_count = split_path(route_list->list[i].path, route_segments);
 
         if (req_count != route_segment_count) continue;
 
-        req->param_count = 0;
+        GET_REQUEST_PARAM_COUNT(*req) = 0;
         int match = 1;
 
         for (int j = 0; j < req_count; j++)
@@ -84,15 +84,15 @@ void handle_request(RouteList *route_list, request_t *req, response_t *res)
             if (route_segments[j][0] == ':')
             {
                 // Parameter
-                if (req->param_count >= MAX_PARAMS)
+                if (GET_REQUEST_PARAM_COUNT(*req) >= MAX_PARAMS)
                     continue;
-                strncpy(req->params[req->param_count].name, route_segments[j] + 1, MAX_PARAM_NAME - 1);
-                strncpy(req->params[req->param_count].value, req_segments[j], MAX_PARAM_VALUE - 1);
+                strncpy(GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].name, route_segments[j] + 1, MAX_PARAM_NAME - 1);
+                strncpy(GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].value, req_segments[j], MAX_PARAM_VALUE - 1);
 
-                req->params[req->param_count].name[MAX_PARAM_NAME - 1] = '\0';
-                req->params[req->param_count].value[MAX_PARAM_VALUE - 1] = '\0';
+                GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].name[MAX_PARAM_NAME - 1] = '\0';
+                GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].value[MAX_PARAM_VALUE - 1] = '\0';
 
-                req->param_count++;
+                GET_REQUEST_PARAM_COUNT(*req)++;
             }
             else
             {
