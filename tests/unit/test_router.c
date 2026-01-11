@@ -30,7 +30,7 @@ BBError handler_hello_post(request_t *req, response_t *res)
 
 BBError handler_user(request_t *req, response_t *res)
 {
-    const char *id = get_param(req, "id");
+    const char *id = get_request_param(req, "id");
     init_response(res);
     set_response_header(res, "Content-Type", "text/plain");
     
@@ -48,7 +48,7 @@ void test_route_match_get()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&req.msg);
+    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));
@@ -57,8 +57,8 @@ void test_route_match_get()
     add_route_to_list(&route_list, "GET", "/", handler_root);
     add_route_to_list(&route_list, "GET", "/hello", handler_hello_get);
 
-    strcpy(req.method, "GET");
-    strcpy(req.path, "/hello");
+    strcpy(GET_REQUEST_METHOD(req), "GET");
+    strcpy(GET_REQUEST_PATH(req), "/hello");
 
     handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "Hello GET OK") == 0);
@@ -71,7 +71,7 @@ void test_route_match_post()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&req.msg);
+    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));
@@ -79,8 +79,8 @@ void test_route_match_post()
 
     add_route_to_list(&route_list, "POST", "/hello", handler_hello_post);
 
-    strcpy(req.method, "POST");
-    strcpy(req.path, "/hello");
+    strcpy(GET_REQUEST_METHOD(req), "POST");
+    strcpy(GET_REQUEST_PATH(req), "/hello");
 
     handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "Hello POST OK") == 0);
@@ -93,14 +93,14 @@ void test_route_not_found()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&req.msg);
+    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));
     init_response(&res);
 
-    strcpy(req.method, "GET");
-    strcpy(req.path, "/doesnotexist");
+    strcpy(GET_REQUEST_METHOD(req), "GET");
+    strcpy(GET_REQUEST_PATH(req), "/doesnotexist");
 
     handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "Route Not Found") == 0);
@@ -113,7 +113,7 @@ void test_route_with_param()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&req.msg);
+    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));
@@ -121,8 +121,8 @@ void test_route_with_param()
 
     add_route_to_list(&route_list, "GET", "/users/:id", handler_user);
 
-    strcpy(req.method, "GET");
-    strcpy(req.path, "/users/42");
+    strcpy(GET_REQUEST_METHOD(req), "GET");
+    strcpy(GET_REQUEST_PATH(req), "/users/42");
 
     handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "User ID: 42") == 0);

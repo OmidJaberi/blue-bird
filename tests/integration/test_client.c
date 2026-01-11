@@ -1,6 +1,5 @@
 #include "core/client.h"
-#include "core/http/client_request.h"
-#include "core/http/client_response.h"
+#include "core/http.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -9,18 +8,18 @@
 int main(void)
 {
     HttpClient client;
-    client_request_t req;
-    client_response_t res;
+    request_t req;
+    response_t res;
 
     /* ---- init ---- */
-    init_client_request(&req);
-    init_client_response(&res);
+    init_request(&req);
+    init_response(&res);
 
     /* ---- build request ---- */
-    set_client_method(&req, "GET");
-    set_client_url(&req, "/");
-    set_client_header(&req, "Host", "127.0.0.1");
-    set_client_header(&req, "Connection", "close");
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/");
+    set_request_header(&req, "Host", "127.0.0.1");
+    set_request_header(&req, "Connection", "close");
 
     /* ---- connect ---- */
     BBError err = http_client_connect(&client, "127.0.0.1", 8080);
@@ -43,8 +42,8 @@ int main(void)
 
     /* ---- cleanup ---- */
     http_client_close(&client);
-    destroy_client_request(&req);
-    destroy_client_response(&res);
+    destroy_request(&req);
+    destroy_response(&res);
 
     printf("HTTP client integration test passed.\n");
     return 0;
