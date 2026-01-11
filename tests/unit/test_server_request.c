@@ -1,27 +1,27 @@
-#include "core/http/request.h"
+#include "core/http/server_request.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
 
 void test_request()
 {
-    request_t req;
+    server_request_t req;
 
     req.method[0] = '\0';
     req.path[0] = '\0';
     req.version[0] = '\0';
     const char *raw = "GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n";
-    int res = parse_request(raw, &req);
+    int res = parse_server_request(raw, &req);
     assert(res == 0);
     assert(strcmp(req.method, "GET") == 0);
     assert(strcmp(req.path, "/hello") == 0);
     assert(strcmp(req.version, "HTTP/1.1") == 0);
 
     const char *bad_request = "INVALID REQUEST";
-    res = parse_request(bad_request, &req);
+    res = parse_server_request(bad_request, &req);
     assert(res != 0);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
 void test_parse_get_request()
@@ -32,21 +32,21 @@ void test_parse_get_request()
         "User-Agent: TestClient\r\n"
         "\r\n";
     
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == 0);
 
     assert(strcmp(req.method, "GET") == 0);
     assert(strcmp(req.path, "/hello") == 0);
     assert(strcmp(req.version, "HTTP/1.1") == 0);
    
-    assert(strcmp(get_header(&req, "Host"), "localhost:8080") == 0);
-    assert(strcmp(get_header(&req, "User-Agent"), "TestClient") == 0);
+    assert(strcmp(get_server_request_header(&req, "Host"), "localhost:8080") == 0);
+    assert(strcmp(get_server_request_header(&req, "User-Agent"), "TestClient") == 0);
     
     assert(req.msg.body == NULL);
     assert(req.msg.body_len == 0);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
 void test_parse_post_request_with_body()
@@ -59,31 +59,31 @@ void test_parse_post_request_with_body()
         "\r\n"
         "Hello World";
     
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == 0);
 
     assert(strcmp(req.method, "POST") == 0);
     assert(strcmp(req.path, "/submit") == 0);
     
-    assert(strcmp(get_header(&req, "Content-Type"), "text/plain") == 0);
-    assert(strcmp(get_header(&req, "Content-Length"), "11") == 0);
+    assert(strcmp(get_server_request_header(&req, "Content-Type"), "text/plain") == 0);
+    assert(strcmp(get_server_request_header(&req, "Content-Length"), "11") == 0);
 
     assert(req.msg.body != NULL);
     assert(strcmp(req.msg.body, "Hello World") == 0);
     assert(req.msg.body_len == 11);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
-void test_parse_request_with_no_headers()
+void test_parse_server_request_with_no_headers()
 {
     const char *raw =
         "GET /ping HTTP/1.0\r\n"
         "\r\n";
     
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == 0);
 
     assert(strcmp(req.method, "GET") == 0);
@@ -91,17 +91,17 @@ void test_parse_request_with_no_headers()
     assert(strcmp(req.version, "HTTP/1.0") == 0);
     
     assert(req.msg.header_count == 0);
-    assert(get_header(&req, "Host") == NULL);
+    assert(get_server_request_header(&req, "Host") == NULL);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
 void test_malformed_request()
 {
     const char *raw = "GET /hello\r\n\r\n";
     
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == -1);
 }
 
@@ -112,8 +112,8 @@ void test_request_with_invalid_header()
         "Host localhost\r\n"
         "\r\n";
     
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == -1);
 }
 
@@ -124,8 +124,8 @@ void test_request_with_query_params()
         "Host: localhost\r\n"
         "\r\n";
 
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == 0);
 
     assert(strcmp(req.method, "GET") == 0);
@@ -133,10 +133,10 @@ void test_request_with_query_params()
     assert(strcmp(req.version, "HTTP/1.1") == 0);
 
     assert(req.query_count == 2);
-    assert(strcmp(get_query_param(&req, "q"), "bluebird") == 0);
-    assert(strcmp(get_query_param(&req, "limit"), "10") == 0);
+    assert(strcmp(get_server_request_query_param(&req, "q"), "bluebird") == 0);
+    assert(strcmp(get_server_request_query_param(&req, "limit"), "10") == 0);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
 void test_request_with_empty_query_value()
@@ -146,17 +146,17 @@ void test_request_with_empty_query_value()
         "Host: localhost\r\n"
         "\r\n";
 
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == 0);
 
     assert(strcmp(req.path, "/filter") == 0);
 
     assert(req.query_count == 2);
-    assert(strcmp(get_query_param(&req, "enabled"), "") == 0);
-    assert(strcmp(get_query_param(&req, "sort"), "asc") == 0);
+    assert(strcmp(get_server_request_query_param(&req, "enabled"), "") == 0);
+    assert(strcmp(get_server_request_query_param(&req, "sort"), "asc") == 0);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
 void test_request_with_no_query_value()
@@ -166,16 +166,16 @@ void test_request_with_no_query_value()
         "Host: localhost\r\n"
         "\r\n";
 
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == 0);
 
     assert(strcmp(req.path, "/items") == 0);
 
     assert(req.query_count == 1);
-    assert(strcmp(get_query_param(&req, "flag"), "") == 0);
+    assert(strcmp(get_server_request_query_param(&req, "flag"), "") == 0);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
 void test_request_max_query_params()
@@ -188,21 +188,21 @@ void test_request_max_query_params()
         "Host: localhost\r\n"
         "\r\n";
 
-    request_t req;
-    int result = parse_request(raw, &req);
+    server_request_t req;
+    int result = parse_server_request(raw, &req);
     assert(result == 0);
 
     assert(strcmp(req.path, "/many") == 0);
 
     assert(req.query_count == MAX_QUERY_PARAMS);
 
-    assert(strcmp(get_query_param(&req, "k1"), "v1") == 0);
-    assert(strcmp(get_query_param(&req, "k10"), "v10") == 0);
+    assert(strcmp(get_server_request_query_param(&req, "k1"), "v1") == 0);
+    assert(strcmp(get_server_request_query_param(&req, "k10"), "v10") == 0);
 
-    assert(get_query_param(&req, "k11") == NULL);
-    assert(get_query_param(&req, "k12") == NULL);
+    assert(get_server_request_query_param(&req, "k11") == NULL);
+    assert(get_server_request_query_param(&req, "k12") == NULL);
 
-    destroy_request(&req);
+    destroy_server_request(&req);
 }
 
 int main()
@@ -211,7 +211,7 @@ int main()
     test_request();
     test_parse_get_request();
     test_parse_post_request_with_body();
-    test_parse_request_with_no_headers();
+    test_parse_server_request_with_no_headers();
     test_malformed_request();
     test_request_with_invalid_header();
     test_request_with_query_params();

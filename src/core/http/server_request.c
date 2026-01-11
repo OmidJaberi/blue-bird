@@ -1,9 +1,9 @@
-#include "core/http/request.h"
+#include "core/http/server_request.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-int parse_request(const char *raw, request_t *req)
+int parse_server_request(const char *raw, server_request_t *req)
 {
     if (!raw || !req) return -1;
 
@@ -86,11 +86,11 @@ int parse_request(const char *raw, request_t *req)
             if (eq)
             {
                 *eq = '\0';
-                add_query_param(req, pair, eq + 1);
+                add_server_request_query_param(req, pair, eq + 1);
 
             }
             else
-                add_query_param(req, pair, "");
+                add_server_request_query_param(req, pair, "");
             pair = strtok(NULL, "&");
         }
     }
@@ -100,7 +100,7 @@ int parse_request(const char *raw, request_t *req)
     if (!body_start) return 0;
 
     body_start += 4; // skip "\r\n\r\n"
-    const char *content_length = get_header(req, "Content-Length");
+    const char *content_length = get_server_request_header(req, "Content-Length");
     size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
 
     if (body_len <= 0)
@@ -119,13 +119,13 @@ int parse_request(const char *raw, request_t *req)
     return 0;
 }
 
-void destroy_request(request_t *req)
+void destroy_server_request(server_request_t *req)
 {
     destroy_message(&req->msg);
     req->param_count = 0;
 }
 
-const char *get_param(request_t *req, const char *name)
+const char *get_server_request_param(server_request_t *req, const char *name)
 {
     for (int i = 0; i < req->param_count; i++)
     {
@@ -137,7 +137,7 @@ const char *get_param(request_t *req, const char *name)
     return NULL;
 }
 
-int add_query_param(request_t *req, const char *key, const char *value)
+int add_server_request_query_param(server_request_t *req, const char *key, const char *value)
 {
     if (req->query_count >= MAX_QUERY_PARAMS)
        return -1;
@@ -154,7 +154,7 @@ int add_query_param(request_t *req, const char *key, const char *value)
     return 0;
 }
 
-const char *get_query_param(request_t *req, const char *key)
+const char *get_server_request_query_param(server_request_t *req, const char *key)
 {
     for (int i = 0; i < req->query_count; i++)
     {
@@ -166,7 +166,7 @@ const char *get_query_param(request_t *req, const char *key)
     return NULL;
 }
 
-const char *get_header(request_t *req, const char *name)
+const char *get_server_request_header(server_request_t *req, const char *name)
 {
     return get_message_header(&req->msg, name);
 }

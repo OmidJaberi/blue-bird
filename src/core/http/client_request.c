@@ -16,7 +16,7 @@ void init_client_request(client_request_t *req)
     req->port = 80; // default HTTP port
 }
 
-void set_client_method(client_request_t *req, const char *method)
+void set_client_request_method(client_request_t *req, const char *method)
 {
     if (!req) return;
 
@@ -30,7 +30,7 @@ void set_client_method(client_request_t *req, const char *method)
     req->method = strdup(method);
 }
 
-void set_client_url(client_request_t *req, const char *url)
+void set_client_request_url(client_request_t *req, const char *url)
 {
     if (!req) return;
 
@@ -44,14 +44,14 @@ void set_client_url(client_request_t *req, const char *url)
     req->url = strdup(url);
 }
 
-void set_client_header(client_request_t *req, const char *name, const char *value)
+void set_client_request_header(client_request_t *req, const char *name, const char *value)
 {
     if (!req) return;
 
     set_message_header(&req->msg, name, value);
 }
 
-void set_client_body(client_request_t *req, const char *body, size_t len)
+void set_client_request_body(client_request_t *req, const char *body, size_t len)
 {
     if (!req) return;
 

@@ -1,5 +1,5 @@
-#ifndef REQUEST_H
-#define REQUEST_H
+#ifndef SERVER_REQUEST_H
+#define SERVER_REQUEST_H
 
 #include <stddef.h>
 #include "message.h"
@@ -39,18 +39,18 @@ typedef struct {
     query_param_t query[MAX_QUERY_PARAMS];
     int query_count;
 
-} request_t;
+} server_request_t;
 
-int parse_request(const char *raw, request_t *req);
+int parse_server_request(const char *raw, server_request_t *req);
 
-void destroy_request(request_t *req);
+void destroy_server_request(server_request_t *req);
 
-const char *get_param(request_t *req, const char *name);
+const char *get_server_request_param(server_request_t *req, const char *name);
 
-int add_query_param(request_t *req, const char *key, const char *value);
+int add_server_request_query_param(server_request_t *req, const char *key, const char *value);
 
-const char *get_query_param(request_t *req, const char *key);
+const char *get_server_request_query_param(server_request_t *req, const char *key);
 
-const char *get_header(request_t *req, const char *name);
+const char *get_server_request_header(server_request_t *req, const char *name);
 
-#endif // REQUEST_H
+#endif // SERVER_REQUEST_H
