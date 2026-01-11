@@ -3,6 +3,7 @@
 
 void init_request(request_t *req)
 {
+    init_server_request(&req->s_req);
     init_client_request(&req->c_req);
 }
 

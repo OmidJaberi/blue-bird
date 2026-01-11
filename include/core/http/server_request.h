@@ -41,6 +41,8 @@ typedef struct {
 
 } server_request_t;
 
+void init_server_request(server_request_t *req);
+
 int parse_server_request(const char *raw, server_request_t *req);
 
 void destroy_server_request(server_request_t *req);

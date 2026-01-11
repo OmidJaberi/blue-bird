@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+void init_server_request(server_request_t *req)
+{
+    if (!req) return;
+    init_message(&req->msg);
+}
+
 int parse_server_request(const char *raw, server_request_t *req)
 {
     if (!raw || !req) return -1;

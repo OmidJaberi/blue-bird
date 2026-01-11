@@ -91,6 +91,7 @@ void start_server(Server *server)
         // Parse request
         request_t req;
         response_t res;
+        init_request(&req);
         init_response(&res);
         if (parse_request(buffer, &req) == 0)
         {
