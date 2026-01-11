@@ -5,7 +5,7 @@
 BBError hello_get_handler(request_t *req, response_t *res)
 {
     set_response_header(res, "Content-Type", "text/plain");
-    const char *name = get_query_param(req, "name");
+    const char *name = get_request_query_param(req, "name");
     if (name)
     {
         char buf[256];
@@ -33,7 +33,7 @@ BBError root_handler(request_t *req, response_t *res)
 
 BBError user_handler(request_t *req, response_t *res)
 {
-    const char *user_id = get_param(req, "id");
+    const char *user_id = get_request_param(req, "id");
     set_response_header(res, "Content-Type", "text/plain");
     char msg[128];
     snprintf(msg, sizeof(msg), "User ID: %s", user_id ? user_id : "unknown");
@@ -43,7 +43,7 @@ BBError user_handler(request_t *req, response_t *res)
 
 BBError comments_handler(request_t *req, response_t *res)
 {
-    const char *user_id = get_param(req, "id");
+    const char *user_id = get_request_param(req, "id");
     set_response_header(res, "Content-Type", "text/plain");
     char msg[128];
     snprintf(msg, sizeof(msg), "Comments by user: %s", user_id ? user_id : "unknown");
