@@ -1,9 +1,9 @@
 #include "app_middleware.h"
-#include <stdio.h>
+#include "log/log.h"
 
 BBError logger_middleware(request_t *req, response_t *res)
 {
-    printf("[Blue-Bird] %s %s\n", GET_REQUEST_METHOD(*req), GET_REQUEST_PATH(*req));
+    LOG_INFO("[Blue-Bird] %s %s\n", GET_REQUEST_METHOD(*req), GET_REQUEST_PATH(*req));
     return BB_SUCCESS();
 }
 
