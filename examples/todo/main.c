@@ -26,6 +26,7 @@ int main()
     init_server(&server, 8080);
 
     add_route(&server, "POST", "/add_task", add_task);
+    add_route(&server, "GET", "/task/:task_name", get_task);
     add_route(&server, "GET", "/list_tasks", list_tasks);
     
     start_server(&server);

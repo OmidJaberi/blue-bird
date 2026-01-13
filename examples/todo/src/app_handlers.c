@@ -15,6 +15,21 @@ BBError add_task(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
+BBError get_task(request_t *req, response_t *res)
+{
+    const char *task_name = get_request_param(req, "task_name");
+    LOG_INFO("Get task: %s\n", task_name);
+
+    char buf[64] = {0};
+    if (persist_load(task_name, buf, sizeof(buf)) != 0) {
+        printf("FAIL: persist_load\n");
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: persist_load.");
+    }
+
+    set_response_body(res, buf);
+    return BB_SUCCESS();
+}
+
 BBError list_tasks(request_t *req, response_t *res)
 {
     return BB_SUCCESS();
