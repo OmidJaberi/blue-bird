@@ -15,6 +15,22 @@ BBError add_task(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
+BBError mark_done(request_t *req, response_t *res)
+{
+    const char *task_name = get_request_param(req, "task_name");
+    LOG_INFO("Mark done: %s\n", task_name);
+    char buf[64] = {0};
+    if (persist_load(task_name, buf, sizeof(buf)) != 0) {
+        printf("FAIL: persist_load\n");
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: persist_load.");
+    }
+    if (persist_save(task_name, "done", 8) != 0) {
+        printf("FAIL: persist_save\n");
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+    }
+    return BB_SUCCESS();
+}
+
 BBError get_task(request_t *req, response_t *res)
 {
     const char *task_name = get_request_param(req, "task_name");
