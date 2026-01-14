@@ -28,6 +28,8 @@ void set_message_header(http_message_t *msg, const char *name, const char *value
 
 void set_message_body(http_message_t *msg, const char *body);
 
+int serialize_message(http_message_t *msg, char *buffer, int buffer_size);
+
 void destroy_message(http_message_t *msg);
 
 #endif //HTTP_MESSAGE_H

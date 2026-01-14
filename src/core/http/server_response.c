@@ -59,27 +59,12 @@ void set_server_response_body(server_response_t *res, char *body)
 
 int serialize_server_response(server_response_t *res, char *buffer, int buffer_size)
 {
-    int written = snprintf(buffer, buffer_size,
-                           "HTTP/1.1 %d %s\r\n",
+    char start_line_buff[128];
+    snprintf(start_line_buff, 128,
+                           "HTTP/1.1 %d %s",
                            res->status_code, res->status_text);
-    
-    for (int i = 0; i < res->msg.header_count; i++)
-        written += snprintf(buffer + written, buffer_size - written,
-                "%s: %s\r\n",
-                res->msg.headers[i].name,
-                res->msg.headers[i].value);
-
-    int body_len = res->msg.body ? strlen(res->msg.body) : 0;
-    // Conent_Length added here:
-    written += snprintf(buffer + written, buffer_size - written,
-            "Content-Length: %d\r\n\r\n",
-            body_len);
-
-    if (res->msg.body)
-        written += snprintf(buffer + written, buffer_size - written,
-                "%s", res->msg.body);
-
-    return written;
+    set_message_start_line(&res->msg, start_line_buff);
+    return serialize_message(&res->msg, buffer, buffer_size);
 }
 
 int send_server_response(int sock_fd, server_response_t *res)

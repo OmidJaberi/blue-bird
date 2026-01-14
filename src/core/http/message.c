@@ -1,5 +1,6 @@
 #include "core/http/message.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -68,6 +69,30 @@ void set_message_body(http_message_t *msg, const char *body)
     memcpy(msg->body, body, len);
     msg->body[len] = '\0';
     msg->body_len = len;
+}
+int serialize_message(http_message_t *msg, char *buffer, int buffer_size)
+{
+    int written = snprintf(buffer, buffer_size,
+                           "%s\r\n",
+                           msg->start_line);
+    
+    for (int i = 0; i < msg->header_count; i++)
+        written += snprintf(buffer + written, buffer_size - written,
+                "%s: %s\r\n",
+                msg->headers[i].name,
+                msg->headers[i].value);
+
+    int body_len = msg->body ? strlen(msg->body) : 0;
+    // Conent_Length added here:
+    written += snprintf(buffer + written, buffer_size - written,
+            "Content-Length: %d\r\n\r\n",
+            body_len);
+
+    if (msg->body)
+        written += snprintf(buffer + written, buffer_size - written,
+                "%s", msg->body);
+
+    return written;
 }
 
 void destroy_message(http_message_t *msg)
