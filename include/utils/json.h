@@ -13,7 +13,7 @@ typedef enum {
     object
 } json_node_type;
 
-typedef struct {
+typedef struct JsonNode {
     json_node_type type;
     int size;       // For array type
     int alloc_size; // allocated size for array
@@ -23,12 +23,12 @@ typedef struct {
         float real_val;
         char *text_val;
 
-        struct json_node_t *array;
+        struct JsonNode **array;
         // key-value array for proof of concept.
         // Hash Table will be implemented.
         struct {
             char *key;
-            struct json_node_t *value;
+            struct JsonNode *value;
         } *json_obj_arr;
     } value;
 } json_node_t;
@@ -46,5 +46,8 @@ bool get_json_bool_value(json_node_t *json);
 int get_json_integer_value(json_node_t *json);
 float get_json_real_value(json_node_t *json);
 char *get_json_text_value(json_node_t *json);
+
+void push_json_array(json_node_t *json_array, json_node_t *element);
+json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index);
 
 #endif //BB_JSON

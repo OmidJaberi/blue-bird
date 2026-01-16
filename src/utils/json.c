@@ -7,6 +7,8 @@
 void init_json(json_node_t *json, json_node_type type)
 {
     json->type = type;
+    json->size = 0;
+    json->alloc_size = 0;
     json->value.text_val = NULL;
 }
 
@@ -98,3 +100,26 @@ char *get_json_text_value(json_node_t *json)
     return json->value.text_val;
 }
 
+void push_json_array(json_node_t *json_array, json_node_t *element)
+{
+    BB_ASSERT(json_array->type == array, "Invalid JSON type.");
+    if (json_array->alloc_size == 0)
+    {
+        json_array->alloc_size = 1;
+        json_array->value.array = (json_node_t **)malloc(json_array->alloc_size);
+    }
+    else if (json_array->alloc_size == json_array->size)
+    {
+        json_array->alloc_size *= 2;
+        json_array->value.array = realloc(json_array->value.array, json_array->alloc_size * sizeof(*json_array->value.array));
+    }
+    json_array->value.array[json_array->size] = element;
+    json_array->size++;
+}
+
+json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
+{
+    BB_ASSERT(json_array->type == array, "Invalid JSON type.");
+    BB_ASSERT(json_array->size > index, "Index larger than array size");
+    return json_array->value.array[index];
+}
