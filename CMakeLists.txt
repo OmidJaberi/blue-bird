@@ -9,6 +9,7 @@ include_directories(include)
 file(GLOB CORE_SOURCES
     "src/core/*.c"
     "src/core/http/*.c"
+    "src/utils/*.c"
     "src/persist/*.c"
     "src/log/*.c"
 )
