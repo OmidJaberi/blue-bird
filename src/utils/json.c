@@ -123,3 +123,55 @@ json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
     BB_ASSERT(json_array->size > index, "Index larger than array size");
     return json_array->value.array[index];
 }
+
+// JSON Object: Implemented as key/val array for now
+// Will be updated as hash table
+
+static int get_json_object_index(json_node_t *json_object, const char *key)
+{
+    BB_ASSERT(json_object->type == object, "Invalid JSON type.");
+    for (int i = 0; i < json_object->size; i++)
+        if (strcmp(json_object->key[i], key) == 0)
+            return i;
+    return -1;
+}
+
+void set_json_object_value(json_node_t *json_object, const char *key, json_node_t *value)
+{
+    BB_ASSERT(json_object->type == object, "Invalid JSON type.");
+    if (!json_object || !value) return;
+    int index = get_json_object_index(json_object, key);
+    if (0 && index >= 0)
+    {
+        destroy_json(json_object->value.array[index]);
+    }
+    else
+    {
+        if (json_object->alloc_size == 0)
+        {
+            json_object->alloc_size = 1;
+            json_object->key = (char **)malloc(json_object->alloc_size);
+            json_object->value.array = (json_node_t **)malloc(json_object->alloc_size);
+        }
+        else if (json_object->size == json_object->alloc_size)
+        {
+            json_object->alloc_size *= 2;
+            json_object->key = realloc(json_object->key, json_object->alloc_size * sizeof(*json_object->key));
+            json_object->value.array = realloc(json_object->value.array, json_object->alloc_size * sizeof(*json_object->value.array));
+        }
+        index = json_object->size;
+        json_object->size++;
+    }
+    json_object->key[index] = strdup(key);
+    json_object->value.array[index] = value;
+}
+
+json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
+{
+    BB_ASSERT(json_object->type == object, "Invalid JSON type.");
+    int index = get_json_object_index(json_object, key);
+    if (index > -1)
+        return json_object->value.array[index];
+    return NULL;
+}
+

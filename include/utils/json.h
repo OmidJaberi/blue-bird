@@ -24,19 +24,18 @@ typedef struct JsonNode {
         char *text_val;
 
         struct JsonNode **array;
-        // key-value array for proof of concept.
-        // Hash Table will be implemented.
-        struct {
-            char *key;
-            struct JsonNode *value;
-        } *json_obj_arr;
     } value;
+    // key array for proof of concept.
+    // the array above is used for values.
+    // Hash Table will be implemented.
+    char **key;
 } json_node_t;
 
 void init_json(json_node_t *json, json_node_type type);
 void destroy_json(json_node_t *json);
 json_node_type get_json_type(json_node_t *json);
 
+// JSON Primitives
 void set_json_bool_value(json_node_t *json, bool value);
 void set_json_integer_value(json_node_t *json, int value);
 void set_json_real_value(json_node_t *json, float value);
@@ -47,7 +46,12 @@ int get_json_integer_value(json_node_t *json);
 float get_json_real_value(json_node_t *json);
 char *get_json_text_value(json_node_t *json);
 
+// JSON Array
 void push_json_array(json_node_t *json_array, json_node_t *element);
 json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index);
+
+// JSON Object
+void set_json_object_value(json_node_t *json_object, const char *key, json_node_t *value);
+json_node_t *get_json_object_value(json_node_t *json_object, const char *key);
 
 #endif //BB_JSON
