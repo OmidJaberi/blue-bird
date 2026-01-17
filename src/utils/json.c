@@ -113,7 +113,7 @@ void push_json_array(json_node_t *json_array, json_node_t *element)
         json_array->alloc_size *= 2;
         json_array->value.array = realloc(json_array->value.array, json_array->alloc_size * sizeof(*json_array->value.array));
     }
-    json_array->value.array[json_array->size] = element;
+    json_array->value.array[json_array->size] = element; // Deep Copy?
     json_array->size++;
 }
 
@@ -163,7 +163,7 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
         json_object->size++;
     }
     json_object->key[index] = strdup(key);
-    json_object->value.array[index] = value;
+    json_object->value.array[index] = value; // Deep Copy?
 }
 
 json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
