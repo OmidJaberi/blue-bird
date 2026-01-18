@@ -175,43 +175,43 @@ json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
     return NULL;
 }
 
-int serialize_null_json(json_node_t *json, char *buffer)
+static int serialize_null_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == null, "Invalid JSON type.");
     return snprintf(buffer, sizeof(buffer), "null");
 }
 
-int serialize_bool_json(json_node_t *json, char *buffer)
+static int serialize_bool_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == boolean, "Invalid JSON type.");
     return snprintf(buffer, sizeof(buffer), "%s", json->value.bool_val ? "true" : "false");
 }
 
-int serialize_int_json(json_node_t *json, char *buffer)
+static int serialize_int_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == integer, "Invalid JSON type.");
     return snprintf(buffer, sizeof(buffer), "%d", json->value.int_val);
 }
 
-int serialize_real_json(json_node_t *json, char *buffer)
+static int serialize_real_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == real, "Invalid JSON type.");
     return snprintf(buffer, sizeof(buffer), "%f", json->value.real_val);
 }
 
-int serialize_text_json(json_node_t *json, char *buffer)
+static int serialize_text_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == text, "Invalid JSON type.");
     return snprintf(buffer, sizeof(buffer), "\"%s\"", json->value.text_val);
 }
 
-int serialize_array_json(json_node_t *json, char *buffer)
+static int serialize_array_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == array, "Invalid JSON type.");
     return 0;
 }
 
-int serialize_object_json(json_node_t *json, char *buffer)
+static int serialize_object_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == object, "Invalid JSON type.");
     return 0;

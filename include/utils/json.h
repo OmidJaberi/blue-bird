@@ -55,14 +55,6 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
 json_node_t *get_json_object_value(json_node_t *json_object, const char *key);
 
 // Serializer
-int serialize_null_json(json_node_t *json, char *buffer);
-int serialize_bool_json(json_node_t *json, char *buffer);
-int serialize_int_json(json_node_t *json, char *buffer);
-int serialize_real_json(json_node_t *json, char *buffer);
-int serialize_text_json(json_node_t *json, char *buffer);
-int serialize_array_json(json_node_t *json, char *buffer);
-int serialize_object_json(json_node_t *json, char *buffer);
-
 int serialize_json(json_node_t *json, char *buffer);
 
 #endif //BB_JSON
