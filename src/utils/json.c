@@ -224,7 +224,17 @@ static int serialize_array_json(json_node_t *json, char *buffer)
 static int serialize_object_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == object, "Invalid JSON type.");
-    return 0;
+    int len = 0;
+    len += sprintf(buffer, "{");
+    for (int i = 0; i < json->size; i++)
+    {
+        char e_buff[128];
+        serialize_json(json->value.array[i], e_buff);
+        len += sprintf(buffer + len, "%s: ", json->key[i]);
+        len += sprintf(buffer + len, "%s%s", e_buff, i < json->size - 1 ? ", " : "");
+    }
+    len += sprintf(buffer + len, "}");
+    return len;
 }
 
 int serialize_json(json_node_t *json, char *buffer)
