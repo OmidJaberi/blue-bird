@@ -202,12 +202,14 @@ static int serialize_real_json(json_node_t *json, char *buffer)
 static int serialize_text_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == text, "Invalid JSON type.");
-    return snprintf(buffer, sizeof(buffer), "\"%s\"", json->value.text_val);
+    // Unsafe
+    return sprintf(buffer, "\"%s\"", json->value.text_val);
 }
 
 static int serialize_array_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == array, "Invalid JSON type.");
+    
     return 0;
 }
 
