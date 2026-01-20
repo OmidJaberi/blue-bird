@@ -24,10 +24,15 @@ void destroy_json(json_node_t *json)
             }
             break;
         case array:
-            // destroy children
-            break;
         case object:
-            // destroy children
+            for (int i = 0; i < json->size; i++)
+            {
+                if (json->value.array[i])
+                    destroy_json(json->value.array[i]);
+            }
+            free(json->value.array);
+            json->value.array = NULL;
+            json->size = 0;
             break;
         default:
             break;
