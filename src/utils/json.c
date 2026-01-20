@@ -20,23 +20,37 @@ void destroy_json(json_node_t *json)
             {
                 free(json->value.text_val);
                 json->value.text_val = NULL;
-                json->size = 0;
             }
             break;
         case array:
-        case object:
             for (int i = 0; i < json->size; i++)
             {
                 if (json->value.array[i])
                     destroy_json(json->value.array[i]);
             }
-            free(json->value.array);
+            if (json->value.array)
+                free(json->value.array);
             json->value.array = NULL;
-            json->size = 0;
+            break;
+        case object:
+            for (int i = 0; i < json->size; i++)
+            {
+                if (json->value.array[i])
+                    destroy_json(json->value.array[i]);
+                if (json->key && json->key[i])
+                    free(json->key[i]);
+            }
+            if (json->value.array)
+                free(json->value.array);
+            if (json->key)
+                free(json->key);
+            json->value.array = NULL;
+            json->key = NULL;
             break;
         default:
             break;
     }
+    json->size = 0;
 }
 
 json_node_type get_json_type(json_node_t *json)
