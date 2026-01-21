@@ -361,15 +361,56 @@ static int parse_json_str_text(json_node_t *json, char *buffer)
         return -1;
     json->type = text;
     json->size = index;
-	json->value.text_val = (char *)malloc(index + 1);
+	json->value.text_val = (char *)malloc(index - 1);
     if (!json->value.text_val) return -1; // malloc failed
-    memcpy(json->value.text_val, buffer, index);
+    memcpy(json->value.text_val, buffer + 1, index - 2);
     json->value.text_val[index] = '\0';
     return index;
 }
 
+static bool white_space(char c)
+{
+    return c == ' ' || c == '\t' || c == '\n';
+}
+
+static int parse_and_push_json_array(json_node_t *json_array, char *buffer)
+{
+    BB_ASSERT(json_array->type == array, "Invalid JSON type.");
+    if (json_array->alloc_size == 0)
+    {
+        json_array->alloc_size = 1;
+        json_array->value.array = (json_node_t **)malloc(json_array->alloc_size);
+    }
+    else if (json_array->alloc_size == json_array->size)
+    {
+        json_array->alloc_size *= 2;
+        json_array->value.array = realloc(json_array->value.array, json_array->alloc_size * sizeof(*json_array->value.array));
+    }
+    json_array->value.array[json_array->size] = (json_node_t *)malloc(sizeof(json_node_t));
+    init_json(json_array->value.array[json_array->size], null);
+    int res = parse_json_str(json_array->value.array[json_array->size], buffer);
+    json_array->size++;
+    return res;
+}
+
 static int parse_json_str_array(json_node_t *json, char *buffer)
 {
+    BB_ASSERT(buffer[0] == '[', "Invalid array start.");
+    json->type = array;
+    json->size = 0;
+    int index = 1;
+    while (white_space(buffer[index])) index++;
+    while (buffer[index] != '\t')
+    {
+        if (buffer[index] == ']')
+            return index;
+        int res = parse_and_push_json_array(json, buffer + index);
+        if (res < 0) return -1;
+        index += res;
+        while (white_space(buffer[index])) index++;
+        if (buffer[index] == ',') index++;
+        while (white_space(buffer[index])) index++;
+    }
     return -1;
 }
 
@@ -381,7 +422,7 @@ static int parse_json_str_object(json_node_t *json, char *buffer)
 int parse_json_str(json_node_t *json, char *buffer)
 {
     int index = 0;
-    while (buffer[index] == ' ') index++;
+    while (white_space(buffer[index])) index++;
     switch (buffer[index])
     {
         case '{':
