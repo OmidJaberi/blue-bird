@@ -328,9 +328,24 @@ static int parse_json_str_number(json_node_t *json, char *buffer)
         val = 10 * val + (buffer[index] - '0');
         index++;
     }
-    // Handle decimal
-    json->type = integer;
-    json->value.int_val = val;
+    if (buffer[index] != '.')
+    {
+        json->type = integer;
+        json->value.int_val = val;
+        return index;
+    }
+    // Handle Decimal
+    float real_val = val;
+    float dec = 0.1;
+    index++;
+    while (buffer[index] >= '0' && buffer[index] <= '9')
+    {
+        real_val += dec * (buffer[index] - '0');
+        dec /= 10;
+        index++;
+    }
+    json->type = real;
+    json->value.real_val = real_val;
     return index;
 }
 
