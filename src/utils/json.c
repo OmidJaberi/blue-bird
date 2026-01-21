@@ -285,3 +285,110 @@ int serialize_json(json_node_t *json, char *buffer)
     }
 }
 
+static bool is_substr(char *buffer, const char *str)
+{
+    for (int i = 0; i < strlen(str); i++)
+        if (buffer[i] != str[i])
+            return false;
+    return true;
+}
+
+static int parse_json_str_null(json_node_t *json, char *buffer)
+{
+    if (!is_substr(buffer, "null"))
+        return -1;
+    json->type = null;
+    return 4;
+}
+
+static int parse_json_str_true(json_node_t *json, char *buffer)
+{
+    if (!is_substr(buffer, "true"))
+        return -1;
+    json->type = boolean;
+    json->value.bool_val = true;
+    return 4;
+}
+
+static int parse_json_str_false(json_node_t *json, char *buffer)
+{
+    if (!is_substr(buffer, "false"))
+        return -1;
+    json->type = boolean;
+    json->value.bool_val = false;
+    return 5;
+}
+
+static int parse_json_str_number(json_node_t *json, char *buffer)
+{
+    int val = 0;
+    int index = 0;
+    while (buffer[index] >= '0' && buffer[index] <= '9')
+    {
+        val = 10 * val + (buffer[index] - '0');
+        index++;
+    }
+    // Handle decimal
+    json->type = integer;
+    json->value.int_val = val;
+    return index;
+}
+
+static int parse_json_str_text(json_node_t *json, char *buffer)
+{
+    BB_ASSERT(buffer[0] == '\"', "Invalid str quotation.");
+    int index = 1;
+    while (buffer[index] != '\"' && buffer[index] != '\0')
+        index++;
+    if (buffer[index] == '\"')
+        index++;
+    else
+        return -1;
+    json->type = text;
+    json->size = index;
+	json->value.text_val = (char *)malloc(index + 1);
+    if (!json->value.text_val) return -1; // malloc failed
+    memcpy(json->value.text_val, buffer, index);
+    json->value.text_val[index] = '\0';
+    return index;
+}
+
+static int parse_json_str_array(json_node_t *json, char *buffer)
+{
+    return -1;
+}
+
+static int parse_json_str_object(json_node_t *json, char *buffer)
+{
+    return -1;
+}
+
+int parse_json_str(json_node_t *json, char *buffer)
+{
+    int index = 0;
+    while (buffer[index] == ' ') index++;
+    switch (buffer[index])
+    {
+        case '{':
+            return parse_json_str_object(json, buffer);
+            break;
+        case '[':
+            return parse_json_str_array(json, buffer);
+            break;
+        case 'n':
+            return parse_json_str_null(json, buffer);
+            break;
+        case 't':
+            return parse_json_str_true(json, buffer);
+            break;
+        case 'f':
+            return parse_json_str_false(json, buffer);
+            break;
+        case '\"':
+            return parse_json_str_text(json, buffer);
+            break;
+        default:
+            return parse_json_str_number(json, buffer);
+            break;
+    }
+}
