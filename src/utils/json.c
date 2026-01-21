@@ -295,6 +295,7 @@ static bool is_substr(char *buffer, const char *str)
 
 static int parse_json_str_null(json_node_t *json, char *buffer)
 {
+    init_json(json, null);
     if (!is_substr(buffer, "null"))
         return -1;
     json->type = null;
@@ -303,6 +304,7 @@ static int parse_json_str_null(json_node_t *json, char *buffer)
 
 static int parse_json_str_true(json_node_t *json, char *buffer)
 {
+    init_json(json, boolean);
     if (!is_substr(buffer, "true"))
         return -1;
     json->type = boolean;
@@ -312,6 +314,7 @@ static int parse_json_str_true(json_node_t *json, char *buffer)
 
 static int parse_json_str_false(json_node_t *json, char *buffer)
 {
+    init_json(json, boolean);
     if (!is_substr(buffer, "false"))
         return -1;
     json->type = boolean;
@@ -321,6 +324,7 @@ static int parse_json_str_false(json_node_t *json, char *buffer)
 
 static int parse_json_str_number(json_node_t *json, char *buffer)
 {
+    init_json(json, integer);
     int val = 0;
     int index = 0;
     while (buffer[index] >= '0' && buffer[index] <= '9')
@@ -352,6 +356,7 @@ static int parse_json_str_number(json_node_t *json, char *buffer)
 static int parse_json_str_text(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '\"', "Invalid str quotation.");
+    init_json(json, text);
     int index = 1;
     while (buffer[index] != '\"' && buffer[index] != '\0')
         index++;
@@ -396,6 +401,7 @@ static int parse_and_push_json_array(json_node_t *json_array, char *buffer)
 static int parse_json_str_array(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '[', "Invalid array start.");
+    init_json(json, array);
     json->type = array;
     json->size = 0;
     int index = 1;
@@ -416,6 +422,7 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
 
 static int parse_json_str_object(json_node_t *json, char *buffer)
 {
+    init_json(json, object);
     return -1;
 }
 
