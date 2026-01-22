@@ -5,7 +5,7 @@
 
 void test_json_text()
 {
-    printf("\ttesting JSON text...\n");
+    printf("\tTesting JSON text...\n");
     json_node_t json;
     init_json(&json, text);
     set_json_text_value(&json, "Hello there!");
@@ -16,7 +16,7 @@ void test_json_text()
 
 void test_json_array()
 {
-    printf("\ttesting JSON array...\n");
+    printf("\tTesting JSON array...\n");
     char *vals[] = {"ZERO", "ONE", "TWO", "THREE", "FOUR"};
     json_node_t arr;
     init_json(&arr, array);
@@ -37,7 +37,7 @@ void test_json_array()
 
 void test_json_object()
 {
-    printf("\ttesting JSON object...\n");
+    printf("\tTesting JSON object...\n");
     char *keys[] = {"one", "two", "three", "four", "five"};
     char *vals[] = {"ichi", "nii", "san", "yon", "go"};
     json_node_t obj;
@@ -59,7 +59,7 @@ void test_json_object()
 
 void test_serialize_text_json()
 {
-    printf("\ttesting parsing JSON text...\n");
+    printf("\tTesting serializing JSON text...\n");
     json_node_t json;
     init_json(&json, text);
     set_json_text_value(&json, "123456");
@@ -71,7 +71,7 @@ void test_serialize_text_json()
 
 void test_serialize_array_json()
 {
-    printf("\ttesting parsing JSON array...\n");
+    printf("\tTesting serializing JSON array...\n");
     char *vals[] = {"ZERO", "ONE", "TWO", "THREE", "FOUR"};
     json_node_t arr;
     init_json(&arr, array);
@@ -90,7 +90,7 @@ void test_serialize_array_json()
 
 void test_serialize_object_json()
 {
-    printf("\ttesting parsing JSON object...\n");
+    printf("\tTesting serializing JSON object...\n");
     char *keys[] = {"one", "two", "three", "four", "five"};
     char *vals[] = {"ichi", "nii", "san", "yon", "go"};
     json_node_t obj;
@@ -104,8 +104,21 @@ void test_serialize_object_json()
     }
     char buffer[1024];
     serialize_json(&obj, buffer);
-    assert(strcmp(buffer, "{one: \"ichi\", two: \"nii\", three: \"san\", four: \"yon\"}") == 0);
+    assert(strcmp(buffer, "{\"one\": \"ichi\", \"two\": \"nii\", \"three\": \"san\", \"four\": \"yon\"}") == 0);
     destroy_json(&obj);
+}
+
+void test_parse_json()
+{
+    printf("\tTesting JSON parsing...\n");
+    char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3]}, null, [\"first\", 15, true, false]]";
+    json_node_t json;
+    parse_json_str(&json, s);
+
+    char buffer[1024];
+    serialize_json(&json, buffer);
+    assert(strcmp(buffer, s) == 0);
+    destroy_json(&json);
 }
 
 int main()
@@ -117,6 +130,7 @@ int main()
     test_serialize_text_json();
     test_serialize_array_json();
     test_serialize_object_json();
+    test_parse_json();
     printf("All tests passed.\n");
     return 0;
 }
