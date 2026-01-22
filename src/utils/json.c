@@ -402,8 +402,6 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '[', "Invalid array start.");
     init_json(json, array);
-    json->type = array;
-    json->size = 0;
     int index = 1;
     while (white_space(buffer[index])) index++;
     while (buffer[index] != '\t')
@@ -420,9 +418,70 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
     return -1;
 }
 
+static int parse_and_add_json_object_pair(json_node_t *object, char *buffer)
+{
+    BB_ASSERT(buffer[0] == '\"', "Invalid key string start.");
+    int index = 1, key_end = -1;
+    while (buffer[index] != '\t')
+    {
+        if (buffer[index] == '\"')
+        {
+            key_end = index;
+            break;
+        }
+        index++;
+    }
+    if (key_end == -1)
+        return -1;
+    index++;
+    while (white_space(buffer[index])) index++;
+    if (buffer[index] != ':')
+        return -1;
+    index++;
+    while (white_space(buffer[index])) index++;
+    int value_start = index;
+    if (object->alloc_size == 0)
+    {
+        object->alloc_size = 1;
+        object->value.array = (json_node_t **)malloc(object->alloc_size);
+        object->key = (char **)malloc(object->alloc_size);
+    }
+    else if (object->alloc_size == object->size)
+    {
+        object->alloc_size *= 2;
+        object->value.array = realloc(object->value.array, object->alloc_size * sizeof(*object->value.array));
+        object->key = realloc(object->key, object->alloc_size * sizeof(*object->key));
+    }
+    object->value.array[object->size] = (json_node_t *)malloc(sizeof(json_node_t));
+    init_json(object->value.array[object->size], null);
+    int res = parse_json_str(object->value.array[object->size], buffer + value_start);
+	
+    object->key[object->size] = (char *)malloc(key_end - 1);
+    if (!object->key[object->size]) return -1; // malloc failed
+    memcpy(object->key[object->size], buffer + 1, key_end - 1);
+    object->key[object->size][index] = '\0';
+    
+    object->size++;
+    return res + value_start;
+}
+
 static int parse_json_str_object(json_node_t *json, char *buffer)
 {
+    BB_ASSERT(buffer[0] == '{', "Invalid object start.");
     init_json(json, object);
+    int index = 1;
+    while (white_space(buffer[index])) index++;
+    while (buffer[index] != '\t')
+    {
+        if (buffer[index] == '}')
+            return index;
+        int res = parse_and_add_json_object_pair(json, buffer + index);
+        if (res < 0) return -1;
+        index += res;
+        while (white_space(buffer[index])) index++;
+        if (buffer[index] == ',') index++;
+        while (white_space(buffer[index])) index++;
+    }
     return -1;
 }
 
