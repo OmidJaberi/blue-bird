@@ -407,7 +407,7 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
     while (buffer[index] != '\t')
     {
         if (buffer[index] == ']')
-            return index;
+            return index + 1;
         int res = parse_and_push_json_array(json, buffer + index);
         if (res < 0) return -1;
         index += res;
@@ -474,7 +474,7 @@ static int parse_json_str_object(json_node_t *json, char *buffer)
     while (buffer[index] != '\t')
     {
         if (buffer[index] == '}')
-            return index;
+            return index + 1;
         int res = parse_and_add_json_object_pair(json, buffer + index);
         if (res < 0) return -1;
         index += res;
