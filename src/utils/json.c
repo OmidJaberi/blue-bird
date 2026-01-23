@@ -378,15 +378,6 @@ static bool white_space(char c)
     return c == ' ' || c == '\t' || c == '\n';
 }
 
-static int parse_and_push_json_array(json_node_t *json_array, char *buffer)
-{
-    BB_ASSERT(json_array->type == array, "Invalid JSON type.");
-    json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
-    int res = parse_json_str(child, buffer);
-    if (res >= 0) push_json_array(json_array, child);
-    return res;
-}
-
 static int parse_json_str_array(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '[', "Invalid array start.");
@@ -397,8 +388,10 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
     {
         if (buffer[index] == ']')
             return index + 1;
-        int res = parse_and_push_json_array(json, buffer + index);
+        json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
+        int res = parse_json_str(child, buffer + index);
         if (res < 0) return -1;
+        push_json_array(json, child);
         index += res;
         while (white_space(buffer[index])) index++;
         if (buffer[index] == ',') index++;
