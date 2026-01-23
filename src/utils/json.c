@@ -381,20 +381,9 @@ static bool white_space(char c)
 static int parse_and_push_json_array(json_node_t *json_array, char *buffer)
 {
     BB_ASSERT(json_array->type == array, "Invalid JSON type.");
-    if (json_array->alloc_size == 0)
-    {
-        json_array->alloc_size = 1;
-        json_array->value.array = (json_node_t **)malloc(json_array->alloc_size);
-    }
-    else if (json_array->alloc_size == json_array->size)
-    {
-        json_array->alloc_size *= 2;
-        json_array->value.array = realloc(json_array->value.array, json_array->alloc_size * sizeof(*json_array->value.array));
-    }
-    json_array->value.array[json_array->size] = (json_node_t *)malloc(sizeof(json_node_t));
-    init_json(json_array->value.array[json_array->size], null);
-    int res = parse_json_str(json_array->value.array[json_array->size], buffer);
-    json_array->size++;
+    json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
+    int res = parse_json_str(child, buffer);
+    if (res >= 0) push_json_array(json_array, child);
     return res;
 }
 
