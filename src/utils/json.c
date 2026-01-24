@@ -53,11 +53,6 @@ void destroy_json(json_node_t *json)
     json->size = 0;
 }
 
-json_node_type get_json_type(json_node_t *json)
-{
-    return json->type;
-}
-
 void set_json_bool_value(json_node_t *json, bool value)
 {
     BB_ASSERT(json->type == boolean, "Invalid JSON type.");

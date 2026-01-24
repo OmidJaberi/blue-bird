@@ -33,7 +33,6 @@ typedef struct JsonNode {
 
 void init_json(json_node_t *json, json_node_type type);
 void destroy_json(json_node_t *json);
-json_node_type get_json_type(json_node_t *json);
 
 // JSON Primitives
 void set_json_bool_value(json_node_t *json, bool value);
