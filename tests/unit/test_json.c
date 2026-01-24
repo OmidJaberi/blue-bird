@@ -122,6 +122,40 @@ void test_parse_json()
     destroy_json(&json);
 }
 
+void test_parse_large_json()
+{
+    char *large_buffer = (char *)malloc(sizeof(char) * 20000);
+    int index = sprintf(large_buffer, "{");
+    int n = 100;
+    for (int i = 0; i < n; i++)
+    {
+        index += sprintf(large_buffer + index, "\"%d\": ", i);
+        index += sprintf(large_buffer + index, "[");
+        for (int j = 0; j < i; j++)
+            index += sprintf(large_buffer + index, "%d%s", j, j < i - 1 ? ", " : "");
+        index += sprintf(large_buffer + index, "]%s", i < n - 1 ? ", " : "");
+    }
+    index += sprintf(large_buffer + index, "}");
+    json_node_t json;
+    parse_json_str(&json, large_buffer);
+    assert(json.size == n);
+    for (int i = 0; i < n; i++)
+    {
+        char key[4];
+        sprintf(key, "%d", i);
+        json_node_t *child = get_json_object_value(&json, key);
+        assert(child);
+        assert(child->type == array);
+        assert(child->size == i);
+        for (int j = 0; j < i; j++)
+        {
+            json_node_t *sub_child = get_json_array_index(child, j);
+            assert(sub_child->type == integer);
+            assert(get_json_integer_value(sub_child) == j);
+        }
+    }
+}
+
 int main()
 {
     printf("Running JSON tests...\n");
@@ -132,6 +166,7 @@ int main()
     test_serialize_array_json();
     test_serialize_object_json();
     test_parse_json();
+    test_parse_large_json();
     printf("All tests passed.\n");
     return 0;
 }
