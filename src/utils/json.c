@@ -232,9 +232,8 @@ static int serialize_array_json(json_node_t *json, char *buffer)
     len += sprintf(buffer, "[");
     for (int i = 0; i < json->size; i++)
     {
-        char e_buff[128];
-        serialize_json(json->value.array[i], e_buff);
-        len += sprintf(buffer + len, "%s%s", e_buff, i < json->size - 1 ? ", " : "");
+        len += serialize_json(json->value.array[i], buffer + len);
+        len += sprintf(buffer + len, i < json->size - 1 ? ", " : "");
     }
     len += sprintf(buffer + len, "]");
     return len;
@@ -247,10 +246,9 @@ static int serialize_object_json(json_node_t *json, char *buffer)
     len += sprintf(buffer, "{");
     for (int i = 0; i < json->size; i++)
     {
-        char e_buff[128];
-        serialize_json(json->value.array[i], e_buff);
         len += sprintf(buffer + len, "\"%s\": ", json->key[i]);
-        len += sprintf(buffer + len, "%s%s", e_buff, i < json->size - 1 ? ", " : "");
+        len += serialize_json(json->value.array[i], buffer + len);
+        len += sprintf(buffer + len, i < json->size - 1 ? ", " : "");
     }
     len += sprintf(buffer + len, "}");
     return len;
