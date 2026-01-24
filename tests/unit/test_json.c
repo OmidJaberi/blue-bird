@@ -109,6 +109,46 @@ void test_serialize_object_json()
     destroy_json(&obj);
 }
 
+void test_serialize_large_json()
+{
+    printf("\tTesting serializing large JSON object...\n");
+    int n = 100;
+    json_node_t json;
+    init_json(&json, object);
+    for (int i = 0; i < n; i++)
+    {
+        char key[4];
+        sprintf(key, "%d", i);
+        json_node_t *value = (json_node_t*)malloc(sizeof(json_node_t));
+        init_json(value, array);
+        for (int j = 0; j < i; j++)
+        {
+            json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
+            init_json(child, integer);
+            set_json_integer_value(child, j);
+            push_json_array(value, child);
+        }
+        set_json_object_value(&json, key, value);
+    }
+    
+    char *large_buffer = (char *)malloc(sizeof(char) * 20000);
+    int index = sprintf(large_buffer, "{");
+    for (int i = 0; i < n; i++)
+    {
+        index += sprintf(large_buffer + index, "\"%d\": ", i);
+        index += sprintf(large_buffer + index, "[");
+        for (int j = 0; j < i; j++)
+            index += sprintf(large_buffer + index, "%d%s", j, j < i - 1 ? ", " : "");
+        index += sprintf(large_buffer + index, "]%s", i < n - 1 ? ", " : "");
+    }
+    index += sprintf(large_buffer + index, "}");
+
+    char *serialize_buffer = (char *)malloc(sizeof(char) * 20000);
+    serialize_json(&json, serialize_buffer);
+
+    assert(strcmp(large_buffer, serialize_buffer) == 0);
+}
+
 void test_parse_json()
 {
     printf("\tTesting JSON parsing...\n");
@@ -124,9 +164,10 @@ void test_parse_json()
 
 void test_parse_large_json()
 {
+    printf("\tTesting large JSON parsing...\n");
+    int n = 100;
     char *large_buffer = (char *)malloc(sizeof(char) * 20000);
     int index = sprintf(large_buffer, "{");
-    int n = 100;
     for (int i = 0; i < n; i++)
     {
         index += sprintf(large_buffer + index, "\"%d\": ", i);
@@ -165,6 +206,7 @@ int main()
     test_serialize_text_json();
     test_serialize_array_json();
     test_serialize_object_json();
+    test_serialize_large_json();
     test_parse_json();
     test_parse_large_json();
     printf("All tests passed.\n");
