@@ -147,6 +147,7 @@ void test_serialize_large_json()
     serialize_json(&json, serialize_buffer);
 
     assert(strcmp(large_buffer, serialize_buffer) == 0);
+    destroy_json(&json);
 }
 
 void test_parse_json()
@@ -195,6 +196,7 @@ void test_parse_large_json()
             assert(get_json_integer_value(sub_child) == j);
         }
     }
+    destroy_json(&json);
 }
 
 int main()
