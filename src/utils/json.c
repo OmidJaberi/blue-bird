@@ -322,31 +322,20 @@ static int parse_json_str_false(json_node_t *json, char *buffer)
 static int parse_json_str_number(json_node_t *json, char *buffer)
 {
     init_json(json, integer);
-    int val = 0;
     int index = 0;
-    while (buffer[index] >= '0' && buffer[index] <= '9')
+    while ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '.' && json->type == integer))
     {
-        val = 10 * val + (buffer[index] - '0');
+        if (buffer[index] == '.')
+            json->type = real;
         index++;
     }
-    if (buffer[index] != '.')
-    {
-        json->type = integer;
-        json->value.int_val = val;
-        return index;
-    }
-    // Handle Decimal
-    float real_val = val;
-    float dec = 0.1;
-    index++;
-    while (buffer[index] >= '0' && buffer[index] <= '9')
-    {
-        real_val += dec * (buffer[index] - '0');
-        dec /= 10;
-        index++;
-    }
-    json->type = real;
-    json->value.real_val = real_val;
+    char num_buff[128];
+    memcpy(num_buff, buffer, index);
+    num_buff[index] = '\0';
+    if (json->type == integer)
+        json->value.int_val = atof(num_buff);
+    else
+        json->value.real_val = atof(num_buff);
     return index;
 }
 
