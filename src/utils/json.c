@@ -210,7 +210,15 @@ static int serialize_int_json(json_node_t *json, char *buffer)
 static int serialize_real_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == real, "Invalid JSON type.");
-    return snprintf(buffer, sizeof(buffer), "%f", json->value.real_val);
+    // Unsafe
+    int index = sprintf(buffer, "%f", json->value.real_val) - 1;
+    while (buffer[index] == '0')
+    {
+        buffer[index] = '\0';
+        index--;
+    }
+    index++;
+    return index;
 }
 
 static int serialize_text_json(json_node_t *json, char *buffer)
