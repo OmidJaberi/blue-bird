@@ -150,10 +150,10 @@ void test_serialize_large_json()
     destroy_json(&json);
 }
 
-void test_parse_json()
+void test_parse_and_serialize_json()
 {
     printf("\tTesting JSON parsing...\n");
-    char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3]}, null, [\"first\", 15, true, false]]";
+    char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
     json_node_t json;
     parse_json_str(&json, s);
 
@@ -209,7 +209,7 @@ int main()
     test_serialize_array_json();
     test_serialize_object_json();
     test_serialize_large_json();
-    test_parse_json();
+    test_parse_and_serialize_json();
     test_parse_large_json();
     printf("All tests passed.\n");
     return 0;
