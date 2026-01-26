@@ -378,7 +378,7 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
     init_json(json, array);
     int index = 1;
     while (white_space(buffer[index])) index++;
-    while (buffer[index] != '\t')
+    while (buffer[index] != '\0')
     {
         if (buffer[index] == ']')
             return index + 1;
@@ -428,7 +428,7 @@ static int parse_json_str_object(json_node_t *json, char *buffer)
     init_json(json, object);
     int index = 1;
     while (white_space(buffer[index])) index++;
-    while (buffer[index] != '\t')
+    while (buffer[index] != '\0')
     {
         if (buffer[index] == '}')
             return index + 1;
