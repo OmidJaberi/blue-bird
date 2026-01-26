@@ -467,7 +467,9 @@ int parse_json_str(json_node_t *json, char *buffer)
             return parse_json_str_text(json, buffer);
             break;
         default:
-            return parse_json_str_number(json, buffer);
+            if (buffer[index] >= '0' && buffer[index] <= '9')
+                return parse_json_str_number(json, buffer);
+            return -1;
             break;
     }
 }
