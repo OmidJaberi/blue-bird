@@ -199,18 +199,54 @@ void test_parse_large_json()
     destroy_json(&json);
 }
 
+// Broken JSON Parsing:
+void test_incomplete_text_json()
+{
+    printf("\tTesting incomplete text JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "\"text with no ending quotation mark.");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
+void test_incomplete_array_json()
+{
+    printf("\tTesting incomplete array JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "[1, 2, 3");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
+void test_multiple_comma_array_json()
+{
+    printf("\tTesting multiple comma array JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "[1, 2, , 3]");
+    char buff[128];
+    serialize_json(&json, buff);
+    assert(res == -1);
+    destroy_json(&json);
+}
+
 int main()
 {
     printf("Running JSON tests...\n");
     test_json_text();
     test_json_array();
     test_json_object();
+
     test_serialize_text_json();
     test_serialize_array_json();
     test_serialize_object_json();
     test_serialize_large_json();
+
     test_parse_and_serialize_json();
     test_parse_large_json();
+
+    test_incomplete_text_json();
+    test_incomplete_array_json();
+    test_multiple_comma_array_json();
     printf("All tests passed.\n");
     return 0;
 }
