@@ -55,6 +55,7 @@ json_node_t *get_json_object_value(json_node_t *json_object, const char *key);
 
 // Serializer
 int serialize_json(json_node_t *json, char *buffer);
+int pretty_serialize_json(json_node_t *json, char *buffer);
 
 // Parser
 int parse_json_str(json_node_t *json, char *buffer);

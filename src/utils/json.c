@@ -228,6 +228,8 @@ static int serialize_text_json(json_node_t *json, char *buffer)
     return sprintf(buffer, "\"%s\"", json->value.text_val);
 }
 
+static int serialize_json_with_indent(json_node_t *json, char *buffer, int indent);
+
 static int serialize_array_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == array, "Invalid JSON type.");
@@ -244,19 +246,27 @@ static int serialize_array_json(json_node_t *json, char *buffer)
     return len;
 }
 
-static int serialize_object_json(json_node_t *json, char *buffer)
+static int serialize_object_json(json_node_t *json, char *buffer, int indent, bool has_indent)
 {
     BB_ASSERT(json->type == object, "Invalid JSON type.");
     int len = 0;
     len += sprintf(buffer, "{");
+    if (has_indent)
+        len += sprintf(buffer + len, "\n");
     for (int i = 0; i < json->size; i++)
     {
+        for (int j = 0; j < indent + 1; j++)
+            len += sprintf(buffer + len, "\t");
         len += sprintf(buffer + len, "\"%s\": ", json->key[i]);
-        int serialize_child = serialize_json(json->value.array[i], buffer + len);
+        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], buffer + len, indent + 1) : serialize_json(json->value.array[i], buffer + len);
         if (serialize_child < 0) return -1;
         len += serialize_child;
         len += sprintf(buffer + len, i < json->size - 1 ? ", " : "");
+        if (has_indent)
+            len += sprintf(buffer + len, "\n");
     }
+    for (int j = 0; j < indent; j++)
+        len += sprintf(buffer + len, "\t");
     len += sprintf(buffer + len, "}");
     return len;
 }
@@ -285,9 +295,24 @@ int serialize_json(json_node_t *json, char *buffer)
             return serialize_array_json(json, buffer);
             break;
         case object:
-            return serialize_object_json(json, buffer);
+            return serialize_object_json(json, buffer, -1, false);
             break;
     }
+}
+
+static int serialize_json_with_indent(json_node_t *json, char *buffer, int indent)
+{
+    if (!json) return -1;
+    if (json->type == object)
+    {
+        return serialize_object_json(json, buffer, indent, true);
+    }
+    return serialize_json(json, buffer);
+}
+
+int pretty_serialize_json(json_node_t *json, char *buffer)
+{
+    return serialize_json_with_indent(json, buffer, 0);
 }
 
 static bool is_substr(char *buffer, const char *str)
@@ -509,7 +534,7 @@ int dump_json(json_node_t *json, const char *path)
     if (!f) return 1;
 
     char *buffer = (char*)malloc(100 * 1000 * sizeof(char)); // Dynamic size?
-    int size = serialize_json(json, buffer);
+    int size = pretty_serialize_json(json, buffer);
 
     if (size > 0)
         fwrite(buffer, 1, size, f);
