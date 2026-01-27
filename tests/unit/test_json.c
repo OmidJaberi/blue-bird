@@ -229,6 +229,32 @@ void test_multiple_comma_array_json()
     destroy_json(&json);
 }
 
+void test_dump_and_load_json()
+{
+    printf("\tTesting JSON file load and dump...\n");
+    json_node_t json_1, json_2;
+    init_json(&json_1, array);
+    for (int i = 0; i < 10; i++)
+    {
+        json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
+        init_json(child, integer);
+        set_json_integer_value(child, i);
+        push_json_array(&json_1, child);
+    }
+    dump_json(&json_1, "test_file.json");
+    load_json(&json_2, "test_file.json");
+    char buf[1024];
+    serialize_json(&json_2, buf);
+    
+    assert(json_1.type == json_2.type);
+    assert(json_1.size == json_2.size);
+    for (int i = 0; i < json_1.size; i++)
+        assert(get_json_array_index(&json_1, i) == get_json_array_index(&json_1, i));
+    
+    destroy_json(&json_1);
+    destroy_json(&json_2);
+}
+
 int main()
 {
     printf("Running JSON tests...\n");
@@ -247,6 +273,8 @@ int main()
     test_incomplete_text_json();
     test_incomplete_array_json();
     test_multiple_comma_array_json();
+
+    test_dump_and_load_json();
     printf("All tests passed.\n");
     return 0;
 }
