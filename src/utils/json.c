@@ -230,18 +230,26 @@ static int serialize_text_json(json_node_t *json, char *buffer)
 
 static int serialize_json_with_indent(json_node_t *json, char *buffer, int indent);
 
-static int serialize_array_json(json_node_t *json, char *buffer)
+static int serialize_array_json(json_node_t *json, char *buffer, int indent, bool has_indent)
 {
     BB_ASSERT(json->type == array, "Invalid JSON type.");
     int len = 0;
     len += sprintf(buffer, "[");
+    if (has_indent)
+        len += sprintf(buffer + len, "\n");
     for (int i = 0; i < json->size; i++)
     {
-        int serialize_child = serialize_json(json->value.array[i], buffer + len);
+        for (int j = 0; has_indent && j < indent + 1; j++)
+            len += sprintf(buffer + len, "\t");
+        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], buffer + len, indent + 1) : serialize_json(json->value.array[i], buffer + len);
         if (serialize_child < 0) return -1;
         len += serialize_child;
         len += sprintf(buffer + len, i < json->size - 1 ? ", " : "");
+        if (has_indent)
+            len += sprintf(buffer + len, "\n");
     }
+    for (int j = 0; has_indent && j < indent; j++)
+        len += sprintf(buffer + len, "\t");
     len += sprintf(buffer + len, "]");
     return len;
 }
@@ -255,7 +263,7 @@ static int serialize_object_json(json_node_t *json, char *buffer, int indent, bo
         len += sprintf(buffer + len, "\n");
     for (int i = 0; i < json->size; i++)
     {
-        for (int j = 0; j < indent + 1; j++)
+        for (int j = 0; has_indent && j < indent + 1; j++)
             len += sprintf(buffer + len, "\t");
         len += sprintf(buffer + len, "\"%s\": ", json->key[i]);
         int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], buffer + len, indent + 1) : serialize_json(json->value.array[i], buffer + len);
@@ -265,7 +273,7 @@ static int serialize_object_json(json_node_t *json, char *buffer, int indent, bo
         if (has_indent)
             len += sprintf(buffer + len, "\n");
     }
-    for (int j = 0; j < indent; j++)
+    for (int j = 0; has_indent && j < indent; j++)
         len += sprintf(buffer + len, "\t");
     len += sprintf(buffer + len, "}");
     return len;
@@ -292,10 +300,10 @@ int serialize_json(json_node_t *json, char *buffer)
             return serialize_text_json(json, buffer);
             break;
         case array:
-            return serialize_array_json(json, buffer);
+            return serialize_array_json(json, buffer, 0, false);
             break;
         case object:
-            return serialize_object_json(json, buffer, -1, false);
+            return serialize_object_json(json, buffer, 0, false);
             break;
     }
 }
@@ -306,6 +314,17 @@ static int serialize_json_with_indent(json_node_t *json, char *buffer, int inden
     if (json->type == object)
     {
         return serialize_object_json(json, buffer, indent, true);
+    }
+    if (json->type == array)
+    {
+        bool indented = false;
+        for (int i = 0; i < json->size; i++)
+        {
+            json_node_t* child = get_json_array_index(json, i);
+            indented = indented || (child->type == array || child->type == object);
+        }
+        if (indented)
+            return serialize_array_json(json, buffer, indent, true);
     }
     return serialize_json(json, buffer);
 }
