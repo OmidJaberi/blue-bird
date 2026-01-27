@@ -473,3 +473,48 @@ int parse_json_str(json_node_t *json, char *buffer)
             break;
     }
 }
+
+int load_json(json_node_t *json, const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    
+    if (!f) return 1;
+    
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    
+    char *buffer = (char*)malloc(size * sizeof(char));
+    if (!buffer)
+    {
+        fclose(f);
+        return 1;
+    }
+
+    fread(buffer, 1, size, f);
+    fclose(f);
+
+    destroy_json(json);
+    init_json(json, null);
+
+    int res = parse_json_str(json, buffer);
+    free(buffer);
+    return res < 0 ? -1 : 0;
+}
+
+int dump_json(json_node_t *json, const char *path)
+{
+    FILE *f = fopen(path, "wb");
+
+    if (!f) return 1;
+
+    char *buffer = (char*)malloc(100 * 1000 * sizeof(char)); // Dynamic size?
+    int size = serialize_json(json, buffer);
+
+    if (size > 0)
+        fwrite(buffer, 1, size, f);
+
+    free(buffer);
+    fclose(f);
+    return 0;
+}

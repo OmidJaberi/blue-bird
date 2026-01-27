@@ -59,4 +59,8 @@ int serialize_json(json_node_t *json, char *buffer);
 // Parser
 int parse_json_str(json_node_t *json, char *buffer);
 
+// File
+int load_json(json_node_t *json, const char *path);
+int dump_json(json_node_t *json, const char *path);
+
 #endif //BB_JSON
