@@ -421,7 +421,7 @@ static int parse_json_str_text(json_node_t *json, char *buffer)
     else
         return -1;
     json->type = text;
-    json->size = index;
+    json->size = index - 2;
 	json->value.text_val = (char *)malloc(index - 1);
     if (!json->value.text_val) return -1; // malloc failed
     memcpy(json->value.text_val, buffer + 1, index - 2);
