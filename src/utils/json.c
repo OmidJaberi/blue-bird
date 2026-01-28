@@ -220,12 +220,30 @@ static int serialize_real_json(json_node_t *json, char *buffer)
     index++;
     return index;
 }
-
 static int serialize_text_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == text, "Invalid JSON type.");
     // Unsafe
-    return sprintf(buffer, "\"%s\"", json->value.text_val);
+    int index = 0;
+    index += sprintf(buffer + index, "\"");
+
+    for (int i = 0; i < json->size; i++)
+    {
+        char c = json->value.text_val[i];
+        switch (c)
+        {
+            case '\\': index += sprintf(buffer + index, "\\\\"); break;
+            case '\"': index += sprintf(buffer + index, "\\\""); break;
+            case '\n': index += sprintf(buffer + index, "\\n"); break;
+            case '\t': index += sprintf(buffer + index, "\\t"); break;
+            case '\r': index += sprintf(buffer + index, "\\r"); break;
+            default:
+                index += sprintf(buffer + index, "%c", c);
+        }
+    }
+
+    index += sprintf(buffer + index, "\"");
+    return index;
 }
 
 static int serialize_json_with_indent(json_node_t *json, char *buffer, int indent);
