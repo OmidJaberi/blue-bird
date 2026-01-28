@@ -70,6 +70,18 @@ void test_serialize_text_json()
     destroy_json(&json);
 }
 
+void test_serialize_text_json_with_escape_characters()
+{
+    printf("\tTesting serializing JSON text with escape characters...\n");
+    json_node_t json;
+    init_json(&json, text);
+    set_json_text_value(&json, "sample text:\t12\\34\nanother line.");
+    char buffer[128];
+    serialize_json(&json, buffer);
+    assert(strcmp(buffer, "\"sample text:\\t12\\\\34\\nanother line.\"") == 0);
+    destroy_json(&json);
+}
+
 void test_serialize_array_json()
 {
     printf("\tTesting serializing JSON array...\n");
