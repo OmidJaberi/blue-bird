@@ -403,7 +403,7 @@ static int parse_json_str_number(json_node_t *json, char *buffer)
     memcpy(num_buff, buffer, index);
     num_buff[index] = '\0';
     if (json->type == integer)
-        json->value.int_val = atof(num_buff);
+        json->value.int_val = atoi(num_buff);
     else
         json->value.real_val = atof(num_buff);
     return index;
