@@ -554,6 +554,7 @@ int load_json(json_node_t *json, const char *path)
     }
 
     fread(buffer, 1, size, f);
+    buffer[size] = '\0';
     fclose(f);
 
     destroy_json(json);
