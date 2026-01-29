@@ -411,22 +411,22 @@ static int parse_json_str_number(json_node_t *json, char *buffer)
 
 static int parse_json_str_text(json_node_t *json, char *buffer)
 {
-    BB_ASSERT(buffer[0] == '\"', "Invalid str quotation.");
+    BB_ASSERT(buffer[0] == '"', "Invalid str quotation.");
     init_json(json, text);
     int index = 1;
-    while (buffer[index] != '\"' && buffer[index] != '\0')
+    while (buffer[index] != '"' && buffer[index] != '\0')
         index++;
-    if (buffer[index] == '\"')
-        index++;
-    else
+    if (buffer[index] != '"')
         return -1;
-    json->type = text;
-    json->size = index - 2;
-	json->value.text_val = (char *)malloc(index - 1);
-    if (!json->value.text_val) return -1; // malloc failed
-    memcpy(json->value.text_val, buffer + 1, index - 2);
-    json->value.text_val[index] = '\0';
-    return index;
+    int len = index - 1;
+    json->value.text_val = malloc(len + 1);
+    if (!json->value.text_val)
+        return -1;
+    memcpy(json->value.text_val, buffer + 1, len);
+    json->value.text_val[len] = '\0';
+
+    json->size = len;
+    return index + 1;
 }
 
 static bool white_space(char c)
