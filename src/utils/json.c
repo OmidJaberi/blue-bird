@@ -192,57 +192,81 @@ json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
 static int serialize_null_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == null, "Invalid JSON type.");
-    return snprintf(buffer, sizeof(buffer), "null");
+    if (buffer)
+        memcpy(buffer, "null", 4 * sizeof(char));
+    return 4;
 }
 
 static int serialize_bool_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == boolean, "Invalid JSON type.");
-    return snprintf(buffer, sizeof(buffer), "%s", json->value.bool_val ? "true" : "false");
+    int size = json->value.bool_val ? 4 : 5;
+    if (buffer)
+        memcpy(buffer, json->value.bool_val ? "true" : "false", size * sizeof(char));
+    return size;
 }
 
 static int serialize_int_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == integer, "Invalid JSON type.");
-    return snprintf(buffer, sizeof(buffer), "%d", json->value.int_val);
+    // Unsafe
+    if (buffer)
+        return sprintf(buffer, "%d", json->value.int_val);
+    int val = json->value.int_val, len = 0;
+    while (val > 0)
+    {
+        val /= 10;
+        len += 1;
+    }
+    return len == 0 ? 1 : len;
 }
 
 static int serialize_real_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == real, "Invalid JSON type.");
     // Unsafe
-    int index = sprintf(buffer, "%f", json->value.real_val) - 1;
-    while (buffer[index] == '0')
+    char s[128];
+    int index = sprintf(s, "%f", json->value.real_val) - 1;
+    while (s[index] == '0')
     {
-        buffer[index] = '\0';
+        s[index] = '\0';
         index--;
     }
     index++;
+    if (buffer)
+        memcpy(buffer, s, index * sizeof(char));
     return index;
 }
 static int serialize_text_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == text, "Invalid JSON type.");
     // Unsafe
+    char *s = (char*)malloc((json->size * 2 + 10) * sizeof(char));
+    if (!s)
+        return -1;
     int index = 0;
-    index += sprintf(buffer + index, "\"");
+    index += sprintf(s + index, "\"");
 
     for (int i = 0; i < json->size; i++)
     {
         char c = json->value.text_val[i];
         switch (c)
         {
-            case '\\': index += sprintf(buffer + index, "\\\\"); break;
-            case '\"': index += sprintf(buffer + index, "\\\""); break;
-            case '\n': index += sprintf(buffer + index, "\\n"); break;
-            case '\t': index += sprintf(buffer + index, "\\t"); break;
-            case '\r': index += sprintf(buffer + index, "\\r"); break;
+            case '\\': index += sprintf(s + index, "\\\\"); break;
+            case '\"': index += sprintf(s + index, "\\\""); break;
+            case '\n': index += sprintf(s + index, "\\n"); break;
+            case '\t': index += sprintf(s + index, "\\t"); break;
+            case '\r': index += sprintf(s + index, "\\r"); break;
             default:
-                index += sprintf(buffer + index, "%c", c);
+                index += sprintf(s + index, "%c", c);
         }
     }
 
-    index += sprintf(buffer + index, "\"");
+    index += sprintf(s + index, "\"");
+    s[index] = '\0';
+    if (buffer)
+        memcpy(buffer, s, (index + 1) * sizeof(char));
+    free(s);
     return index;
 }
 
