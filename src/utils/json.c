@@ -276,23 +276,24 @@ static int serialize_array_json(json_node_t *json, char *buffer, int indent, boo
 {
     BB_ASSERT(json->type == array, "Invalid JSON type.");
     int len = 0;
-    len += sprintf(buffer, "[");
+    len += buffer ? sprintf(buffer, "[") : 1;
     if (has_indent)
-        len += sprintf(buffer + len, "\n");
+        len += buffer ? sprintf(buffer + len, "\n") : 1;
     for (int i = 0; i < json->size; i++)
     {
         for (int j = 0; has_indent && j < indent + 1; j++)
-            len += sprintf(buffer + len, "\t");
-        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], buffer + len, indent + 1) : serialize_json(json->value.array[i], buffer + len);
+            len += buffer ? sprintf(buffer + len, "\t") : 1;
+        char *child_buffer = buffer ? buffer + len : NULL;
+        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json(json->value.array[i], child_buffer);
         if (serialize_child < 0) return -1;
         len += serialize_child;
-        len += sprintf(buffer + len, i < json->size - 1 ? ", " : "");
+        len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 0);
         if (has_indent)
-            len += sprintf(buffer + len, "\n");
+            len += buffer ? sprintf(buffer + len, "\n") : 1;
     }
     for (int j = 0; has_indent && j < indent; j++)
-        len += sprintf(buffer + len, "\t");
-    len += sprintf(buffer + len, "]");
+        len += buffer ? sprintf(buffer + len, "\t") : 1;
+    len += buffer ? sprintf(buffer + len, "]") : 1;
     return len;
 }
 
