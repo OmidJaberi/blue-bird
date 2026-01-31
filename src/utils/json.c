@@ -597,8 +597,9 @@ int dump_json(json_node_t *json, const char *path)
 
     if (!f) return 1;
 
-    char *buffer = (char*)malloc(100 * 1000 * sizeof(char)); // Dynamic size?
-    int size = pretty_serialize_json(json, buffer);
+    int size = pretty_serialize_json(json, NULL);
+    char *buffer = (char*)malloc(size * sizeof(char));
+    size = pretty_serialize_json(json, buffer);
 
     if (size > 0)
         fwrite(buffer, 1, size, f);
