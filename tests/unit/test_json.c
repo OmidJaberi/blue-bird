@@ -211,6 +211,22 @@ void test_parse_large_json()
     destroy_json(&json);
 }
 
+void test_serialize_json_size()
+{
+    printf("\tTesting serialized JSON size...\n");
+    char *s = "[\"one\", \"two\", \"escape\tcharacter\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
+    json_node_t json;
+    parse_json_str(&json, s);
+
+    char buffer[1024];
+    int size = serialize_json(&json, buffer);
+    int null_size = serialize_json(&json, NULL);
+    int str_size = strlen(buffer);
+    assert(size == str_size);
+    assert(null_size == str_size);
+    destroy_json(&json);
+}
+
 // Broken JSON Parsing:
 void test_incomplete_text_json()
 {
@@ -281,6 +297,7 @@ int main()
 
     test_parse_and_serialize_json();
     test_parse_large_json();
+    test_serialize_json_size();
 
     test_incomplete_text_json();
     test_incomplete_array_json();
