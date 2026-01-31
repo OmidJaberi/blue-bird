@@ -193,7 +193,7 @@ static int serialize_null_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == null, "Invalid JSON type.");
     if (buffer)
-        memcpy(buffer, "null", 4 * sizeof(char));
+        memcpy(buffer, "null\0", 5 * sizeof(char));
     return 4;
 }
 
@@ -202,7 +202,7 @@ static int serialize_bool_json(json_node_t *json, char *buffer)
     BB_ASSERT(json->type == boolean, "Invalid JSON type.");
     int size = json->value.bool_val ? 4 : 5;
     if (buffer)
-        memcpy(buffer, json->value.bool_val ? "true" : "false", size * sizeof(char));
+        memcpy(buffer, json->value.bool_val ? "true\0" : "false\0", (size + 1) * sizeof(char));
     return size;
 }
 
@@ -234,7 +234,7 @@ static int serialize_real_json(json_node_t *json, char *buffer)
     }
     index++;
     if (buffer)
-        memcpy(buffer, s, index * sizeof(char));
+        memcpy(buffer, s, (index + 1) * sizeof(char));
     return index;
 }
 static int serialize_text_json(json_node_t *json, char *buffer)
@@ -308,12 +308,12 @@ static int serialize_object_json(json_node_t *json, char *buffer, int indent, bo
     {
         for (int j = 0; has_indent && j < indent + 1; j++)
             len += buffer ? sprintf(buffer + len, "\t") : 1;
-        len += buffer ? sprintf(buffer + len, "\"%s\": ", json->key[i]) : strlen(json->key[i]);
+        len += buffer ? sprintf(buffer + len, "\"%s\": ", json->key[i]) : strlen(json->key[i]) + 4;
         char *child_buffer = buffer ? buffer + len : NULL;
         int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json(json->value.array[i], child_buffer);
         if (serialize_child < 0) return -1;
         len += serialize_child;
-        len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 1);
+        len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 0);
         if (has_indent)
             len += buffer ? sprintf(buffer + len, "\n") : 1;
     }
