@@ -629,9 +629,10 @@ int dump_json(json_node_t *json, const char *path)
 
     if (!f) return 1;
 
-    int size = pretty_serialize_json_to_allocated_buffer(json, NULL);
-    char *buffer = (char*)malloc(size * sizeof(char));
-    size = pretty_serialize_json_to_allocated_buffer(json, buffer);
+    int size;
+    char *buffer;
+    if (indented_serialize_json(json, &buffer, &size) != 0)
+        return 1;
 
     if (size > 0)
         fwrite(buffer, 1, size, f);
