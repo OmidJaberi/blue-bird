@@ -64,9 +64,11 @@ void test_serialize_text_json()
     json_node_t json;
     init_json(&json, text);
     set_json_text_value(&json, "123456");
-    char buffer[128];
-    serialize_json(&json, buffer);
+    char *buffer;
+    int size;
+    serialize_json(&json, &buffer, &size);
     assert(strcmp(buffer, "\"123456\"") == 0);
+    free(buffer);
     destroy_json(&json);
 }
 
@@ -76,9 +78,11 @@ void test_serialize_text_json_with_escape_characters()
     json_node_t json;
     init_json(&json, text);
     set_json_text_value(&json, "sample text:\t12\\34\nanother line.");
-    char buffer[128];
-    serialize_json(&json, buffer);
+    char *buffer;
+    int size;
+    serialize_json(&json, &buffer, &size);
     assert(strcmp(buffer, "\"sample text:\\t12\\\\34\\nanother line.\"") == 0);
+    free(buffer);
     destroy_json(&json);
 }
 
@@ -95,9 +99,11 @@ void test_serialize_array_json()
         set_json_text_value(child, vals[i]);
         push_json_array(&arr, child);
     }
-    char buffer[1024];
-    serialize_json(&arr, buffer);
+    char *buffer;
+    int size;
+    serialize_json(&arr, &buffer, &size);
     assert(strcmp(buffer, "[\"ZERO\", \"ONE\", \"TWO\", \"THREE\", \"FOUR\"]") == 0);
+    free(buffer);
     destroy_json(&arr);
 }
 
@@ -115,9 +121,11 @@ void test_serialize_object_json()
         set_json_text_value(value, vals[i]);
         set_json_object_value(&obj, keys[i], value);
     }
-    char buffer[1024];
-    serialize_json(&obj, buffer);
+    char *buffer;
+    int size;
+    serialize_json(&obj, &buffer, &size);
     assert(strcmp(buffer, "{\"one\": \"ichi\", \"two\": \"nii\", \"three\": \"san\", \"four\": \"yon\"}") == 0);
+    free(buffer);
     destroy_json(&obj);
 }
 
@@ -155,10 +163,13 @@ void test_serialize_large_json()
     }
     index += sprintf(large_buffer + index, "}");
 
-    char *serialize_buffer = (char *)malloc(sizeof(char) * 20000);
-    serialize_json(&json, serialize_buffer);
+    char *serialize_buffer;
+    int size;
+    serialize_json(&json, &serialize_buffer, &size);
 
     assert(strcmp(large_buffer, serialize_buffer) == 0);
+    free(serialize_buffer);
+    free(large_buffer);
     destroy_json(&json);
 }
 
@@ -169,9 +180,11 @@ void test_parse_and_serialize_json()
     json_node_t json;
     parse_json_str(&json, s);
 
-    char buffer[1024];
-    serialize_json(&json, buffer);
+    char *buffer;
+    int size;
+    serialize_json(&json, &buffer, &size);
     assert(strcmp(buffer, s) == 0);
+    free(buffer);
     destroy_json(&json);
 }
 
@@ -218,12 +231,14 @@ void test_serialize_json_size()
     json_node_t json;
     parse_json_str(&json, s);
 
-    char buffer[1024];
-    int size = serialize_json(&json, buffer);
-    int null_size = serialize_json(&json, NULL);
-    int str_size = strlen(buffer);
+    char *buffer;
+    int size, null_size, str_size;
+    serialize_json(&json, &buffer, &size);
+    serialize_json(&json, NULL, &null_size);
+    str_size = strlen(buffer);
     assert(size == str_size);
     assert(null_size == str_size);
+    free(buffer);
     destroy_json(&json);
 }
 
@@ -251,9 +266,11 @@ void test_multiple_comma_array_json()
     printf("\tTesting multiple comma array JSON parsing...\n");
     json_node_t json;
     int res = parse_json_str(&json, "[1, 2, , 3]");
-    char buff[128];
-    serialize_json(&json, buff);
+    char *buffer;
+    int size;
+    serialize_json(&json, &buffer, &size);
     assert(res == -1);
+    free(buffer);
     destroy_json(&json);
 }
 
@@ -271,8 +288,9 @@ void test_dump_and_load_json()
     }
     dump_json(&json_1, "test_file.json");
     load_json(&json_2, "test_file.json");
-    char buf[1024];
-    serialize_json(&json_2, buf);
+    char *buf;
+    int size;
+    serialize_json(&json_2, &buf, &size);
     
     assert(json_1.type == json_2.type);
     assert(json_1.size == json_2.size);
