@@ -189,6 +189,10 @@ json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
     return NULL;
 }
 
+// Serializer
+static int serialize_json_to_allocated_buffer(json_node_t *json, char *buffer);
+static int pretty_serialize_json_to_allocated_buffer(json_node_t *json, char *buffer);
+
 static int serialize_null_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == null, "Invalid JSON type.");
@@ -284,7 +288,7 @@ static int serialize_array_json(json_node_t *json, char *buffer, int indent, boo
         for (int j = 0; has_indent && j < indent + 1; j++)
             len += buffer ? sprintf(buffer + len, "\t") : 1;
         char *child_buffer = buffer ? buffer + len : NULL;
-        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json(json->value.array[i], child_buffer);
+        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->value.array[i], child_buffer);
         if (serialize_child < 0) return -1;
         len += serialize_child;
         len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 0);
@@ -310,7 +314,7 @@ static int serialize_object_json(json_node_t *json, char *buffer, int indent, bo
             len += buffer ? sprintf(buffer + len, "\t") : 1;
         len += buffer ? sprintf(buffer + len, "\"%s\": ", json->key[i]) : strlen(json->key[i]) + 4;
         char *child_buffer = buffer ? buffer + len : NULL;
-        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json(json->value.array[i], child_buffer);
+        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->value.array[i], child_buffer);
         if (serialize_child < 0) return -1;
         len += serialize_child;
         len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 0);
@@ -323,7 +327,7 @@ static int serialize_object_json(json_node_t *json, char *buffer, int indent, bo
     return len;
 }
 
-int serialize_json(json_node_t *json, char *buffer)
+static int serialize_json_to_allocated_buffer(json_node_t *json, char *buffer)
 {
     if (!json) return -1;
     switch (json->type)
@@ -370,12 +374,40 @@ static int serialize_json_with_indent(json_node_t *json, char *buffer, int inden
         if (indented)
             return serialize_array_json(json, buffer, indent, true);
     }
-    return serialize_json(json, buffer);
+    return serialize_json_to_allocated_buffer(json, buffer);
 }
 
-int pretty_serialize_json(json_node_t *json, char *buffer)
+static int pretty_serialize_json_to_allocated_buffer(json_node_t *json, char *buffer)
 {
     return serialize_json_with_indent(json, buffer, 0);
+}
+
+int serialize_json(json_node_t *json, char **buffer, int *size)
+{
+    *size = serialize_json_to_allocated_buffer(json, null);
+    if (!buffer)
+        return 1;
+    *buffer = (char*)malloc(*size * sizeof(char));
+    if (!*buffer)
+    {
+        return 1;
+    }
+    serialize_json_to_allocated_buffer(json, *buffer);
+    return 0;
+}
+
+int indented_serialize_json(json_node_t *json, char **buffer, int *size)
+{
+    *size = pretty_serialize_json_to_allocated_buffer(json, null);
+    if (!buffer)
+        return 1;
+    *buffer = (char*)malloc(*size * sizeof(char));
+    if (!*buffer)
+    {
+        return 1;
+    }
+    pretty_serialize_json_to_allocated_buffer(json, *buffer);
+    return 0;
 }
 
 static bool is_substr(char *buffer, const char *str)
@@ -597,9 +629,9 @@ int dump_json(json_node_t *json, const char *path)
 
     if (!f) return 1;
 
-    int size = pretty_serialize_json(json, NULL);
+    int size = pretty_serialize_json_to_allocated_buffer(json, NULL);
     char *buffer = (char*)malloc(size * sizeof(char));
-    size = pretty_serialize_json(json, buffer);
+    size = pretty_serialize_json_to_allocated_buffer(json, buffer);
 
     if (size > 0)
         fwrite(buffer, 1, size, f);
