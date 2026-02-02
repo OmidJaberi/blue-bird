@@ -191,7 +191,6 @@ json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
 
 // Serializer
 static int serialize_json_to_allocated_buffer(json_node_t *json, char *buffer);
-static int pretty_serialize_json_to_allocated_buffer(json_node_t *json, char *buffer);
 
 static int serialize_null_json(json_node_t *json, char *buffer)
 {
@@ -377,11 +376,6 @@ static int serialize_json_with_indent(json_node_t *json, char *buffer, int inden
     return serialize_json_to_allocated_buffer(json, buffer);
 }
 
-static int pretty_serialize_json_to_allocated_buffer(json_node_t *json, char *buffer)
-{
-    return serialize_json_with_indent(json, buffer, 0);
-}
-
 int serialize_json(json_node_t *json, char **buffer, int *size)
 {
     *size = serialize_json_to_allocated_buffer(json, null);
@@ -398,7 +392,7 @@ int serialize_json(json_node_t *json, char **buffer, int *size)
 
 int indented_serialize_json(json_node_t *json, char **buffer, int *size)
 {
-    *size = pretty_serialize_json_to_allocated_buffer(json, null);
+    *size = serialize_json_with_indent(json, null, 0);
     if (!buffer)
         return 1;
     *buffer = (char*)malloc(*size * sizeof(char));
@@ -406,7 +400,7 @@ int indented_serialize_json(json_node_t *json, char **buffer, int *size)
     {
         return 1;
     }
-    pretty_serialize_json_to_allocated_buffer(json, *buffer);
+    serialize_json_with_indent(json, *buffer, 0);
     return 0;
 }
 
