@@ -158,6 +158,7 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
     if (index >= 0)
     {
         destroy_json(json_object->value.array[index]);
+        free(json_object->key[index]);
     }
     else
     {
