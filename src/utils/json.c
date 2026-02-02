@@ -626,8 +626,10 @@ int dump_json(json_node_t *json, const char *path)
     int size;
     char *buffer;
     if (indented_serialize_json(json, &buffer, &size) != 0)
+    {
+        if (buffer) free(buffer);
         return 1;
-
+    }
     if (size > 0)
         fwrite(buffer, 1, size, f);
 
