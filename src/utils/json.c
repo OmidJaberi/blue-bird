@@ -599,7 +599,7 @@ int load_json(json_node_t *json, const char *path)
     long size = ftell(f);
     fseek(f, 0, SEEK_SET);
     
-    char *buffer = (char*)malloc(size * sizeof(char));
+    char *buffer = (char*)malloc((size + 1) * sizeof(char));
     if (!buffer)
     {
         fclose(f);
