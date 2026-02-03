@@ -19,7 +19,7 @@ static PersistHandle *json_open(const char *uri)
     if (!h) return NULL;
 
     h->jsonpath = strdup(uri);
-    init_json(&h->json, object);
+    init_json(&h->json, JSON_OBJECT);
 
     return h;
 }
@@ -39,7 +39,7 @@ static int json_save(PersistHandle *h, const char *key,
 
     load_json(&h->json, h->jsonpath);
     json_node_t *value = (json_node_t*)malloc(sizeof(json_node_t));
-    init_json(value, text);
+    init_json(value, JSON_TEXT);
     set_json_text_value(value, data);
     set_json_object_value(&h->json, key, value); // non str data?
     dump_json(&h->json, h->jsonpath);

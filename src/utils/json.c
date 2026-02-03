@@ -15,14 +15,14 @@ void init_json(json_node_t *json, json_node_type type)
 void destroy_json(json_node_t *json)
 {
     switch (json->type) {
-        case text:
+        case JSON_TEXT:
             if (json->value.text_val)
             {
                 free(json->value.text_val);
                 json->value.text_val = NULL;
             }
             break;
-        case array:
+        case JSON_ARRAY:
             for (int i = 0; i < json->size; i++)
             {
                 if (json->value.array[i])
@@ -32,7 +32,7 @@ void destroy_json(json_node_t *json)
                 free(json->value.array);
             json->value.array = NULL;
             break;
-        case object:
+        case JSON_OBJECT:
             for (int i = 0; i < json->size; i++)
             {
                 if (json->value.array[i])
@@ -55,25 +55,25 @@ void destroy_json(json_node_t *json)
 
 void set_json_bool_value(json_node_t *json, bool value)
 {
-    BB_ASSERT(json->type == boolean, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_BOOL, "Invalid JSON type.");
     json->value.bool_val = value;
 }
 
 void set_json_integer_value(json_node_t *json, int value)
 {
-    BB_ASSERT(json->type == integer, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_INT, "Invalid JSON type.");
     json->value.int_val = value;
 }
 
 void set_json_real_value(json_node_t *json, float value)
 {
-    BB_ASSERT(json->type == real, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_REAL, "Invalid JSON type.");
     json->value.real_val = value;
 }
 
 void set_json_text_value(json_node_t *json, const char *value)
 {
-    BB_ASSERT(json->type == text, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_TEXT, "Invalid JSON type.");
     if (json->value.text_val)
     {
         free(json->value.text_val);
@@ -92,31 +92,31 @@ void set_json_text_value(json_node_t *json, const char *value)
 
 bool get_json_bool_value(json_node_t *json)
 {
-    BB_ASSERT(json->type == boolean, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_BOOL, "Invalid JSON type.");
     return json->value.bool_val;
 }
 
 int get_json_integer_value(json_node_t *json)
 {
-    BB_ASSERT(json->type == integer, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_INT, "Invalid JSON type.");
     return json->value.int_val;
 }
 
 float get_json_real_value(json_node_t *json)
 {
-    BB_ASSERT(json->type == real, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_REAL, "Invalid JSON type.");
     return json->value.real_val;
 }
 
 char *get_json_text_value(json_node_t *json)
 {
-    BB_ASSERT(json->type == text, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_TEXT, "Invalid JSON type.");
     return json->value.text_val;
 }
 
 void push_json_array(json_node_t *json_array, json_node_t *element)
 {
-    BB_ASSERT(json_array->type == array, "Invalid JSON type.");
+    BB_ASSERT(json_array->type == JSON_ARRAY, "Invalid JSON type.");
     if (json_array->alloc_size == 0)
     {
         json_array->alloc_size = 1;
@@ -133,7 +133,7 @@ void push_json_array(json_node_t *json_array, json_node_t *element)
 
 json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
 {
-    BB_ASSERT(json_array->type == array, "Invalid JSON type.");
+    BB_ASSERT(json_array->type == JSON_ARRAY, "Invalid JSON type.");
     BB_ASSERT(json_array->size > index, "Index larger than array size");
     return json_array->value.array[index];
 }
@@ -143,7 +143,7 @@ json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
 
 static int get_json_object_index(json_node_t *json_object, const char *key)
 {
-    BB_ASSERT(json_object->type == object, "Invalid JSON type.");
+    BB_ASSERT(json_object->type == JSON_OBJECT, "Invalid JSON type.");
     for (int i = 0; i < json_object->size; i++)
         if (strcmp(json_object->key[i], key) == 0)
             return i;
@@ -152,7 +152,7 @@ static int get_json_object_index(json_node_t *json_object, const char *key)
 
 void set_json_object_value(json_node_t *json_object, const char *key, json_node_t *value)
 {
-    BB_ASSERT(json_object->type == object, "Invalid JSON type.");
+    BB_ASSERT(json_object->type == JSON_OBJECT, "Invalid JSON type.");
     if (!json_object || !value) return;
     int index = get_json_object_index(json_object, key);
     if (index >= 0)
@@ -183,7 +183,7 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
 
 json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
 {
-    BB_ASSERT(json_object->type == object, "Invalid JSON type.");
+    BB_ASSERT(json_object->type == JSON_OBJECT, "Invalid JSON type.");
     int index = get_json_object_index(json_object, key);
     if (index > -1)
         return json_object->value.array[index];
@@ -195,7 +195,7 @@ static int serialize_json_to_allocated_buffer(json_node_t *json, char *buffer);
 
 static int serialize_null_json(json_node_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == null, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_NULL, "Invalid JSON type.");
     if (buffer)
         memcpy(buffer, "null\0", 5 * sizeof(char));
     return 4;
@@ -203,7 +203,7 @@ static int serialize_null_json(json_node_t *json, char *buffer)
 
 static int serialize_bool_json(json_node_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == boolean, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_BOOL, "Invalid JSON type.");
     int size = json->value.bool_val ? 4 : 5;
     if (buffer)
         memcpy(buffer, json->value.bool_val ? "true\0" : "false\0", (size + 1) * sizeof(char));
@@ -212,7 +212,7 @@ static int serialize_bool_json(json_node_t *json, char *buffer)
 
 static int serialize_int_json(json_node_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == integer, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_INT, "Invalid JSON type.");
     // Unsafe
     if (buffer)
         return sprintf(buffer, "%d", json->value.int_val);
@@ -227,7 +227,7 @@ static int serialize_int_json(json_node_t *json, char *buffer)
 
 static int serialize_real_json(json_node_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == real, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_REAL, "Invalid JSON type.");
     // Unsafe
     char s[128];
     int index = sprintf(s, "%f", json->value.real_val) - 1;
@@ -243,7 +243,7 @@ static int serialize_real_json(json_node_t *json, char *buffer)
 }
 static int serialize_text_json(json_node_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == text, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_TEXT, "Invalid JSON type.");
     // Unsafe
     char *s = (char*)malloc((json->size * 2 + 10) * sizeof(char));
     if (!s)
@@ -278,7 +278,7 @@ static int serialize_json_with_indent(json_node_t *json, char *buffer, int inden
 
 static int serialize_array_json(json_node_t *json, char *buffer, int indent, bool has_indent)
 {
-    BB_ASSERT(json->type == array, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_ARRAY, "Invalid JSON type.");
     int len = 0;
     len += buffer ? sprintf(buffer, "[") : 1;
     if (has_indent)
@@ -303,7 +303,7 @@ static int serialize_array_json(json_node_t *json, char *buffer, int indent, boo
 
 static int serialize_object_json(json_node_t *json, char *buffer, int indent, bool has_indent)
 {
-    BB_ASSERT(json->type == object, "Invalid JSON type.");
+    BB_ASSERT(json->type == JSON_OBJECT, "Invalid JSON type.");
     int len = 0;
     len += buffer ? sprintf(buffer, "{") : 1;
     if (has_indent)
@@ -332,25 +332,25 @@ static int serialize_json_to_allocated_buffer(json_node_t *json, char *buffer)
     if (!json) return -1;
     switch (json->type)
     {
-        case null:
+        case JSON_NULL:
             return serialize_null_json(json, buffer);
             break;
-        case boolean:
+        case JSON_BOOL:
             return serialize_bool_json(json, buffer);
             break;
-        case integer:
+        case JSON_INT:
             return serialize_int_json(json, buffer);
             break;
-        case real:
+        case JSON_REAL:
             return serialize_real_json(json, buffer);
             break;
-        case text:
+        case JSON_TEXT:
             return serialize_text_json(json, buffer);
             break;
-        case array:
+        case JSON_ARRAY:
             return serialize_array_json(json, buffer, 0, false);
             break;
-        case object:
+        case JSON_OBJECT:
             return serialize_object_json(json, buffer, 0, false);
             break;
     }
@@ -359,17 +359,17 @@ static int serialize_json_to_allocated_buffer(json_node_t *json, char *buffer)
 static int serialize_json_with_indent(json_node_t *json, char *buffer, int indent)
 {
     if (!json) return -1;
-    if (json->type == object)
+    if (json->type == JSON_OBJECT)
     {
         return serialize_object_json(json, buffer, indent, true);
     }
-    if (json->type == array)
+    if (json->type == JSON_ARRAY)
     {
         bool indented = false;
         for (int i = 0; i < json->size; i++)
         {
             json_node_t* child = get_json_array_index(json, i);
-            indented = indented || (child->type == array || child->type == object);
+            indented = indented || (child->type == JSON_ARRAY || child->type == JSON_OBJECT);
         }
         if (indented)
             return serialize_array_json(json, buffer, indent, true);
@@ -379,7 +379,7 @@ static int serialize_json_with_indent(json_node_t *json, char *buffer, int inden
 
 int serialize_json(json_node_t *json, char **buffer, int *size)
 {
-    *size = serialize_json_to_allocated_buffer(json, null);
+    *size = serialize_json_to_allocated_buffer(json, JSON_NULL);
     if (!buffer)
         return 1;
     *buffer = (char*)malloc(*size * sizeof(char));
@@ -393,7 +393,7 @@ int serialize_json(json_node_t *json, char **buffer, int *size)
 
 int indented_serialize_json(json_node_t *json, char **buffer, int *size)
 {
-    *size = serialize_json_with_indent(json, null, 0);
+    *size = serialize_json_with_indent(json, JSON_NULL, 0);
     if (!buffer)
         return 1;
     *buffer = (char*)malloc(*size * sizeof(char));
@@ -415,47 +415,47 @@ static bool is_substr(char *buffer, const char *str)
 
 static int parse_json_str_null(json_node_t *json, char *buffer)
 {
-    init_json(json, null);
+    init_json(json, JSON_NULL);
     if (!is_substr(buffer, "null"))
         return -1;
-    json->type = null;
+    json->type = JSON_NULL;
     return 4;
 }
 
 static int parse_json_str_true(json_node_t *json, char *buffer)
 {
-    init_json(json, boolean);
+    init_json(json, JSON_BOOL);
     if (!is_substr(buffer, "true"))
         return -1;
-    json->type = boolean;
+    json->type = JSON_BOOL;
     json->value.bool_val = true;
     return 4;
 }
 
 static int parse_json_str_false(json_node_t *json, char *buffer)
 {
-    init_json(json, boolean);
+    init_json(json, JSON_BOOL);
     if (!is_substr(buffer, "false"))
         return -1;
-    json->type = boolean;
+    json->type = JSON_BOOL;
     json->value.bool_val = false;
     return 5;
 }
 
 static int parse_json_str_number(json_node_t *json, char *buffer)
 {
-    init_json(json, integer);
+    init_json(json, JSON_INT);
     int index = 0;
-    while ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '.' && json->type == integer))
+    while ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '.' && json->type == JSON_INT))
     {
         if (buffer[index] == '.')
-            json->type = real;
+            json->type = JSON_REAL;
         index++;
     }
     char num_buff[128];
     memcpy(num_buff, buffer, index);
     num_buff[index] = '\0';
-    if (json->type == integer)
+    if (json->type == JSON_INT)
         json->value.int_val = atoi(num_buff);
     else
         json->value.real_val = atof(num_buff);
@@ -465,7 +465,7 @@ static int parse_json_str_number(json_node_t *json, char *buffer)
 static int parse_json_str_text(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '"', "Invalid str quotation.");
-    init_json(json, text);
+    init_json(json, JSON_TEXT);
     int index = 1;
     while (buffer[index] != '"' && buffer[index] != '\0')
         index++;
@@ -490,7 +490,7 @@ static bool white_space(char c)
 static int parse_json_str_array(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '[', "Invalid array start.");
-    init_json(json, array);
+    init_json(json, JSON_ARRAY);
     int index = 1;
     while (white_space(buffer[index])) index++;
     while (buffer[index] != '\0')
@@ -540,7 +540,7 @@ static int parse_and_add_json_object_pair(json_node_t *object, char *buffer)
 static int parse_json_str_object(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '{', "Invalid object start.");
-    init_json(json, object);
+    init_json(json, JSON_OBJECT);
     int index = 1;
     while (white_space(buffer[index])) index++;
     while (buffer[index] != '\0')
@@ -611,7 +611,7 @@ int load_json(json_node_t *json, const char *path)
     fclose(f);
 
     destroy_json(json);
-    init_json(json, null);
+    init_json(json, JSON_NULL);
 
     int res = parse_json_str(json, buffer);
     free(buffer);

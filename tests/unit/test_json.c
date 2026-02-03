@@ -8,7 +8,7 @@ void test_json_text()
 {
     printf("\tTesting JSON text...\n");
     json_node_t json;
-    init_json(&json, text);
+    init_json(&json, JSON_TEXT);
     set_json_text_value(&json, "Hello there!");
     assert(json.size == 12);
     assert(strcmp(get_json_text_value(&json), "Hello there!") == 0);
@@ -20,11 +20,11 @@ void test_json_array()
     printf("\tTesting JSON array...\n");
     char *vals[] = {"ZERO", "ONE", "TWO", "THREE", "FOUR"};
     json_node_t arr;
-    init_json(&arr, array);
+    init_json(&arr, JSON_ARRAY);
     json_node_t element[5];
     for (int i = 0; i < 5; i++)
     {
-        init_json(element + i, text);
+        init_json(element + i, JSON_TEXT);
         set_json_text_value(element + i, vals[i]);
         push_json_array(&arr, element + i);
     }
@@ -42,11 +42,11 @@ void test_json_object()
     char *keys[] = {"one", "two", "three", "four", "five"};
     char *vals[] = {"ichi", "nii", "san", "yon", "go"};
     json_node_t obj;
-    init_json(&obj, object);
+    init_json(&obj, JSON_OBJECT);
     json_node_t value[5];
     for (int i = 0; i < 4; i++)
     {
-        init_json(value + i, text);
+        init_json(value + i, JSON_TEXT);
         set_json_text_value(value + i, vals[i]);
         set_json_object_value(&obj, keys[i], value + i);
     }
@@ -62,7 +62,7 @@ void test_serialize_text_json()
 {
     printf("\tTesting serializing JSON text...\n");
     json_node_t json;
-    init_json(&json, text);
+    init_json(&json, JSON_TEXT);
     set_json_text_value(&json, "123456");
     char *buffer;
     int size;
@@ -76,7 +76,7 @@ void test_serialize_text_json_with_escape_characters()
 {
     printf("\tTesting serializing JSON text with escape characters...\n");
     json_node_t json;
-    init_json(&json, text);
+    init_json(&json, JSON_TEXT);
     set_json_text_value(&json, "sample text:\t12\\34\nanother line.");
     char *buffer;
     int size;
@@ -91,11 +91,11 @@ void test_serialize_array_json()
     printf("\tTesting serializing JSON array...\n");
     char *vals[] = {"ZERO", "ONE", "TWO", "THREE", "FOUR"};
     json_node_t arr;
-    init_json(&arr, array);
+    init_json(&arr, JSON_ARRAY);
     for (int i = 0; i < 5; i++)
     {
         json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
-        init_json(child, text);
+        init_json(child, JSON_TEXT);
         set_json_text_value(child, vals[i]);
         push_json_array(&arr, child);
     }
@@ -113,11 +113,11 @@ void test_serialize_object_json()
     char *keys[] = {"one", "two", "three", "four", "five"};
     char *vals[] = {"ichi", "nii", "san", "yon", "go"};
     json_node_t obj;
-    init_json(&obj, object);
+    init_json(&obj, JSON_OBJECT);
     for (int i = 0; i < 4; i++)
     {
         json_node_t *value = (json_node_t*)malloc(sizeof(json_node_t));
-        init_json(value, text);
+        init_json(value, JSON_TEXT);
         set_json_text_value(value, vals[i]);
         set_json_object_value(&obj, keys[i], value);
     }
@@ -134,17 +134,17 @@ void test_serialize_large_json()
     printf("\tTesting serializing large JSON object...\n");
     int n = 100;
     json_node_t json;
-    init_json(&json, object);
+    init_json(&json, JSON_OBJECT);
     for (int i = 0; i < n; i++)
     {
         char key[4];
         sprintf(key, "%d", i);
         json_node_t *value = (json_node_t*)malloc(sizeof(json_node_t));
-        init_json(value, array);
+        init_json(value, JSON_ARRAY);
         for (int j = 0; j < i; j++)
         {
             json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
-            init_json(child, integer);
+            init_json(child, JSON_INT);
             set_json_integer_value(child, j);
             push_json_array(value, child);
         }
@@ -212,12 +212,12 @@ void test_parse_large_json()
         sprintf(key, "%d", i);
         json_node_t *child = get_json_object_value(&json, key);
         assert(child);
-        assert(child->type == array);
+        assert(child->type == JSON_ARRAY);
         assert(child->size == i);
         for (int j = 0; j < i; j++)
         {
             json_node_t *sub_child = get_json_array_index(child, j);
-            assert(sub_child->type == integer);
+            assert(sub_child->type == JSON_INT);
             assert(get_json_integer_value(sub_child) == j);
         }
     }
@@ -278,11 +278,11 @@ void test_dump_and_load_json()
 {
     printf("\tTesting JSON file load and dump...\n");
     json_node_t json_1, json_2;
-    init_json(&json_1, array);
+    init_json(&json_1, JSON_ARRAY);
     for (int i = 0; i < 10; i++)
     {
         json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
-        init_json(child, integer);
+        init_json(child, JSON_INT);
         set_json_integer_value(child, i);
         push_json_array(&json_1, child);
     }

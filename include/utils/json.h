@@ -4,13 +4,13 @@
 #include <stdbool.h>
 
 typedef enum {
-    null,
-    boolean,
-    integer,
-    real,
-    text,
-    array,
-    object
+    JSON_NULL,
+    JSON_BOOL,
+    JSON_INT,
+    JSON_REAL,
+    JSON_TEXT,
+    JSON_ARRAY,
+    JSON_OBJECT
 } json_node_type;
 
 typedef struct JsonNode {
