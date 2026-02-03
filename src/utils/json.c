@@ -245,7 +245,7 @@ static int serialize_text_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == JSON_TEXT, "Invalid JSON type.");
     // Unsafe
-    char *s = (char*)malloc((json->size * 2 + 10) * sizeof(char));
+    char *s = (char*)malloc((json->size * 6 + 3) * sizeof(char));
     if (!s)
         return -1;
     int index = 0;
@@ -261,8 +261,18 @@ static int serialize_text_json(json_node_t *json, char *buffer)
             case '\n': index += sprintf(s + index, "\\n"); break;
             case '\t': index += sprintf(s + index, "\\t"); break;
             case '\r': index += sprintf(s + index, "\\r"); break;
+            case '\b': index += sprintf(s + index, "\\b"); break;
+            case '\f': index += sprintf(s + index, "\\f"); break;
             default:
-                index += sprintf(s + index, "%c", c);
+                if (c < 0x20)
+                {
+                    // control char → \u00XX
+                    index += sprintf(s + index, "\\u%04x", c);
+                }
+                else
+                {
+                    s[index++] = c;
+                }
         }
     }
 
