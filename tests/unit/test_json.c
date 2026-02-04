@@ -266,11 +266,7 @@ void test_multiple_comma_array_json()
     printf("\tTesting multiple comma array JSON parsing...\n");
     json_node_t json;
     int res = parse_json_str(&json, "[1, 2, , 3]");
-    char *buffer;
-    int size;
-    serialize_json(&json, &buffer, &size);
     assert(res == -1);
-    free(buffer);
     destroy_json(&json);
 }
 
