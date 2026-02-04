@@ -291,7 +291,7 @@ void test_dump_and_load_json()
     assert(json_1.type == json_2.type);
     assert(json_1.size == json_2.size);
     for (int i = 0; i < json_1.size; i++)
-        assert(get_json_array_index(&json_1, i) == get_json_array_index(&json_1, i));
+        assert(get_json_integer_value(get_json_array_index(&json_1, i)) == get_json_integer_value(get_json_array_index(&json_2, i)));
     
     destroy_json(&json_1);
     destroy_json(&json_2);
