@@ -58,6 +58,28 @@ void test_json_object()
     destroy_json(&obj);
 }
 
+void test_object_key_overwrite()
+{
+    printf("\tTesting JSON object key overwrite...\n");
+    json_node_t obj;
+    init_json(&obj, JSON_OBJECT);
+
+    json_node_t *v1 = malloc(sizeof(json_node_t));
+    init_json(v1, JSON_INT);
+    set_json_integer_value(v1, 1);
+    set_json_object_value(&obj, "a", v1);
+
+    json_node_t *v2 = malloc(sizeof(json_node_t));
+    init_json(v2, JSON_INT);
+    set_json_integer_value(v2, 2);
+    set_json_object_value(&obj, "a", v2);
+
+    json_node_t *res = get_json_object_value(&obj, "a");
+    assert(get_json_integer_value(res) == 2);
+
+    destroy_json(&obj);
+}
+
 void test_serialize_text_json()
 {
     printf("\tTesting serializing JSON text...\n");
@@ -303,6 +325,7 @@ int main()
     test_json_text();
     test_json_array();
     test_json_object();
+    test_object_key_overwrite();
 
     test_serialize_text_json();
     test_serialize_array_json();
