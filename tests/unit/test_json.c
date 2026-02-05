@@ -246,6 +246,28 @@ void test_parse_large_json()
     destroy_json(&json);
 }
 
+void test_parse_text_with_escapes()
+{
+    printf("\tTesting parse JSON text with escapes...\n");
+    char *s = "\"hello\nworld\t\x01\"";
+    json_node_t json;
+    parse_json_str(&json, s);
+
+    assert(json.type == JSON_TEXT);
+    assert(json.size == 13);
+    assert(json.value.text_val[5] == '\n');
+    assert(json.value.text_val[11] == '\t');
+    assert((unsigned char)json.value.text_val[12] == 0x01);
+
+    // char *buf;
+    // int size;
+    // serialize_json(&json, &buf, &size);
+    // assert(strcmp(buf, "hello\nworld\t\x01") == 0);
+
+    // free(buf);
+    destroy_json(&json);
+}
+
 void test_serialize_json_size()
 {
     printf("\tTesting serialized JSON size...\n");
@@ -334,6 +356,7 @@ int main()
 
     test_parse_and_serialize_json();
     test_parse_large_json();
+    test_parse_text_with_escapes();
     test_serialize_json_size();
 
     test_incomplete_text_json();
