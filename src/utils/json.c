@@ -472,24 +472,76 @@ static int parse_json_str_number(json_node_t *json, char *buffer)
     return index;
 }
 
+static int hex_char_to_int(char c)
+{
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+    return -1;
+}
+
 static int parse_json_str_text(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '"', "Invalid str quotation.");
     init_json(json, JSON_TEXT);
-    int index = 1;
-    while (buffer[index] != '"' && buffer[index] != '\0')
-        index++;
-    if (buffer[index] != '"')
-        return -1;
-    int len = index - 1;
-    json->value.text_val = malloc(len + 1);
-    if (!json->value.text_val)
-        return -1;
-    memcpy(json->value.text_val, buffer + 1, len);
-    json->value.text_val[len] = '\0';
 
-    json->size = len;
-    return index + 1;
+    int len = strlen(buffer);
+    char *out = malloc(len); // maximum possible length
+    if (!out) return -1;
+
+    int i = 1; // input index (skip opening quote)
+    int j = 0; // output index
+
+    while (buffer[i] != '"' && buffer[i] != '\0')
+    {
+        if (buffer[i] == '\\') // escape sequence
+        {
+            i++;
+            switch (buffer[i])
+            {
+                case '"': out[j++] = '"'; break;
+                case '\\': out[j++] = '\\'; break;
+                case '/': out[j++] = '/'; break;
+                case 'b': out[j++] = '\b'; break;
+                case 'f': out[j++] = '\f'; break;
+                case 'n': out[j++] = '\n'; break;
+                case 'r': out[j++] = '\r'; break;
+                case 't': out[j++] = '\t'; break;
+                case 'u':
+                {
+                    // parse \uXXXX
+                    if (i + 4 >= len) { free(out); return -1; }
+                    int value = 0;
+                    for (int k = 1; k <= 4; k++)
+                    {
+                        int digit = hex_char_to_int(buffer[i + k]);
+                        if (digit < 0) { free(out); return -1; }
+                        value = (value << 4) | digit;
+                    }
+                    i += 4;
+                    if (value > 0xFF) { free(out); return -1; } // simple one-byte support
+                    out[j++] = (char)value;
+                    break;
+                }
+                default:
+                    free(out);
+                    return -1; // invalid escape
+            }
+            i++;
+        }
+        else
+        {
+            out[j++] = buffer[i++];
+        }
+    }
+
+    if (buffer[i] != '"') { free(out); return -1; }
+
+    out[j] = '\0';
+    json->value.text_val = out;
+    json->size = j;
+
+    return i + 1; // number of characters consumed including quotes
 }
 
 static bool white_space(char c)
