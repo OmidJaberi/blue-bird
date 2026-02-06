@@ -249,22 +249,30 @@ void test_parse_large_json()
 void test_parse_text_with_escapes()
 {
     printf("\tTesting parse JSON text with escapes...\n");
-    char *s = "\"hello\nworld\t\x01\"";
+
+    // JSON source text (escaped, not raw C escapes)
+    char *s = "\"hello\\nworld\\t\\u0001\"";
+
     json_node_t json;
-    parse_json_str(&json, s);
+    int res = parse_json_str(&json, s);
+    assert(res > 0);
 
     assert(json.type == JSON_TEXT);
+
+    // "hello\nworld\t\x01"
+    // indexes: 0123456789012
     assert(json.size == 13);
+
     assert(json.value.text_val[5] == '\n');
     assert(json.value.text_val[11] == '\t');
     assert((unsigned char)json.value.text_val[12] == 0x01);
 
-    // char *buf;
-    // int size;
-    // serialize_json(&json, &buf, &size);
-    // assert(strcmp(buf, "hello\nworld\t\x01") == 0);
+    char *buf;
+    int size;
+    serialize_json(&json, &buf, &size);
+    assert(strcmp(buf, "\"hello\\nworld\\t\\u0001\"") == 0);
+    free(buf);
 
-    // free(buf);
     destroy_json(&json);
 }
 
