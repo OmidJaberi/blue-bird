@@ -64,4 +64,11 @@ int parse_json_str(json_node_t *json, char *buffer);
 int load_json(json_node_t *json, const char *path);
 int dump_json(json_node_t *json, const char *path);
 
+// Macros
+#define JSON_NULL_NODE()      ((json_node_t){ .type = JSON_NULL })
+#define JSON_BOOL(v)          ((json_node_t){ .type = JSON_BOOL, .value.bool_val = (v) })
+#define JSON_INT(v)           ((json_node_t){ .type = JSON_INT,  .value.int_val  = (v) })
+#define JSON_REAL(v)          ((json_node_t){ .type = JSON_REAL, .value.real_val = (v) })
+#define JSON_TEXT(v)          ((json_node_t){ .type = JSON_TEXT, .value.text_val = (char *)(v) })
+
 #endif //BB_JSON
