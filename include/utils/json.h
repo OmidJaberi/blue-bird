@@ -71,6 +71,7 @@ int dump_json(json_node_t *json, const char *path);
 #define JSON_REAL(v)          ((json_node_t){ .type = JSON_REAL, .value.real_val = (v) })
 #define JSON_TEXT(v)          ((json_node_t){ .type = JSON_TEXT, .value.text_val = (char *)(v) })
 
+
 #define JSON_NEW(type) \
     ({ json_node_t *_n = malloc(sizeof(json_node_t)); init_json(_n, (type)); _n; })
 
@@ -78,5 +79,12 @@ int dump_json(json_node_t *json, const char *path);
 #define JSON_NEW_BOOL(v)  ({ json_node_t *_n = JSON_NEW(JSON_BOOL); set_json_bool_value(_n, (v)); _n; })
 #define JSON_NEW_REAL(v)  ({ json_node_t *_n = JSON_NEW(JSON_REAL); set_json_real_value(_n, (v)); _n; })
 #define JSON_NEW_TEXT(v)  ({ json_node_t *_n = JSON_NEW(JSON_TEXT); set_json_text_value(_n, (v)); _n; })
+
+
+#define JSON_OBJECT_BEGIN(name) \
+    json_node_t *name = JSON_NEW(JSON_OBJECT)
+
+#define JSON_OBJECT_FIELD(obj, key, value) \
+    set_json_object_value((obj), (key), (value))
 
 #endif //BB_JSON
