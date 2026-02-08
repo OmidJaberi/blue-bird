@@ -64,6 +64,46 @@ int parse_json_str(json_node_t *json, char *buffer);
 int load_json(json_node_t *json, const char *path);
 int dump_json(json_node_t *json, const char *path);
 
+static inline json_node_t *json_new(json_node_type type)
+{
+    json_node_t *n = malloc(sizeof(json_node_t));
+    init_json(n, type);
+    return n;
+}
+
+static inline json_node_t *json_new_null(void)
+{
+    return json_new(JSON_NULL);
+}
+
+static inline json_node_t *json_new_bool(bool v)
+{
+    json_node_t *n = json_new(JSON_BOOL);
+    set_json_bool_value(n, v);
+    return n;
+}
+
+static inline json_node_t *json_new_int(int v)
+{
+    json_node_t *n = json_new(JSON_INT);
+    set_json_integer_value(n, v);
+    return n;
+}
+
+static inline json_node_t *json_new_real(float v)
+{
+    json_node_t *n = json_new(JSON_REAL);
+    set_json_real_value(n, v);
+    return n;
+}
+
+static inline json_node_t *json_new_text(const char *v)
+{
+    json_node_t *n = json_new(JSON_TEXT);
+    set_json_text_value(n, v);
+    return n;
+}
+
 // Macros
 #define JSON_NULL_NODE()      ((json_node_t){ .type = JSON_NULL })
 #define JSON_BOOL(v)          ((json_node_t){ .type = JSON_BOOL, .value.bool_val = (v) })
@@ -86,5 +126,13 @@ int dump_json(json_node_t *json, const char *path);
 
 #define JSON_OBJECT_FIELD(obj, key, value) \
     set_json_object_value((obj), (key), (value))
+
+
+// DSL
+#define NULLV()   json_new_null()
+#define BOOL(v)   json_new_bool(v)
+#define INT(v)    json_new_int(v)
+#define REAL(v)   json_new_real(v)
+#define TEXT(v)   json_new_text(v)
 
 #endif //BB_JSON
