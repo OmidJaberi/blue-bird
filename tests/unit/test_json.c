@@ -349,6 +349,32 @@ void test_dump_and_load_json()
     destroy_json(&json_2);
 }
 
+void test_json_dsl_macros()
+{
+    printf("\tTesting JSON DSL Macros...\n");
+    json_node_t *doc = JSON(
+        OBJ(
+            KEY("name", TEXT("Alice")),
+            KEY("age", INT(30)),
+            KEY("admin", BOOL(false)),
+            KEY("scores", ARR(INT(10), INT(20), INT(30))),
+            KEY("misc", NULLV()),
+            KEY("nested",
+                OBJ(
+                    KEY("pi", REAL(3.14)),
+                    KEY("ok", BOOL(true))
+                )
+            )
+        )
+    );
+    char *buf;
+    int size;
+    serialize_json(doc, &buf, &size);
+    assert(strcmp(buf, "{\"name\": \"Alice\", \"age\": 30, \"admin\": false, \"scores\": [10, 20, 30], \"misc\": null, \"nested\": {\"pi\": 3.14, \"ok\": true}}") == 0);
+    destroy_json(doc);
+    free(doc);
+}
+
 int main()
 {
     printf("Running JSON tests...\n");
@@ -372,6 +398,8 @@ int main()
     test_multiple_comma_array_json();
 
     test_dump_and_load_json();
+
+    test_json_dsl_macros();
     printf("All tests passed.\n");
     return 0;
 }

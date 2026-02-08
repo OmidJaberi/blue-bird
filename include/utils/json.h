@@ -2,6 +2,7 @@
 #define BB_JSON
 
 #include <stdbool.h>
+#include <stdlib.h>
 
 typedef enum {
     JSON_NULL,
@@ -129,6 +130,8 @@ static inline json_node_t *json_new_text(const char *v)
 
 
 // DSL
+#define JSON(v) (v)
+
 #define NULLV()   json_new_null()
 #define BOOL(v)   json_new_bool(v)
 #define INT(v)    json_new_int(v)
