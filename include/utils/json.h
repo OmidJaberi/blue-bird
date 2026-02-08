@@ -146,4 +146,21 @@ static inline json_node_t *json_new_text(const char *v)
     _arr;                                                          \
 })
 
+
+typedef struct {
+    const char *key;
+    json_node_t *value;
+} json_kv_t;
+
+#define KEY(k, v) ((json_kv_t){ (k), (v) })
+#define OBJ(...)                                                    \
+({                                                                  \
+    json_node_t *_obj = json_new(JSON_OBJECT);                      \
+    json_kv_t _kvs[] = { __VA_ARGS__ };                             \
+    int _n = sizeof(_kvs) / sizeof(_kvs[0]);                        \
+    for (int _i = 0; _i < _n; _i++)                                 \
+        set_json_object_value(_obj, _kvs[_i].key, _kvs[_i].value);  \
+    _obj;                                                           \
+})
+
 #endif //BB_JSON
