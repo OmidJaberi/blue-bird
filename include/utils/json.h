@@ -135,4 +135,15 @@ static inline json_node_t *json_new_text(const char *v)
 #define REAL(v)   json_new_real(v)
 #define TEXT(v)   json_new_text(v)
 
+
+#define ARR(...)                                                   \
+({                                                                 \
+    json_node_t *_arr = json_new(JSON_ARRAY);                      \
+    json_node_t *_items[] = { __VA_ARGS__ };                       \
+    int _n = sizeof(_items) / sizeof(_items[0]);                   \
+    for (int _i = 0; _i < _n; _i++)                                \
+        push_json_array(_arr, _items[_i]);                         \
+    _arr;                                                          \
+})
+
 #endif //BB_JSON
