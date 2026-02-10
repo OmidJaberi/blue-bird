@@ -39,17 +39,17 @@ int main(void)
         return 3;
     }
 
-    // /* Remove */
-    // if (persist_remove("mykey") != 0) {
-    //     printf("FAIL: persist_remove\n");
-    //     return 4;
-    // }
+    /* Remove */
+    if (persist_remove("mykey") != 0) {
+        printf("FAIL: persist_remove\n");
+        return 4;
+    }
 
-    // /* Confirm deletion */
-    // if (persist_load("mykey", buf, sizeof(buf)) == 0) {
-    //     printf("FAIL: key should not exist after deletion\n");
-    //     return 5;
-    // }
+    /* Confirm deletion */
+    if (persist_load("mykey", buf, sizeof(buf)) == 0) {
+        printf("FAIL: key should not exist after deletion\n");
+        return 5;
+    }
 
     printf("File backend integration test passed!\n");
     return 0;

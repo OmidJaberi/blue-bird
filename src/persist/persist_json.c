@@ -54,18 +54,21 @@ static int json_load(PersistHandle *h, const char *key,
 
     load_json(&h->json, h->jsonpath);
     json_node_t *val_json = get_json_object_value(&h->json, key);
-    char *val = get_json_text_value(val_json);
-    memcpy(buf, val, val_json->size);
-
-    return 0;
+    if (val_json)
+    {
+        char *val = get_json_text_value(val_json);
+        memcpy(buf, val, val_json->size);    
+        return 0;
+    }
+    return -1;
 }
 
 static int json_remove(PersistHandle *h, const char *key)
 {
     if (!h || !key) return 1;
-
-    // Should be implemented in utils/json
-
+    load_json(&h->json, h->jsonpath);
+    remove_json_object_value(&h->json, key);
+    dump_json(&h->json, h->jsonpath);
     return 0;
 }
 

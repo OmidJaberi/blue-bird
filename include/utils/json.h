@@ -53,6 +53,7 @@ json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index);
 // JSON Object
 void set_json_object_value(json_node_t *json_object, const char *key, json_node_t *value);
 json_node_t *get_json_object_value(json_node_t *json_object, const char *key);
+void remove_json_object_value(json_node_t *obj, const char *key);
 
 // Serializer
 int serialize_json(json_node_t *json, char **buffer, int *size);
