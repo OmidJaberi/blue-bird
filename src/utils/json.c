@@ -190,6 +190,28 @@ json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
     return NULL;
 }
 
+void remove_json_object_value(json_node_t *obj, const char *key_to_remove)
+{
+    BB_ASSERT(obj->type == JSON_OBJECT, "Invalid JSON type.");
+    if (!obj || !key_to_remove)
+        return;
+    
+    int index = get_json_object_index(obj, key_to_remove);
+    if (index == -1)
+        return;
+
+    free(obj->key[index]);
+    destroy_json(obj->value.array[index]);
+    free(obj->value.array[index]);
+
+    for (int i = index; i < obj->size - 1; i++)
+    {
+        obj->key[i] = obj->key[i + 1];
+        obj->value.array[i] = obj->value.array[i + 1];
+    }
+    obj->size--;
+}
+
 // Serializer
 static int serialize_json_to_allocated_buffer(json_node_t *json, char *buffer);
 
