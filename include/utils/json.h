@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define HASH_TABLE_SIZE 1e5 + 47
+#define HASH_TABLE_SIZE 100047
 
 typedef enum {
     JSON_NULL,
@@ -33,7 +33,7 @@ typedef struct JsonNode {
         char *text_val;
 
         struct JsonNode **array;
-        hash_table_node_t **hash_table;
+        hash_table_node_t *hash_table[HASH_TABLE_SIZE];
     } value;
     // To be deprecated:
     char **key;

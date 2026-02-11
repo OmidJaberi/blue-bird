@@ -141,44 +141,41 @@ json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
 // JSON Object: Implemented as key/val array for now
 // Will be updated as hash table
 
-static int get_json_object_index(json_node_t *json_object, const char *key)
+static int hash_function(const char *str)
 {
-    BB_ASSERT(json_object->type == JSON_OBJECT, "Invalid JSON type.");
-    for (int i = 0; i < json_object->size; i++)
-        if (strcmp(json_object->key[i], key) == 0)
-            return i;
-    return -1;
+    int sum = 0;
+    for (int i = 0; str[i] != '\0'; i++)
+        sum += str[i];
+    return sum % HASH_TABLE_SIZE;
 }
 
 void set_json_object_value(json_node_t *json_object, const char *key, json_node_t *value)
 {
     BB_ASSERT(json_object->type == JSON_OBJECT, "Invalid JSON type.");
-    if (!json_object || !value) return;
-    int index = get_json_object_index(json_object, key);
-    if (index >= 0)
+    if (!json_object || !value || !key) return;
+
+    int index = hash_function(key);
+    hash_table_node_t *node = json_object->value.hash_table[index];
+
+    while (node && strcmp(node->key, key) != 0)
     {
-        destroy_json(json_object->value.array[index]);
-        free(json_object->key[index]);
+        node = node->next;
+    }
+
+    if (node)
+    {
+        destroy_json(node->value);
+        free(node->value);
+        node->value = value;
     }
     else
     {
-        if (json_object->alloc_size == 0)
-        {
-            json_object->alloc_size = 1;
-            json_object->key = (char **)malloc(json_object->alloc_size);
-            json_object->value.array = (json_node_t **)malloc(json_object->alloc_size);
-        }
-        else if (json_object->size == json_object->alloc_size)
-        {
-            json_object->alloc_size *= 2;
-            json_object->key = realloc(json_object->key, json_object->alloc_size * sizeof(*json_object->key));
-            json_object->value.array = realloc(json_object->value.array, json_object->alloc_size * sizeof(*json_object->value.array));
-        }
-        index = json_object->size;
-        json_object->size++;
+        node = malloc(sizeof(hash_table_node_t));
+        node->key = strdup(key);
+        node->value = value;
+        node->next = json_object->value.hash_table[index];
+        json_object->value.hash_table[index] = node;
     }
-    json_object->key[index] = strdup(key);
-    json_object->value.array[index] = value;
 }
 
 json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
