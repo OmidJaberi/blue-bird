@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define HASH_TABLE_SIZE 1e5 + 47
+
 typedef enum {
     JSON_NULL,
     JSON_BOOL,
@@ -13,6 +15,12 @@ typedef enum {
     JSON_ARRAY,
     JSON_OBJECT
 } json_node_type;
+
+typedef struct HashTableNode {
+    char *key;
+    struct JsonNode *value;
+    struct HashTableNode *next;
+} hash_table_node_t;
 
 typedef struct JsonNode {
     json_node_type type;
@@ -25,10 +33,9 @@ typedef struct JsonNode {
         char *text_val;
 
         struct JsonNode **array;
+        hash_table_node_t **hash_table;
     } value;
-    // key array for proof of concept.
-    // the array above is used for values.
-    // Hash Table will be implemented.
+    // To be deprecated:
     char **key;
 } json_node_t;
 
