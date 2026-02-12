@@ -9,6 +9,9 @@ void init_json(json_node_t *json, json_node_type type)
     json->type = type;
     json->size = 0;
     json->alloc_size = 0;
+    // Free hash_table
+    for (int i = 0; i < HASH_TABLE_SIZE; i++)
+        json->value.hash_table[i] = NULL;
     json->value.text_val = NULL;
 }
 
@@ -346,21 +349,29 @@ static int serialize_object_json(json_node_t *json, char *buffer, int indent, bo
     BB_ASSERT(json->type == JSON_OBJECT, "Invalid JSON type.");
     int len = 0;
     len += buffer ? sprintf(buffer, "{") : 1;
-    if (has_indent)
-        len += buffer ? sprintf(buffer + len, "\n") : 1;
-    for (int i = 0; i < json->size; i++)
+    bool first = true;
+    for (int i = 0; i < HASH_TABLE_SIZE; i++)
     {
-        for (int j = 0; has_indent && j < indent + 1; j++)
+        hash_table_node_t *node = json->value.hash_table[i];
+        while (node != NULL)
+        {
+            if (!first)
+            {
+                len += buffer ? sprintf(buffer + len, ", ") : 2;
+            }
+            if (has_indent) len += buffer ? sprintf(buffer + len, "\n") : 1;
+            first = false;
+            for (int j = 0; has_indent && j < indent + 1; j++)
             len += buffer ? sprintf(buffer + len, "\t") : 1;
-        len += buffer ? sprintf(buffer + len, "\"%s\": ", json->key[i]) : strlen(json->key[i]) + 4;
-        char *child_buffer = buffer ? buffer + len : NULL;
-        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->value.array[i], child_buffer);
-        if (serialize_child < 0) return -1;
-        len += serialize_child;
-        len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 0);
-        if (has_indent)
-            len += buffer ? sprintf(buffer + len, "\n") : 1;
+            len += buffer ? sprintf(buffer + len, "\"%s\": ", node->key) : strlen(node->key) + 4;
+            char *child_buffer = buffer ? buffer + len : NULL;
+            int serialize_child = has_indent ? serialize_json_with_indent(node->value, child_buffer, indent + 1) : serialize_json_to_allocated_buffer(node->value, child_buffer);
+            if (serialize_child < 0) return -1;
+            len += serialize_child;
+            node = node->next;
+        }
     }
+    if (has_indent) len += buffer ? sprintf(buffer + len, "\n") : 1;
     for (int j = 0; has_indent && j < indent; j++)
         len += buffer ? sprintf(buffer + len, "\t") : 1;
     len += buffer ? sprintf(buffer + len, "}") : 1;
