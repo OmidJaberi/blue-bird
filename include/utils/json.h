@@ -35,8 +35,6 @@ typedef struct JsonNode {
         struct JsonNode **array;
         hash_table_node_t *hash_table[HASH_TABLE_SIZE];
     } value;
-    // To be deprecated:
-    char **key;
 } json_node_t;
 
 void init_json(json_node_t *json, json_node_type type);

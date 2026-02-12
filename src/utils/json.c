@@ -36,19 +36,20 @@ void destroy_json(json_node_t *json)
             json->value.array = NULL;
             break;
         case JSON_OBJECT:
-            for (int i = 0; i < json->size; i++)
+            for (int i = 0; i < HASH_TABLE_SIZE; i++)
             {
-                if (json->value.array[i])
-                    destroy_json(json->value.array[i]);
-                if (json->key && json->key[i])
-                    free(json->key[i]);
+                hash_table_node_t *node = json->value.hash_table[i];
+                hash_table_node_t *par = NULL;
+                while (node)
+                {
+                    par = node;
+                    node = node->next;
+                    free(par->key);
+                    destroy_json(par->value);
+                    // free(par->value); ?
+                    free(par);
+                }
             }
-            if (json->value.array)
-                free(json->value.array);
-            if (json->key)
-                free(json->key);
-            json->value.array = NULL;
-            json->key = NULL;
             break;
         default:
             break;
@@ -178,6 +179,7 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
         node->value = value;
         node->next = json_object->value.hash_table[index];
         json_object->value.hash_table[index] = node;
+        json_object->size++;
     }
 }
 
@@ -221,6 +223,7 @@ void remove_json_object_value(json_node_t *obj, const char *key_to_remove)
     destroy_json(node->value);
     free(node->value);
     free(node);
+    obj->size--;
 }
 
 // Serializer
