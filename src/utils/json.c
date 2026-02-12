@@ -181,9 +181,12 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
 json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
 {
     BB_ASSERT(json_object->type == JSON_OBJECT, "Invalid JSON type.");
-    int index = get_json_object_index(json_object, key);
-    if (index > -1)
-        return json_object->value.array[index];
+    int index = hash_function(key);
+    hash_table_node_t *node = json_object->value.hash_table[index];
+    while (node && strcmp(node->key, key) != 0)
+        node = node->next;
+    if (node)
+        return node->value;
     return NULL;
 }
 
