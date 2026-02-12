@@ -9,10 +9,14 @@ void init_json(json_node_t *json, json_node_type type)
     json->type = type;
     json->size = 0;
     json->alloc_size = 0;
-    // Free hash_table
-    for (int i = 0; i < HASH_TABLE_SIZE; i++)
-        json->value.hash_table[i] = NULL;
     json->value.text_val = NULL;
+    if (type == JSON_OBJECT)
+    {
+        for (int i = 0; i < HASH_TABLE_SIZE; i++)
+            json->value.object.hash_table[i] = NULL;
+        json->value.object.order_head = NULL;
+        json->value.object.order_tail = NULL;
+    }
 }
 
 void destroy_json(json_node_t *json)
@@ -36,19 +40,13 @@ void destroy_json(json_node_t *json)
             json->value.array = NULL;
             break;
         case JSON_OBJECT:
-            for (int i = 0; i < HASH_TABLE_SIZE; i++)
+            
+            for (hash_table_node_t *node = json->value.object.order_head; node != NULL; node = node->order_next)
             {
-                hash_table_node_t *node = json->value.hash_table[i];
-                hash_table_node_t *par = NULL;
-                while (node)
-                {
-                    par = node;
-                    node = node->next;
-                    free(par->key);
-                    destroy_json(par->value);
-                    // free(par->value); ?
-                    free(par);
-                }
+                free(node->key);
+                destroy_json(node->value);
+                // free(node->value); ?
+                free(node);
             }
             break;
         default:
@@ -159,7 +157,7 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
     if (!json_object || !value || !key) return;
 
     int index = hash_function(key);
-    hash_table_node_t *node = json_object->value.hash_table[index];
+    hash_table_node_t *node = json_object->value.object.hash_table[index];
 
     while (node && strcmp(node->key, key) != 0)
     {
@@ -177,8 +175,19 @@ void set_json_object_value(json_node_t *json_object, const char *key, json_node_
         node = malloc(sizeof(hash_table_node_t));
         node->key = strdup(key);
         node->value = value;
-        node->next = json_object->value.hash_table[index];
-        json_object->value.hash_table[index] = node;
+        node->next = json_object->value.object.hash_table[index];
+        node->order_prev = json_object->value.object.order_tail;
+        node->order_next = NULL;
+        json_object->value.object.hash_table[index] = node;
+        if (json_object->size == 0)
+        {
+            json_object->value.object.order_head = node;
+        }
+        else
+        {
+            json_object->value.object.order_tail->order_next = node;
+        }
+        json_object->value.object.order_tail = node;
         json_object->size++;
     }
 }
@@ -187,7 +196,7 @@ json_node_t *get_json_object_value(json_node_t *json_object, const char *key)
 {
     BB_ASSERT(json_object->type == JSON_OBJECT, "Invalid JSON type.");
     int index = hash_function(key);
-    hash_table_node_t *node = json_object->value.hash_table[index];
+    hash_table_node_t *node = json_object->value.object.hash_table[index];
     while (node && strcmp(node->key, key) != 0)
         node = node->next;
     if (node)
@@ -202,7 +211,7 @@ void remove_json_object_value(json_node_t *obj, const char *key_to_remove)
         return;
     
     int index = hash_function(key_to_remove);
-    hash_table_node_t *node = obj->value.hash_table[index];
+    hash_table_node_t *node = obj->value.object.hash_table[index];
     hash_table_node_t *par = NULL;
     while (node && strcmp(node->key, key_to_remove) != 0)
     {
@@ -217,8 +226,19 @@ void remove_json_object_value(json_node_t *obj, const char *key_to_remove)
     }
     else
     {
-        obj->value.hash_table[index] = node->next;
+        obj->value.object.hash_table[index] = node->next;
     }
+
+    if (obj->value.object.order_head == node)
+        obj->value.object.order_head = node->order_next;
+    if (obj->value.object.order_tail == node)
+        obj->value.object.order_tail = node->order_prev;
+
+    if (node->order_next)
+        node->order_next->order_prev = node->order_prev;
+    if (node->order_prev)
+        node->order_prev->order_next = node->order_next;
+
     free(node->key);
     destroy_json(node->value);
     free(node->value);
@@ -353,26 +373,23 @@ static int serialize_object_json(json_node_t *json, char *buffer, int indent, bo
     int len = 0;
     len += buffer ? sprintf(buffer, "{") : 1;
     bool first = true;
-    for (int i = 0; i < HASH_TABLE_SIZE; i++)
+    hash_table_node_t *node = json->value.object.order_head;
+    while (node != NULL)
     {
-        hash_table_node_t *node = json->value.hash_table[i];
-        while (node != NULL)
+        if (!first)
         {
-            if (!first)
-            {
-                len += buffer ? sprintf(buffer + len, ", ") : 2;
-            }
-            if (has_indent) len += buffer ? sprintf(buffer + len, "\n") : 1;
-            first = false;
-            for (int j = 0; has_indent && j < indent + 1; j++)
-            len += buffer ? sprintf(buffer + len, "\t") : 1;
-            len += buffer ? sprintf(buffer + len, "\"%s\": ", node->key) : strlen(node->key) + 4;
-            char *child_buffer = buffer ? buffer + len : NULL;
-            int serialize_child = has_indent ? serialize_json_with_indent(node->value, child_buffer, indent + 1) : serialize_json_to_allocated_buffer(node->value, child_buffer);
-            if (serialize_child < 0) return -1;
-            len += serialize_child;
-            node = node->next;
+            len += buffer ? sprintf(buffer + len, ", ") : 2;
         }
+        if (has_indent) len += buffer ? sprintf(buffer + len, "\n") : 1;
+        first = false;
+        for (int j = 0; has_indent && j < indent + 1; j++)
+        len += buffer ? sprintf(buffer + len, "\t") : 1;
+        len += buffer ? sprintf(buffer + len, "\"%s\": ", node->key) : strlen(node->key) + 4;
+        char *child_buffer = buffer ? buffer + len : NULL;
+        int serialize_child = has_indent ? serialize_json_with_indent(node->value, child_buffer, indent + 1) : serialize_json_to_allocated_buffer(node->value, child_buffer);
+        if (serialize_child < 0) return -1;
+        len += serialize_child;
+        node = node->order_next;
     }
     if (has_indent) len += buffer ? sprintf(buffer + len, "\n") : 1;
     for (int j = 0; has_indent && j < indent; j++)

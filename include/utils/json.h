@@ -20,6 +20,8 @@ typedef struct HashTableNode {
     char *key;
     struct JsonNode *value;
     struct HashTableNode *next;
+
+    struct HashTableNode *order_prev, *order_next;
 } hash_table_node_t;
 
 typedef struct JsonNode {
@@ -33,7 +35,11 @@ typedef struct JsonNode {
         char *text_val;
 
         struct JsonNode **array;
-        hash_table_node_t *hash_table[HASH_TABLE_SIZE];
+        struct {
+            hash_table_node_t *hash_table[HASH_TABLE_SIZE];
+            hash_table_node_t *order_head;
+            hash_table_node_t *order_tail;
+        } object;
     } value;
 } json_node_t;
 
