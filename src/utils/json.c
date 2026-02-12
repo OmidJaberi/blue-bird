@@ -196,20 +196,28 @@ void remove_json_object_value(json_node_t *obj, const char *key_to_remove)
     if (!obj || !key_to_remove)
         return;
     
-    int index = get_json_object_index(obj, key_to_remove);
-    if (index == -1)
-        return;
-
-    free(obj->key[index]);
-    destroy_json(obj->value.array[index]);
-    free(obj->value.array[index]);
-
-    for (int i = index; i < obj->size - 1; i++)
+    int index = hash_function(key_to_remove);
+    hash_table_node_t *node = obj->value.hash_table[index];
+    hash_table_node_t *par = NULL;
+    while (node && strcmp(node->key, key_to_remove) != 0)
     {
-        obj->key[i] = obj->key[i + 1];
-        obj->value.array[i] = obj->value.array[i + 1];
+        par = node;
+        node = node->next;
     }
-    obj->size--;
+    if (!node) return;
+
+    if (par)
+    {
+        par->next = node->next;
+    }
+    else
+    {
+        obj->value.hash_table[index] = node->next;
+    }
+    free(node->key);
+    destroy_json(node->value);
+    free(node->value);
+    free(node);
 }
 
 // Serializer
