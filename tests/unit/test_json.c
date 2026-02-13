@@ -43,7 +43,7 @@ void test_json_object()
     char *vals[] = {"ichi", "nii", "san", "yon", "go"};
     json_node_t obj;
     init_json(&obj, JSON_OBJECT);
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 5; i++)
     {
         json_node_t *value = malloc(sizeof(json_node_t));
         init_json(value, JSON_TEXT);
