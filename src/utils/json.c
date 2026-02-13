@@ -40,12 +40,11 @@ void destroy_json(json_node_t *json)
             json->value.array = NULL;
             break;
         case JSON_OBJECT:
-            
             for (hash_table_node_t *node = json->value.object.order_head; node != NULL; node = node->order_next)
             {
                 free(node->key);
                 destroy_json(node->value);
-                // free(node->value); ?
+                free(node->value);
                 free(node);
             }
             break;
