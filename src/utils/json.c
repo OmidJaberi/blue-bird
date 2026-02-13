@@ -139,8 +139,7 @@ json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
     return json_array->value.array[index];
 }
 
-// JSON Object: Implemented as key/val array for now
-// Will be updated as hash table
+// JSON Object: Implemented as hash table
 
 static int hash_function(const char *str)
 {
