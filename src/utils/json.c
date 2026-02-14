@@ -8,14 +8,21 @@ void init_json(json_node_t *json, json_node_type type)
 {
     json->type = type;
     json->size = 0;
-    json->alloc_size = 0;
-    json->value.text_val = NULL;
-    if (type == JSON_OBJECT)
-    {
-        for (int i = 0; i < HASH_TABLE_SIZE; i++)
-            json->value.object.hash_table[i] = NULL;
-        json->value.object.order_head = NULL;
-        json->value.object.order_tail = NULL;
+    switch (type) {
+        case JSON_OBJECT:
+            for (int i = 0; i < HASH_TABLE_SIZE; i++)
+                json->value.object.hash_table[i] = NULL;
+            json->value.object.order_head = NULL;
+            json->value.object.order_tail = NULL;
+            break;
+        case JSON_ARRAY:
+            json->alloc_size = 0;
+            break;
+        case JSON_TEXT:
+            json->value.text_val = NULL;
+            break;
+        default:
+            break;
     }
 }
 
@@ -33,7 +40,10 @@ void destroy_json(json_node_t *json)
             for (int i = 0; i < json->size; i++)
             {
                 if (json->value.array[i])
+                {
                     destroy_json(json->value.array[i]);
+                    free(json->value.array[i]);
+                }
             }
             if (json->value.array)
                 free(json->value.array);
