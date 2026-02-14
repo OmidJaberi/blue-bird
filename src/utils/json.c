@@ -40,7 +40,10 @@ void destroy_json(json_node_t *json)
             for (int i = 0; i < json->size; i++)
             {
                 if (json->value.array[i])
+                {
                     destroy_json(json->value.array[i]);
+                    free(json->value.array[i]);
+                }
             }
             if (json->value.array)
                 free(json->value.array);
