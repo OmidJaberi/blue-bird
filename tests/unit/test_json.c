@@ -21,12 +21,12 @@ void test_json_array()
     char *vals[] = {"ZERO", "ONE", "TWO", "THREE", "FOUR"};
     json_node_t arr;
     init_json(&arr, JSON_ARRAY);
-    json_node_t element[5];
     for (int i = 0; i < 5; i++)
     {
-        init_json(element + i, JSON_TEXT);
-        set_json_text_value(element + i, vals[i]);
-        push_json_array(&arr, element + i);
+        json_node_t *element = malloc(sizeof(json_node_t));
+        init_json(element, JSON_TEXT);
+        set_json_text_value(element, vals[i]);
+        push_json_array(&arr, element);
     }
     assert(arr.size == 5);
     for (int i = 0; i < arr.size; i++)
