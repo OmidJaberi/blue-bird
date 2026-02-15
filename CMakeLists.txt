@@ -11,6 +11,7 @@ file(GLOB CORE_SOURCES
     "src/core/http/*.c"
     "src/utils/*.c"
     "src/persist/*.c"
+    "src/repo/*.c"
     "src/log/*.c"
 )
 
