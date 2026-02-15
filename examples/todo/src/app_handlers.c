@@ -3,6 +3,7 @@
 
 #include "persist/persist.h"
 #include "persist/persist_sqlite.h"
+#include "utils/json.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +26,23 @@ BBError add_task(request_t *req, response_t *res)
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
     }
     free(task_key);
+    char buf[100000] = {0};
+    json_node_t *arr = JSON_NEW(JSON_ARRAY);
+    if (persist_load("task_list", buf, sizeof(buf)) == 0)
+    {
+        parse_json_str(arr, buf);
+    }
+    push_json_array(arr, JSON_NEW_TEXT(msg->body));
+    char *arr_str;
+    int size;
+    serialize_json(arr, &arr_str, &size);
+    if (persist_save("task_list", arr_str, size) != 0)
+    {
+        printf("FAIL: persist_save\n");
+        free(arr_str);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+    }
+    free(arr_str);
     return BB_SUCCESS();
 }
 
@@ -81,5 +99,12 @@ BBError get_task(request_t *req, response_t *res)
 
 BBError list_tasks(request_t *req, response_t *res)
 {
+    char buf[100000] = {0};
+    if (persist_load("task_list", buf, sizeof(buf)) != 0)
+    {
+        printf("FAIL: persist_load\n");
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: persist_load.");
+    }
+    set_response_body(res, buf);
     return BB_SUCCESS();
 }
