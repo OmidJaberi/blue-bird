@@ -42,6 +42,58 @@ BBError add_task(request_t *req, response_t *res)
         free(arr_str);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
     }
+    destroy_json(arr);
+    free(arr);
+    free(arr_str);
+    return BB_SUCCESS();
+}
+
+BBError remove_task(request_t *req, response_t *res)
+{
+    const char *task_name = get_request_param(req, "task_name");
+    LOG_INFO("Remove task: %s\n", task_name);
+    char *task_key = malloc((strlen(task_name) + 5) * sizeof(char));
+    if (!task_key)
+    {
+        printf("FAIL: malloc\n");
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
+    }
+    sprintf(task_key, "task:%s", task_name);
+    if (persist_remove(task_key) != 0)
+    {
+        printf("FAIL: persist_remove\n");
+        free(task_key);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+    }
+    free(task_key);
+    char buf[100000] = {0};
+    json_node_t *arr = JSON_NEW(JSON_ARRAY);
+    json_node_t *new_arr = JSON_NEW(JSON_ARRAY);
+    if (persist_load("task_list", buf, sizeof(buf)) == 0)
+    {
+        parse_json_str(arr, buf);
+    }
+    for (int i = 0; i < arr->size; i++)
+    {
+        char *val = get_json_array_index(arr, i)->value.text_val;
+        if (strcmp(val, task_name) != 0)
+        {
+            push_json_array(new_arr, JSON_NEW_TEXT(val));
+        }
+    }
+    destroy_json(arr);
+    free(arr);
+    char *arr_str;
+    int size;
+    serialize_json(new_arr, &arr_str, &size);
+    if (persist_save("task_list", arr_str, size) != 0)
+    {
+        printf("FAIL: persist_save\n");
+        free(arr_str);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+    }
+    destroy_json(new_arr);
+    free(new_arr);
     free(arr_str);
     return BB_SUCCESS();
 }
