@@ -341,6 +341,15 @@ void test_multiple_comma_array_json()
     destroy_json(&json);
 }
 
+void test_missing_comma_array_json()
+{
+    printf("\tTesting missing comma array JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "[1, 2 3, 4]");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
 void test_dump_and_load_json()
 {
     printf("\tTesting JSON file load and dump...\n");
@@ -416,6 +425,7 @@ int main()
     test_incomplete_text_json();
     test_incomplete_array_json();
     test_multiple_comma_array_json();
+    test_missing_comma_array_json();
 
     test_dump_and_load_json();
 
