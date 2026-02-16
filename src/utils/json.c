@@ -693,7 +693,14 @@ static int parse_json_str_object(json_node_t *json, char *buffer)
         if (res < 0) return -1;
         index += res;
         while (white_space(buffer[index])) index++;
-        if (buffer[index] == ',') index++;
+        if (buffer[index] == ',')
+        {
+            index++;
+        }
+        else if (buffer[index] != '}')
+        {
+            return -1;
+        }
         while (white_space(buffer[index])) index++;
     }
     return -1;
