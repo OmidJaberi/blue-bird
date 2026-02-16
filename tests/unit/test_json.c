@@ -350,6 +350,33 @@ void test_missing_comma_array_json()
     destroy_json(&json);
 }
 
+void test_incomplete_object_json()
+{
+    printf("\tTesting incomplete object JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{\"one\": 1, \"two\": 2, \"three\": 3");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
+void test_multiple_comma_object_json()
+{
+    printf("\tTesting multiple comma object JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{\"one\": 1, , \"two\": 2, \"three\": 3}");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
+void test_missing_comma_object_json()
+{
+    printf("\tTesting missing comma object JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{\"one\": 1 \"two\": 2, \"three\": 3}");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
 void test_dump_and_load_json()
 {
     printf("\tTesting JSON file load and dump...\n");
@@ -426,6 +453,9 @@ int main()
     test_incomplete_array_json();
     test_multiple_comma_array_json();
     test_missing_comma_array_json();
+    test_incomplete_object_json();
+    test_multiple_comma_object_json();
+    test_missing_comma_object_json();
 
     test_dump_and_load_json();
 
