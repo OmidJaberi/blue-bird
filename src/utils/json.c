@@ -649,7 +649,11 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
 
 static int parse_and_add_json_object_pair(json_node_t *object, char *buffer)
 {
-    BB_ASSERT(buffer[0] == '\"', "Invalid key string start.");
+    BB_ASSERT(object->type == JSON_OBJECT, "Invalid JSON type.");
+    if (buffer[0] != '\"')
+    {
+        return -1;
+    }
     int index = 1;
     while (buffer[index] != '\"' && buffer[index] != '\t')
         index++;
