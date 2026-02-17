@@ -229,6 +229,16 @@ void test_parse_and_serialize_json()
     destroy_json(&json);
 }
 
+void test_parse_empty_object_json()
+{
+    printf("\tTesting empty object JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{}");
+    assert(res != -1);
+    assert(json.size == 0);
+    destroy_json(&json);
+}
+
 void test_parse_large_json()
 {
     printf("\tTesting large JSON parsing...\n");
@@ -377,6 +387,33 @@ void test_missing_comma_object_json()
     destroy_json(&json);
 }
 
+void test_missing_colon_object_json()
+{
+    printf("\tTesting missing colon object JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{\"one\": 1, \"two\" 2, \"three\": 3}");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
+void test_missing_value_object_json()
+{
+    printf("\tTesting missing value object JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{\"one\": 1, \"two\": , \"three\": 3}");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
+void test_missing_key_object_json()
+{
+    printf("\tTesting missing key object JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{\"one\": 1, : 2 , \"three\": 3}");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
 void test_dump_and_load_json()
 {
     printf("\tTesting JSON file load and dump...\n");
@@ -445,6 +482,7 @@ int main()
     test_serialize_large_json();
 
     test_parse_and_serialize_json();
+    test_parse_empty_object_json();
     test_parse_large_json();
     test_parse_text_with_escapes();
     test_serialize_json_size();
@@ -456,6 +494,9 @@ int main()
     test_incomplete_object_json();
     test_multiple_comma_object_json();
     test_missing_comma_object_json();
+    test_missing_colon_object_json();
+    test_missing_value_object_json();
+    test_missing_key_object_json();
 
     test_dump_and_load_json();
 
