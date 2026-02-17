@@ -16,7 +16,7 @@ void init_json(json_node_t *json, json_node_type type)
             json->value.object.order_tail = NULL;
             break;
         case JSON_ARRAY:
-            json->alloc_size = 0;
+            json->value.dynamic_array.alloc_size = 0;
             break;
         case JSON_TEXT:
             json->value.text_val = NULL;
@@ -39,15 +39,15 @@ void destroy_json(json_node_t *json)
         case JSON_ARRAY:
             for (int i = 0; i < json->size; i++)
             {
-                if (json->value.array[i])
+                if (json->value.dynamic_array.array[i])
                 {
-                    destroy_json(json->value.array[i]);
-                    free(json->value.array[i]);
+                    destroy_json(json->value.dynamic_array.array[i]);
+                    free(json->value.dynamic_array.array[i]);
                 }
             }
-            if (json->value.array)
-                free(json->value.array);
-            json->value.array = NULL;
+            if (json->value.dynamic_array.array)
+                free(json->value.dynamic_array.array);
+            json->value.dynamic_array.array = NULL;
             break;
         case JSON_OBJECT:
             for (hash_table_node_t *node = json->value.object.order_head; node != NULL; node = node->order_next)
@@ -128,17 +128,17 @@ char *get_json_text_value(json_node_t *json)
 void push_json_array(json_node_t *json_array, json_node_t *element)
 {
     BB_ASSERT(json_array->type == JSON_ARRAY, "Invalid JSON type.");
-    if (json_array->alloc_size == 0)
+    if (json_array->value.dynamic_array.alloc_size == 0)
     {
-        json_array->alloc_size = 1;
-        json_array->value.array = (json_node_t **)malloc(json_array->alloc_size);
+        json_array->value.dynamic_array.alloc_size = 1;
+        json_array->value.dynamic_array.array = (json_node_t **)malloc(json_array->value.dynamic_array.alloc_size);
     }
-    else if (json_array->alloc_size == json_array->size)
+    else if (json_array->value.dynamic_array.alloc_size == json_array->size)
     {
-        json_array->alloc_size *= 2;
-        json_array->value.array = realloc(json_array->value.array, json_array->alloc_size * sizeof(*json_array->value.array));
+        json_array->value.dynamic_array.alloc_size *= 2;
+        json_array->value.dynamic_array.array = realloc(json_array->value.dynamic_array.array, json_array->value.dynamic_array.alloc_size * sizeof(*json_array->value.dynamic_array.array));
     }
-    json_array->value.array[json_array->size] = element;
+    json_array->value.dynamic_array.array[json_array->size] = element;
     json_array->size++;
 }
 
@@ -146,7 +146,7 @@ json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
 {
     BB_ASSERT(json_array->type == JSON_ARRAY, "Invalid JSON type.");
     BB_ASSERT(json_array->size > index, "Index larger than array size");
-    return json_array->value.array[index];
+    return json_array->value.dynamic_array.array[index];
 }
 
 // JSON Object: Implemented as hash table
@@ -362,7 +362,7 @@ static int serialize_array_json(json_node_t *json, char *buffer, int indent, boo
         for (int j = 0; has_indent && j < indent + 1; j++)
             len += buffer ? sprintf(buffer + len, "\t") : 1;
         char *child_buffer = buffer ? buffer + len : NULL;
-        int serialize_child = has_indent ? serialize_json_with_indent(json->value.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->value.array[i], child_buffer);
+        int serialize_child = has_indent ? serialize_json_with_indent(json->value.dynamic_array.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->value.dynamic_array.array[i], child_buffer);
         if (serialize_child < 0) return -1;
         len += serialize_child;
         len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 0);

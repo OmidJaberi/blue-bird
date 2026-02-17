@@ -25,15 +25,16 @@ typedef struct HashTableNode {
 
 typedef struct JsonNode {
     json_node_type type;
-    int size;       // For text, array, and object types
-    int alloc_size; // allocated size for dynamic array
+    int size;               // For text, array, and object types
     union {
         bool bool_val;
         int int_val;
         float real_val;
         char *text_val;
-
-        struct JsonNode **array;
+        struct {
+            int alloc_size; // allocated size for dynamic array
+            struct JsonNode **array;
+        } dynamic_array;
         struct {
             hash_table_node_t *hash_table[HASH_TABLE_SIZE];
             hash_table_node_t *order_head;
