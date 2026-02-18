@@ -229,6 +229,26 @@ void test_parse_and_serialize_json()
     destroy_json(&json);
 }
 
+void test_parse_empty_text_json()
+{
+    printf("\tTesting empty text JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "\"\"");
+    assert(res != -1);
+    assert(json.size == 0);
+    destroy_json(&json);
+}
+
+void test_parse_empty_array_json()
+{
+    printf("\tTesting empty array JSON parsing...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "[]");
+    assert(res != -1);
+    assert(json.size == 0);
+    destroy_json(&json);
+}
+
 void test_parse_empty_object_json()
 {
     printf("\tTesting empty object JSON parsing...\n");
@@ -482,6 +502,8 @@ int main()
     test_serialize_large_json();
 
     test_parse_and_serialize_json();
+    test_parse_empty_text_json();
+    test_parse_empty_array_json();
     test_parse_empty_object_json();
     test_parse_large_json();
     test_parse_text_with_escapes();
