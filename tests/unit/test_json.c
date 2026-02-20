@@ -434,6 +434,15 @@ void test_missing_key_object_json()
     destroy_json(&json);
 }
 
+void test_parse_json_with_trailing_str()
+{
+    printf("\tTesting parsing object JSON with trailing str...\n");
+    json_node_t json;
+    int res = parse_json_str(&json, "{\"one\": 1, \"two\": 2 , \"three\": 3}something unrelated");
+    assert(res == -1);
+    destroy_json(&json);
+}
+
 void test_dump_and_load_json()
 {
     printf("\tTesting JSON file load and dump...\n");
@@ -519,6 +528,7 @@ int main()
     test_missing_colon_object_json();
     test_missing_value_object_json();
     test_missing_key_object_json();
+    test_parse_json_with_trailing_str();
 
     test_dump_and_load_json();
 
