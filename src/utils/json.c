@@ -618,6 +618,8 @@ static bool white_space(char c)
     return c == ' ' || c == '\t' || c == '\n';
 }
 
+static int parse_json_str_partial(json_node_t *json, char *buffer);
+
 static int parse_json_str_array(json_node_t *json, char *buffer)
 {
     BB_ASSERT(buffer[0] == '[', "Invalid array start.");
@@ -629,7 +631,7 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
         if (buffer[index] == ']')
             return index + 1;
         json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
-        int res = parse_json_str(child, buffer + index);
+        int res = parse_json_str_partial(child, buffer + index);
         if (res < 0) return -1;
         push_json_array(json, child);
         index += res;
@@ -667,7 +669,7 @@ static int parse_and_add_json_object_pair(json_node_t *object, char *buffer)
     index++;
     while (white_space(buffer[index])) index++;
     json_node_t *value = (json_node_t*)malloc(sizeof(json_node_t));
-    int res = parse_json_str(value, buffer + index);
+    int res = parse_json_str_partial(value, buffer + index);
     if (res < 0) return -1;
 
     char* key = (char *)malloc(key_end - 1);
@@ -706,7 +708,7 @@ static int parse_json_str_object(json_node_t *json, char *buffer)
     return -1;
 }
 
-int parse_json_str(json_node_t *json, char *buffer)
+static int parse_json_str_partial(json_node_t *json, char *buffer)
 {
     int index = 0;
     while (white_space(buffer[index])) index++;
@@ -736,6 +738,12 @@ int parse_json_str(json_node_t *json, char *buffer)
             return -1;
             break;
     }
+}
+
+int parse_json_str(json_node_t *json, char *buffer)
+{
+    int res = parse_json_str_partial(json, buffer);
+    return (res == strlen(buffer)) ? res : -1;
 }
 
 int load_json(json_node_t *json, const char *path)
