@@ -16,6 +16,7 @@ BBError add_task(request_t *req, response_t *res)
     if (!task_key)
     {
         printf("FAIL: malloc\n");
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
     sprintf(task_key, "task:%s", msg->body);
@@ -23,6 +24,7 @@ BBError add_task(request_t *req, response_t *res)
     {
         printf("FAIL: persist_save\n");
         free(task_key);
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
     }
     free(task_key);
@@ -40,6 +42,7 @@ BBError add_task(request_t *req, response_t *res)
     {
         printf("FAIL: persist_save\n");
         free(arr_str);
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
     }
     destroy_json(arr);
@@ -56,6 +59,7 @@ BBError remove_task(request_t *req, response_t *res)
     if (!task_key)
     {
         printf("FAIL: malloc\n");
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
     sprintf(task_key, "task:%s", task_name);
@@ -63,7 +67,8 @@ BBError remove_task(request_t *req, response_t *res)
     {
         printf("FAIL: persist_remove\n");
         free(task_key);
-        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+        set_response_status(res, 500);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to remove.");
     }
     free(task_key);
     char buf[100000] = {0};
@@ -90,6 +95,7 @@ BBError remove_task(request_t *req, response_t *res)
     {
         printf("FAIL: persist_save\n");
         free(arr_str);
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
     }
     destroy_json(new_arr);
@@ -106,6 +112,7 @@ BBError mark_done(request_t *req, response_t *res)
     if (!task_key)
     {
         printf("FAIL: malloc\n");
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
     sprintf(task_key, "task:%s", task_name);
@@ -114,12 +121,14 @@ BBError mark_done(request_t *req, response_t *res)
     {
         printf("FAIL: persist_load\n");
         free(task_key);
+        set_response_status(res, 404);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: persist_load.");
     }
     if (persist_save(task_key, "done", 8) != 0)
     {
         printf("FAIL: persist_save\n");
         free(task_key);
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
     }
     free(task_key);
@@ -134,6 +143,7 @@ BBError get_task(request_t *req, response_t *res)
     if (!task_key)
     {
         printf("FAIL: malloc\n");
+        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
     sprintf(task_key, "task:%s", task_name);
@@ -142,6 +152,7 @@ BBError get_task(request_t *req, response_t *res)
     {
         printf("FAIL: persist_load\n");
         free(task_key);
+        set_response_status(res, 404);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: persist_load.");
     }
     set_response_body(res, buf);
@@ -155,6 +166,7 @@ BBError list_tasks(request_t *req, response_t *res)
     if (persist_load("task_list", buf, sizeof(buf)) != 0)
     {
         printf("FAIL: persist_load\n");
+        set_response_status(res, 404);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: persist_load.");
     }
     set_response_body(res, buf);
