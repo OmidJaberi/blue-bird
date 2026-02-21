@@ -20,6 +20,12 @@ BBError add_task(request_t *req, response_t *res)
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
     sprintf(task_key, "task:%s", msg->body);
+    char exists_buf[100];
+    if (persist_load(task_key, exists_buf, sizeof(exists_buf)) == 0)
+    {
+        set_response_status(res, 409);
+        return BB_SUCCESS();
+    }
     if (persist_save(task_key, "not_done", 8) != 0)
     {
         printf("FAIL: persist_save\n");
