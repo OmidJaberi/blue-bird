@@ -9,6 +9,65 @@
 #include <string.h>
 
 // Repo Logic
+json_node_t *get_list()
+{
+    char buf[100000];
+    json_node_t *arr = JSON_NEW(JSON_ARRAY);
+    if (persist_load("task_list", buf, sizeof(buf)) == 0)
+    {
+        parse_json_str(arr, buf);
+    }
+    return arr;
+}
+
+BBError add_to_list(const char *task_name)
+{
+    json_node_t *arr = get_list();
+    push_json_array(arr, JSON_NEW_TEXT(task_name));
+    char *arr_str;
+    int size;
+    serialize_json(arr, &arr_str, &size);
+    if (persist_save("task_list", arr_str, size) != 0)
+    {
+        printf("FAIL: persist_save\n");
+        free(arr_str);
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to save.");
+    }
+    destroy_json(arr);
+    free(arr);
+    free(arr_str);
+    return BB_SUCCESS();
+}
+
+BBError delete_from_list(const char *task_name)
+{
+    json_node_t *arr = get_list();
+    json_node_t *new_arr = JSON_NEW(JSON_ARRAY);
+    for (int i = 0; i < arr->size; i++)
+    {
+        char *val = get_json_array_index(arr, i)->value.text_val;
+        if (strcmp(val, task_name) != 0)
+        {
+            push_json_array(new_arr, JSON_NEW_TEXT(val));
+        }
+    }
+    destroy_json(arr);
+    free(arr);
+    char *arr_str;
+    int size;
+    serialize_json(new_arr, &arr_str, &size);
+    if (persist_save("task_list", arr_str, size) != 0)
+    {
+        printf("FAIL: persist_save\n");
+        free(arr_str);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+    }
+    destroy_json(new_arr);
+    free(new_arr);
+    free(arr_str);
+    return BB_SUCCESS();
+}
+
 BBError get_task_key(const char *task_name, char **buffer)
 {
     *buffer = malloc((strlen(task_name) + 5) * sizeof(char));
@@ -85,7 +144,7 @@ BBError add_new_task(const char *task_name)
         return BB_ERROR(BB_ERR_INTERNAL, "Failed to save.");
     }
     free(task_key);
-
+    add_to_list(task_name);
     return BB_SUCCESS();
 }
 
@@ -103,6 +162,7 @@ BBError delete_task(const char *task_name)
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to remove.");
     }
     free(task_key);
+    delete_from_list(task_name);
     return BB_SUCCESS();
 }
 
@@ -115,27 +175,7 @@ BBError add_task(request_t *req, response_t *res)
     switch (err.code)
     {
         case BB_OK:
-            // Add to list:
-            char buf[100000] = {0};
-            json_node_t *arr = JSON_NEW(JSON_ARRAY);
-            if (persist_load("task_list", buf, sizeof(buf)) == 0)
-            {
-                parse_json_str(arr, buf);
-            }
-            push_json_array(arr, JSON_NEW_TEXT(msg->body));
-            char *arr_str;
-            int size;
-            serialize_json(arr, &arr_str, &size);
-            if (persist_save("task_list", arr_str, size) != 0)
-            {
-                printf("FAIL: persist_save\n");
-                free(arr_str);
-                set_response_status(res, 500);
-                return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
-            }
-            destroy_json(arr);
-            free(arr);
-            free(arr_str);
+            set_response_status(res, 200);
             break;
         case BB_ERR_BAD_REQUEST:
             set_response_status(res, 409);
@@ -155,37 +195,7 @@ BBError remove_task(request_t *req, response_t *res)
     switch (err.code)
     {
         case BB_OK:
-            // Remove from list:
-            char buf[100000] = {0};
-            json_node_t *arr = JSON_NEW(JSON_ARRAY);
-            json_node_t *new_arr = JSON_NEW(JSON_ARRAY);
-            if (persist_load("task_list", buf, sizeof(buf)) == 0)
-            {
-                parse_json_str(arr, buf);
-            }
-            for (int i = 0; i < arr->size; i++)
-            {
-                char *val = get_json_array_index(arr, i)->value.text_val;
-                if (strcmp(val, task_name) != 0)
-                {
-                    push_json_array(new_arr, JSON_NEW_TEXT(val));
-                }
-            }
-            destroy_json(arr);
-            free(arr);
-            char *arr_str;
-            int size;
-            serialize_json(new_arr, &arr_str, &size);
-            if (persist_save("task_list", arr_str, size) != 0)
-            {
-                printf("FAIL: persist_save\n");
-                free(arr_str);
-                set_response_status(res, 500);
-                return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
-            }
-            destroy_json(new_arr);
-            free(new_arr);
-            free(arr_str);            
+            set_response_status(res, 200);
             break;
         default:
             set_response_status(res, 500);
@@ -224,7 +234,7 @@ BBError get_task(request_t *req, response_t *res)
     {
         case BB_OK:
             set_response_status(res, 200);
-            set_response_body(res, is_done ? "done" : "not_done");
+            set_response_body(res, is_done ? "not_done" : "done");
             break;
         case BB_ERR_BAD_REQUEST:
             set_response_status(res, 404);
@@ -238,13 +248,10 @@ BBError get_task(request_t *req, response_t *res)
 
 BBError list_tasks(request_t *req, response_t *res)
 {
-    char buf[100000] = {0};
-    if (persist_load("task_list", buf, sizeof(buf)) != 0)
-    {
-        printf("FAIL: persist_load\n");
-        set_response_status(res, 404);
-        return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: persist_load.");
-    }
+    json_node_t *arr = get_list();
+    char *buf;
+    int size;
+    serialize_json(arr, &buf, &size);
     set_response_body(res, buf);
     return BB_SUCCESS();
 }
