@@ -458,7 +458,7 @@ static int serialize_json_with_indent(json_node_t *json, char *buffer, int inden
 
 int serialize_json(json_node_t *json, char **buffer, int *size)
 {
-    *size = serialize_json_to_allocated_buffer(json, JSON_NULL);
+    *size = serialize_json_to_allocated_buffer(json, NULL);
     if (!buffer)
         return 1;
     *buffer = (char*)malloc(*size * sizeof(char));
@@ -472,7 +472,7 @@ int serialize_json(json_node_t *json, char **buffer, int *size)
 
 int indented_serialize_json(json_node_t *json, char **buffer, int *size)
 {
-    *size = serialize_json_with_indent(json, JSON_NULL, 0);
+    *size = serialize_json_with_indent(json, NULL, 0);
     if (!buffer)
         return 1;
     *buffer = (char*)malloc(*size * sizeof(char));
@@ -497,7 +497,6 @@ static int parse_json_str_null(json_node_t *json, char *buffer)
     init_json(json, JSON_NULL);
     if (!is_substr(buffer, "null"))
         return -1;
-    json->type = JSON_NULL;
     return 4;
 }
 
