@@ -66,53 +66,72 @@ BBError mark_task_done(const char *task_name)
     return BB_SUCCESS();
 }
 
-// Route Handlers:
-BBError add_task(request_t *req, response_t *res)
+BBError add_new_task(const char *task_name)
 {
-    http_message_t *msg = &GET_SERVER_REQUEST_MESSAGE(*req);
-    LOG_INFO("Add task: %s\n", msg->body);
     char *task_key;
-    get_task_key(msg->body, task_key);
-    if (BB_FAILED(get_task_key(msg->body, task_key)))
+    get_task_key(task_name, task_key);
+    if (BB_FAILED(get_task_key(task_name, task_key)))
     {
-        set_response_status(res, 500);
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
-    char exists_buf[100];
-    if (persist_load(task_key, exists_buf, sizeof(exists_buf)) == 0)
+    char buf[64] = {0};
+    if (persist_load(task_key, buf, sizeof(buf)) == 0)
     {
-        set_response_status(res, 409);
-        return BB_SUCCESS();
+        printf("FAIL: existing_task\n");
+        free(task_key);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "FAIL: existing_task.");
     }
     if (persist_save(task_key, "not_done", 8) != 0)
     {
         printf("FAIL: persist_save\n");
         free(task_key);
-        set_response_status(res, 500);
-        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to save.");
     }
     free(task_key);
-    char buf[100000] = {0};
-    json_node_t *arr = JSON_NEW(JSON_ARRAY);
-    if (persist_load("task_list", buf, sizeof(buf)) == 0)
-    {
-        parse_json_str(arr, buf);
-    }
-    push_json_array(arr, JSON_NEW_TEXT(msg->body));
-    char *arr_str;
-    int size;
-    serialize_json(arr, &arr_str, &size);
-    if (persist_save("task_list", arr_str, size) != 0)
-    {
-        printf("FAIL: persist_save\n");
-        free(arr_str);
-        set_response_status(res, 500);
-        return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
-    }
-    destroy_json(arr);
-    free(arr);
-    free(arr_str);
+
     return BB_SUCCESS();
+}
+
+// Route Handlers:
+BBError add_task(request_t *req, response_t *res)
+{
+    http_message_t *msg = &GET_SERVER_REQUEST_MESSAGE(*req);
+    LOG_INFO("Add task: %s\n", msg->body);
+    BBError err = add_new_task(msg->body);
+    switch (err.code)
+    {
+        case BB_OK:
+            // Add to list:
+            char buf[100000] = {0};
+            json_node_t *arr = JSON_NEW(JSON_ARRAY);
+            if (persist_load("task_list", buf, sizeof(buf)) == 0)
+            {
+                parse_json_str(arr, buf);
+            }
+            push_json_array(arr, JSON_NEW_TEXT(msg->body));
+            char *arr_str;
+            int size;
+            serialize_json(arr, &arr_str, &size);
+            if (persist_save("task_list", arr_str, size) != 0)
+            {
+                printf("FAIL: persist_save\n");
+                free(arr_str);
+                set_response_status(res, 500);
+                return BB_ERROR(BB_ERR_BAD_REQUEST, "Failed to save.");
+            }
+            destroy_json(arr);
+            free(arr);
+            free(arr_str);
+            break;
+        case BB_ERR_BAD_REQUEST:
+            set_response_status(res, 409);
+            break;
+        default:
+            set_response_status(res, 500);
+            break;
+    }
+    return err;
+
 }
 
 BBError remove_task(request_t *req, response_t *res)
@@ -207,7 +226,7 @@ BBError get_task(request_t *req, response_t *res)
             set_response_status(res, 500);
             break;
     }
-    return BB_SUCCESS();
+    return err;
 }
 
 BBError list_tasks(request_t *req, response_t *res)
