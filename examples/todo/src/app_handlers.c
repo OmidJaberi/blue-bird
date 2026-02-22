@@ -9,23 +9,22 @@
 #include <string.h>
 
 // Repo Logic
-BBError get_task_key(const char *task_name, char *buffer)
+BBError get_task_key(const char *task_name, char **buffer)
 {
-    buffer = malloc((strlen(task_name) + 5) * sizeof(char));
-    if (!buffer)
+    *buffer = malloc((strlen(task_name) + 5) * sizeof(char));
+    if (!*buffer)
     {
         printf("FAIL: malloc\n");
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
-    sprintf(buffer, "task:%s", task_name);
+    sprintf(*buffer, "task:%s", task_name);
     return BB_SUCCESS();
 }
 
 BBError is_task_done(const char *task_name, int *is_done)
 {
     char *task_key;
-    get_task_key(task_name, task_key);
-    if (BB_FAILED(get_task_key(task_name, task_key)))
+    if (BB_FAILED(get_task_key(task_name, &task_key)))
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
@@ -44,8 +43,7 @@ BBError is_task_done(const char *task_name, int *is_done)
 BBError mark_task_done(const char *task_name)
 {
     char *task_key;
-    get_task_key(task_name, task_key);
-    if (BB_FAILED(get_task_key(task_name, task_key)))
+    if (BB_FAILED(get_task_key(task_name, &task_key)))
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
@@ -69,8 +67,7 @@ BBError mark_task_done(const char *task_name)
 BBError add_new_task(const char *task_name)
 {
     char *task_key;
-    get_task_key(task_name, task_key);
-    if (BB_FAILED(get_task_key(task_name, task_key)))
+    if (BB_FAILED(get_task_key(task_name, &task_key)))
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
@@ -95,8 +92,7 @@ BBError add_new_task(const char *task_name)
 BBError delete_task(const char *task_name)
 {
     char *task_key;
-    get_task_key(task_name, task_key);
-    if (BB_FAILED(get_task_key(task_name, task_key)))
+    if (BB_FAILED(get_task_key(task_name, &task_key)))
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to malloc.");
     }
