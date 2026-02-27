@@ -79,3 +79,78 @@ void bb_config_free(bb_config_t *cfg)
     free(cfg->pairs);
     free(cfg);
 }
+
+int bb_config_set(bb_config_t *cfg,
+                  const char *key,
+                  const char *value)
+{
+    if (!cfg || !key || !value)
+        return 1;
+
+    int idx = find_index(cfg, key);
+
+    if (idx >= 0)
+    {
+        free(cfg->pairs[idx].value);
+        cfg->pairs[idx].value = strdup(value);
+        return 0;
+    }
+
+    if (ensure_capacity(cfg) != 0)
+        return 1;
+
+    cfg->pairs[cfg->count].key = strdup(key);
+    cfg->pairs[cfg->count].value = strdup(value);
+
+    if (!cfg->pairs[cfg->count].key ||
+        !cfg->pairs[cfg->count].value)
+        return 1;
+
+    cfg->count++;
+    return 0;
+}
+
+const char *bb_config_get(bb_config_t *cfg,
+                          const char *key)
+{
+    if (!cfg || !key)
+        return NULL;
+
+    int idx = find_index(cfg, key);
+    return (idx >= 0) ? cfg->pairs[idx].value : NULL;
+}
+
+const char *bb_config_get_default(bb_config_t *cfg,
+                                  const char *key,
+                                  const char *def)
+{
+    const char *v = bb_config_get(cfg, key);
+    return v ? v : def;
+}
+
+int bb_config_get_int(bb_config_t *cfg,
+                      const char *key,
+                      int def)
+{
+    const char *v = bb_config_get(cfg, key);
+    return v ? atoi(v) : def;
+}
+
+int bb_config_get_bool(bb_config_t *cfg,
+                       const char *key,
+                       int def)
+{
+    const char *v = bb_config_get(cfg, key);
+    if (!v)
+        return def;
+
+    if (strcasecmp(v, "true") == 0 ||
+        strcmp(v, "1") == 0)
+        return 1;
+
+    if (strcasecmp(v, "false") == 0 ||
+        strcmp(v, "0") == 0)
+        return 0;
+
+    return def;
+}
