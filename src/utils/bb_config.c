@@ -45,3 +45,37 @@ static int find_index(bb_config_t *cfg, const char *key)
     }
     return -1;
 }
+
+bb_config_t *bb_config_new(void)
+{
+    bb_config_t *cfg = malloc(sizeof(bb_config_t));
+    if (!cfg)
+        return NULL;
+
+    cfg->capacity = INITIAL_CAPACITY;
+    cfg->count = 0;
+    cfg->pairs = calloc(cfg->capacity, sizeof(bb_config_pair_t));
+
+    if (!cfg->pairs)
+    {
+        free(cfg);
+        return NULL;
+    }
+
+    return cfg;
+}
+
+void bb_config_free(bb_config_t *cfg)
+{
+    if (!cfg)
+        return;
+
+    for (size_t i = 0; i < cfg->count; i++)
+    {
+        free(cfg->pairs[i].key);
+        free(cfg->pairs[i].value);
+    }
+
+    free(cfg->pairs);
+    free(cfg);
+}
