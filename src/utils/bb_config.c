@@ -154,3 +154,31 @@ int bb_config_get_bool(bb_config_t *cfg,
 
     return def;
 }
+
+int bb_config_load_env(bb_config_t *cfg, const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return 1;
+
+    char line[512];
+
+    while (fgets(line, sizeof(line), f))
+    {
+        char *eq = strchr(line, '=');
+        if (!eq)
+            continue;
+
+        *eq = '\0';
+
+        char *key = line;
+        char *value = eq + 1;
+
+        value[strcspn(value, "\r\n")] = 0;
+
+        bb_config_set(cfg, key, value);
+    }
+
+    fclose(f);
+    return 0;
+}
