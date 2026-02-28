@@ -60,6 +60,7 @@ char *get_json_text_value(json_node_t *json);
 // JSON Array
 void push_json_array(json_node_t *json_array, json_node_t *element);
 json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index);
+void json_array_remove_at_index(json_node_t *json_array, unsigned int index);
 
 // JSON Object
 void set_json_object_value(json_node_t *json_object, const char *key, json_node_t *value);
