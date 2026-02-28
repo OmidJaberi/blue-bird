@@ -149,6 +149,17 @@ json_node_t *get_json_array_index(json_node_t *json_array, unsigned int index)
     return json_array->value.dynamic_array.array[index];
 }
 
+void json_array_remove_at_index(json_node_t *json_array, unsigned int index)
+{
+    BB_ASSERT(json_array->type == JSON_ARRAY, "Invalid JSON type.");
+    BB_ASSERT(json_array->size > index, "Index larger than array size");
+    destroy_json(json_array->value.dynamic_array.array[index]);
+    free(json_array->value.dynamic_array.array[index]);
+    for (int i = index; i < json_array->size; i++)
+        json_array->value.dynamic_array.array[i] = (i + 1 < json_array->value.dynamic_array.alloc_size ? json_array->value.dynamic_array.array[i + 1] : NULL);
+    json_array->size--;
+}
+
 // JSON Object: Implemented as hash table
 
 static int hash_function(const char *str)

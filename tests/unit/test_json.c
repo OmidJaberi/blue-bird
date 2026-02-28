@@ -36,6 +36,21 @@ void test_json_array()
     destroy_json(&arr);
 }
 
+void test_json_array_remove_at_index()
+{
+    printf("\tTesting JSON array remove at index...\n");
+    json_node_t arr;
+    int res = parse_json_str(&arr, "[1, 2, 3, 4, 5, 6, 7, 8]");
+    json_array_remove_at_index(&arr, 2);
+    assert(arr.size == 7);
+    char *buffer;
+    int size;
+    serialize_json(&arr, &buffer, &size);
+    assert(strcmp(buffer, "[1, 2, 4, 5, 6, 7, 8]") == 0);
+    free(buffer);
+    destroy_json(&arr);
+}
+
 void test_json_object()
 {
     printf("\tTesting JSON object...\n");
@@ -501,6 +516,7 @@ int main()
     printf("Running JSON tests...\n");
     test_json_text();
     test_json_array();
+    test_json_array_remove_at_index();
     test_json_object();
     test_object_key_overwrite();
     test_object_key_deletion();
