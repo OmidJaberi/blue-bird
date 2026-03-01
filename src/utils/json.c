@@ -756,6 +756,89 @@ int parse_json_str(json_node_t *json, char *buffer)
     return (res == strlen(buffer)) ? res : -1;
 }
 
+static int compare_json_bool(json_node_t *json_a, json_node_t *json_b)
+{
+    BB_ASSERT(json_a->type == JSON_BOOL, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_BOOL, "Invalid JSON type.");
+    return json_a->value.bool_val == json_b->value.bool_val ? 0 : 1;
+}
+
+static int compare_json_int(json_node_t *json_a, json_node_t *json_b)
+{
+    BB_ASSERT(json_a->type == JSON_INT, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_INT, "Invalid JSON type.");
+    return json_a->value.int_val == json_b->value.int_val ? 0 : 1;
+}
+
+static int compare_json_real(json_node_t *json_a, json_node_t *json_b)
+{
+    BB_ASSERT(json_a->type == JSON_REAL, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_REAL, "Invalid JSON type.");
+    return json_a->value.real_val == json_b->value.real_val ? 0 : 1;
+}
+
+static int compare_json_text(json_node_t *json_a, json_node_t *json_b)
+{
+    BB_ASSERT(json_a->type == JSON_TEXT, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_TEXT, "Invalid JSON type.");
+    return strcmp(json_a->value.text_val, json_b->value.text_val) == 0 ? 0 : 1;
+}
+
+static int compare_json_array(json_node_t *json_a, json_node_t *json_b)
+{
+    BB_ASSERT(json_a->type == JSON_ARRAY, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_ARRAY, "Invalid JSON type.");
+    if (json_a->size != json_b->size)
+    {
+        return -1;
+    }
+    for (int i = 0; i < json_a->size; i++)
+    {
+        if (json_cmp(json_a->value.dynamic_array.array[i], json_b->value.dynamic_array.array[i]) != 0)
+        {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int compare_json_object(json_node_t *json_a, json_node_t *json_b)
+{
+    return 0;
+}
+
+int compare_json(json_node_t *json_a, json_node_t *json_b)
+{
+    if (json_a->type != json_b->type)
+    {
+        return -1;
+    }
+    switch (json_a->type)
+    {
+        case JSON_NULL:
+            return 0;
+            break;
+        case JSON_BOOL:
+            return compare_json_bool(json_a, json_b);
+            break;
+        case JSON_INT:
+            return compare_json_int(json_a, json_b);
+            break;
+        case JSON_REAL:
+            return compare_json_real(json_a, json_b);
+            break;
+        case JSON_TEXT:
+            return compare_json_text(json_a, json_b);
+            break;
+        case JSON_ARRAY:
+            return compare_json_array(json_a, json_b);
+            break;
+        case JSON_OBJECT:
+            return compare_json_object(json_a, json_b);
+            break;
+    }
+}
+
 int load_json(json_node_t *json, const char *path)
 {
     FILE *f = fopen(path, "rb");

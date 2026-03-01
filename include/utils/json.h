@@ -74,6 +74,9 @@ int indented_serialize_json(json_node_t *json, char **buffer, int *size);
 // Parser
 int parse_json_str(json_node_t *json, char *buffer);
 
+// Compare
+int compare_json(json_node_t *json_a, json_node_t *json_b); // 0 for equal, -1 for not equal
+
 // File
 int load_json(json_node_t *json, const char *path);
 int dump_json(json_node_t *json, const char *path);
