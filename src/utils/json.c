@@ -758,22 +758,30 @@ int parse_json_str(json_node_t *json, char *buffer)
 
 static int compare_json_bool(json_node_t *json_a, json_node_t *json_b)
 {
-    return 0;
+    BB_ASSERT(json_a->type == JSON_BOOL, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_BOOL, "Invalid JSON type.");
+    return json_a->value.bool_val == json_b->value.bool_val ? 0 : 1;
 }
 
 static int compare_json_int(json_node_t *json_a, json_node_t *json_b)
 {
-    return 0;
+    BB_ASSERT(json_a->type == JSON_INT, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_INT, "Invalid JSON type.");
+    return json_a->value.int_val == json_b->value.int_val ? 0 : 1;
 }
 
 static int compare_json_real(json_node_t *json_a, json_node_t *json_b)
 {
-    return 0;
+    BB_ASSERT(json_a->type == JSON_REAL, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_REAL, "Invalid JSON type.");
+    return json_a->value.real_val == json_b->value.real_val ? 0 : 1;
 }
 
 static int compare_json_text(json_node_t *json_a, json_node_t *json_b)
 {
-    return 0;
+    BB_ASSERT(json_a->type == JSON_TEXT, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_TEXT, "Invalid JSON type.");
+    return strcmp(json_a->value.text_val, json_b->value.text_val) == 0 ? 0 : 1;
 }
 
 static int compare_json_array(json_node_t *json_a, json_node_t *json_b)
@@ -790,7 +798,7 @@ int compare_json(json_node_t *json_a, json_node_t *json_b)
 {
     if (json_a->type != json_b->type)
     {
-        return 0;
+        return -1;
     }
     switch (json_a->type)
     {
