@@ -756,6 +756,68 @@ int parse_json_str(json_node_t *json, char *buffer)
     return (res == strlen(buffer)) ? res : -1;
 }
 
+static int compare_json_bool(json_node_t *json_a, json_node_t *json_b)
+{
+    return 0;
+}
+
+static int compare_json_int(json_node_t *json_a, json_node_t *json_b)
+{
+    return 0;
+}
+
+static int compare_json_real(json_node_t *json_a, json_node_t *json_b)
+{
+    return 0;
+}
+
+static int compare_json_text(json_node_t *json_a, json_node_t *json_b)
+{
+    return 0;
+}
+
+static int compare_json_array(json_node_t *json_a, json_node_t *json_b)
+{
+    return 0;
+}
+
+static int compare_json_object(json_node_t *json_a, json_node_t *json_b)
+{
+    return 0;
+}
+
+int compare_json(json_node_t *json_a, json_node_t *json_b)
+{
+    if (json_a->type != json_b->type)
+    {
+        return 0;
+    }
+    switch (json_a->type)
+    {
+        case JSON_NULL:
+            return 0;
+            break;
+        case JSON_BOOL:
+            return compare_json_bool(json_a, json_b);
+            break;
+        case JSON_INT:
+            return compare_json_int(json_a, json_b);
+            break;
+        case JSON_REAL:
+            return compare_json_real(json_a, json_b);
+            break;
+        case JSON_TEXT:
+            return compare_json_text(json_a, json_b);
+            break;
+        case JSON_ARRAY:
+            return compare_json_array(json_a, json_b);
+            break;
+        case JSON_OBJECT:
+            return compare_json_object(json_a, json_b);
+            break;
+    }
+}
+
 int load_json(json_node_t *json, const char *path)
 {
     FILE *f = fopen(path, "rb");
