@@ -786,6 +786,19 @@ static int compare_json_text(json_node_t *json_a, json_node_t *json_b)
 
 static int compare_json_array(json_node_t *json_a, json_node_t *json_b)
 {
+    BB_ASSERT(json_a->type == JSON_ARRAY, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_ARRAY, "Invalid JSON type.");
+    if (json_a->size != json_b->size)
+    {
+        return -1;
+    }
+    for (int i = 0; i < json_a->size; i++)
+    {
+        if (json_cmp(json_a->value.dynamic_array.array[i], json_b->value.dynamic_array.array[i]) != 0)
+        {
+            return -1;
+        }
+    }
     return 0;
 }
 
