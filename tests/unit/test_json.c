@@ -458,6 +458,50 @@ void test_parse_json_with_trailing_str()
     destroy_json(&json);
 }
 
+void test_compare_equal_jsons()
+{
+    printf("\tTesting comparison of  equal JSONs...\n");
+    json_node_t json_1, json_2;
+    parse_json_str(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
+    parse_json_str(&json_2, "{\"one\": 1, \"two\": 2, \"three\": 3}");
+    assert(compare_json(&json_1, &json_2) == 0);
+    destroy_json(&json_1);
+    destroy_json(&json_2);
+}
+
+void test_compare_equal_jsons_different_order()
+{
+    printf("\tTesting comparison of  equal JSONs...\n");
+    json_node_t json_1, json_2;
+    parse_json_str(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
+    parse_json_str(&json_2, "{\"one\": 1, \"three\": 3, \"two\": 2}");
+    assert(compare_json(&json_1, &json_2) == 0);
+    destroy_json(&json_1);
+    destroy_json(&json_2);
+}
+
+void test_compare_jsons_missing_key()
+{
+    printf("\tTesting comparison of  equal JSONs...\n");
+    json_node_t json_1, json_2;
+    parse_json_str(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
+    parse_json_str(&json_2, "{\"one\": 1, \"two\": 2}");
+    assert(compare_json(&json_1, &json_2) != 0);
+    destroy_json(&json_1);
+    destroy_json(&json_2);
+}
+
+void test_compare_jsons_extra_key()
+{
+    printf("\tTesting comparison of  equal JSONs...\n");
+    json_node_t json_1, json_2;
+    parse_json_str(&json_1, "{\"one\": 1, \"two\": 2}");
+    parse_json_str(&json_2, "{\"one\": 1, \"two\": 2, \"three\": 3}");
+    assert(compare_json(&json_1, &json_2) != 0);
+    destroy_json(&json_1);
+    destroy_json(&json_2);
+}
+
 void test_dump_and_load_json()
 {
     printf("\tTesting JSON file load and dump...\n");
@@ -545,6 +589,11 @@ int main()
     test_missing_value_object_json();
     test_missing_key_object_json();
     test_parse_json_with_trailing_str();
+
+    test_compare_equal_jsons();
+    test_compare_equal_jsons_different_order();
+    test_compare_jsons_missing_key();
+    test_compare_jsons_extra_key();
 
     test_dump_and_load_json();
 
