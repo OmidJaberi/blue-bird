@@ -804,6 +804,20 @@ static int compare_json_array(json_node_t *json_a, json_node_t *json_b)
 
 static int compare_json_object(json_node_t *json_a, json_node_t *json_b)
 {
+    BB_ASSERT(json_a->type == JSON_OBJECT, "Invalid JSON type.");
+    BB_ASSERT(json_b->type == JSON_OBJECT, "Invalid JSON type.");
+    if (json_a->size != json_b->size)
+    {
+        return -1;
+    }
+    for (hash_table_node_t *node = json_a->value.object.order_head; node != NULL; node = node->order_next)
+    {
+        json_node_t *value_in_b = get_json_object_value(json_b, node->key);
+        if (compare_json(node->value, value_in_b) != 0)
+        {
+            return -1;
+        }
+    }
     return 0;
 }
 
