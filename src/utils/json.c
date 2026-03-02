@@ -794,7 +794,7 @@ static int compare_json_array(json_node_t *json_a, json_node_t *json_b)
     }
     for (int i = 0; i < json_a->size; i++)
     {
-        if (json_cmp(json_a->value.dynamic_array.array[i], json_b->value.dynamic_array.array[i]) != 0)
+        if (compare_json(json_a->value.dynamic_array.array[i], json_b->value.dynamic_array.array[i]) != 0)
         {
             return -1;
         }
@@ -809,6 +809,10 @@ static int compare_json_object(json_node_t *json_a, json_node_t *json_b)
 
 int compare_json(json_node_t *json_a, json_node_t *json_b)
 {
+    if (!json_a || !json_b)
+    {
+        return -1;
+    }
     if (json_a->type != json_b->type)
     {
         return -1;
