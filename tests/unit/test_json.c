@@ -460,7 +460,7 @@ void test_parse_json_with_trailing_str()
 
 void test_compare_equal_jsons()
 {
-    printf("\tTesting comparison of  equal JSONs...\n");
+    printf("\tTesting comparison of equal JSONs...\n");
     json_node_t json_1, json_2;
     parse_json_str(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
     parse_json_str(&json_2, "{\"one\": 1, \"two\": 2, \"three\": 3}");
@@ -471,7 +471,7 @@ void test_compare_equal_jsons()
 
 void test_compare_equal_jsons_different_order()
 {
-    printf("\tTesting comparison of  equal JSONs...\n");
+    printf("\tTesting comparison of equal JSONs with different order...\n");
     json_node_t json_1, json_2;
     parse_json_str(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
     parse_json_str(&json_2, "{\"one\": 1, \"three\": 3, \"two\": 2}");
@@ -482,7 +482,7 @@ void test_compare_equal_jsons_different_order()
 
 void test_compare_jsons_missing_key()
 {
-    printf("\tTesting comparison of  equal JSONs...\n");
+    printf("\tTesting comparison of JSONs: missing key...\n");
     json_node_t json_1, json_2;
     parse_json_str(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
     parse_json_str(&json_2, "{\"one\": 1, \"two\": 2}");
@@ -493,11 +493,22 @@ void test_compare_jsons_missing_key()
 
 void test_compare_jsons_extra_key()
 {
-    printf("\tTesting comparison of  equal JSONs...\n");
+    printf("\tTesting comparison of JSONs: extra key...\n");
     json_node_t json_1, json_2;
     parse_json_str(&json_1, "{\"one\": 1, \"two\": 2}");
     parse_json_str(&json_2, "{\"one\": 1, \"two\": 2, \"three\": 3}");
     assert(compare_json(&json_1, &json_2) != 0);
+    destroy_json(&json_1);
+    destroy_json(&json_2);
+}
+
+void test_compare_complex_equal_jsons()
+{
+    printf("\tTesting comparison of complex equal JSONs...\n");
+    json_node_t json_1, json_2;
+    parse_json_str(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}]}");
+    parse_json_str(&json_2, "{\"one\": 1, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}], \"two\": 2}");
+    assert(compare_json(&json_1, &json_2) == 0);
     destroy_json(&json_1);
     destroy_json(&json_2);
 }
@@ -594,6 +605,7 @@ int main()
     test_compare_equal_jsons_different_order();
     test_compare_jsons_missing_key();
     test_compare_jsons_extra_key();
+    test_compare_complex_equal_jsons();
 
     test_dump_and_load_json();
 
