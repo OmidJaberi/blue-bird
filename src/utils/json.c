@@ -753,7 +753,12 @@ static int parse_json_str_partial(json_node_t *json, char *buffer)
 int parse_json_str(json_node_t *json, char *buffer)
 {
     int res = parse_json_str_partial(json, buffer);
-    return (res == strlen(buffer)) ? res : -1;
+    if (res != strlen(buffer))
+    {
+        destroy_json(json);
+        return -1;
+    }
+    return res;
 }
 
 static int compare_json_bool(json_node_t *json_a, json_node_t *json_b)
