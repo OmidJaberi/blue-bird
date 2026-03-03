@@ -61,7 +61,7 @@ void destroy_json(json_node_t *json)
         default:
             break;
     }
-    json->size = 0;
+    init_json(json, JSON_NULL);
 }
 
 void set_json_bool_value(json_node_t *json, bool value)
