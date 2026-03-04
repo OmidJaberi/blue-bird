@@ -12,12 +12,15 @@
 json_node_t *get_list()
 {
     char buf[100000];
-    json_node_t *arr = JSON_NEW(JSON_ARRAY);
+    json_node_t *arr;;
     if (persist_load("task_list", buf, sizeof(buf)) == 0)
     {
-        parse_json_str(arr, buf);
+        if (parse_json_str(arr, buf) == 0)
+        {
+            return arr;
+        }
     }
-    return arr;
+    return JSON_NEW(JSON_ARRAY);
 }
 
 BBError add_to_list(const char *task_name)
