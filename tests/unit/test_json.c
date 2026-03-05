@@ -51,6 +51,30 @@ void test_json_array_remove_at_index()
     destroy_json(&arr);
 }
 
+void test_json_array_multi_remove_at_index()
+{
+    printf("\tTesting JSON array remove multiple elements...\n");
+    json_node_t *arr = JSON_NEW(JSON_ARRAY);
+    for (int i = 0; i < 1000; i++)
+    {
+        push_json_array(arr, JSON_NEW_INT(i));
+    }
+    while (arr->size > 20)
+    {
+        json_array_remove_at_index(arr, arr->size - 1);
+    }
+    for (int i = 19; i > 0; i -= 2)
+    {
+        json_array_remove_at_index(arr, i);
+    }
+    char *buffer;
+    int size;
+    serialize_json(arr, &buffer, &size);
+    assert(strcmp(buffer, "[0, 2, 4, 6, 8, 10, 12, 14, 16, 18]") == 0);
+    free(buffer);
+    destroy_json(arr);
+}
+
 void test_json_object()
 {
     printf("\tTesting JSON object...\n");
@@ -572,6 +596,7 @@ int main()
     test_json_text();
     test_json_array();
     test_json_array_remove_at_index();
+    test_json_array_multi_remove_at_index();
     test_json_object();
     test_object_key_overwrite();
     test_object_key_deletion();
