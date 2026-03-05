@@ -11,15 +11,20 @@
 // Repo Logic
 json_node_t *get_list()
 {
-    char buf[100000];
-    json_node_t *arr;;
+    char *buf = (char*)malloc(sizeof(char) * 1000);
     if (persist_load("task_list", buf, sizeof(buf)) == 0)
     {
-        if (parse_json_str(arr, buf) == 0)
+        json_node_t *arr = JSON_NEW(JSON_ARRAY);
+        if (parse_json_str(arr, buf) != -1)
         {
+            free(buf);
             return arr;
         }
+        printf("Buf failed: %s\n", buf);
+        destroy_json(arr);
+        free(arr);
     }
+    free(buf);
     return JSON_NEW(JSON_ARRAY);
 }
 
