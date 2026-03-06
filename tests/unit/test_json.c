@@ -482,6 +482,27 @@ void test_parse_json_with_trailing_str()
     destroy_json(&json);
 }
 
+void test_serialize_with_non_empty_buffer()
+{
+    printf("\tTesting serializing JSON on non-empty buffer...\n");
+    json_node_t json;
+    init_json(&json, JSON_ARRAY);
+    for (int i = 0; i < 4; i++)
+    {
+        push_json_array(&json, JSON_NEW_INT(i));
+    }
+    char *buffer = malloc(sizeof(char) * 1000);
+    for (int i = 0; i < 1000; i++)
+    {
+        buffer[i] = '#';
+    }
+    int size;
+    serialize_json(&json, &buffer, &size);
+    assert(strcasecmp(buffer, "[0, 1, 2, 3]") == 0);
+    free(buffer);
+    destroy_json(&json);
+}
+
 void test_compare_equal_jsons()
 {
     printf("\tTesting comparison of equal JSONs...\n");
@@ -625,6 +646,7 @@ int main()
     test_missing_value_object_json();
     test_missing_key_object_json();
     test_parse_json_with_trailing_str();
+    test_serialize_with_non_empty_buffer();
 
     test_compare_equal_jsons();
     test_compare_equal_jsons_different_order();
