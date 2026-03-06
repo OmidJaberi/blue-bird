@@ -20,7 +20,6 @@ json_node_t *get_list()
             free(buf);
             return arr;
         }
-        printf("Buf failed: %s\n", buf);
         destroy_json(arr);
         free(arr);
     }
@@ -261,7 +260,11 @@ BBError list_tasks(request_t *req, response_t *res)
     json_node_t *arr = get_list();
     char *buf;
     int size;
-    serialize_json(arr, &buf, &size);
+    if (serialize_json(arr, &buf, &size) != 0)
+    {
+        set_response_status(res, 500);
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to serialize.");
+    }
     set_response_body(res, buf);
     return BB_SUCCESS();
 }
