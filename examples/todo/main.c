@@ -14,9 +14,6 @@ int main()
 
     const char *dbfile = "todo_sqlite.db";
 
-    /* Clean up from previous runs */
-    // unlink(dbfile);
-
     /* Register backend */
     persist_sqlite_register();
     persist_set_default("sqlite");

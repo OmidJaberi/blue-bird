@@ -316,6 +316,7 @@ static int serialize_real_json(json_node_t *json, char *buffer)
         memcpy(buffer, s, (index + 1) * sizeof(char));
     return index;
 }
+
 static int serialize_text_json(json_node_t *json, char *buffer)
 {
     BB_ASSERT(json->type == JSON_TEXT, "Invalid JSON type.");
