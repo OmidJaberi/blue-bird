@@ -6,7 +6,7 @@
 
 void init_route_list(RouteList *route_list)
 {
-    route_list->route_count = 0;
+    route_list->first = NULL;
 }
 
 static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN])
@@ -49,15 +49,15 @@ BBError add_route_to_list(RouteList *route_list, const char *method, const char 
     BB_ASSERT(path != NULL, "Route path is NULL");
     BB_ASSERT(handler != NULL, "Route handler is NULL");
 
-    // Runtime validation
-    if (route_list->route_count >= MAX_ROUTES)
-        return BB_ERROR(BB_ERR_INTERNAL, "Maximum number of routes reached.");
-
+    route_t *new_route = malloc(sizeof(route_t));
+    
     // Add the route
-    route_list->list[route_list->route_count].method = method;
-    route_list->list[route_list->route_count].path = path;
-    route_list->list[route_list->route_count].handler = handler;
-    route_list->route_count++;
+    new_route->method = method;
+    new_route->path = path;
+    new_route->handler = handler;
+    
+    new_route->next_route = route_list->first;
+    route_list->first = new_route;
 
     return BB_SUCCESS();
 }
@@ -67,12 +67,12 @@ void handle_request(RouteList *route_list, request_t *req, response_t *res)
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(GET_REQUEST_PATH(*req), req_segments);
 
-    for (int i = 0; i < route_list->route_count; i++)
+    for (route_t *route = route_list->first; route != NULL; route = route->next_route)
     {
-        if (strcmp(GET_REQUEST_METHOD(*req), route_list->list[i].method) != 0) continue;
+        if (strcmp(GET_REQUEST_METHOD(*req), route->method) != 0) continue;
 
         char route_segments[MAX_SEGMENTS][MAX_PATH_LEN];
-        int route_segment_count = split_path(route_list->list[i].path, route_segments);
+        int route_segment_count = split_path(route->path, route_segments);
 
         if (req_count != route_segment_count) continue;
 
@@ -107,7 +107,7 @@ void handle_request(RouteList *route_list, request_t *req, response_t *res)
 
         if (match)
         {
-            route_list->list[i].handler(req, res);
+            route->handler(req, res);
             return;
         }
     }

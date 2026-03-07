@@ -10,15 +10,15 @@
 
 typedef http_handler_cb route_handler_cb;
 
-typedef struct {
+typedef struct Route {
     const char *method;
     const char *path;
     route_handler_cb handler;
-} Route;
+    struct Route *next_route;
+} route_t;
 
 typedef struct {
-    Route list[MAX_ROUTES];
-    int route_count;
+    route_t *first;
 } RouteList;
 
 void init_route_list(RouteList *route_list);
