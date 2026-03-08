@@ -15,7 +15,7 @@ int init_server(Server *server, int port)
     server->route_list = (route_list_t *)malloc(sizeof(route_list_t));
     init_route_list(server->route_list);
 
-    server->middleware_list = (MiddlewareList *)malloc(sizeof(MiddlewareList));
+    server->middleware_list = (middleware_list_t *)malloc(sizeof(middleware_list_t));
     init_middleware_list(server->middleware_list);
 
     struct sockaddr_in address;

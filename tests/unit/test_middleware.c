@@ -36,7 +36,7 @@ BBError mw_stop(request_t *req, response_t *res)
 
 void test_middleware_order()
 {
-    MiddlewareList mw_list;
+    middleware_list_t mw_list;
     init_middleware_list(&mw_list);
     response_t res;
     request_t req;
@@ -59,7 +59,7 @@ void test_middleware_order()
 
 void test_middleware_stop()
 {
-    MiddlewareList mw_list;
+    middleware_list_t mw_list;
     init_middleware_list(&mw_list);
     response_t res;
     request_t req;

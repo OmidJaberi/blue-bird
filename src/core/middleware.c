@@ -2,15 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void init_middleware_list(MiddlewareList *list)
+void init_middleware_list(middleware_list_t *list)
 {
     list->first = NULL;
     list->middleware_count = 0;
 }
 
-MiddlewareObject *create_middleware_object(middleware_cb mw)
+middleware_object_t *create_middleware_object(middleware_cb mw)
 {
-    MiddlewareObject *mw_obj = malloc(sizeof(MiddlewareObject));
+    middleware_object_t *mw_obj = malloc(sizeof(middleware_object_t));
     if (mw_obj == NULL)
     {
         return NULL;
@@ -20,23 +20,23 @@ MiddlewareObject *create_middleware_object(middleware_cb mw)
     return mw_obj;
 }
 
-void append_to_middleware_list(MiddlewareList *list, middleware_cb mw)
+void append_to_middleware_list(middleware_list_t *list, middleware_cb mw)
 {
-    MiddlewareObject *mw_obj = create_middleware_object(mw);
+    middleware_object_t *mw_obj = create_middleware_object(mw);
     if (!list->first)
         list->first = mw_obj;
     else
     {
-        MiddlewareObject *last = list->first;
+        middleware_object_t *last = list->first;
         while (last->next)
             last = last->next;
         last->next = mw_obj;
     }
 }
 
-BBError run_middleware(MiddlewareList *list, request_t *req, response_t *res)
+BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res)
 {
-    MiddlewareObject *current = list->first;
+    middleware_object_t *current = list->first;
     while (current)
     {
         BBError result = current->middleware(req, res);
@@ -47,12 +47,12 @@ BBError run_middleware(MiddlewareList *list, request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-void destroy_middleware_list(MiddlewareList *list)
+void destroy_middleware_list(middleware_list_t *list)
 {
-    MiddlewareObject *current = list->first;
+    middleware_object_t *current = list->first;
     while (current)
     {
-        MiddlewareObject *next = current->next;
+        middleware_object_t *next = current->next;
         free(current);
         current = next;
     }

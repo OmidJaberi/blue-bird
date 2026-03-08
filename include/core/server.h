@@ -7,7 +7,7 @@
 typedef struct {
     int server_fd;
     route_list_t *route_list;
-    MiddlewareList *middleware_list;
+    middleware_list_t *middleware_list;
 } Server;
 
 int init_server(Server *server, int port);
