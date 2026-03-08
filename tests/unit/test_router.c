@@ -43,7 +43,7 @@ BBError handler_user(request_t *req, response_t *res)
 // Tests
 void test_route_match_get()
 {
-    RouteList route_list;
+    route_list_t route_list;
     init_route_list(&route_list);
 
     request_t req;
@@ -66,7 +66,7 @@ void test_route_match_get()
 
 void test_route_match_post()
 {
-    RouteList route_list;
+    route_list_t route_list;
     init_route_list(&route_list);
 
     request_t req;
@@ -88,7 +88,7 @@ void test_route_match_post()
 
 void test_route_not_found()
 {
-    RouteList route_list;
+    route_list_t route_list;
     init_route_list(&route_list);
 
     request_t req;
@@ -108,7 +108,7 @@ void test_route_not_found()
 
 void test_route_with_param()
 {
-    RouteList route_list;
+    route_list_t route_list;
     init_route_list(&route_list);
 
     request_t req;

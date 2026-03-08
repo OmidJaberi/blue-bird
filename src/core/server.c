@@ -12,7 +12,7 @@
 
 int init_server(Server *server, int port)
 {
-    server->route_list = (RouteList *)malloc(sizeof(RouteList));
+    server->route_list = (route_list_t *)malloc(sizeof(route_list_t));
     init_route_list(server->route_list);
 
     server->middleware_list = (MiddlewareList *)malloc(sizeof(MiddlewareList));

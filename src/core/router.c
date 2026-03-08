@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-void init_route_list(RouteList *route_list)
+void init_route_list(route_list_t *route_list)
 {
     route_list->first = NULL;
 }
@@ -41,7 +41,7 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
     return count;
 }
 
-BBError add_route_to_list(RouteList *route_list, const char *method, const char *path, route_handler_cb handler)
+BBError add_route_to_list(route_list_t *route_list, const char *method, const char *path, route_handler_cb handler)
 {
     // Basic sanity checks
     BB_ASSERT(route_list != NULL, "Route list pointer is NULL");
@@ -62,7 +62,7 @@ BBError add_route_to_list(RouteList *route_list, const char *method, const char 
     return BB_SUCCESS();
 }
 
-void handle_request(RouteList *route_list, request_t *req, response_t *res)
+void handle_request(route_list_t *route_list, request_t *req, response_t *res)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(GET_REQUEST_PATH(*req), req_segments);

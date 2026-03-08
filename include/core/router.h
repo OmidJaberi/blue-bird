@@ -4,7 +4,6 @@
 #include "http.h"
 #include "error/error.h"
 
-#define MAX_ROUTES 50
 #define MAX_SEGMENTS 20
 #define MAX_PATH_LEN 256
 
@@ -19,10 +18,10 @@ typedef struct Route {
 
 typedef struct {
     route_t *first;
-} RouteList;
+} route_list_t;
 
-void init_route_list(RouteList *route_list);
-BBError add_route_to_list(RouteList *route_list, const char *method, const char *path, route_handler_cb handler);
-void handle_request(RouteList *route_list, request_t *req, response_t *res);
+void init_route_list(route_list_t *route_list);
+BBError add_route_to_list(route_list_t *route_list, const char *method, const char *path, route_handler_cb handler);
+void handle_request(route_list_t *route_list, request_t *req, response_t *res);
 
 #endif // ROUTER_H

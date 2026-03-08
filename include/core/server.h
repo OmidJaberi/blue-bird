@@ -6,7 +6,7 @@
 
 typedef struct {
     int server_fd;
-    RouteList *route_list;
+    route_list_t *route_list;
     MiddlewareList *middleware_list;
 } Server;
 
