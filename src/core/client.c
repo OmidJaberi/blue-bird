@@ -11,7 +11,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-BBError http_client_connect(HttpClient *client, const char *host, int port)
+BBError http_client_connect(bb_client_t *client, const char *host, int port)
 {
     if (!client || !host)
         return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or host");
@@ -55,7 +55,7 @@ BBError http_client_connect(HttpClient *client, const char *host, int port)
     return BB_SUCCESS();
 }
 
-BBError http_client_send(HttpClient *client, request_t *req)
+BBError http_client_send(bb_client_t *client, request_t *req)
 {
     if (!client || !req)
         return BB_ERROR(BB_ERR_UNKNOWN,"Invalid client or request");
@@ -98,7 +98,7 @@ BBError http_client_send(HttpClient *client, request_t *req)
     return BB_SUCCESS();
 }
 
-BBError http_client_receive(HttpClient *client, response_t *res)
+BBError http_client_receive(bb_client_t *client, response_t *res)
 {
     if (!client || !res)
         return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or response");
@@ -135,7 +135,7 @@ BBError http_client_receive(HttpClient *client, response_t *res)
     return BB_SUCCESS();
 }
 
-void http_client_close(HttpClient *client)
+void http_client_close(bb_client_t *client)
 {
     if (!client) return;
 

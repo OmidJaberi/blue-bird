@@ -7,7 +7,7 @@
 
 int main(void)
 {
-    HttpClient client;
+    bb_client_t client;
     request_t req;
     response_t res;
 
