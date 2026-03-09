@@ -17,7 +17,7 @@ int main()
     logger_init_console(&console_logger, LOG_LEVEL_INFO, stderr);
     default_logger = console_logger;
 
-    Server server;
+    bb_server_t server;
     init_server(&server, 8080);
 
     use_middleware(&server, logger_middleware);

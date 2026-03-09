@@ -59,7 +59,7 @@ BBError root_handler(request_t *req, response_t *res)
 
 int main()
 {
-    Server server;
+    bb_server_t server;
     init_server(&server, 8080);
 
     add_route(&server, "GET", "/", root_handler);

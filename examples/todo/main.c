@@ -19,7 +19,7 @@ int main()
     persist_set_default("sqlite");
     persist_set_default_uri(dbfile);
 
-    Server server;
+    bb_server_t server;
     init_server(&server, 8080);
 
     add_route(&server, "POST", "/add_task", add_task);

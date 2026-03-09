@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-int init_server(Server *server, int port)
+int init_server(bb_server_t *server, int port)
 {
     server->route_list = (route_list_t *)malloc(sizeof(route_list_t));
     init_route_list(server->route_list);
@@ -57,17 +57,17 @@ int init_server(Server *server, int port)
     return 0;
 }
 
-void add_route(Server *server, const char *method, const char *path, route_handler_cb handler)
+void add_route(bb_server_t *server, const char *method, const char *path, route_handler_cb handler)
 {
     add_route_to_list(server->route_list, method, path, handler);
 }
 
-void use_middleware(Server *server, middleware_cb mw)
+void use_middleware(bb_server_t *server, middleware_cb mw)
 {
     append_to_middleware_list(server->middleware_list, mw);
 }
 
-void start_server(Server *server)
+void start_server(bb_server_t *server)
 {
     int client_fd;
     struct sockaddr_in address;
@@ -112,7 +112,7 @@ void start_server(Server *server)
     }
 }
 
-void destroy_server(Server *server)
+void destroy_server(bb_server_t *server)
 {
     free(server->route_list);
     destroy_middleware_list(server->middleware_list);
