@@ -67,4 +67,4 @@ bb_repo_status_t bb_repo_delete(
     uint64_t   id
 );
 
-#endif // BB_REPO_H
+#endif //BB_REPO_H

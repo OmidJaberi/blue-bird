@@ -41,4 +41,4 @@ int bb_config_get_bool(bb_config_t *cfg,
                        const char *key,
                        int def);
 
-#endif
+#endif //BB_UTILS_CONFIG_H

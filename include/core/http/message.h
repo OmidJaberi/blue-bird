@@ -1,5 +1,5 @@
-#ifndef HTTP_MESSAGE_H
-#define HTTP_MESSAGE_H
+#ifndef BB_HTTP_MESSAGE_H
+#define BB_HTTP_MESSAGE_H
 
 #include <stddef.h>
 
@@ -32,4 +32,4 @@ int serialize_message(http_message_t *msg, char *buffer, int buffer_size);
 
 void destroy_message(http_message_t *msg);
 
-#endif //HTTP_MESSAGE_H
+#endif //BB_HTTP_MESSAGE_H

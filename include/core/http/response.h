@@ -1,5 +1,5 @@
-#ifndef RESPONSE_H
-#define RESPONSE_H
+#ifndef BB_RESPONSE_H
+#define BB_RESPONSE_H
 
 #include "server_response.h"
 #include "client_response.h"
@@ -28,4 +28,4 @@ const char *get_response_header(response_t *res, const char *name);
 
 int parse_response(const char *raw, response_t *res);
 
-#endif // RESPONSE_H
+#endif //BB_RESPONSE_H

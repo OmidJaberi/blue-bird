@@ -1,5 +1,5 @@
-#ifndef BB_JSON
-#define BB_JSON
+#ifndef BB_JSON_H
+#define BB_JSON_H
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -182,4 +182,4 @@ typedef struct {
     _obj;                                                           \
 })
 
-#endif //BB_JSON
+#endif //BB_JSON_H

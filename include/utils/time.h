@@ -35,4 +35,4 @@ int bb_time_format_iso8601(int64_t ts, char *buf, size_t bufsize);
 /* Parse RFC1123 string into epoch seconds */
 int bb_time_parse_rfc1123(const char *str, int64_t *out_ts);
 
-#endif
+#endif //BB_UTILS_TIME_H

@@ -24,4 +24,4 @@ int bb_uuid_to_string(const uint8_t uuid[16],
  */
 int bb_uuid_v4_string(char out[BB_UUID_BUF_LEN]);
 
-#endif
+#endif //BB_UTILS_UUID_H

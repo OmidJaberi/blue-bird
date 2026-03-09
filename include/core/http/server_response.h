@@ -1,5 +1,5 @@
-#ifndef SERVER_RESPONSE_H
-#define SERVER_RESPONSE_H
+#ifndef BB_SERVER_RESPONSE_H
+#define BB_SERVER_RESPONSE_H
 
 #include "message.h"
 
@@ -25,4 +25,4 @@ int serialize_server_response(server_response_t *res, char *buffer, int buffer_s
 
 int send_server_response(int sock_fd, server_response_t *res);
 
-#endif // SERVER_RESPONSE_H
+#endif //BB_SERVER_RESPONSE_H

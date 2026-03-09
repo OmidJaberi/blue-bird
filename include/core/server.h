@@ -1,5 +1,5 @@
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef BB_SERVER_H
+#define BB_SERVER_H
 
 #include "core/router.h"
 #include "core/middleware.h"
@@ -16,4 +16,4 @@ void use_middleware(bb_server_t *server, middleware_cb mw);
 void start_server(bb_server_t *server);
 void destroy_server(bb_server_t *server);
 
-#endif // SERVER_H
+#endif //BB_SERVER_H

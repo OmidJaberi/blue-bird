@@ -1,5 +1,5 @@
-#ifndef CLIENT_REQUEST_H
-#define CLIENT_REQUEST_H
+#ifndef BB_CLIENT_REQUEST_H
+#define BB_CLIENT_REQUEST_H
 
 #include <stddef.h>
 #include "message.h"
@@ -20,4 +20,4 @@ void set_client_request_header(client_request_t *req, const char *name, const ch
 void set_client_request_body(client_request_t *req, const char *body, size_t len);
 void destroy_client_request(client_request_t *req);
 
-#endif //CLIENT_REQUEST_H
+#endif //BB_CLIENT_REQUEST_H

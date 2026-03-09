@@ -1,5 +1,5 @@
-#ifndef ROUTER_H
-#define ROUTER_H
+#ifndef BB_ROUTER_H
+#define BB_ROUTER_H
 
 #include "http.h"
 #include "error/error.h"
@@ -24,4 +24,4 @@ void init_route_list(route_list_t *route_list);
 BBError add_route_to_list(route_list_t *route_list, const char *method, const char *path, route_handler_cb handler);
 void handle_request(route_list_t *route_list, request_t *req, response_t *res);
 
-#endif // ROUTER_H
+#endif //BB_ROUTER_H

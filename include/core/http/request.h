@@ -1,5 +1,5 @@
-#ifndef REQUEST_H
-#define REQUEST_H
+#ifndef BB_REQUEST_H
+#define BB_REQUEST_H
 
 #include "server_request.h"
 #include "client_request.h"
@@ -48,4 +48,4 @@ void set_request_body(request_t *req, const char *body, size_t len);
 #define GET_REQUEST_URL(req) ((req).c_req.url)
 
 
-#endif // REQUEST_H
+#endif //BB_REQUEST_H

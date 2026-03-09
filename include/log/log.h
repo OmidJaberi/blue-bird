@@ -1,5 +1,5 @@
-#ifndef BLUE_BIRD_LOG_H
-#define BLUE_BIRD_LOG_H
+#ifndef BB_LOG_H
+#define BB_LOG_H
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -41,4 +41,4 @@ extern Logger default_logger;
 /* Close logger (only needed for persist/file backends) */
 void logger_close(Logger *logger);
 
-#endif /* BLUE_BIRD_LOG_H */
+#endif //BB_LOG_H

@@ -1,5 +1,5 @@
-#ifndef CLIENT_RESPONSE_H
-#define CLIENT_RESPONSE_H
+#ifndef BB_CLIENT_RESPONSE_H
+#define BB_CLIENT_RESPONSE_H
 
 #include "server_response.h"
 
@@ -10,4 +10,4 @@ void destroy_client_response(client_response_t *res);
 const char *get_client_response_header(client_response_t *res, const char *name);
 int parse_client_response(const char *raw, client_response_t *res);
 
-#endif //CLIENT_RESPONSE_H
+#endif //BB_CLIENT_RESPONSE_H

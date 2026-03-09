@@ -1,5 +1,5 @@
-#ifndef BLUE_BIRD_PERSIST_H
-#define BLUE_BIRD_PERSIST_H
+#ifndef BB_PERSIST_H
+#define BB_PERSIST_H
 
 #include <stddef.h>
 
@@ -36,5 +36,5 @@ int persist_save(const char *key, const void *data, size_t size);
 int persist_load(const char *key, void *buf, size_t bufsize);
 int persist_remove(const char *key);
 
-#endif /* BLUE_BIRD_PERSIST_H */
+#endif //BB_PERSIST_H
 

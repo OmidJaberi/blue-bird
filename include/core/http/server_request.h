@@ -1,5 +1,5 @@
-#ifndef SERVER_REQUEST_H
-#define SERVER_REQUEST_H
+#ifndef BB_SERVER_REQUEST_H
+#define BB_SERVER_REQUEST_H
 
 #include <stddef.h>
 #include "message.h"
@@ -55,4 +55,4 @@ const char *get_server_request_query_param(server_request_t *req, const char *ke
 
 const char *get_server_request_header(server_request_t *req, const char *name);
 
-#endif // SERVER_REQUEST_H
+#endif //BB_SERVER_REQUEST_H

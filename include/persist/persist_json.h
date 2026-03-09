@@ -1,6 +1,6 @@
-#ifndef BLUE_BIRD_PERSIST_JSON_H
-#define BLUE_BIRD_PERSIST_JSON_H
+#ifndef BB_PERSIST_JSON_H
+#define BB_PERSIST_JSON_H
 
 int persist_json_register(void);
 
-#endif /* BLUE_BIRD_PERSIST_JSON_H */
+#endif //BB_PERSIST_JSON_H

@@ -24,4 +24,4 @@ typedef struct {
 
 const char *bb_strerror(BBErrorCode code);
 
-#endif // BB_ERROR_H
+#endif //BB_ERROR_H

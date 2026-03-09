@@ -14,5 +14,5 @@
         } \
     } while (0)
 
-#endif // BB_ASSERT_H
+#endif //BB_ASSERT_H
 

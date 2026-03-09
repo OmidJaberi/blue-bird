@@ -1,5 +1,5 @@
-#ifndef MIDDLEWARE_H
-#define MIDDLEWARE_H
+#ifndef BB_MIDDLEWARE_H
+#define BB_MIDDLEWARE_H
 
 #include "core/http.h"
 
@@ -21,4 +21,4 @@ void append_to_middleware_list(middleware_list_t *list, middleware_cb mw);
 BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res);
 void destroy_middleware_list(middleware_list_t *list);
 
-#endif // MIDDLEWARE_H
+#endif //BB_MIDDLEWARE_H
