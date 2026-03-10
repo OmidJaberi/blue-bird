@@ -15,8 +15,8 @@ int init_server(bb_server_t *server, int port)
     server->route_list = (route_list_t *)malloc(sizeof(route_list_t));
     init_route_list(server->route_list);
 
-    server->middleware_list = (middleware_list_t *)malloc(sizeof(middleware_list_t));
-    init_middleware_list(server->middleware_list);
+    server->pre_middleware_list = (middleware_list_t *)malloc(sizeof(middleware_list_t));
+    init_middleware_list(server->pre_middleware_list);
 
     struct sockaddr_in address;
     int opt = 1;
@@ -62,9 +62,9 @@ void add_route(bb_server_t *server, const char *method, const char *path, route_
     add_route_to_list(server->route_list, method, path, handler);
 }
 
-void use_middleware(bb_server_t *server, middleware_cb mw)
+void use_pre_middleware(bb_server_t *server, middleware_cb mw)
 {
-    append_to_middleware_list(server->middleware_list, mw);
+    append_to_middleware_list(server->pre_middleware_list, mw);
 }
 
 void start_server(bb_server_t *server)
@@ -95,7 +95,7 @@ void start_server(bb_server_t *server)
         init_response(&res);
         if (parse_request(buffer, &req) == 0)
         {
-            if (!BB_FAILED(run_middleware(server->middleware_list, &req, &res)))
+            if (!BB_FAILED(run_middleware(server->pre_middleware_list, &req, &res)))
                 handle_request(server->route_list, &req, &res);
         }
         else
@@ -115,6 +115,6 @@ void start_server(bb_server_t *server)
 void destroy_server(bb_server_t *server)
 {
     free(server->route_list);
-    destroy_middleware_list(server->middleware_list);
-    free(server->middleware_list);
+    destroy_middleware_list(server->pre_middleware_list);
+    free(server->pre_middleware_list);
 }

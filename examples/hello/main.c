@@ -20,8 +20,8 @@ int main()
     bb_server_t server;
     init_server(&server, 8080);
 
-    use_middleware(&server, logger_middleware);
-    use_middleware(&server, server_header_middleware);
+    use_pre_middleware(&server, logger_middleware);
+    use_pre_middleware(&server, server_header_middleware);
 
     add_route(&server, "GET", "/", root_handler);
     add_route(&server, "POST", "/hello", hello_post_handler);
