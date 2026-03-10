@@ -5,7 +5,6 @@
 void init_middleware_list(middleware_list_t *list)
 {
     list->first = NULL;
-    list->middleware_count = 0;
 }
 
 middleware_object_t *create_middleware_object(middleware_cb mw)

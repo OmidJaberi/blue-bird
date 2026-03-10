@@ -12,7 +12,6 @@ typedef struct MiddlewareObject {
 
 typedef struct {
     middleware_object_t *first;
-    int middleware_count;
 } middleware_list_t;
 
 void init_middleware_list(middleware_list_t *list);
