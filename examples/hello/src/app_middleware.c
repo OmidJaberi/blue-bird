@@ -3,7 +3,7 @@
 
 BBError logger_middleware(request_t *req, response_t *res)
 {
-    LOG_INFO("[Blue-Bird] %s %s\n", GET_REQUEST_METHOD(*req), GET_REQUEST_PATH(*req));
+    LOG_INFO("[Blue-Bird] %s %s; response status: %d\n", GET_REQUEST_METHOD(*req), GET_REQUEST_PATH(*req), res->status_code);
     return BB_SUCCESS();
 }
 
