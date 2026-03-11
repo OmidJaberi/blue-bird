@@ -18,6 +18,9 @@ int init_server(bb_server_t *server, int port)
     server->pre_middleware_list = (middleware_list_t *)malloc(sizeof(middleware_list_t));
     init_middleware_list(server->pre_middleware_list);
 
+    server->post_middleware_list = (middleware_list_t *)malloc(sizeof(middleware_list_t));
+    init_middleware_list(server->post_middleware_list);
+
     struct sockaddr_in address;
     int opt = 1;
 
