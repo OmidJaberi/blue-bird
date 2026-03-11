@@ -126,4 +126,6 @@ void destroy_server(bb_server_t *server)
     free(server->route_list);
     destroy_middleware_list(server->pre_middleware_list);
     free(server->pre_middleware_list);
+    destroy_middleware_list(server->post_middleware_list);
+    free(server->post_middleware_list);
 }
