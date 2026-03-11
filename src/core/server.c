@@ -67,6 +67,11 @@ void use_pre_middleware(bb_server_t *server, middleware_cb mw)
     append_to_middleware_list(server->pre_middleware_list, mw);
 }
 
+void use_post_middleware(bb_server_t *server, middleware_cb mw)
+{
+    append_to_middleware_list(server->post_middleware_list, mw);
+}
+
 void start_server(bb_server_t *server)
 {
     int client_fd;
@@ -95,8 +100,9 @@ void start_server(bb_server_t *server)
         init_response(&res);
         if (parse_request(buffer, &req) == 0)
         {
-            if (!BB_FAILED(run_middleware(server->pre_middleware_list, &req, &res)))
+            if (!BB_FAILED(run_middleware(server->pre_middleware_list, &req, &res))) // Pre-Middleware
                 handle_request(server->route_list, &req, &res);
+            run_middleware(server->post_middleware_list, &req, &res);               // Post-Middleware
         }
         else
         {
