@@ -123,6 +123,7 @@ void start_server(bb_server_t *server)
 
 void destroy_server(bb_server_t *server)
 {
+    destroy_route_list(server->route_list);
     free(server->route_list);
     destroy_middleware_list(server->pre_middleware_list);
     free(server->pre_middleware_list);

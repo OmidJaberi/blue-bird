@@ -23,5 +23,6 @@ typedef struct {
 void init_route_list(route_list_t *route_list);
 BBError add_route_to_list(route_list_t *route_list, const char *method, const char *path, route_handler_cb handler);
 void handle_request(route_list_t *route_list, request_t *req, response_t *res);
+void destroy_route_list(route_list_t *route_list);
 
 #endif //BB_ROUTER_H

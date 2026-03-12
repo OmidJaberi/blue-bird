@@ -118,3 +118,16 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
     set_response_header(res, "Content-Type", "text/plain");
     set_response_body(res, "Route Not Found");
 }
+
+void destroy_route_list(route_list_t *route_list)
+{
+    route_t *current = route_list->first;
+    while (current)
+    {
+        route_t *next = current->next_route;
+        free(current->method);
+        free(current->path);
+        free(current);
+        current = next;
+    }
+}
