@@ -1,4 +1,5 @@
 #include "app_handlers.h"
+#include "app_middleware.h"
 
 #include "core/http.h"
 #include "core/server.h"
@@ -21,6 +22,9 @@ int main()
 
     bb_server_t server;
     init_server(&server, 8080);
+
+    use_pre_middleware(&server, server_header_middleware);
+    use_post_middleware(&server, logger_middleware);
 
     add_route(&server, "POST", "/add_task", add_task);
     add_route(&server, "DELETE", "/remove_task/:task_name", remove_task);
