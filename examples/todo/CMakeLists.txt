@@ -15,6 +15,6 @@ target_include_directories(todo_example PRIVATE
 target_link_libraries(todo_example PRIVATE bluebird_core)
 
 # Place the built binary in the /examples folder
-set_target_properties(hello_example PROPERTIES
+set_target_properties(todo_example PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
 )
