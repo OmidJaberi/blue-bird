@@ -19,11 +19,12 @@ BBError root_handler(request_t *req, response_t *res)
 void *server(void* arg)
 {
     bb_server_t server;
-    init_server(&server, 8080);
 
+    init_server(&server, 8080);
     add_route(&server, "GET", "/", root_handler);
-    
     start_server(&server);
+
+    return NULL;
 }
 
 int client()
