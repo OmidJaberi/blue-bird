@@ -52,8 +52,8 @@ BBError add_route_to_list(route_list_t *route_list, const char *method, const ch
     route_t *new_route = malloc(sizeof(route_t));
     
     // Add the route
-    new_route->method = method;
-    new_route->path = path;
+    new_route->method = strdup(method);
+    new_route->path = strdup(path);
     new_route->handler = handler;
     
     new_route->next_route = route_list->first;

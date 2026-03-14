@@ -10,8 +10,8 @@
 typedef http_handler_cb route_handler_cb;
 
 typedef struct Route {
-    const char *method;
-    const char *path;
+    char *method;
+    char *path;
     route_handler_cb handler;
     struct Route *next_route;
 } route_t;
