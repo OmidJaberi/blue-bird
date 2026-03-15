@@ -36,7 +36,7 @@ void *server(void* arg)
     return NULL;
 }
 
-int client_root_req()
+void client_request(const char* url, const char *expected_res)
 {
     bb_client_t client;
     request_t req;
@@ -48,7 +48,7 @@ int client_root_req()
 
     /* ---- build request ---- */
     set_request_method(&req, "GET");
-    set_request_url(&req, "/");
+    set_request_url(&req, url);
     set_request_header(&req, "Host", "127.0.0.1");
     set_request_header(&req, "Connection", "close");
 
@@ -65,63 +65,28 @@ int client_root_req()
     assert(err.code == 0);
 
     /* ---- validate ---- */
-    printf("Status: %d\n", res.status_code);
-    printf("Body: %s\n", res.msg.body);
+    printf("\tStatus: %d\n", res.status_code);
+    printf("\tBody: %s\n", res.msg.body);
 
     assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "Hello, Blue-Bird :)") == 0);
+    assert(strcmp(res.msg.body, expected_res) == 0);
 
     /* ---- cleanup ---- */
     http_client_close(&client);
     destroy_request(&req);
     destroy_response(&res);
-
-    printf("Root path client-server test passed...\n");
-    return 0;
 }
 
-int client_param_req()
+void test_root_req()
 {
-    bb_client_t client;
-    request_t req;
-    response_t res;
+    printf("Testing root path client-server test passed...\n");
+    client_request("/", "Hello, Blue-Bird :)");
+}
 
-    /* ---- init ---- */
-    init_request(&req);
-    init_response(&res);
-
-    /* ---- build request ---- */
-    set_request_method(&req, "GET");
-    set_request_url(&req, "/q_param/my_name");
-    set_request_header(&req, "Host", "127.0.0.1");
-    set_request_header(&req, "Connection", "close");
-
-    /* ---- connect ---- */
-    BBError err = http_client_connect(&client, "127.0.0.1", 8080);
-    assert(err.code == 0);
-
-    /* ---- send ---- */
-    err = http_client_send(&client, &req);
-    assert(err.code == 0);
-
-    /* ---- receive ---- */
-    err = http_client_receive(&client, &res);
-    assert(err.code == 0);
-
-    /* ---- validate ---- */
-    printf("Status: %d\n", res.status_code);
-    printf("Body: %s\n", res.msg.body);
-
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "name: my_name") == 0);
-
-    /* ---- cleanup ---- */
-    http_client_close(&client);
-    destroy_request(&req);
-    destroy_response(&res);
-
-    printf("Path with Query Param client-server test passed...\n");
-    return 0;
+void test_param_req()
+{
+    printf("Testing path with Query Param client-server test passed...\n");
+    client_request("/q_param/my_name", "name: my_name");
 }
 
 int main()
@@ -132,8 +97,10 @@ int main()
         fprintf(stderr, "Error creating server thread\n");
         return 1;
     }
-    client_root_req();
-    client_param_req();
+
+    test_root_req();
+    test_param_req();
+
     printf("HTTP client and server integration tests passed.\n");
     return 0;
 }
