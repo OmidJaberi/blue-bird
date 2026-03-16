@@ -90,19 +90,19 @@ void client_request(const char* url, const char *expected_res)
 
 void test_root_req()
 {
-    printf("Testing root path client-server test...\n");
+    printf("Testing root path...\n");
     client_request("/", "Hello, Blue-Bird :)");
 }
 
 void test_param_req()
 {
-    printf("Testing path with Param client-server test...\n");
+    printf("Testing path with Param...\n");
     client_request("/param/my_name", "name: my_name");
 }
 
 void test_query_param_req()
 {
-    printf("Testing path with Query Param client-server test...\n");
+    printf("Testing path with Query Param...\n");
     client_request("/q_param?val=blue-bird", "val: blue-bird");
 }
 
