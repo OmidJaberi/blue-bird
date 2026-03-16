@@ -24,13 +24,24 @@ BBError request_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
+BBError request_query_param_handler(request_t *req, response_t *res)
+{
+    const char *value = get_request_query_param(req, "val");
+    set_response_header(res, "Content-Type", "text/plain");
+    char msg[512];
+    sprintf(msg, "val: %s", value);
+    set_response_body(res, msg);
+    return BB_SUCCESS();
+}
+
 void *server(void* arg)
 {
     bb_server_t server;
 
     init_server(&server, 8080);
     add_route(&server, "GET", "/", root_handler);
-    add_route(&server, "GET", "/q_param/:name", request_param_handler);
+    add_route(&server, "GET", "/param/:name", request_param_handler);
+    add_route(&server, "GET", "/q_param", request_query_param_handler);
     start_server(&server);
 
     return NULL;
@@ -79,14 +90,20 @@ void client_request(const char* url, const char *expected_res)
 
 void test_root_req()
 {
-    printf("Testing root path client-server test passed...\n");
+    printf("Testing root path client-server test...\n");
     client_request("/", "Hello, Blue-Bird :)");
 }
 
 void test_param_req()
 {
-    printf("Testing path with Query Param client-server test passed...\n");
-    client_request("/q_param/my_name", "name: my_name");
+    printf("Testing path with Param client-server test...\n");
+    client_request("/param/my_name", "name: my_name");
+}
+
+void test_query_param_req()
+{
+    printf("Testing path with Query Param client-server test...\n");
+    client_request("/q_param?val=blue-bird", "val: blue-bird");
 }
 
 int main()
@@ -100,6 +117,7 @@ int main()
 
     test_root_req();
     test_param_req();
+    test_query_param_req();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
