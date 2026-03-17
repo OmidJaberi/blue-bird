@@ -106,6 +106,12 @@ void test_query_param_req()
     client_request("/q_param?val=blue-bird", "val: blue-bird");
 }
 
+void test_missing_query_param_req()
+{
+    printf("Testing path with missing Query Param...\n");
+    client_request("/q_param", "val: (null)");
+}
+
 int main()
 {
     pthread_t thread_id;
@@ -118,6 +124,7 @@ int main()
     test_root_req();
     test_param_req();
     test_query_param_req();
+    test_missing_query_param_req();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
