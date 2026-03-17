@@ -47,7 +47,7 @@ void *server(void* arg)
     return NULL;
 }
 
-void client_request(const char* url, const char *expected_res)
+void client_request(const char* url, const char *body, const char *expected_res)
 {
     bb_client_t client;
     request_t req;
@@ -62,6 +62,7 @@ void client_request(const char* url, const char *expected_res)
     set_request_url(&req, url);
     set_request_header(&req, "Host", "127.0.0.1");
     set_request_header(&req, "Connection", "close");
+    set_request_body(&req, body, strlen(body));
 
     /* ---- connect ---- */
     BBError err = http_client_connect(&client, "127.0.0.1", 8080);
@@ -91,25 +92,25 @@ void client_request(const char* url, const char *expected_res)
 void test_root_req()
 {
     printf("Testing root path...\n");
-    client_request("/", "Hello, Blue-Bird :)");
+    client_request("/", "", "Hello, Blue-Bird :)");
 }
 
 void test_param_req()
 {
     printf("Testing path with Param...\n");
-    client_request("/param/my_name", "name: my_name");
+    client_request("/param/my_name", "", "name: my_name");
 }
 
 void test_query_param_req()
 {
     printf("Testing path with Query Param...\n");
-    client_request("/q_param?val=blue-bird", "val: blue-bird");
+    client_request("/q_param?val=blue-bird", "", "val: blue-bird");
 }
 
 void test_missing_query_param_req()
 {
     printf("Testing path with missing Query Param...\n");
-    client_request("/q_param", "val: (null)");
+    client_request("/q_param", "", "val: (null)");
 }
 
 int main()
