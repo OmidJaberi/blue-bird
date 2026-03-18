@@ -47,9 +47,30 @@ void *server(void* arg)
     return NULL;
 }
 
-void client_request(const char* url, const char *body, const char *expected_res)
+void client_request(request_t *req, response_t *res)
 {
     bb_client_t client;
+
+    /* ---- connect ---- */
+    BBError err = http_client_connect(&client, "127.0.0.1", 8080);
+    assert(err.code == 0);
+
+    /* ---- send ---- */
+    err = http_client_send(&client, req);
+    assert(err.code == 0);
+
+    /* ---- receive ---- */
+    err = http_client_receive(&client, res);
+    assert(err.code == 0);
+
+    /* ---- cleanup ---- */
+    http_client_close(&client);
+}
+
+void test_root_req()
+{
+    printf("Testing root path...\n");
+
     request_t req;
     response_t res;
 
@@ -58,59 +79,108 @@ void client_request(const char* url, const char *body, const char *expected_res)
     init_response(&res);
 
     /* ---- build request ---- */
+    const char *url = "/";
+    const char *body = "";
+
     set_request_method(&req, "GET");
     set_request_url(&req, url);
-    set_request_header(&req, "Host", "127.0.0.1");
-    set_request_header(&req, "Connection", "close");
     set_request_body(&req, body, strlen(body));
 
-    /* ---- connect ---- */
-    BBError err = http_client_connect(&client, "127.0.0.1", 8080);
-    assert(err.code == 0);
-
-    /* ---- send ---- */
-    err = http_client_send(&client, &req);
-    assert(err.code == 0);
-
-    /* ---- receive ---- */
-    err = http_client_receive(&client, &res);
-    assert(err.code == 0);
+    client_request(&req, &res);
 
     /* ---- validate ---- */
-    printf("\tStatus: %d\n", res.status_code);
-    printf("\tBody: %s\n", res.msg.body);
-
     assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, expected_res) == 0);
+    assert(strcmp(res.msg.body, "Hello, Blue-Bird :)") == 0);
 
-    /* ---- cleanup ---- */
-    http_client_close(&client);
     destroy_request(&req);
     destroy_response(&res);
-}
-
-void test_root_req()
-{
-    printf("Testing root path...\n");
-    client_request("/", "", "Hello, Blue-Bird :)");
 }
 
 void test_param_req()
 {
     printf("Testing path with Param...\n");
-    client_request("/param/my_name", "", "name: my_name");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "/param/my_name";
+    const char *body = "";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body, strlen(body));
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "name: my_name") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
 }
 
 void test_query_param_req()
 {
     printf("Testing path with Query Param...\n");
-    client_request("/q_param?val=blue-bird", "", "val: blue-bird");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "/q_param?val=blue-bird";
+    const char *body = "";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body, strlen(body));
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "val: blue-bird") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
 }
 
 void test_missing_query_param_req()
 {
     printf("Testing path with missing Query Param...\n");
-    client_request("/q_param", "", "val: (null)");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "/q_param";
+    const char *body = "";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body, strlen(body));
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "val: (null)") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
 }
 
 int main()
