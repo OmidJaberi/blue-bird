@@ -27,6 +27,11 @@ BBError request_param_handler(request_t *req, response_t *res)
 BBError request_query_param_handler(request_t *req, response_t *res)
 {
     const char *value = get_request_query_param(req, "val");
+    if (!value)
+    {
+        set_response_status(res, 400);
+        return BB_SUCCESS();
+    }
     set_response_header(res, "Content-Type", "text/plain");
     char msg[512];
     sprintf(msg, "val: %s", value);
@@ -176,8 +181,7 @@ void test_missing_query_param_req()
     client_request(&req, &res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "val: (null)") == 0);
+    assert(res.status_code == 400);
 
     destroy_request(&req);
     destroy_response(&res);
