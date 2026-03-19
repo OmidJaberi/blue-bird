@@ -34,7 +34,7 @@ void set_request_url(request_t *req, const char *url);
 
 void set_request_header(request_t *req, const char *name, const char *value);
 
-void set_request_body(request_t *req, const char *body, size_t len);
+void set_request_body(request_t *req, char *body);
 
 //Helper Macros
 #define GET_REQUEST_PATH(req) ((req).s_req.path)

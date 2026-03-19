@@ -89,7 +89,7 @@ void test_root_req()
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
-    set_request_body(&req, body, strlen(body));
+    set_request_body(&req, body);
 
     client_request(&req, &res);
 
@@ -118,7 +118,7 @@ void test_param_req()
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
-    set_request_body(&req, body, strlen(body));
+    set_request_body(&req, body);
 
     client_request(&req, &res);
 
@@ -147,7 +147,7 @@ void test_query_param_req()
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
-    set_request_body(&req, body, strlen(body));
+    set_request_body(&req, body);
 
     client_request(&req, &res);
 
@@ -176,7 +176,7 @@ void test_missing_query_param_req()
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
-    set_request_body(&req, body, strlen(body));
+    set_request_body(&req, body);
 
     client_request(&req, &res);
 

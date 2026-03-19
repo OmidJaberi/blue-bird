@@ -70,6 +70,7 @@ void set_message_body(http_message_t *msg, const char *body)
     msg->body[len] = '\0';
     msg->body_len = len;
 }
+
 int serialize_message(http_message_t *msg, char *buffer, int buffer_size)
 {
     int written = snprintf(buffer, buffer_size,

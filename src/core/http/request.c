@@ -58,7 +58,7 @@ void set_request_header(request_t *req, const char *name, const char *value)
     set_client_request_header(&req->c_req, name, value);
 }
 
-void set_request_body(request_t *req, const char *body, size_t len)
+void set_request_body(request_t *req, char *body)
 {
-    set_client_request_body(&req->c_req, body, len);
+    set_client_request_body(&req->c_req, body);
 }

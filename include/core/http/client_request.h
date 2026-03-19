@@ -17,7 +17,7 @@ void init_client_request(client_request_t *req);
 void set_client_request_method(client_request_t *req, const char *method);
 void set_client_request_url(client_request_t *req, const char *url);
 void set_client_request_header(client_request_t *req, const char *name, const char *value);
-void set_client_request_body(client_request_t *req, const char *body, size_t len);
+void set_client_request_body(client_request_t *req, char *body);
 void destroy_client_request(client_request_t *req);
 
 #endif //BB_CLIENT_REQUEST_H
