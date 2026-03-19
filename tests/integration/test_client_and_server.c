@@ -39,6 +39,16 @@ BBError request_query_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
+BBError request_body_handler(request_t *req, response_t *res)
+{
+    http_message_t *http_msg = &GET_SERVER_REQUEST_MESSAGE(*req);
+    set_response_header(res, "Content-Type", "text/plain");
+    char msg[512];
+    sprintf(msg, "body: %s", http_msg->body);
+    set_response_body(res, msg);
+    return BB_SUCCESS();
+}
+
 void *server(void* arg)
 {
     bb_server_t server;
@@ -47,6 +57,7 @@ void *server(void* arg)
     add_route(&server, "GET", "/", root_handler);
     add_route(&server, "GET", "/param/:name", request_param_handler);
     add_route(&server, "GET", "/q_param", request_query_param_handler);
+    add_route(&server, "GET", "/body", request_body_handler);
     start_server(&server);
 
     return NULL;
@@ -187,6 +198,37 @@ void test_missing_query_param_req()
     destroy_response(&res);
 }
 
+void test_req_body()
+{
+    printf("Testing request body...\n");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "/body";
+    const char *body = "BODY_CONTENT";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body);
+
+    printf("req body: %s\n", req.c_req.msg.body);
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "body: BODY_CONTENT") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 int main()
 {
     pthread_t thread_id;
@@ -200,6 +242,7 @@ int main()
     test_param_req();
     test_query_param_req();
     test_missing_query_param_req();
+    test_req_body();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
