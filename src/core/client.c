@@ -55,6 +55,18 @@ BBError http_client_connect(bb_client_t *client, const char *host, int port)
     return BB_SUCCESS();
 }
 
+static ssize_t send_all(int fd, const void *data, size_t len)
+{
+    size_t sent = 0;
+    while (sent < len)
+    {
+        ssize_t n = send(fd, (char*)data + sent, len - sent, 0);
+        if (n <= 0) return -1;
+        sent += n;
+    }
+    return sent;
+}
+
 BBError http_client_send(bb_client_t *client, request_t *req)
 {
     if (!client || !req)
@@ -71,31 +83,39 @@ BBError http_client_send(bb_client_t *client, request_t *req)
     snprintf(start_line, sizeof(start_line),
              "%s %s HTTP/1.1\r\n", method, url);
 
-    /* ---- Send start line ---- */
-    send(client->sock_fd, start_line, strlen(start_line), 0);
-
-    /* ---- Send headers ---- */
-    for (int i = 0; i < GET_REQUEST_MESSAGE(*req).header_count; i++)
-    {
-        char header_line[1024];
-        snprintf(header_line, sizeof(header_line),
-                 "%s: %s\r\n",
-                 GET_REQUEST_MESSAGE(*req).headers[i].name,
-                 GET_REQUEST_MESSAGE(*req).headers[i].value);
-
-        send(client->sock_fd, header_line, strlen(header_line), 0);
-    }
-
-    /* ---- End headers ---- */
-    send(client->sock_fd, "\r\n", 2, 0);
-
-    /* ---- Send body if any ---- */
-    if (GET_REQUEST_MESSAGE(*req).body && GET_REQUEST_MESSAGE(*req).body_len > 0)
-    {
-        send(client->sock_fd, GET_REQUEST_MESSAGE(*req).body, GET_REQUEST_MESSAGE(*req).body_len, 0);
-    }
+    // Temporary:
+    char message[3000];
+    set_message_start_line(&GET_REQUEST_MESSAGE(*req), start_line);
+    serialize_message(&GET_REQUEST_MESSAGE(*req), message, 3000);
+    send_all(client->sock_fd, message, strlen(message));
 
     return BB_SUCCESS();
+
+    // /* ---- Send start line ---- */
+    // send(client->sock_fd, start_line, strlen(start_line), 0);
+
+    // /* ---- Send headers ---- */
+    // for (int i = 0; i < GET_REQUEST_MESSAGE(*req).header_count; i++)
+    // {
+    //     char header_line[1024];
+    //     snprintf(header_line, sizeof(header_line),
+    //              "%s: %s\r\n",
+    //              GET_REQUEST_MESSAGE(*req).headers[i].name,
+    //              GET_REQUEST_MESSAGE(*req).headers[i].value);
+
+    //     send(client->sock_fd, header_line, strlen(header_line), 0);
+    // }
+
+    // /* ---- End headers ---- */
+    // send(client->sock_fd, "\r\n", 2, 0);
+
+    // /* ---- Send body if any ---- */
+    // if (GET_REQUEST_MESSAGE(*req).body && GET_REQUEST_MESSAGE(*req).body_len > 0)
+    // {
+    //     send(client->sock_fd, GET_REQUEST_MESSAGE(*req).body, GET_REQUEST_MESSAGE(*req).body_len, 0);
+    // }
+
+    // return BB_SUCCESS();
 }
 
 BBError http_client_receive(bb_client_t *client, response_t *res)
