@@ -75,12 +75,46 @@ void use_post_middleware(bb_server_t *server, middleware_cb mw)
     append_to_middleware_list(server->post_middleware_list, mw);
 }
 
+static ssize_t read_http_request(int fd, char **out_buf)
+{
+    size_t cap = 4096;
+    size_t len = 0;
+    char *buf = malloc(cap);
+    if (!buf) return -1;
+
+    while (1)
+    {
+        ssize_t n = read(fd, buf + len, cap - len);
+        if (n <= 0) break;
+
+        len += n;
+
+        // Need more space?
+        if (len + 1024 > cap)
+        {
+            cap *= 2;
+            buf = realloc(buf, cap);
+            if (!buf) return -1;
+        }
+
+        // Did we get the end of headers?
+        if (len >= 4 && strstr(buf, "\r\n\r\n"))
+        {
+            break;
+        }
+    }
+
+    buf[len] = 0;
+    *out_buf = buf;
+    return len;
+}
+
 void start_server(bb_server_t *server)
 {
     int client_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
-    char buffer[3000] = {0};
+    char *buffer = NULL;
 
     LOG_INFO("Blue-Bird server started.\n");
     while (1)
@@ -93,7 +127,7 @@ void start_server(bb_server_t *server)
         }
 
         // Read request (not parsed, yet)
-        read(client_fd, buffer, sizeof(buffer));
+        ssize_t req_len = read_http_request(client_fd, &buffer);
         LOG_INFO("Received request:\n%s\n", buffer);
 
         // Parse request
