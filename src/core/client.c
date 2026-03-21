@@ -81,7 +81,7 @@ BBError http_client_send(bb_client_t *client, request_t *req)
     
     char start_line[512];
     snprintf(start_line, sizeof(start_line),
-             "%s %s HTTP/1.1\r\n", method, url);
+             "%s %s HTTP/1.1", method, url);
 
     // Temporary:
     char message[3000];
