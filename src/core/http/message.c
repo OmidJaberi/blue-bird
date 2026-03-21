@@ -76,18 +76,19 @@ int serialize_message(http_message_t *msg, char *buffer, int buffer_size)
     int written = snprintf(buffer, buffer_size,
                            "%s\r\n",
                            msg->start_line);
-    
+    // Conent_Length added here:
+    int body_len = msg->body ? strlen(msg->body) : 0;
+    char len_buf[256];
+    snprintf(len_buf, 256, "%d", body_len);
+    set_message_header(msg, "Content_Length", len_buf);
+
     for (int i = 0; i < msg->header_count; i++)
         written += snprintf(buffer + written, buffer_size - written,
                 "%s: %s\r\n",
                 msg->headers[i].name,
                 msg->headers[i].value);
-
-    int body_len = msg->body ? strlen(msg->body) : 0;
-    // Conent_Length added here:
-    written += snprintf(buffer + written, buffer_size - written,
-            "Content-Length: %d\r\n\r\n",
-            body_len);
+    if (msg->header_count > 0)
+        written += snprintf(buffer + written, buffer_size - written, "\r\n");
 
     if (msg->body)
         written += snprintf(buffer + written, buffer_size - written,
