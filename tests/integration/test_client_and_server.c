@@ -24,6 +24,17 @@ BBError request_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
+BBError multi_request_param_handler(request_t *req, response_t *res)
+{
+    const char *p_1 = get_request_param(req, "param_1");
+    const char *p_2 = get_request_param(req, "param_2");
+    set_response_header(res, "Content-Type", "text/plain");
+    char msg[512];
+    sprintf(msg, "%s and %s", p_1, p_2);
+    set_response_body(res, msg);
+    return BB_SUCCESS();
+}
+
 BBError request_query_param_handler(request_t *req, response_t *res)
 {
     const char *value = get_request_query_param(req, "val");
@@ -56,6 +67,7 @@ void *server(void* arg)
     init_server(&server, 8080);
     add_route(&server, "GET", "/", root_handler);
     add_route(&server, "GET", "/param/:name", request_param_handler);
+    add_route(&server, "GET", "/multi_param/:param_1/:param_2", multi_request_param_handler);
     add_route(&server, "GET", "/q_param", request_query_param_handler);
     add_route(&server, "GET", "/body", request_body_handler);
     start_server(&server);
@@ -141,6 +153,35 @@ void test_param_req()
     destroy_response(&res);
 }
 
+void test_multi_param_req()
+{
+    printf("Testing path with multiple Param...\n");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "multi_param/hello/good_bye";
+    const char *body = "";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body);
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "hello and good_bye") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_query_param_req()
 {
     printf("Testing path with Query Param...\n");
@@ -217,8 +258,6 @@ void test_req_body()
     set_request_url(&req, url);
     set_request_body(&req, body);
 
-    printf("req body: %s\n", req.c_req.msg.body);
-
     client_request(&req, &res);
 
     /* ---- validate ---- */
@@ -240,6 +279,7 @@ int main()
 
     test_root_req();
     test_param_req();
+    test_multi_param_req();
     test_query_param_req();
     test_missing_query_param_req();
     test_req_body();
