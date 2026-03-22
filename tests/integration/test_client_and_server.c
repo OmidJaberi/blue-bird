@@ -50,6 +50,22 @@ BBError request_query_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
+BBError request_multi_query_param_handler(request_t *req, response_t *res)
+{
+    const char *value_1 = get_request_query_param(req, "val_1");
+    const char *value_2 = get_request_query_param(req, "val_2");
+    if (!value_1 || !value_2)
+    {
+        set_response_status(res, 400);
+        return BB_SUCCESS();
+    }
+    set_response_header(res, "Content-Type", "text/plain");
+    char msg[512];
+    sprintf(msg, "%s-%s", value_1, value_2);
+    set_response_body(res, msg);
+    return BB_SUCCESS();
+}
+
 BBError request_body_handler(request_t *req, response_t *res)
 {
     http_message_t *http_msg = &GET_SERVER_REQUEST_MESSAGE(*req);
@@ -67,8 +83,9 @@ void *server(void* arg)
     init_server(&server, 8080);
     add_route(&server, "GET", "/", root_handler);
     add_route(&server, "GET", "/param/:name", request_param_handler);
-    add_route(&server, "GET", "/multi_param/:param_1/:param_2", multi_request_param_handler);
+    add_route(&server, "GET", "/param/:param_1/:param_2", multi_request_param_handler);
     add_route(&server, "GET", "/q_param", request_query_param_handler);
+    add_route(&server, "GET", "/q_param/multi", request_multi_query_param_handler);
     add_route(&server, "GET", "/body", request_body_handler);
     start_server(&server);
 
@@ -165,7 +182,7 @@ void test_multi_param_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "multi_param/hello/good_bye";
+    const char *url = "param/hello/good_bye";
     const char *body = "";
 
     set_request_method(&req, "GET");
@@ -206,6 +223,35 @@ void test_query_param_req()
     /* ---- validate ---- */
     assert(res.status_code == 200);
     assert(strcmp(res.msg.body, "val: blue-bird") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
+void test_multi_query_param_req()
+{
+    printf("Testing path with multiple Query Param...\n");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "/q_param/multi?val_2=bird&val_1=blue";
+    const char *body = "";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body);
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "blue-bird") == 0);
 
     destroy_request(&req);
     destroy_response(&res);
@@ -281,6 +327,7 @@ int main()
     test_param_req();
     test_multi_param_req();
     test_query_param_req();
+    test_multi_query_param_req();
     test_missing_query_param_req();
     test_req_body();
 
