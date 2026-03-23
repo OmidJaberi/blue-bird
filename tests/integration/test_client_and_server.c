@@ -6,6 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 BBError root_handler(request_t *req, response_t *res)
 {
@@ -342,6 +343,43 @@ void test_req_body()
     destroy_response(&res);
 }
 
+void test_req_large_body()
+{
+    printf("Testing request with large body...\n");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "/body";
+    const int size = 4000;
+    char body[size + 100];
+    for (int i = 0; i < size; i++)
+    {
+        body[i] = 'a' + (i % 26);
+    }
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body);
+
+    client_request(&req, &res);
+
+    char expected_res[size + 100];
+    snprintf(expected_res, size + 100, "body: %s", body);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, expected_res) == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 int main()
 {
     pthread_t thread_id;
@@ -359,6 +397,7 @@ int main()
     test_multi_query_param_req();
     test_missing_query_param_req();
     test_req_body();
+    test_req_large_body();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
