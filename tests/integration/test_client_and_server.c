@@ -141,6 +141,34 @@ void test_root_req()
     destroy_response(&res);
 }
 
+void test_missing_path_req()
+{
+    printf("Testing missing path...\n");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    const char *url = "/missing_path";
+    const char *body = "";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body);
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 404);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_param_req()
 {
     printf("Testing path with Param...\n");
@@ -324,6 +352,7 @@ int main()
     }
 
     test_root_req();
+    test_missing_path_req();
     test_param_req();
     test_multi_param_req();
     test_query_param_req();
