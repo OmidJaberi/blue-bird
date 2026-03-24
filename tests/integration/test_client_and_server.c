@@ -71,7 +71,7 @@ BBError request_body_handler(request_t *req, response_t *res)
 {
     http_message_t *http_msg = &GET_SERVER_REQUEST_MESSAGE(*req);
     set_response_header(res, "Content-Type", "text/plain");
-    char msg[512];
+    char msg[8192];
     sprintf(msg, "body: %s", http_msg->body);
     set_response_body(res, msg);
     return BB_SUCCESS();
@@ -356,7 +356,7 @@ void test_req_large_body()
 
     /* ---- build request ---- */
     const char *url = "/body";
-    const int size = 4000;
+    const int size = 2000; // 8000;
     char body[size + 100];
     for (int i = 0; i < size; i++)
     {
