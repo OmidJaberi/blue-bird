@@ -126,7 +126,7 @@ void test_root_req()
 
     /* ---- build request ---- */
     const char *url = "/";
-    const char *body = "";
+    char *body = "";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -155,7 +155,7 @@ void test_missing_path_req()
 
     /* ---- build request ---- */
     const char *url = "/missing_path";
-    const char *body = "";
+    char *body = "";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -183,7 +183,7 @@ void test_param_req()
 
     /* ---- build request ---- */
     const char *url = "/param/my_name";
-    const char *body = "";
+    char *body = "";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -212,7 +212,7 @@ void test_multi_param_req()
 
     /* ---- build request ---- */
     const char *url = "param/hello/good_bye";
-    const char *body = "";
+    char *body = "";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -241,7 +241,7 @@ void test_query_param_req()
 
     /* ---- build request ---- */
     const char *url = "/q_param?val=blue-bird";
-    const char *body = "";
+    char *body = "";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -270,7 +270,7 @@ void test_multi_query_param_req()
 
     /* ---- build request ---- */
     const char *url = "/q_param/multi?val_2=bird&val_1=blue";
-    const char *body = "";
+    char *body = "";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -299,7 +299,7 @@ void test_missing_query_param_req()
 
     /* ---- build request ---- */
     const char *url = "/q_param";
-    const char *body = "";
+    char *body = "";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -327,7 +327,7 @@ void test_req_body()
 
     /* ---- build request ---- */
     const char *url = "/body";
-    const char *body = "BODY_CONTENT";
+    char *body = "BODY_CONTENT";
 
     set_request_method(&req, "GET");
     set_request_url(&req, url);
@@ -357,7 +357,7 @@ void test_req_large_body()
     /* ---- build request ---- */
     const char *url = "/body";
     const int size = 2000; // 8000;
-    char body[size + 100];
+    char *body = malloc(size + 100);
     for (int i = 0; i < size; i++)
     {
         body[i] = 'a' + (i % 26);
@@ -369,13 +369,15 @@ void test_req_large_body()
 
     client_request(&req, &res);
 
-    char expected_res[size + 100];
+    char *expected_res = malloc(size + 100);
     snprintf(expected_res, size + 100, "body: %s", body);
 
     /* ---- validate ---- */
     assert(res.status_code == 200);
     assert(strcmp(res.msg.body, expected_res) == 0);
 
+    free(body);
+    free(expected_res);
     destroy_request(&req);
     destroy_response(&res);
 }
