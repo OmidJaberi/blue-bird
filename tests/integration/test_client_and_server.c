@@ -125,7 +125,7 @@ void test_root_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/";
+    char *url = "/";
     char *body = "";
 
     set_request_method(&req, "GET");
@@ -154,7 +154,7 @@ void test_missing_path_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/missing_path";
+    char *url = "/missing_path";
     char *body = "";
 
     set_request_method(&req, "GET");
@@ -182,7 +182,7 @@ void test_param_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/param/my_name";
+    char *url = "/param/my_name";
     char *body = "";
 
     set_request_method(&req, "GET");
@@ -211,7 +211,7 @@ void test_multi_param_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "param/hello/good_bye";
+    char *url = "param/hello/good_bye";
     char *body = "";
 
     set_request_method(&req, "GET");
@@ -240,7 +240,7 @@ void test_query_param_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/q_param?val=blue-bird";
+    char *url = "/q_param?val=blue-bird";
     char *body = "";
 
     set_request_method(&req, "GET");
@@ -269,7 +269,7 @@ void test_multi_query_param_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/q_param/multi?val_2=bird&val_1=blue";
+    char *url = "/q_param/multi?val_2=bird&val_1=blue";
     char *body = "";
 
     set_request_method(&req, "GET");
@@ -298,7 +298,7 @@ void test_missing_query_param_req()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/q_param";
+    char *url = "/q_param";
     char *body = "";
 
     set_request_method(&req, "GET");
@@ -326,7 +326,7 @@ void test_req_body()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/body";
+    char *url = "/body";
     char *body = "BODY_CONTENT";
 
     set_request_method(&req, "GET");
@@ -355,7 +355,7 @@ void test_req_large_body()
     init_response(&res);
 
     /* ---- build request ---- */
-    const char *url = "/body";
+    char *url = "/body";
     const int size = 2000; // 8000;
     char *body = malloc(size + 100);
     for (int i = 0; i < size; i++)
