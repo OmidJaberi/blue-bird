@@ -356,7 +356,7 @@ void test_req_large_body()
 
     /* ---- build request ---- */
     char *url = "/body";
-    const int size = 2000; // 8000;
+    const int size = 8000;
     char *body = malloc(size + 100);
     for (int i = 0; i < size; i++)
     {

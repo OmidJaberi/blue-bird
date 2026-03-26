@@ -79,32 +79,68 @@ static ssize_t read_http_request(int fd, char **out_buf)
 {
     size_t cap = 4096;
     size_t len = 0;
+    ssize_t n;
     char *buf = malloc(cap);
     if (!buf) return -1;
 
+    ssize_t header_end = -1;
+    size_t content_length = 0;
+
     while (1)
     {
-        ssize_t n = read(fd, buf + len, cap - len);
-        if (n <= 0) break;
+        if (len == cap)
+        {
+            cap *= 2;
+            char *tmp = realloc(buf, cap);
+            if (!tmp) {
+                free(buf);
+                return -1;
+            }
+            buf = tmp;
+        }
+
+        n = read(fd, buf + len, cap - len);
+        if (n <= 0)
+            break;
 
         len += n;
 
-        // Need more space?
-        if (len + 1024 > cap)
+        if (header_end == -1)
         {
-            cap *= 2;
-            buf = realloc(buf, cap);
-            if (!buf) return -1;
+            buf[len] = 0;  // ensure strstr works safely
+            char *p = strstr(buf, "\r\n\r\n");
+            if (p)
+            {
+                header_end = (p - buf) + 4;
+
+                // parse Content-Length
+                char *cl = strcasestr(buf, "Content-Length:");
+                if (cl)
+                {
+                    cl += strlen("Content-Length:");
+                    content_length = strtoul(cl, NULL, 10);
+                }
+            }
         }
 
-        // Did we get the end of headers?
-        if (len >= 4 && strstr(buf, "\r\n\r\n"))
+        if (header_end != -1)
         {
-            break;
+            if (len >= header_end + content_length)
+                break;
         }
     }
 
-    buf[len] = 0;
+    if (len == cap)
+    {
+        char *tmp = realloc(buf, cap + 1);
+        if (!tmp) {
+            free(buf);
+            return -1;
+        }
+        buf = tmp;
+    }
+
+    buf[len] = '\0';
     *out_buf = buf;
     return len;
 }
