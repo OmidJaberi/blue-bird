@@ -71,28 +71,44 @@ void set_message_body(http_message_t *msg, const char *body)
     msg->body_len = len;
 }
 
-int serialize_message(http_message_t *msg, char *buffer, int buffer_size)
+int serialize_message(http_message_t *msg, char **buffer, int *buffer_size)
 {
-    int written = snprintf(buffer, buffer_size,
-                           "%s\r\n",
-                           msg->start_line);
-    // Conent_Length added here:
-    int body_len = msg->body ? strlen(msg->body) : 0;
-    char len_buf[256];
-    snprintf(len_buf, 256, "%d", body_len);
-    set_message_header(msg, "Content_Length", len_buf);
+    if (buffer)
+    {
+        *buffer_size = serialize_message(msg, NULL, NULL);
+        *buffer = malloc(*buffer_size);
+        if (!*buffer)
+            return -1;
+    }
+    else
+    {
+        // Conent_Length added here:
+        int body_len = msg->body ? strlen(msg->body) : 0;
+        char len_buf[256];
+        snprintf(len_buf, 256, "%d", body_len);
+        set_message_header(msg, "Content-Length", len_buf);
+    }
 
+    // Start Line:
+    int written = buffer ?
+                    snprintf(*buffer, *buffer_size, "%s\r\n", msg->start_line)
+                    : strlen(msg->start_line + 2);
+
+    // Headers:
     for (int i = 0; i < msg->header_count; i++)
-        written += snprintf(buffer + written, buffer_size - written,
-                "%s: %s\r\n",
-                msg->headers[i].name,
-                msg->headers[i].value);
+        written += buffer ?
+                    snprintf(*buffer + written, *buffer_size - written, "%s: %s\r\n", msg->headers[i].name, msg->headers[i].value)
+                    : strlen(msg->headers[i].name) + strlen(msg->headers[i].value) + 4;
     if (msg->header_count > 0)
-        written += snprintf(buffer + written, buffer_size - written, "\r\n");
+        written += buffer ?
+                    snprintf(*buffer + written, *buffer_size - written, "\r\n")
+                    : 2;
 
+    // Body:
     if (msg->body)
-        written += snprintf(buffer + written, buffer_size - written,
-                "%s", msg->body);
+        written += buffer ?
+                    snprintf(*buffer + written, *buffer_size - written, "%s", msg->body)
+                    : strlen(msg->body);
 
     return written;
 }

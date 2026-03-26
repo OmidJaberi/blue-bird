@@ -84,11 +84,13 @@ BBError http_client_send(bb_client_t *client, request_t *req)
              "%s %s HTTP/1.1", method, url);
 
     // Temporary:
-    char message[3000];
+    char *message;
+    int size;
     set_message_start_line(&GET_REQUEST_MESSAGE(*req), start_line);
-    serialize_message(&GET_REQUEST_MESSAGE(*req), message, 3000);
-    send_all(client->sock_fd, message, strlen(message));
+    serialize_message(&GET_REQUEST_MESSAGE(*req), &message, &size);
+    send_all(client->sock_fd, message, size);
 
+    free(message);
     return BB_SUCCESS();
 
     // /* ---- Send start line ---- */

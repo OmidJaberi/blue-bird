@@ -12,7 +12,7 @@ void set_response_header(response_t *res, const char *name, const char *value) {
 
 void set_response_body(response_t *res, char *body) { set_server_response_body(res, body); }
 
-int serialize_response(response_t *res, char *buffer, int buffer_size) { return serialize_server_response(res, buffer, buffer_size); }
+int serialize_response(response_t *res, char **buffer, int *size) { return serialize_server_response(res, buffer, size); }
 
 int send_response(int sock_fd, response_t *res) { return send_server_response(sock_fd, res); }
 

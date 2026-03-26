@@ -21,7 +21,7 @@ void set_server_response_header(server_response_t *res, const char *name, const 
 
 void set_server_response_body(server_response_t *res, char *body);
 
-int serialize_server_response(server_response_t *res, char *buffer, int buffer_size);
+int serialize_server_response(server_response_t *res, char **buffer, int *buffer_size);
 
 int send_server_response(int sock_fd, server_response_t *res);
 

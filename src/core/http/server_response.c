@@ -57,7 +57,7 @@ void set_server_response_body(server_response_t *res, char *body)
     set_message_body(&res->msg, body);
 }
 
-int serialize_server_response(server_response_t *res, char *buffer, int buffer_size)
+int serialize_server_response(server_response_t *res, char **buffer, int *buffer_size)
 {
     char start_line_buff[128];
     snprintf(start_line_buff, 128,
@@ -69,11 +69,12 @@ int serialize_server_response(server_response_t *res, char *buffer, int buffer_s
 
 int send_server_response(int sock_fd, server_response_t *res)
 {
-    char outbuf[8192];
-    int len = serialize_server_response(res, outbuf, sizeof(outbuf));
+    char *outbuf;
+    int size;
+    int len = serialize_server_response(res, &outbuf, &size);
 
-    if (write(sock_fd, outbuf, len) < 0)
-        return -1;
+    int written = write(sock_fd, outbuf, len);
 
-    return 0;
+    free(outbuf);
+    return written >= 0 ? 0 : -1;
 }

@@ -7,27 +7,30 @@
 void test_response_basic()
 {
     server_response_t res;
-    char buffer[1024];
+    char *buffer;
+    int size;
 
     init_server_response(&res);
     set_server_response_status(&res, 200);
     set_server_response_header(&res, "Content-Type", "text/plain");
     set_server_response_body(&res, "Hello there!");
 
-    int len = serialize_server_response(&res, buffer, sizeof(buffer));
+    int len = serialize_server_response(&res, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
     assert(strstr(buffer, "Content-Type: text/plain") != NULL);
     assert(strstr(buffer, "Content-Length: 12") != NULL);
     assert(strstr(buffer, "Hello there!") != NULL);
 
+    free(buffer);
     destroy_server_response(&res);
 }
 
 void test_response_multiple_headers()
 {
     server_response_t res;
-    char buffer[1024];
+    char *buffer;
+    int size;
 
     init_server_response(&res);
     set_server_response_status(&res, 201);
@@ -35,7 +38,7 @@ void test_response_multiple_headers()
     set_server_response_header(&res, "X-Custom", "Blue-Bird");
     set_server_response_body(&res, "{\"ok\":true}");
 
-    int len = serialize_server_response(&res, buffer, sizeof(buffer));
+    int len = serialize_server_response(&res, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
     assert(strstr(buffer, "Content-Type: application/json") != NULL);
@@ -43,29 +46,33 @@ void test_response_multiple_headers()
     assert(strstr(buffer, "Content-Length: 11") != NULL);
     assert(strstr(buffer, "{\"ok\":true}") != NULL);
 
+    free(buffer);
     destroy_server_response(&res);
 }
 
 void test_response_empty_body()
 {
     server_response_t res;
-    char buffer[1024];
+    char *buffer;
+    int size;
 
     init_server_response(&res);
     set_server_response_status(&res, 204);
 
-    int len = serialize_server_response(&res, buffer, sizeof(buffer));
+    int len = serialize_server_response(&res, &buffer, &size);
    
     assert(strstr(buffer, "HTTP/1.1 204 No Content") != NULL);
     assert(strstr(buffer, "Content-Length: 0") != NULL);
 
+    free(buffer);
     destroy_server_response(&res);
 }
 
 void test_response_large_body()
 {
     server_response_t res;
-    char buffer[65536];
+    char *buffer;
+    int size;
 
     size_t large_size = 50 * 1000 + 1;
     char *large_body = malloc(large_size); // 50 KB
@@ -79,11 +86,12 @@ void test_response_large_body()
     set_server_response_header(&res, "Content-Type", "text/plain");
     set_server_response_body(&res, large_body);
 
-    int len = serialize_server_response(&res, buffer, sizeof(buffer));
+    int len = serialize_server_response(&res, &buffer, &size);
 
     assert(strstr(buffer, "Content-Length: 50000") != NULL);
     assert(buffer[len - 1] == 'A');
 
+    free(buffer);
     destroy_server_response(&res);
 }
 

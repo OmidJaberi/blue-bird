@@ -7,27 +7,30 @@
 void test_message_basic()
 {
     http_message_t msg;
-    char buffer[1024];
+    char *buffer;
+    int size;
 
     init_message(&msg);
     set_message_start_line(&msg, "HTTP/1.1 200 OK");
     set_message_header(&msg, "Content-Type", "text/plain");
     set_message_body(&msg, "Hello there!");
 
-    int len = serialize_message(&msg, buffer, sizeof(buffer));
+    int len = serialize_message(&msg, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
     assert(strstr(buffer, "Content-Type: text/plain") != NULL);
     assert(strstr(buffer, "Content-Length: 12") != NULL);
     assert(strstr(buffer, "Hello there!") != NULL);
 
+    free(buffer);
     destroy_message(&msg);
 }
 
 void test_message_multiple_headers()
 {
     http_message_t msg;
-    char buffer[1024];
+    char *buffer;
+    int size;
 
     init_message(&msg);
     set_message_start_line(&msg, "HTTP/1.1 201 Created");
@@ -35,7 +38,7 @@ void test_message_multiple_headers()
     set_message_header(&msg, "X-Custom", "Blue-Bird");
     set_message_body(&msg, "{\"ok\":true}");
 
-    int len = serialize_message(&msg, buffer, sizeof(buffer));
+    int len = serialize_message(&msg, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
     assert(strstr(buffer, "Content-Type: application/json") != NULL);
@@ -43,13 +46,15 @@ void test_message_multiple_headers()
     assert(strstr(buffer, "Content-Length: 11") != NULL);
     assert(strstr(buffer, "{\"ok\":true}") != NULL);
 
+    free(buffer);
     destroy_message(&msg);
 }
 
 void test_message_large_body()
 {
     http_message_t msg;
-    char buffer[65536];
+    char *buffer;
+    int size;
 
     size_t large_size = 50 * 1000 + 1;
     char *large_body = malloc(large_size); // 50 KB
@@ -63,11 +68,12 @@ void test_message_large_body()
     set_message_header(&msg, "Content-Type", "text/plain");
     set_message_body(&msg, large_body);
 
-    int len = serialize_message(&msg, buffer, sizeof(buffer));
+    int len = serialize_message(&msg, &buffer, &size);
 
     assert(strstr(buffer, "Content-Length: 50000") != NULL);
     assert(buffer[len - 1] == 'A');
 
+    free(buffer);
     destroy_message(&msg);
 }
 
