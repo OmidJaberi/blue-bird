@@ -75,7 +75,7 @@ int serialize_message(http_message_t *msg, char **buffer, int *buffer_size)
 {
     if (buffer)
     {
-        *buffer_size = serialize_message(msg, NULL, NULL);
+        *buffer_size = serialize_message(msg, NULL, NULL) + 1;
         *buffer = malloc(*buffer_size);
         if (!*buffer)
             return -1;
@@ -92,7 +92,7 @@ int serialize_message(http_message_t *msg, char **buffer, int *buffer_size)
     // Start Line:
     int written = buffer ?
                     snprintf(*buffer, *buffer_size, "%s\r\n", msg->start_line)
-                    : strlen(msg->start_line + 2);
+                    : strlen(msg->start_line) + 2;
 
     // Headers:
     for (int i = 0; i < msg->header_count; i++)
