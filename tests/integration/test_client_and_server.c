@@ -405,6 +405,26 @@ void test_req_large_body()
     destroy_response(&res);
 }
 
+void test_invalid_method()
+{
+    printf("Testing unsupported HTTP method...\n");
+    request_t req;
+    response_t res;
+    init_request(&req);
+    init_response(&res);
+
+    set_request_method(&req, "POST");
+    set_request_url(&req, "/");
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 405 || res.status_code == 404);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 int main()
 {
     pthread_t thread_id;
@@ -424,6 +444,7 @@ int main()
     test_missing_query_param_req();
     test_req_body();
     test_req_large_body();
+    test_invalid_method();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
