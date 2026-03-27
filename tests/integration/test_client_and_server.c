@@ -173,7 +173,7 @@ void test_missing_path_req()
 
 void test_param_req()
 {
-    printf("Testing path with Param...\n");
+    printf("Testing path with parameter...\n");
 
     request_t req;
     response_t res;
@@ -202,7 +202,7 @@ void test_param_req()
 
 void test_multi_param_req()
 {
-    printf("Testing path with multiple Param...\n");
+    printf("Testing path with multiple parameter...\n");
 
     request_t req;
     response_t res;
@@ -229,9 +229,31 @@ void test_multi_param_req()
     destroy_response(&res);
 }
 
+void test_missing_param()
+{
+    printf("Testing missing route parameter...\n");
+
+    request_t req;
+    response_t res;
+    init_request(&req);
+    init_response(&res);
+
+    char *url = "/param/";
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 404);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_query_param_req()
 {
-    printf("Testing path with Query Param...\n");
+    printf("Testing path with Query parameter...\n");
 
     request_t req;
     response_t res;
@@ -260,7 +282,7 @@ void test_query_param_req()
 
 void test_multi_query_param_req()
 {
-    printf("Testing path with multiple Query Param...\n");
+    printf("Testing path with multiple Query parameter...\n");
 
     request_t req;
     response_t res;
@@ -289,7 +311,7 @@ void test_multi_query_param_req()
 
 void test_missing_query_param_req()
 {
-    printf("Testing path with missing Query Param...\n");
+    printf("Testing path with missing Query parameter...\n");
 
     request_t req;
     response_t res;
@@ -396,6 +418,7 @@ int main()
     test_missing_path_req();
     test_param_req();
     test_multi_param_req();
+    test_missing_param();
     test_query_param_req();
     test_multi_query_param_req();
     test_missing_query_param_req();
