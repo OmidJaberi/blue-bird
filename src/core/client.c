@@ -130,30 +130,14 @@ BBError http_client_receive(bb_client_t *client, response_t *res)
 
     init_response(res);
 
-    /* Very naive receive buffer (OK for now) */
-    char buffer[8192];
-    ssize_t total = 0;
-
-    while (1)
-    {
-        ssize_t n = recv(client->sock_fd,
-                         buffer + total,
-                         sizeof(buffer) - total - 1,
-                         0);
-        if (n <= 0)
-            break;
-
-        total += n;
-        if (total >= (ssize_t)sizeof(buffer) - 1)
-            break;
-    }
-
-    buffer[total] = '\0';
+    char *buffer;
+    read_http_message(client->sock_fd, &buffer);
 
     /* Delegate parsing */
     if (parse_response(buffer, res) != 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Failed to parse response");
 
+    free(buffer);
     return BB_SUCCESS();
 }
 
