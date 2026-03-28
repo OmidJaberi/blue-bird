@@ -9,6 +9,39 @@ void init_server_request(server_request_t *req)
     init_message(&req->msg);
 }
 
+static int hexval(char c) {
+    if ('0' <= c && c <= '9') return c - '0';
+    if ('a' <= c && c <= 'f') return c - 'a' + 10;
+    if ('A' <= c && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static void url_decode(char *s, int decode_plus)
+{
+    char *src = s;
+    char *dst = s;
+
+    while (*src) {
+        if (decode_plus && *src == '+') {
+            *dst++ = ' ';
+            src++;
+        }
+        else if (*src == '%' &&
+                 hexval(src[1]) >= 0 &&
+                 hexval(src[2]) >= 0)
+        {
+            int hi = hexval(src[1]);
+            int lo = hexval(src[2]);
+            *dst++ = (char)((hi << 4) | lo);
+            src += 3;
+        }
+        else {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0';
+}
+
 int parse_server_request(const char *raw, server_request_t *req)
 {
     if (!raw || !req) return -1;
@@ -35,6 +68,8 @@ int parse_server_request(const char *raw, server_request_t *req)
     {
         return -1;
     }
+
+    url_decode(req->path, 0); // do NOT treat '+' as space in path
 
     // Parse headers
     const char *headers_start = line_end + 2;
@@ -89,6 +124,11 @@ int parse_server_request(const char *raw, server_request_t *req)
         while (pair)
         {
             char *eq = strchr(pair, '=');
+
+            url_decode(pair, 1);      // '+' becomes space in query
+            url_decode(eq + 1, 1);
+            add_server_request_query_param(req, pair, eq + 1);
+
             if (eq)
             {
                 *eq = '\0';
