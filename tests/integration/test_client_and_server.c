@@ -280,6 +280,28 @@ void test_query_param_req()
     destroy_response(&res);
 }
 
+void test_encoded_query_param()
+{
+    printf("Testing encoded query parameter...\n");
+    request_t req;
+    response_t res;
+    init_request(&req);
+    init_response(&res);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/q_param?val=blue%20bird%21");
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 200);
+    printf("%s\n", res.msg.body);
+    assert(strcmp(res.msg.body, "val: blue bird!") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_multi_query_param_req()
 {
     printf("Testing path with multiple Query parameter...\n");
@@ -461,6 +483,7 @@ int main()
     test_multi_param_req();
     test_missing_param();
     test_query_param_req();
+    test_encoded_query_param();
     test_multi_query_param_req();
     test_missing_query_param_req();
     test_req_body();
