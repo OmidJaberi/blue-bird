@@ -158,6 +158,10 @@ int parse_server_request(const char *raw, server_request_t *req)
     memcpy(body_buf, body_start, body_len);
     body_buf[body_len] = '\0';
 
+    const char *ctype = get_server_request_header(req, "Content-Type");
+    if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
+        url_decode(body_buf, 1);
+
     // Store into message
     set_message_body(&req->msg, body_buf);
     free(body_buf);
