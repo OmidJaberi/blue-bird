@@ -295,7 +295,6 @@ void test_encoded_query_param()
     client_request(&req, &res);
 
     assert(res.status_code == 200);
-    printf("%s\n", res.msg.body);
     assert(strcmp(res.msg.body, "val: blue bird!") == 0);
 
     destroy_request(&req);
@@ -448,6 +447,38 @@ void test_empty_body_req()
     destroy_response(&res);
 }
 
+void test_encoded_body_req()
+{
+    printf("Testing encoded body...\n");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    char *url = "/body";
+    char *body = "name=blue%20bird&msg=hello%21";
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body);
+
+    /* optional but correct for encoded bodies */
+    set_request_header(&req, "Content-Type", "application/x-www-form-urlencoded");
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "body: name=blue bird&msg=hello!") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_invalid_method()
 {
     printf("Testing unsupported HTTP method...\n");
@@ -489,6 +520,7 @@ int main()
     test_req_body();
     test_req_large_body();
     test_empty_body_req();
+    test_encoded_body_req();
     test_invalid_method();
 
     printf("HTTP client and server integration tests passed.\n");
