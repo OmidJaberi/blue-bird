@@ -64,10 +64,19 @@ int parse_server_request(const char *raw, server_request_t *req)
     set_message_start_line(&req->msg, line);
 
     // Parse method, path, version
-    if (sscanf(line, "%7s %255s %15s", req->method, req->path, req->version) != 3)
-    {
+    char method[8];
+    char path[4096];
+    char version[16];
+
+    if (sscanf(line, "%7s %4095s %15s", method, path, version) != 3)
         return -1;
-    }
+
+    if (strlen(path) >= 256)
+        return -1;   // reject too-long path
+
+    strcpy(req->method, method);
+    strcpy(req->path, path);
+    strcpy(req->version, version);
 
     url_decode(req->path, 0); // do NOT treat '+' as space in path
 
