@@ -264,7 +264,7 @@ void test_max_length_param()
 
     /* ---- build request ---- */
     char *body = "";
-    char long_name[255 - strlen("/param/")];
+    char long_name[256 - strlen("/param/")];
     memset(long_name, 'a', sizeof(long_name)-1);
     long_name[sizeof(long_name)-1] = '\0';
 
@@ -282,6 +282,39 @@ void test_max_length_param()
     sprintf(expected, "name: %s", long_name);
     assert(res.status_code == 200);
     assert(strcmp(res.msg.body, expected) == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
+void test_over_sized_param()
+{
+    printf("Testing path with over sized parameter...\n");
+
+    request_t req;
+    response_t res;
+
+    /* ---- init ---- */
+    init_request(&req);
+    init_response(&res);
+
+    /* ---- build request ---- */
+    char *body = "";
+    char long_name[257 - strlen("/param/")];
+    memset(long_name, 'a', sizeof(long_name)-1);
+    long_name[sizeof(long_name)-1] = '\0';
+
+    char url[6000];
+    sprintf(url, "/param/%s", long_name);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, url);
+    set_request_body(&req, body);
+
+    client_request(&req, &res);
+
+    /* ---- validate ---- */
+    assert(res.status_code == 400);
 
     destroy_request(&req);
     destroy_response(&res);
@@ -550,6 +583,7 @@ int main()
     test_multi_param_req();
     test_missing_param();
     test_max_length_param();
+    test_over_sized_param();
     test_query_param_req();
     test_encoded_query_param();
     test_multi_query_param_req();
