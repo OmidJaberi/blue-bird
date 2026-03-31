@@ -42,6 +42,39 @@ static void url_decode(char *s, int decode_plus)
     *dst = '\0';
 }
 
+int parse_header(const char *raw, char **name_buf, char **value_buf)
+{
+    const char *colon = strchr(raw, ':');
+    if (!colon) return -1;  // Malformed Header (missing ':')
+
+    const char *end = strstr(raw, "\r\n");
+    if (!end) return -1;    // Malformed Header (no CRLF)
+
+    size_t name_len = colon - raw;
+    size_t value_len = end - (colon + 1);
+
+    // copy name
+    *name_buf = malloc(name_len + 1);
+    if (!*name_buf) return -1;
+    strncpy(*name_buf, raw, name_len);
+    (*name_buf)[name_len] = '\0';
+
+    // Skip leading space in value
+    const char *val_start = colon + 1;
+    while (*val_start == ' ' && value_len > 0)
+    {
+        val_start++;
+        value_len--;
+    }
+    // copy value
+    *value_buf = malloc(value_len + 1);
+    if (!*value_buf) return -1;
+    strncpy(*value_buf, val_start, value_len);
+    (*value_buf)[value_len] = '\0';
+
+    return (end - raw) + 2; // next line
+}
+
 int parse_server_request(const char *raw, server_request_t *req)
 {
     if (!raw || !req) return -1;
@@ -86,41 +119,14 @@ int parse_server_request(const char *raw, server_request_t *req)
 
     while (*p && !(p[0] == '\r' && p[1] == '\n'))
     {
-        const char *colon = strchr(p, ':');
-        if (!colon) return -1;  // Malformed Header (missing ':')
+        char *name_buf;
+        char *value_buf;
 
-        const char *end = strstr(p, "\r\n");
-        if (!end) return -1;    // Malformed Header (no CRLF)
+        int next = parse_header(p, &name_buf, &value_buf);
+        if (next < 0) return -1;
 
-        size_t name_len = colon - p;
-        size_t value_len = end - (colon + 1);
-
-        // SET HEADERS
-        char name_buf[128];
-        char value_buf[512];
-
-        // copy name
-        if (name_len >= sizeof(name_buf)) name_len = sizeof(name_buf) - 1;
-        strncpy(name_buf, p, name_len);
-        name_buf[name_len] = '\0';
-
-        // Skip leading space in value
-        const char *val_start = colon + 1;
-        while (*val_start == ' ' && value_len > 0)
-        {
-            val_start++;
-            value_len--;
-        }
-        // copy value
-        if (value_len >= sizeof(value_buf)) value_len = sizeof(value_buf) - 1;
-        strncpy(value_buf, val_start, value_len);
-        value_buf[value_len] = '\0';
-
-        // set into http_message_t
         set_message_header(&req->msg, name_buf, value_buf);
-
-
-        p = end + 2; // next line
+        p += next; // next line
     }
 
     // Query Params
