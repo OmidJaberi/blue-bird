@@ -75,6 +75,35 @@ int parse_header(const char *raw, char **name_buf, char **value_buf)
     return (end - raw) + 2; // next line
 }
 
+void parse_query_params(server_request_t *req)
+{
+    char *qmark = strchr(req->path, '?');
+    if (qmark)
+    {
+        *qmark = '\0';
+        char *query_str = qmark + 1;
+        char *pair = strtok(query_str, "&");
+        while (pair)
+        {
+            char *eq = strchr(pair, '=');
+
+            url_decode(pair, 1);      // '+' becomes space in query
+            url_decode(eq + 1, 1);
+            add_server_request_query_param(req, pair, eq + 1);
+
+            if (eq)
+            {
+                *eq = '\0';
+                add_server_request_query_param(req, pair, eq + 1);
+
+            }
+            else
+                add_server_request_query_param(req, pair, "");
+            pair = strtok(NULL, "&");
+        }
+    }
+}
+
 int parse_server_request(const char *raw, server_request_t *req)
 {
     if (!raw || !req) return -1;
@@ -139,31 +168,7 @@ int parse_server_request(const char *raw, server_request_t *req)
     }
 
     // Query Params
-    char *qmark = strchr(req->path, '?');
-    if (qmark)
-    {
-        *qmark = '\0';
-        char *query_str = qmark + 1;
-        char *pair = strtok(query_str, "&");
-        while (pair)
-        {
-            char *eq = strchr(pair, '=');
-
-            url_decode(pair, 1);      // '+' becomes space in query
-            url_decode(eq + 1, 1);
-            add_server_request_query_param(req, pair, eq + 1);
-
-            if (eq)
-            {
-                *eq = '\0';
-                add_server_request_query_param(req, pair, eq + 1);
-
-            }
-            else
-                add_server_request_query_param(req, pair, "");
-            pair = strtok(NULL, "&");
-        }
-    }
+    parse_query_params(req);
 
     // Parse Body
     const char *body_start = strstr(raw, "\r\n\r\n");
