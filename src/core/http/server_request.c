@@ -183,9 +183,9 @@ int parse_server_request(const char *raw, server_request_t *req)
         int next = parse_header(p, &name_buf, &value_buf);
         if (next < 0)
         {
-            return -1;
             if (name_buf) free(name_buf);
             if (value_buf) free(value_buf);
+            return -1;
         }
 
         set_message_header(&req->msg, name_buf, value_buf);
