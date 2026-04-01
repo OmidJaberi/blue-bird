@@ -42,7 +42,7 @@ static void url_decode(char *s, int decode_plus)
     *dst = '\0';
 }
 
-int parse_header(const char *raw, char **name_buf, char **value_buf)
+static int parse_header(const char *raw, char **name_buf, char **value_buf)
 {
     const char *colon = strchr(raw, ':');
     if (!colon) return -1;  // Malformed Header (missing ':')
@@ -102,6 +102,35 @@ void parse_query_params(server_request_t *req)
             pair = strtok(NULL, "&");
         }
     }
+}
+
+static int parse_body(server_request_t *req, const char *raw)
+{
+    const char *body_start = strstr(raw, "\r\n\r\n");
+    if (!body_start) return 0;
+
+    body_start += 4; // skip "\r\n\r\n"
+    const char *content_length = get_server_request_header(req, "Content-Length");
+    size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
+
+    if (body_len <= 0)
+        return 0;
+
+    char *body_buf = (char *)malloc(body_len + 1);
+    if (!body_buf) return -1;
+
+    memcpy(body_buf, body_start, body_len);
+    body_buf[body_len] = '\0';
+
+    const char *ctype = get_server_request_header(req, "Content-Type");
+    if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
+        url_decode(body_buf, 1);
+
+    // Store into message
+    set_message_body(&req->msg, body_buf);
+    free(body_buf);
+
+    return 0;
 }
 
 int parse_server_request(const char *raw, server_request_t *req)
@@ -171,31 +200,7 @@ int parse_server_request(const char *raw, server_request_t *req)
     parse_query_params(req);
 
     // Parse Body
-    const char *body_start = strstr(raw, "\r\n\r\n");
-    if (!body_start) return 0;
-
-    body_start += 4; // skip "\r\n\r\n"
-    const char *content_length = get_server_request_header(req, "Content-Length");
-    size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
-
-    if (body_len <= 0)
-        return 0;
-
-    char *body_buf = (char *)malloc(body_len + 1);
-    if (!body_buf) return -1;
-
-    memcpy(body_buf, body_start, body_len);
-    body_buf[body_len] = '\0';
-
-    const char *ctype = get_server_request_header(req, "Content-Type");
-    if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
-        url_decode(body_buf, 1);
-
-    // Store into message
-    set_message_body(&req->msg, body_buf);
-    free(body_buf);
-
-    return 0;
+    return parse_body(req, raw);
 }
 
 void destroy_server_request(server_request_t *req)
