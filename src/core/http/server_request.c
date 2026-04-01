@@ -42,21 +42,21 @@ static void url_decode(char *s, int decode_plus)
     *dst = '\0';
 }
 
-static int parse_header(const char *raw, char **name_buf, char **value_buf)
+static int parse_header(const char **raw, char **name_buf, char **value_buf)
 {
-    const char *colon = strchr(raw, ':');
+    const char *colon = strchr(*raw, ':');
     if (!colon) return -1;  // Malformed Header (missing ':')
 
-    const char *end = strstr(raw, "\r\n");
+    const char *end = strstr(*raw, "\r\n");
     if (!end) return -1;    // Malformed Header (no CRLF)
 
-    size_t name_len = colon - raw;
+    size_t name_len = colon - *raw;
     size_t value_len = end - (colon + 1);
 
     // copy name
     *name_buf = malloc(name_len + 1);
     if (!*name_buf) return -1;
-    strncpy(*name_buf, raw, name_len);
+    strncpy(*name_buf, *raw, name_len);
     (*name_buf)[name_len] = '\0';
 
     // Skip leading space in value
@@ -72,7 +72,8 @@ static int parse_header(const char *raw, char **name_buf, char **value_buf)
     strncpy(*value_buf, val_start, value_len);
     (*value_buf)[value_len] = '\0';
 
-    return (end - raw) + 2; // next line
+    *raw = end + 2; // next line
+    return 0;
 }
 
 void parse_query_params(server_request_t *req)
@@ -172,16 +173,14 @@ int parse_server_request(const char *raw, server_request_t *req)
     url_decode(req->path, 0); // do NOT treat '+' as space in path
 
     // Parse headers
-    const char *headers_start = line_end + 2;
-    const char *p = headers_start;
+    const char *header_start = line_end + 2;
 
-    while (*p && !(p[0] == '\r' && p[1] == '\n'))
+    while (*header_start && !(header_start[0] == '\r' && header_start[1] == '\n'))
     {
         char *name_buf;
         char *value_buf;
 
-        int next = parse_header(p, &name_buf, &value_buf);
-        if (next < 0)
+        if (parse_header(&header_start, &name_buf, &value_buf) < 0)
         {
             if (name_buf) free(name_buf);
             if (value_buf) free(value_buf);
@@ -192,8 +191,6 @@ int parse_server_request(const char *raw, server_request_t *req)
 
         if (name_buf) free(name_buf);
         if (value_buf) free(value_buf);
-
-        p += next; // next line
     }
 
     // Query Params
