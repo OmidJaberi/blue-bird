@@ -48,7 +48,7 @@ void test_route_match_get()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
+    init_message(&GET_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));
@@ -71,7 +71,7 @@ void test_route_match_post()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
+    init_message(&GET_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));
@@ -93,7 +93,7 @@ void test_route_not_found()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
+    init_message(&GET_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));
@@ -113,7 +113,7 @@ void test_route_with_param()
 
     request_t req;
     memset(&req, 0, sizeof(req));
-    init_message(&GET_SERVER_REQUEST_MESSAGE(req));
+    init_message(&GET_REQUEST_MESSAGE(req));
 
     response_t res;
     memset(&res, 0, sizeof(res));

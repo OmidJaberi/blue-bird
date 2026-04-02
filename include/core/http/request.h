@@ -23,6 +23,13 @@ void init_request(request_t *req); // For Client only
 
 void destroy_request(request_t *req);
 
+static inline http_message_t *get_request_message(request_t *req)
+{
+    return (req->type == CLIENT_REQUEST)
+        ? &req->inner_req.c_req.msg
+        : &req->inner_req.s_req.msg;
+}
+
 // Server:
 
 int parse_request(const char *raw, request_t *req);
@@ -50,11 +57,10 @@ void set_request_body(request_t *req, char *body);
 #define GET_REQUEST_PATH(req) ((req).inner_req.s_req.path)
 #define GET_REQUEST_PARAMS(req) ((req).inner_req.s_req.params)
 #define GET_REQUEST_PARAM_COUNT(req) ((req).inner_req.s_req.param_count)
-#define GET_SERVER_REQUEST_MESSAGE(req) ((req).inner_req.s_req.msg) // Works only for server right now...
 
 #define GET_REQUEST_METHOD(req) ((req).type == CLIENT_REQUEST ? (req).inner_req.c_req.method : (req).inner_req.s_req.method)
+#define GET_REQUEST_MESSAGE(req) (*(get_request_message(&(req))))
 
-#define GET_REQUEST_MESSAGE(req) ((req).inner_req.c_req.msg) // Works only for client right now...
 #define GET_REQUEST_URL(req) ((req).inner_req.c_req.url)
 
 

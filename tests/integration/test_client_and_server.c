@@ -69,7 +69,7 @@ BBError request_multi_query_param_handler(request_t *req, response_t *res)
 
 BBError request_body_handler(request_t *req, response_t *res)
 {
-    http_message_t *http_msg = &GET_SERVER_REQUEST_MESSAGE(*req);
+    http_message_t *http_msg = &GET_REQUEST_MESSAGE(*req);
     set_response_header(res, "Content-Type", "text/plain");
     char *msg = malloc(http_msg->body_len + 10);
     sprintf(msg, "body: %s", http_msg->body ? http_msg->body : "");

@@ -178,7 +178,7 @@ BBError delete_task(const char *task_name)
 // Route Handlers:
 BBError add_task(request_t *req, response_t *res)
 {
-    http_message_t *msg = &GET_SERVER_REQUEST_MESSAGE(*req);
+    http_message_t *msg = &GET_REQUEST_MESSAGE(*req);
     LOG_INFO("Add task: %s\n", msg->body);
     BBError err = add_new_task(msg->body);
     switch (err.code)
