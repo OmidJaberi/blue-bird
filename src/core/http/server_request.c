@@ -89,10 +89,10 @@ void parse_query_params(server_request_t *req)
             char *eq = strchr(pair, '=');
 
             url_decode(pair, 1);      // '+' becomes space in query
-            url_decode(eq + 1, 1);
-
+            
             if (eq)
             {
+                url_decode(eq + 1, 1);
                 *eq = '\0';
                 add_server_request_query_param(req, pair, eq + 1);
 
