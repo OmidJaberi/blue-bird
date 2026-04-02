@@ -90,7 +90,6 @@ void parse_query_params(server_request_t *req)
 
             url_decode(pair, 1);      // '+' becomes space in query
             url_decode(eq + 1, 1);
-            add_server_request_query_param(req, pair, eq + 1);
 
             if (eq)
             {
