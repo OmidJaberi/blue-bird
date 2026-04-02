@@ -11,8 +11,10 @@ typedef enum {
 
 typedef struct {
     request_type type;
-    server_request_t s_req;
-    client_request_t c_req;
+    union {
+        server_request_t s_req;
+        client_request_t c_req;
+    } inner_req;
 } request_t;
 
 void init_request_with_type(request_t *req, request_type type);
@@ -45,15 +47,15 @@ void set_request_header(request_t *req, const char *name, const char *value);
 void set_request_body(request_t *req, char *body);
 
 //Helper Macros
-#define GET_REQUEST_PATH(req) ((req).s_req.path)
-#define GET_REQUEST_PARAMS(req) ((req).s_req.params)
-#define GET_REQUEST_PARAM_COUNT(req) ((req).s_req.param_count)
-#define GET_SERVER_REQUEST_MESSAGE(req) ((req).s_req.msg) // Works only for server right now...
+#define GET_REQUEST_PATH(req) ((req).inner_req.s_req.path)
+#define GET_REQUEST_PARAMS(req) ((req).inner_req.s_req.params)
+#define GET_REQUEST_PARAM_COUNT(req) ((req).inner_req.s_req.param_count)
+#define GET_SERVER_REQUEST_MESSAGE(req) ((req).inner_req.s_req.msg) // Works only for server right now...
 
-#define GET_REQUEST_METHOD(req) ((req).c_req.method ? (req).c_req.method : (req).s_req.method)
+#define GET_REQUEST_METHOD(req) ((req).type == CLIENT_REQUEST ? (req).inner_req.c_req.method : (req).inner_req.s_req.method)
 
-#define GET_REQUEST_MESSAGE(req) ((req).c_req.msg) // Works only for client right now...
-#define GET_REQUEST_URL(req) ((req).c_req.url)
+#define GET_REQUEST_MESSAGE(req) ((req).inner_req.c_req.msg) // Works only for client right now...
+#define GET_REQUEST_URL(req) ((req).inner_req.c_req.url)
 
 
 #endif //BB_REQUEST_H
