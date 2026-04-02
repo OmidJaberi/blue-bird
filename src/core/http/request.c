@@ -1,10 +1,16 @@
 #include "core/http/request.h"
 
 
-void init_request(request_t *req)
+void init_request_with_type(request_t *req, request_type type)
 {
+    req->type = type;
     init_server_request(&req->s_req);
     init_client_request(&req->c_req);
+}
+
+void init_request(request_t *req) // For Client only
+{
+    init_request_with_type(req, CLIENT_REQUEST);
 }
 
 void destroy_request(request_t *req)

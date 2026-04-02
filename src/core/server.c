@@ -99,7 +99,7 @@ void start_server(bb_server_t *server)
         // Parse request
         request_t req;
         response_t res;
-        init_request(&req);
+        init_request_with_type(&req, SERVER_REQUEST);
         init_response(&res);
         if (parse_request(buffer, &req) == 0)
         {

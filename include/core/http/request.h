@@ -4,12 +4,20 @@
 #include "server_request.h"
 #include "client_request.h"
 
+typedef enum {
+    SERVER_REQUEST,
+    CLIENT_REQUEST
+} request_type;
+
 typedef struct {
+    request_type type;
     server_request_t s_req;
     client_request_t c_req;
 } request_t;
 
-void init_request(request_t *req);
+void init_request_with_type(request_t *req, request_type type);
+
+void init_request(request_t *req); // For Client only
 
 void destroy_request(request_t *req);
 
