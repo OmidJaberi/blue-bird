@@ -177,8 +177,8 @@ int parse_server_request(const char *raw, server_request_t *req)
 
     while (*header_start && !(header_start[0] == '\r' && header_start[1] == '\n'))
     {
-        char *name_buf;
-        char *value_buf;
+        char *name_buf = NULL;
+        char *value_buf = NULL;
 
         if (parse_header(&header_start, &name_buf, &value_buf) < 0)
         {
