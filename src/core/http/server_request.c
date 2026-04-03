@@ -42,40 +42,6 @@ static void url_decode(char *s, int decode_plus)
     *dst = '\0';
 }
 
-static int parse_header(const char **raw, char **name_buf, char **value_buf)
-{
-    const char *colon = strchr(*raw, ':');
-    if (!colon) return -1;  // Malformed Header (missing ':')
-
-    const char *end = strstr(*raw, "\r\n");
-    if (!end) return -1;    // Malformed Header (no CRLF)
-
-    size_t name_len = colon - *raw;
-    size_t value_len = end - (colon + 1);
-
-    // copy name
-    *name_buf = malloc(name_len + 1);
-    if (!*name_buf) return -1;
-    strncpy(*name_buf, *raw, name_len);
-    (*name_buf)[name_len] = '\0';
-
-    // Skip leading space in value
-    const char *val_start = colon + 1;
-    while (*val_start == ' ' && value_len > 0)
-    {
-        val_start++;
-        value_len--;
-    }
-    // copy value
-    *value_buf = malloc(value_len + 1);
-    if (!*value_buf) return -1;
-    strncpy(*value_buf, val_start, value_len);
-    (*value_buf)[value_len] = '\0';
-
-    *raw = end + 2; // next line
-    return 0;
-}
-
 static void parse_query_params(server_request_t *req)
 {
     char *qmark = strchr(req->path, '?');
@@ -104,35 +70,6 @@ static void parse_query_params(server_request_t *req)
     }
 }
 
-static int parse_body(server_request_t *req, const char *raw)
-{
-    const char *body_start = strstr(raw, "\r\n\r\n");
-    if (!body_start) return 0;
-
-    body_start += 4; // skip "\r\n\r\n"
-    const char *content_length = get_server_request_header(req, "Content-Length");
-    size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
-
-    if (body_len <= 0)
-        return 0;
-
-    char *body_buf = (char *)malloc(body_len + 1);
-    if (!body_buf) return -1;
-
-    memcpy(body_buf, body_start, body_len);
-    body_buf[body_len] = '\0';
-
-    const char *ctype = get_server_request_header(req, "Content-Type");
-    if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
-        url_decode(body_buf, 1);
-
-    // Store into message
-    set_message_body(&req->msg, body_buf);
-    free(body_buf);
-
-    return 0;
-}
-
 int parse_server_request(const char *raw, server_request_t *req)
 {
     if (!raw || !req) return -1;
@@ -140,26 +77,15 @@ int parse_server_request(const char *raw, server_request_t *req)
     req->param_count = 0;
     req->query_count = 0;
     init_message(&req->msg);
-
-    // Parse request line
-    const char *line_end = strstr(raw, "\r\n");
-    if (!line_end) return -1;
-
-    char line[512];
-    size_t len = line_end - raw;
-    if (len >= sizeof(line)) len = sizeof(line) - 1;
-    strncpy(line, raw, len);
-    line[len] = '\0';
-
-    // Set the start line in http_message_t
-    set_message_start_line(&req->msg, line);
+    if (parse_message(raw, &req->msg) != 0)
+        return -1;
 
     // Parse method, path, version
     char method[8];
     char path[4096];
     char version[16];
 
-    if (sscanf(line, "%7s %4095s %15s", method, path, version) != 3)
+    if (sscanf(req->msg.start_line, "%7s %4095s %15s", method, path, version) != 3)
         return -1;
 
     if (strlen(path) >= 256)
@@ -171,32 +97,10 @@ int parse_server_request(const char *raw, server_request_t *req)
 
     url_decode(req->path, 0); // do NOT treat '+' as space in path
 
-    // Parse headers
-    const char *header_start = line_end + 2;
-
-    while (*header_start && !(header_start[0] == '\r' && header_start[1] == '\n'))
-    {
-        char *name_buf = NULL;
-        char *value_buf = NULL;
-
-        if (parse_header(&header_start, &name_buf, &value_buf) < 0)
-        {
-            if (name_buf) free(name_buf);
-            if (value_buf) free(value_buf);
-            return -1;
-        }
-
-        set_message_header(&req->msg, name_buf, value_buf);
-
-        if (name_buf) free(name_buf);
-        if (value_buf) free(value_buf);
-    }
-
     // Query Params
     parse_query_params(req);
 
-    // Parse Body
-    return parse_body(req, raw);
+    return 0;
 }
 
 void destroy_server_request(server_request_t *req)
