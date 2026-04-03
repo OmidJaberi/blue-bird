@@ -71,6 +71,113 @@ void set_message_body(http_message_t *msg, const char *body)
     msg->body_len = len;
 }
 
+static int parse_header(const char **raw, char **name_buf, char **value_buf)
+{
+    const char *colon = strchr(*raw, ':');
+    if (!colon) return -1;  // Malformed Header (missing ':')
+
+    const char *end = strstr(*raw, "\r\n");
+    if (!end) return -1;    // Malformed Header (no CRLF)
+
+    size_t name_len = colon - *raw;
+    size_t value_len = end - (colon + 1);
+
+    // copy name
+    *name_buf = malloc(name_len + 1);
+    if (!*name_buf) return -1;
+    strncpy(*name_buf, *raw, name_len);
+    (*name_buf)[name_len] = '\0';
+
+    // Skip leading space in value
+    const char *val_start = colon + 1;
+    while (*val_start == ' ' && value_len > 0)
+    {
+        val_start++;
+        value_len--;
+    }
+    // copy value
+    *value_buf = malloc(value_len + 1);
+    if (!*value_buf) return -1;
+    strncpy(*value_buf, val_start, value_len);
+    (*value_buf)[value_len] = '\0';
+
+    *raw = end + 2; // next line
+    return 0;
+}
+
+static int parse_body(http_message_t *msg, const char *raw)
+{
+    const char *body_start = strstr(raw, "\r\n\r\n");
+    if (!body_start) return 0;
+
+    body_start += 4; // skip "\r\n\r\n"
+    const char *content_length = get_message_header(msg, "Content-Length");
+    size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
+
+    if (body_len <= 0)
+        return 0;
+
+    char *body_buf = (char *)malloc(body_len + 1);
+    if (!body_buf) return -1;
+
+    memcpy(body_buf, body_start, body_len);
+    body_buf[body_len] = '\0';
+
+    // const char *ctype = get_message_header(msg, "Content-Type");
+    // if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
+    //     url_decode(body_buf, 1);
+
+    // Store into message
+    set_message_body(msg, body_buf);
+    free(body_buf);
+
+    return 0;
+}
+
+int parse_message(const char *raw, http_message_t *msg)
+{
+    if (!raw || !msg) return -1;
+
+    init_message(msg);
+
+    // Parse start line
+    const char *line_end = strstr(raw, "\r\n");
+    if (!line_end) return -1;
+
+    char line[512];
+    size_t len = line_end - raw;
+    if (len >= sizeof(line)) len = sizeof(line) - 1;
+    strncpy(line, raw, len);
+    line[len] = '\0';
+
+    // Set the start line in http_message_t
+    set_message_start_line(msg, line);
+
+    // Parse headers
+    const char *header_start = line_end + 2;
+
+    while (*header_start && !(header_start[0] == '\r' && header_start[1] == '\n'))
+    {
+        char *name_buf = NULL;
+        char *value_buf = NULL;
+
+        if (parse_header(&header_start, &name_buf, &value_buf) < 0)
+        {
+            if (name_buf) free(name_buf);
+            if (value_buf) free(value_buf);
+            return -1;
+        }
+
+        set_message_header(msg, name_buf, value_buf);
+
+        if (name_buf) free(name_buf);
+        if (value_buf) free(value_buf);
+    }
+
+    // Parse Body
+    return parse_body(msg, raw);
+}
+
 int serialize_message(http_message_t *msg, char **buffer, int *buffer_size)
 {
     if (buffer)
