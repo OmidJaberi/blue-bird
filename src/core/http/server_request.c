@@ -1,4 +1,6 @@
 #include "core/http/server_request.h"
+#include "utils/encoding.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,39 +9,6 @@ void init_server_request(server_request_t *req)
 {
     if (!req) return;
     init_message(&req->msg);
-}
-
-static int hexval(char c) {
-    if ('0' <= c && c <= '9') return c - '0';
-    if ('a' <= c && c <= 'f') return c - 'a' + 10;
-    if ('A' <= c && c <= 'F') return c - 'A' + 10;
-    return -1;
-}
-
-static void url_decode(char *s, int decode_plus)
-{
-    char *src = s;
-    char *dst = s;
-
-    while (*src) {
-        if (decode_plus && *src == '+') {
-            *dst++ = ' ';
-            src++;
-        }
-        else if (*src == '%' &&
-                 hexval(src[1]) >= 0 &&
-                 hexval(src[2]) >= 0)
-        {
-            int hi = hexval(src[1]);
-            int lo = hexval(src[2]);
-            *dst++ = (char)((hi << 4) | lo);
-            src += 3;
-        }
-        else {
-            *dst++ = *src++;
-        }
-    }
-    *dst = '\0';
 }
 
 static void parse_query_params(server_request_t *req)
@@ -54,11 +23,11 @@ static void parse_query_params(server_request_t *req)
         {
             char *eq = strchr(pair, '=');
 
-            url_decode(pair, 1);      // '+' becomes space in query
+            decode_percent(pair, 1);      // '+' becomes space in query
             
             if (eq)
             {
-                url_decode(eq + 1, 1);
+                decode_percent(eq + 1, 1);
                 *eq = '\0';
                 add_server_request_query_param(req, pair, eq + 1);
 
@@ -95,7 +64,7 @@ int parse_server_request(const char *raw, server_request_t *req)
     strcpy(req->path, path);
     strcpy(req->version, version);
 
-    url_decode(req->path, 0); // do NOT treat '+' as space in path
+    decode_percent(req->path, 0); // do NOT treat '+' as space in path
 
     // Query Params
     parse_query_params(req);

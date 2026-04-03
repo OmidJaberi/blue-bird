@@ -1,4 +1,5 @@
 #include "core/http/message.h"
+#include "utils/encoding.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -123,9 +124,9 @@ static int parse_body(http_message_t *msg, const char *raw)
     memcpy(body_buf, body_start, body_len);
     body_buf[body_len] = '\0';
 
-    // const char *ctype = get_message_header(msg, "Content-Type");
-    // if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
-    //     url_decode(body_buf, 1);
+    const char *ctype = get_message_header(msg, "Content-Type");
+    if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
+        decode_percent(body_buf, 1);
 
     // Store into message
     set_message_body(msg, body_buf);
