@@ -92,32 +92,6 @@ BBError http_client_send(bb_client_t *client, request_t *req)
 
     free(message);
     return BB_SUCCESS();
-
-    // /* ---- Send start line ---- */
-    // send(client->sock_fd, start_line, strlen(start_line), 0);
-
-    // /* ---- Send headers ---- */
-    // for (int i = 0; i < GET_REQUEST_MESSAGE(*req).header_count; i++)
-    // {
-    //     char header_line[1024];
-    //     snprintf(header_line, sizeof(header_line),
-    //              "%s: %s\r\n",
-    //              GET_REQUEST_MESSAGE(*req).headers[i].name,
-    //              GET_REQUEST_MESSAGE(*req).headers[i].value);
-
-    //     send(client->sock_fd, header_line, strlen(header_line), 0);
-    // }
-
-    // /* ---- End headers ---- */
-    // send(client->sock_fd, "\r\n", 2, 0);
-
-    // /* ---- Send body if any ---- */
-    // if (GET_REQUEST_MESSAGE(*req).body && GET_REQUEST_MESSAGE(*req).body_len > 0)
-    // {
-    //     send(client->sock_fd, GET_REQUEST_MESSAGE(*req).body, GET_REQUEST_MESSAGE(*req).body_len, 0);
-    // }
-
-    // return BB_SUCCESS();
 }
 
 BBError http_client_receive(bb_client_t *client, response_t *res)

@@ -76,7 +76,7 @@ static int parse_header(const char **raw, char **name_buf, char **value_buf)
     return 0;
 }
 
-void parse_query_params(server_request_t *req)
+static void parse_query_params(server_request_t *req)
 {
     char *qmark = strchr(req->path, '?');
     if (qmark)

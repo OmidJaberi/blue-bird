@@ -54,24 +54,6 @@ void set_client_request_header(client_request_t *req, const char *name, const ch
 void set_client_request_body(client_request_t *req, char *body)
 {
     set_message_body(&req->msg, body);
-    // if (!req) return;
-
-    // /* set_message_body() currently copies via strlen(),
-    //    so we must respect len explicitly */
-    // if (req->msg.body) {
-    //     free(req->msg.body);
-    //     req->msg.body = NULL;
-    //     req->msg.body_len = 0;
-    // }
-
-    // if (!body || len == 0) return;
-
-    // req->msg.body = malloc(len + 1);
-    // if (!req->msg.body) return;
-
-    // memcpy(req->msg.body, body, len);
-    // req->msg.body[len] = '\0';
-    // req->msg.body_len = len;
 }
 
 void destroy_client_request(client_request_t *req)
