@@ -448,6 +448,25 @@ void test_duplicate_query_param()
     destroy_response(&res);
 }
 
+void test_empty_query_value()
+{
+    printf("Testing empty query value...\n");
+    request_t req;
+    response_t res;
+    init_request(&req);
+    init_response(&res);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/q_param?val=");
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 200);
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_req_body()
 {
     printf("Testing request body...\n");
@@ -610,6 +629,7 @@ int main()
     test_multi_query_param_req();
     test_missing_query_param_req();
     test_duplicate_query_param();
+    test_empty_query_value();
     test_req_body();
     test_req_large_body();
     test_empty_body_req();
