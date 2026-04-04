@@ -608,6 +608,26 @@ void test_invalid_method()
     destroy_response(&res);
 }
 
+void test_trailing_slash()
+{
+    printf("Testing route with trailing slash...\n");
+    request_t req;
+    response_t res;
+    init_request(&req);
+    init_response(&res);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/param/my_name/");
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 200);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 int main()
 {
     pthread_t thread_id;
@@ -635,6 +655,7 @@ int main()
     test_empty_body_req();
     test_encoded_body_req();
     test_invalid_method();
+    test_trailing_slash();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
