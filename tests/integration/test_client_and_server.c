@@ -427,6 +427,27 @@ void test_missing_query_param_req()
     destroy_response(&res);
 }
 
+void test_duplicate_query_param()
+{
+    printf("Testing duplicate query parameter...\n");
+    request_t req;
+    response_t res;
+    init_request(&req);
+    init_response(&res);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/q_param?val=blue&val=bird");
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "val: blue") == 0); // Based on implementation, we expect first param
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_req_body()
 {
     printf("Testing request body...\n");
@@ -588,6 +609,7 @@ int main()
     test_encoded_query_param();
     test_multi_query_param_req();
     test_missing_query_param_req();
+    test_duplicate_query_param();
     test_req_body();
     test_req_large_body();
     test_empty_body_req();
