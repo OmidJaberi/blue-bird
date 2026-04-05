@@ -607,6 +607,27 @@ void test_encoded_body_req()
     destroy_response(&res);
 }
 
+void test_encoded_path_segment()
+{
+    printf("Testing URL encoded path segment...\n");
+    request_t req;
+    response_t res;
+    init_request(&req);
+    init_response(&res);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/param/%62%6C%75%65"); // "blue"
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 200);
+    assert(strcmp(res.msg.body, "name: blue") == 0);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_invalid_method()
 {
     printf("Testing unsupported HTTP method...\n");
@@ -674,6 +695,7 @@ int main()
     test_req_large_body();
     test_empty_body_req();
     test_encoded_body_req();
+    test_encoded_path_segment();
     test_invalid_method();
     test_trailing_slash();
 
