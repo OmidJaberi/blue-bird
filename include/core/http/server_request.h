@@ -47,6 +47,8 @@ int parse_server_request(const char *raw, server_request_t *req);
 
 void destroy_server_request(server_request_t *req);
 
+int add_server_request_param(server_request_t *req, const char *key, const char *value);
+
 const char *get_server_request_param(server_request_t *req, const char *name);
 
 int add_server_request_query_param(server_request_t *req, const char *key, const char *value);

@@ -81,15 +81,7 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
             if (route->path_segments[j][0] == ':')
             {
                 // Parameter
-                if (GET_REQUEST_PARAM_COUNT(*req) >= MAX_PARAMS)
-                    continue;
-                strncpy(GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].name, route->path_segments[j] + 1, MAX_PARAM_NAME - 1);
-                strncpy(GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].value, req_segments[j], MAX_PARAM_VALUE - 1);
-
-                GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].name[MAX_PARAM_NAME - 1] = '\0';
-                GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].value[MAX_PARAM_VALUE - 1] = '\0';
-
-                GET_REQUEST_PARAM_COUNT(*req)++;
+                add_request_param(req, route->path_segments[j] + 1, req_segments[j]);
             }
             else
             {

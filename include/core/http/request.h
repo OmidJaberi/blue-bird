@@ -34,6 +34,8 @@ static inline http_message_t *get_request_message(request_t *req)
 
 int parse_request(const char *raw, request_t *req);
 
+int add_request_param(request_t *req, const char *key, const char *value);
+
 const char *get_request_param(request_t *req, const char *name);
 
 int add_request_query_param(request_t *req, const char *key, const char *value);

@@ -78,6 +78,23 @@ void destroy_server_request(server_request_t *req)
     req->param_count = 0;
 }
 
+int add_server_request_param(server_request_t *req, const char *key, const char *value)
+{
+    if (req->param_count >= MAX_PARAMS)
+       return -1;
+    
+    param_t *qp = &req->params[req->param_count];
+
+    strncpy(qp->name, key, sizeof(qp->name) - 1);
+    qp->name[sizeof(qp->name) - 1] = '\0';
+
+    strncpy(qp->value, value, sizeof(qp->value) - 1);
+    qp->value[sizeof(qp->value) - 1] = '\0';
+
+    req->param_count++;
+    return 0;
+}
+
 const char *get_server_request_param(server_request_t *req, const char *name)
 {
     for (int i = 0; i < req->param_count; i++)

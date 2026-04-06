@@ -41,6 +41,12 @@ int parse_request(const char *raw, request_t *req)
     return parse_server_request(raw, &req->inner_req.s_req);
 }
 
+int add_request_param(request_t *req, const char *key, const char *value)
+{
+    BB_ASSERT(req->type == SERVER_REQUEST, "Invalid request type.");
+    return add_server_request_param(&req->inner_req.s_req, key, value);
+}
+
 const char *get_request_param(request_t *req, const char *name)
 {
     BB_ASSERT(req->type == SERVER_REQUEST, "Invalid request type.");
