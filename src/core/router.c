@@ -62,6 +62,20 @@ BBError add_route_to_list(route_list_t *route_list, const char *method, const ch
     return BB_SUCCESS();
 }
 
+static int match_segments(route_t *route, char segments[][MAX_PATH_LEN], int segments_count)
+{
+    if (segments_count != route->segments_count)
+        return -1;
+    for (int i = 0; i < segments_count; i++)
+    {
+        if (route->path_segments[i][0] == ':')
+            continue;
+        if (strcmp(route->path_segments[i], segments[i]) != 0)
+            return -1;
+    }
+    return 0;
+}
+
 void handle_request(route_list_t *route_list, request_t *req, response_t *res)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
@@ -71,31 +85,13 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
     {
         if (strcmp(GET_REQUEST_METHOD(*req), route->method) != 0) continue;
 
-        if (req_count != route->segments_count) continue;
-
-        GET_REQUEST_PARAM_COUNT(*req) = 0;
-        int match = 1;
-
-        for (int j = 0; j < req_count; j++)
+        if (match_segments(route, req_segments, req_count) == 0)
         {
-            if (route->path_segments[j][0] == ':')
+            for (int j = 0; j < req_count; j++)
             {
-                // Parameter
-                add_request_param(req, route->path_segments[j] + 1, req_segments[j]);
+                if (route->path_segments[j][0] == ':')
+                    add_request_param(req, route->path_segments[j] + 1, req_segments[j]);
             }
-            else
-            {
-                // Exact match
-                if (strcmp(route->path_segments[j], req_segments[j]) != 0)
-                {
-                    match = 0;
-                    break;
-                }
-            }
-        }
-
-        if (match)
-        {
             route->handler(req, res);
             return;
         }
