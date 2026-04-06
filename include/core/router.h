@@ -11,7 +11,8 @@ typedef http_handler_cb route_handler_cb;
 
 typedef struct Route {
     char *method;
-    char *path;
+    char path_segments[MAX_SEGMENTS][MAX_PATH_LEN];
+    int segments_count;
     route_handler_cb handler;
     struct Route *next_route;
 } route_t;

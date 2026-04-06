@@ -53,7 +53,7 @@ BBError add_route_to_list(route_list_t *route_list, const char *method, const ch
     
     // Add the route
     new_route->method = strdup(method);
-    new_route->path = strdup(path);
+    new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->handler = handler;
     
     new_route->next_route = route_list->first;
@@ -71,22 +71,19 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
     {
         if (strcmp(GET_REQUEST_METHOD(*req), route->method) != 0) continue;
 
-        char route_segments[MAX_SEGMENTS][MAX_PATH_LEN];
-        int route_segment_count = split_path(route->path, route_segments);
-
-        if (req_count != route_segment_count) continue;
+        if (req_count != route->segments_count) continue;
 
         GET_REQUEST_PARAM_COUNT(*req) = 0;
         int match = 1;
 
         for (int j = 0; j < req_count; j++)
         {
-            if (route_segments[j][0] == ':')
+            if (route->path_segments[j][0] == ':')
             {
                 // Parameter
                 if (GET_REQUEST_PARAM_COUNT(*req) >= MAX_PARAMS)
                     continue;
-                strncpy(GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].name, route_segments[j] + 1, MAX_PARAM_NAME - 1);
+                strncpy(GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].name, route->path_segments[j] + 1, MAX_PARAM_NAME - 1);
                 strncpy(GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].value, req_segments[j], MAX_PARAM_VALUE - 1);
 
                 GET_REQUEST_PARAMS(*req)[GET_REQUEST_PARAM_COUNT(*req)].name[MAX_PARAM_NAME - 1] = '\0';
@@ -97,7 +94,7 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
             else
             {
                 // Exact match
-                if (strcmp(route_segments[j], req_segments[j]) != 0)
+                if (strcmp(route->path_segments[j], req_segments[j]) != 0)
                 {
                     match = 0;
                     break;
@@ -126,7 +123,6 @@ void destroy_route_list(route_list_t *route_list)
     {
         route_t *next = current->next_route;
         free(current->method);
-        free(current->path);
         free(current);
         current = next;
     }
