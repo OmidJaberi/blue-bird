@@ -264,7 +264,7 @@ void test_max_length_param()
 
     /* ---- build request ---- */
     char *body = "";
-    char long_name[256 - strlen("/param/")];
+    char long_name[256 - sizeof("/param/") - 1];
     memset(long_name, 'a', sizeof(long_name)-1);
     long_name[sizeof(long_name)-1] = '\0';
 
@@ -300,7 +300,7 @@ void test_over_sized_param()
 
     /* ---- build request ---- */
     char *body = "";
-    char long_name[257 - strlen("/param/")];
+    char long_name[257 - sizeof("/param/") - 1];
     memset(long_name, 'a', sizeof(long_name)-1);
     long_name[sizeof(long_name)-1] = '\0';
 
