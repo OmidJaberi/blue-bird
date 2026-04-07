@@ -36,6 +36,7 @@ BBError mw_stop(request_t *req, response_t *res)
 
 void test_middleware_order()
 {
+    printf("Testing Middleware order...\n");
     middleware_list_t mw_list;
     init_middleware_list(&mw_list);
     response_t res;
@@ -59,6 +60,7 @@ void test_middleware_order()
 
 void test_middleware_stop()
 {
+    printf("Testing Middleware stop...\n");
     middleware_list_t mw_list;
     init_middleware_list(&mw_list);
     response_t res;
