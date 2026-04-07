@@ -43,6 +43,7 @@ BBError handler_user(request_t *req, response_t *res)
 // Tests
 void test_route_match_get()
 {
+    printf("Testing Router: match GET...\n");
     route_list_t route_list;
     init_route_list(&route_list);
 
@@ -66,6 +67,7 @@ void test_route_match_get()
 
 void test_route_match_post()
 {
+    printf("Testing Router: match POST...\n");
     route_list_t route_list;
     init_route_list(&route_list);
 
@@ -88,6 +90,7 @@ void test_route_match_post()
 
 void test_route_not_found()
 {
+    printf("Testing Router: route not found...\n");
     route_list_t route_list;
     init_route_list(&route_list);
 
@@ -108,6 +111,7 @@ void test_route_not_found()
 
 void test_route_with_param()
 {
+    printf("Testing Router: route with param...\n");
     route_list_t route_list;
     init_route_list(&route_list);
 
