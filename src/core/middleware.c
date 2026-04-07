@@ -4,7 +4,7 @@
 
 void init_middleware_list(middleware_list_t *list)
 {
-    list->first = NULL;
+    *list = NULL;
 }
 
 static middleware_object_t *create_middleware_object(middleware_cb mw)
@@ -22,11 +22,11 @@ static middleware_object_t *create_middleware_object(middleware_cb mw)
 void append_to_middleware_list(middleware_list_t *list, middleware_cb mw)
 {
     middleware_object_t *mw_obj = create_middleware_object(mw);
-    if (!list->first)
-        list->first = mw_obj;
+    if (!*list)
+        *list = mw_obj;
     else
     {
-        middleware_object_t *last = list->first;
+        middleware_object_t *last = *list;
         while (last->next)
             last = last->next;
         last->next = mw_obj;
@@ -35,7 +35,7 @@ void append_to_middleware_list(middleware_list_t *list, middleware_cb mw)
 
 BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res)
 {
-    middleware_object_t *current = list->first;
+    middleware_object_t *current = *list;
     while (current)
     {
         BBError result = current->middleware(req, res);
@@ -48,7 +48,7 @@ BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res)
 
 void destroy_middleware_list(middleware_list_t *list)
 {
-    middleware_object_t *current = list->first;
+    middleware_object_t *current = *list;
     while (current)
     {
         middleware_object_t *next = current->next;

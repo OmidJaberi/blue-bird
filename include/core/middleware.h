@@ -10,9 +10,7 @@ typedef struct MiddlewareObject {
     struct MiddlewareObject *next;
 } middleware_object_t;
 
-typedef struct {
-    middleware_object_t *first;
-} middleware_list_t;
+typedef middleware_object_t* middleware_list_t;
 
 void init_middleware_list(middleware_list_t *list);
 void append_to_middleware_list(middleware_list_t *list, middleware_cb mw);
