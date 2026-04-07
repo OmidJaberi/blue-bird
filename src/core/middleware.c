@@ -7,7 +7,7 @@ void init_middleware_list(middleware_list_t *list)
     list->first = NULL;
 }
 
-middleware_object_t *create_middleware_object(middleware_cb mw)
+static middleware_object_t *create_middleware_object(middleware_cb mw)
 {
     middleware_object_t *mw_obj = malloc(sizeof(middleware_object_t));
     if (mw_obj == NULL)

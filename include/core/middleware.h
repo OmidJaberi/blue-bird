@@ -15,7 +15,6 @@ typedef struct {
 } middleware_list_t;
 
 void init_middleware_list(middleware_list_t *list);
-middleware_object_t *create_middleware_object(middleware_cb mw);
 void append_to_middleware_list(middleware_list_t *list, middleware_cb mw);
 BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res);
 void destroy_middleware_list(middleware_list_t *list);
