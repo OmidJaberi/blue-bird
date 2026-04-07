@@ -6,7 +6,7 @@
 
 void init_route_list(route_list_t *route_list)
 {
-    route_list->first = NULL;
+    *route_list = NULL;
 }
 
 static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN])
@@ -56,8 +56,8 @@ BBError add_route_to_list(route_list_t *route_list, const char *method, const ch
     new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->handler = handler;
     
-    new_route->next_route = route_list->first;
-    route_list->first = new_route;
+    new_route->next_route = *route_list;
+    *route_list = new_route;
 
     return BB_SUCCESS();
 }
@@ -81,7 +81,7 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(GET_REQUEST_PATH(*req), req_segments);
 
-    for (route_t *route = route_list->first; route != NULL; route = route->next_route)
+    for (route_t *route = *route_list; route != NULL; route = route->next_route)
     {
         if (strcmp(GET_REQUEST_METHOD(*req), route->method) != 0) continue;
 
@@ -106,7 +106,7 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
 
 void destroy_route_list(route_list_t *route_list)
 {
-    route_t *current = route_list->first;
+    route_t *current = *route_list;
     while (current)
     {
         route_t *next = current->next_route;

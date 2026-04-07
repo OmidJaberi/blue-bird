@@ -17,9 +17,7 @@ typedef struct Route {
     struct Route *next_route;
 } route_t;
 
-typedef struct {
-    route_t *first;
-} route_list_t;
+typedef route_t* route_list_t;
 
 void init_route_list(route_list_t *route_list);
 BBError add_route_to_list(route_list_t *route_list, const char *method, const char *path, route_handler_cb handler);
