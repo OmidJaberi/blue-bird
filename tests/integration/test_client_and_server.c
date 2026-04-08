@@ -399,6 +399,31 @@ void test_multi_query_param_req()
     destroy_response(&res);
 }
 
+void test_too_many_query_params()
+{
+    printf("Testing too many query parameters...\n");
+    request_t req; response_t res;
+    init_request(&req); init_response(&res);
+
+    char big_query[2048];
+    strcpy(big_query, "/q_param?");
+    for (int i = 0; i < 100; i++) {
+        char frag[50];
+        sprintf(frag, "val%d=%d&", i, i);
+        strcat(big_query, frag);
+    }
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, big_query);
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+    assert(res.status_code == 400);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_missing_query_param_req()
 {
     printf("Testing path with missing Query parameter...\n");
@@ -687,6 +712,7 @@ int main()
     test_query_param_req();
     test_encoded_query_param();
     test_multi_query_param_req();
+    test_too_many_query_params();
     test_missing_query_param_req();
     test_duplicate_query_param();
     test_empty_query_value();
