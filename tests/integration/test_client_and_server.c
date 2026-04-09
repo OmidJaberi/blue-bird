@@ -653,6 +653,25 @@ void test_encoded_path_segment()
     destroy_response(&res);
 }
 
+void test_invalid_body_encoding()
+{
+    printf("Testing invalid body encoding...\n");
+    request_t req; response_t res;
+    init_request(&req); init_response(&res);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/body");
+    set_request_body(&req, "name%GGbird"); // invalid percent encoding
+
+    set_request_header(&req, "Content-Type", "application/x-www-form-urlencoded");
+    client_request(&req, &res);
+
+    assert(res.status_code == 200);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 void test_invalid_method()
 {
     printf("Testing unsupported HTTP method...\n");
@@ -722,6 +741,7 @@ int main()
     test_empty_body_req();
     test_encoded_body_req();
     test_encoded_path_segment();
+    test_invalid_body_encoding();
     test_invalid_method();
     test_trailing_slash();
 
