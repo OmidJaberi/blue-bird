@@ -5,6 +5,36 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int is_valid_path(const char *path)
+{
+    for (const unsigned char *p = (const unsigned char *)path; *p; p++)
+    {
+        unsigned char c = *p;
+
+        // Reject control chars
+        if (c < 32 || c == 127)
+            return 0;
+
+        // Reject unsafe / problematic characters
+        switch (c)
+        {
+            case ' ':
+            case '"':
+            case '<':
+            case '>':
+            case '\\':
+            case '^':
+            case '`':
+            case '{':
+            case '|':
+            case '}':
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
 void init_server_request(server_request_t *req)
 {
     if (!req) return;
@@ -63,6 +93,9 @@ int parse_server_request(const char *raw, server_request_t *req)
     strcpy(req->method, method);
     strcpy(req->path, path);
     strcpy(req->version, version);
+    
+    if (!is_valid_path(req->path))
+        return -1;
 
     decode_percent(req->path, 0); // do NOT treat '+' as space in path
 
