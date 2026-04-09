@@ -712,6 +712,23 @@ void test_trailing_slash()
     destroy_response(&res);
 }
 
+void test_invalid_url_chars()
+{
+    printf("Testing path with invalid characters...\n");
+    request_t req; response_t res;
+    init_request(&req); init_response(&res);
+
+    set_request_method(&req, "GET");
+    set_request_url(&req, "/param/<script>");
+    set_request_body(&req, "");
+
+    client_request(&req, &res);
+    assert(res.status_code == 400);
+
+    destroy_request(&req);
+    destroy_response(&res);
+}
+
 int main()
 {
     pthread_t thread_id;
@@ -744,6 +761,7 @@ int main()
     test_invalid_body_encoding();
     test_invalid_method();
     test_trailing_slash();
+    test_invalid_url_chars();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
