@@ -98,6 +98,8 @@ int parse_server_request(const char *raw, server_request_t *req)
         return -1;
 
     decode_percent(req->path, 0); // do NOT treat '+' as space in path
+    if (strstr(req->path, ".."))
+        return -1;
 
     // Query Params
     parse_query_params(req);
