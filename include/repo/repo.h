@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "persist/persist.h"
+#include "persist/key_val.h"
 
 /*
  * Repo = record-oriented adapter over persist (KV store)

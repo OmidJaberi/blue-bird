@@ -1,7 +1,7 @@
-#ifndef BB_PERSIST_SQLITE_H
-#define BB_PERSIST_SQLITE_H
+#ifndef BB_KEY_VAL_PERSIST_SQLITE_H
+#define BB_KEY_VAL_PERSIST_SQLITE_H
 
 int persist_sqlite_register(void);
 
-#endif //BB_PERSIST_SQLITE_H
+#endif //BB_KEY_VAL_PERSIST_SQLITE_H
 

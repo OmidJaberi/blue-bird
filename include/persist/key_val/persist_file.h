@@ -1,6 +1,6 @@
-#ifndef BB_PERSIST_FILE_H
-#define BB_PERSIST_FILE_H
+#ifndef BB_KEY_VAL_PERSIST_FILE_H
+#define BB_KEY_VAL_PERSIST_FILE_H
 
 int persist_file_register(void);
 
-#endif //BB_PERSIST_FILE_H
+#endif //BB_KEY_VAL_PERSIST_FILE_H

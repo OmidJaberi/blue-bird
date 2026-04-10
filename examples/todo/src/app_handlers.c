@@ -1,8 +1,8 @@
 #include "app_handlers.h"
 #include "log/log.h"
 
-#include "persist/persist.h"
-#include "persist/persist_sqlite.h"
+#include "persist/key_val.h"
+#include "persist/key_val/persist_sqlite.h"
 #include "utils/json.h"
 
 #include <stdlib.h>

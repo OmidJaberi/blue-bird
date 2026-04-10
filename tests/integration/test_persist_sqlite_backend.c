@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>     /* for unlink() */
-#include "persist/persist.h"
-#include "persist/persist_sqlite.h"
+#include "persist/key_val.h"
+#include "persist/key_val/persist_sqlite.h"
 
 /* Integration test for SQLite backend */
 int main(void)

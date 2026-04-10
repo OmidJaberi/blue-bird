@@ -4,8 +4,8 @@
 #include "core/http.h"
 #include "core/server.h"
 #include "log/console_logger.h"
-#include "persist/persist.h"
-#include "persist/persist_sqlite.h"
+#include "persist/key_val.h"
+#include "persist/key_val/persist_sqlite.h"
 
 int main()
 {

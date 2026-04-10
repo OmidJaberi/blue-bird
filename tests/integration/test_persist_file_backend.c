@@ -3,8 +3,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "persist/persist.h"
-#include "persist/persist_file.h"
+#include "persist/key_val.h"
+#include "persist/key_val/persist_file.h"
 
 static void rmdir_recursive(const char *path)
 {

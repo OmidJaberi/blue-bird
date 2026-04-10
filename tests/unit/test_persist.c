@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "persist/persist.h"
+#include "persist/key_val.h"
 
 /* mock backend counters */
 static int open_called=0, close_called=0, save_called=0;

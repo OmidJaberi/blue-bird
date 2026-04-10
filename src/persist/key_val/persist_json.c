@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "persist/persist.h"
-#include "persist/persist_json.h"
+#include "persist/key_val.h"
+#include "persist/key_val/persist_json.h"
 #include "utils/json.h"
 
 struct PersistHandle {
