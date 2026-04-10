@@ -10,7 +10,7 @@ file(GLOB CORE_SOURCES
     "src/core/*.c"
     "src/core/http/*.c"
     "src/utils/*.c"
-    "src/persist/*.c"
+    "src/persist/key_val/*.c"
     "src/repo/*.c"
     "src/log/*.c"
 )
