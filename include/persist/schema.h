@@ -21,6 +21,7 @@ typedef struct {
     BB_Field *fields;
     size_t field_count;
     size_t struct_size;
+    int primary_key_index;
 } BB_Schema;
 
 #endif //BB_PERSIST_SCHEMA_H
