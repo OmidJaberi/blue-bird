@@ -137,3 +137,61 @@ static int sqlite_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity
 
     return (rc == SQLITE_DONE) ? 0 : -1;
 }
+
+static int sqlite_find_by_id(BB_ModelHandle *handle, BB_Schema *schema, void *out, int id)
+{
+    BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
+
+    if (ensure_table(h->db, schema) != SQLITE_OK)
+        return -1;
+
+    BB_Field *pk = &schema->fields[schema->primary_key_index];
+
+    char sql[512];
+    snprintf(sql, sizeof(sql),
+             "SELECT * FROM %s WHERE %s = ?;",
+             schema->name, pk->name);
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int(stmt, 1, id);
+
+    int rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW)
+    {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        BB_Field *f = &schema->fields[i];
+        void *field_ptr = (char *)out + f->offset;
+
+        switch (f->type)
+        {
+            case BB_FIELD_INT:
+                *(int *)field_ptr = sqlite3_column_int(stmt, i);
+                break;
+
+            case BB_FIELD_STRING:
+            {
+                const unsigned char *text = sqlite3_column_text(stmt, i);
+                if (text)
+                    strncpy((char *)field_ptr, (const char *)text, f->size);
+                break;
+            }
+
+            case BB_FIELD_BLOB:
+                memcpy(field_ptr,
+                       sqlite3_column_blob(stmt, i),
+                       f->size);
+                break;
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    return 0;
+}
