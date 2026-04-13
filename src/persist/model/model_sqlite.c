@@ -195,3 +195,18 @@ static int sqlite_find_by_id(BB_ModelHandle *handle, BB_Schema *schema, void *ou
     sqlite3_finalize(stmt);
     return 0;
 }
+
+static BB_ModelAPI model_sqlite_api = {
+    .name       = "sqlite",
+    .open       = sqlite_open,
+    .close      = sqlite_close,
+    .insert     = sqlite_insert,
+    .find_by_id = sqlite_find_by_id,
+    .update     = NULL,
+    .remove     = NULL
+};
+
+const BB_ModelAPI *bb_model_sqlite_api(void)
+{
+    return &model_sqlite_api;
+}
