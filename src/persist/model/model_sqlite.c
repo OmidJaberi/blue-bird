@@ -69,3 +69,71 @@ static void sqlite_close(BB_ModelHandle *handle)
     sqlite3_close(h->db);
     free(h);
 }
+
+static int sqlite_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
+{
+    BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
+
+    if (ensure_table(h->db, schema) != SQLITE_OK)
+        return -1;
+
+    char sql[1024] = {0};
+    strcat(sql, "INSERT INTO ");
+    strcat(sql, schema->name);
+    strcat(sql, " (");
+
+    // column names
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        strcat(sql, schema->fields[i].name);
+        if (i < schema->field_count - 1)
+            strcat(sql, ", ");
+    }
+
+    strcat(sql, ") VALUES (");
+
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        strcat(sql, "?");
+        if (i < schema->field_count - 1)
+            strcat(sql, ", ");
+    }
+
+    strcat(sql, ");");
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return -1;
+
+    // bind values
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        BB_Field *f = &schema->fields[i];
+        void *field_ptr = (char *)entity + f->offset;
+
+        switch (f->type)
+        {
+            case BB_FIELD_INT:
+                sqlite3_bind_int(stmt, i + 1, *(int *)field_ptr);
+                break;
+
+            case BB_FIELD_STRING:
+                sqlite3_bind_text(stmt, i + 1,
+                                  (char *)field_ptr,
+                                  -1, SQLITE_STATIC);
+                break;
+
+            case BB_FIELD_BLOB:
+                sqlite3_bind_blob(stmt, i + 1,
+                                  field_ptr,
+                                  f->size,
+                                  SQLITE_STATIC);
+                break;
+        }
+    }
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    return (rc == SQLITE_DONE) ? 0 : -1;
+}
