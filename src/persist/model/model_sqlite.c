@@ -210,3 +210,85 @@ const BB_ModelAPI *bb_model_sqlite_api(void)
 {
     return &model_sqlite_api;
 }
+
+static int sqlite_update(BB_ModelHandle *handle,
+                         BB_Schema *schema,
+                         void *entity)
+{
+    BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
+
+    if (ensure_table(h->db, schema) != SQLITE_OK)
+        return -1;
+
+    BB_Field *pk = &schema->fields[schema->primary_key_index];
+
+    char sql[1024] = {0};
+    strcat(sql, "UPDATE ");
+    strcat(sql, schema->name);
+    strcat(sql, " SET ");
+
+    // SET clause (skip PK)
+    int first = 1;
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        if ((int)i == schema->primary_key_index)
+            continue;
+
+        if (!first)
+            strcat(sql, ", ");
+
+        strcat(sql, schema->fields[i].name);
+        strcat(sql, " = ?");
+
+        first = 0;
+    }
+
+    strcat(sql, " WHERE ");
+    strcat(sql, pk->name);
+    strcat(sql, " = ?;");
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return -1;
+
+    // bind values (non-PK first)
+    int bind_index = 1;
+
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        if ((int)i == schema->primary_key_index)
+            continue;
+
+        BB_Field *f = &schema->fields[i];
+        void *field_ptr = (char *)entity + f->offset;
+
+        switch (f->type)
+        {
+            case BB_FIELD_INT:
+                sqlite3_bind_int(stmt, bind_index++, *(int *)field_ptr);
+                break;
+
+            case BB_FIELD_STRING:
+                sqlite3_bind_text(stmt, bind_index++,
+                                  (char *)field_ptr,
+                                  -1, SQLITE_TRANSIENT);
+                break;
+
+            case BB_FIELD_BLOB:
+                sqlite3_bind_blob(stmt, bind_index++,
+                                  field_ptr,
+                                  f->size,
+                                  SQLITE_TRANSIENT);
+                break;
+        }
+    }
+
+    // bind PK last
+    void *pk_ptr = (char *)entity + pk->offset;
+    sqlite3_bind_int(stmt, bind_index, *(int *)pk_ptr);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    return (rc == SQLITE_DONE) ? 0 : -1;
+}
