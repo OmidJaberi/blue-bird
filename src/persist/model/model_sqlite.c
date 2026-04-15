@@ -196,21 +196,6 @@ static int sqlite_find_by_id(BB_ModelHandle *handle, BB_Schema *schema, void *ou
     return 0;
 }
 
-static BB_ModelAPI model_sqlite_api = {
-    .name       = "sqlite",
-    .open       = sqlite_open,
-    .close      = sqlite_close,
-    .insert     = sqlite_insert,
-    .find_by_id = sqlite_find_by_id,
-    .update     = NULL,
-    .remove     = NULL
-};
-
-const BB_ModelAPI *bb_model_sqlite_api(void)
-{
-    return &model_sqlite_api;
-}
-
 static int sqlite_update(BB_ModelHandle *handle,
                          BB_Schema *schema,
                          void *entity)
@@ -319,4 +304,19 @@ static int sqlite_remove(BB_ModelHandle *handle,
     sqlite3_finalize(stmt);
 
     return (rc == SQLITE_DONE) ? 0 : -1;
+}
+
+static BB_ModelAPI model_sqlite_api = {
+    .name       = "sqlite",
+    .open       = sqlite_open,
+    .close      = sqlite_close,
+    .insert     = sqlite_insert,
+    .find_by_id = sqlite_find_by_id,
+    .update     = sqlite_update,
+    .remove     = sqlite_remove
+};
+
+const BB_ModelAPI *bb_model_sqlite_api(void)
+{
+    return &model_sqlite_api;
 }
