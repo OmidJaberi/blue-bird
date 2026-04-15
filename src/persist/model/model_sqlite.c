@@ -292,3 +292,31 @@ static int sqlite_update(BB_ModelHandle *handle,
 
     return (rc == SQLITE_DONE) ? 0 : -1;
 }
+
+static int sqlite_remove(BB_ModelHandle *handle,
+                         BB_Schema *schema,
+                         int id)
+{
+    BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
+
+    if (ensure_table(h->db, schema) != SQLITE_OK)
+        return -1;
+
+    BB_Field *pk = &schema->fields[schema->primary_key_index];
+
+    char sql[512];
+    snprintf(sql, sizeof(sql),
+             "DELETE FROM %s WHERE %s = ?;",
+             schema->name, pk->name);
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int(stmt, 1, id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    return (rc == SQLITE_DONE) ? 0 : -1;
+}
