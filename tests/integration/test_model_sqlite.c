@@ -129,6 +129,35 @@ static void test_sqlite_not_found()
     api->close(h);
 }
 
+static void test_sqlite_update()
+{
+    printf("\tTesting update...\n");
+    const char *db_path = "test_model_sqlite_update.db";
+    cleanup_db(db_path);
+
+    const BB_ModelAPI *api = bb_model_get("sqlite");
+    assert(api != NULL);
+
+    BB_ModelHandle *h = api->open(db_path);
+    assert(h != NULL);
+
+    User u = { .id = 1 };
+    strncpy(u.name, "Alice", sizeof(u.name));
+
+    assert(api->insert(h, &user_schema, &u) == 0);
+
+    // update
+    strncpy(u.name, "Bob", sizeof(u.name));
+    assert(api->update(h, &user_schema, &u) == 0);
+
+    User out = {0};
+    assert(api->find_by_id(h, &user_schema, &out, 1) == 0);
+
+    assert(strcmp(out.name, "Bob") == 0);
+
+    api->close(h);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -136,6 +165,7 @@ int main(void)
     test_sqlite_insert_and_find();
     test_sqlite_multiple_inserts();
     test_sqlite_not_found();
+    test_sqlite_update();
 
     printf("All SQLite model tests passed!\n");
     return 0;
