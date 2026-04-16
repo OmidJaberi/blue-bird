@@ -158,6 +158,34 @@ static void test_sqlite_update()
     api->close(h);
 }
 
+static void test_sqlite_remove()
+{
+    printf("\tTesting remove...\n");
+    const char *db_path = "test_model_sqlite_remove.db";
+    cleanup_db(db_path);
+
+    const BB_ModelAPI *api = bb_model_get("sqlite");
+    assert(api != NULL);
+
+    BB_ModelHandle *h = api->open(db_path);
+    assert(h != NULL);
+
+    User u = { .id = 1 };
+    strncpy(u.name, "Alice", sizeof(u.name));
+
+    assert(api->insert(h, &user_schema, &u) == 0);
+
+    // remove
+    assert(api->remove(h, &user_schema, 1) == 0);
+
+    User out = {0};
+    int rc = api->find_by_id(h, &user_schema, &out, 1);
+
+    assert(rc != 0); // should not exist
+
+    api->close(h);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -166,6 +194,7 @@ int main(void)
     test_sqlite_multiple_inserts();
     test_sqlite_not_found();
     test_sqlite_update();
+    test_sqlite_remove();
 
     printf("All SQLite model tests passed!\n");
     return 0;
