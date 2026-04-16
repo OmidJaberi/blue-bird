@@ -186,6 +186,33 @@ static void test_sqlite_remove()
     api->close(h);
 }
 
+static void test_sqlite_insert_conflict()
+{
+    printf("\tTesting insert conflict...\n");
+    const char *db_path = "test_model_sqlite_conflict.db";
+    cleanup_db(db_path);
+
+    const BB_ModelAPI *api = bb_model_get("sqlite");
+    assert(api != NULL);
+
+    BB_ModelHandle *h = api->open(db_path);
+    assert(h != NULL);
+
+    User u1 = { .id = 1 };
+    strncpy(u1.name, "Alice", sizeof(u1.name));
+
+    User u2 = { .id = 1 };
+    strncpy(u2.name, "Bob", sizeof(u2.name));
+
+    assert(api->insert(h, &user_schema, &u1) == 0);
+
+    // second insert with same PK should fail
+    int rc = api->insert(h, &user_schema, &u2);
+    assert(rc != 0);
+
+    api->close(h);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -195,6 +222,7 @@ int main(void)
     test_sqlite_not_found();
     test_sqlite_update();
     test_sqlite_remove();
+    test_sqlite_insert_conflict();
 
     printf("All SQLite model tests passed!\n");
     return 0;
