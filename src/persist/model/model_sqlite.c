@@ -275,7 +275,12 @@ static int sqlite_update(BB_ModelHandle *handle,
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 
-    return (rc == SQLITE_DONE) ? 0 : -1;
+    if (rc != SQLITE_DONE)
+        return -1;
+
+    // Check how many rows were actually changed
+    int changes = sqlite3_changes(h->db);
+    return (changes > 0) ? 0 : -1;
 }
 
 static int sqlite_remove(BB_ModelHandle *handle,
