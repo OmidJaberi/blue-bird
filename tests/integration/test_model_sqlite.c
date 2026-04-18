@@ -235,6 +235,25 @@ static void test_sqlite_update_not_found()
     api->close(h);
 }
 
+static void test_sqlite_remove_not_found()
+{
+    printf("\tTesting remove on non-existent row...\n");
+    const char *db_path = "test_model_sqlite_remove_not_found.db";
+    cleanup_db(db_path);
+
+    const BB_ModelAPI *api = bb_model_get("sqlite");
+    assert(api != NULL);
+
+    BB_ModelHandle *h = api->open(db_path);
+    assert(h != NULL);
+
+    int rc = api->remove(h, &user_schema, 999);
+
+    assert(rc != 0); // should fail
+
+    api->close(h);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -246,6 +265,7 @@ int main(void)
     test_sqlite_remove();
     test_sqlite_insert_conflict();
     test_sqlite_update_not_found();
+    test_sqlite_remove_not_found();
 
     printf("All SQLite model tests passed!\n");
     return 0;
