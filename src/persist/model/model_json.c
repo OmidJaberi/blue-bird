@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "utils/json.h"
 #include "persist/model/model_json.h"
 
@@ -114,4 +116,64 @@ static int json_to_entity(BB_Schema *schema, json_node_t *obj, void *out)
     }
 
     return 0;
+}
+
+// Model Operations:
+
+static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
+{
+    BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
+
+    json_node_t *root = load_root(h->path);
+    json_node_t *table = get_table(root, schema->name);
+
+    int id = get_entity_id(schema, entity);
+
+    // check duplicate
+    for (int i = 0; i < table->size; i++)
+    {
+        json_node_t *item = get_json_array_index(table, i);
+        json_node_t *id_node = get_json_object_value(item, schema->fields[schema->primary_key_index].name);
+
+        if (id_node && get_json_integer_value(id_node) == id)
+        {
+            destroy_json(root);
+            free(root);
+            return -1;
+        }
+    }
+
+    json_node_t *obj = entity_to_json(schema, entity);
+    push_json_array(table, obj);
+
+    return save_root(h->path, root);
+}
+
+static int json_find_by_id(BB_ModelHandle *handle, BB_Schema *schema, void *out, int id)
+{
+    BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
+
+    json_node_t *root = load_root(h->path);
+    json_node_t *table = get_table(root, schema->name);
+
+    for (int i = 0; i < table->size; i++)
+    {
+        json_node_t *item = get_json_array_index(table, i);
+
+        json_node_t *id_node = get_json_object_value(
+            item, schema->fields[schema->primary_key_index].name
+        );
+
+        if (id_node && get_json_integer_value(id_node) == id)
+        {
+            int rc = json_to_entity(schema, item, out);
+            destroy_json(root);
+            free(root);
+            return rc;
+        }
+    }
+
+    destroy_json(root);
+    free(root);
+    return -1;
 }
