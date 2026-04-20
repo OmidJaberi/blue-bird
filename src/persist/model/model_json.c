@@ -120,6 +120,32 @@ static int json_to_entity(BB_Schema *schema, json_node_t *obj, void *out)
 
 // Model Operations:
 
+static BB_ModelHandle *json_open(const char *uri)
+{
+    if (!uri) return NULL;
+
+    BB_ModelJSONHandle *h = malloc(sizeof(*h));
+    if (!h) return NULL;
+
+    h->path = strdup(uri);
+    if (!h->path)
+    {
+        free(h);
+        return NULL;
+    }
+
+    return (BB_ModelHandle *)h;
+}
+
+static void json_close(BB_ModelHandle *handle)
+{
+    BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
+    if (!h) return;
+
+    free(h->path);
+    free(h);
+}
+
 static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
@@ -235,4 +261,19 @@ static int json_remove(BB_ModelHandle *handle, BB_Schema *schema, int id)
     destroy_json(root);
     free(root);
     return -1;
+}
+
+static BB_ModelAPI model_json_api = {
+    .name       = "json",
+    .open       = json_open,
+    .close      = json_close,
+    .insert     = json_insert,
+    .find_by_id = json_find_by_id,
+    .update     = json_update,
+    .remove     = json_remove
+};
+
+const BB_ModelAPI *bb_model_json_api(void)
+{
+    return &model_json_api;
 }
