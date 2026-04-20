@@ -177,3 +177,36 @@ static int json_find_by_id(BB_ModelHandle *handle, BB_Schema *schema, void *out,
     free(root);
     return -1;
 }
+
+static int json_update(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
+{
+    BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
+
+    json_node_t *root = load_root(h->path);
+    json_node_t *table = get_table(root, schema->name);
+
+    int id = get_entity_id(schema, entity);
+    const char *pk_name = schema->fields[schema->primary_key_index].name;
+
+    for (int i = 0; i < table->size; i++)
+    {
+        json_node_t *item = get_json_array_index(table, i);
+        json_node_t *id_node = get_json_object_value(item, pk_name);
+
+        if (id_node && get_json_integer_value(id_node) == id)
+        {
+            // remove old entry
+            json_array_remove_at_index(table, i);
+
+            // insert updated version
+            json_node_t *new_obj = entity_to_json(schema, entity);
+            push_json_array(table, new_obj);
+
+            return save_root(h->path, root);
+        }
+    }
+
+    destroy_json(root);
+    free(root);
+    return -1;
+}
