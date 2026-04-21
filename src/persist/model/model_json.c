@@ -101,18 +101,22 @@ static int json_to_entity(BB_Schema *schema, json_node_t *obj, void *out)
         switch (f->type)
         {
             case BB_FIELD_INT:
+            {
                 *(int *)field_ptr = get_json_integer_value(val);
                 break;
-
+            }
             case BB_FIELD_STRING:
+            {
                 char *text = get_json_text_value(val);
                 if (text)
                     snprintf((char *)field_ptr, f->size, "%s", text);
                 break;
-
+            }
             case BB_FIELD_BLOB:
+            {
                 // skip for now
                 break;
+            }
         }
     }
 
