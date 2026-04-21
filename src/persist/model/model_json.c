@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "utils/json.h"
 #include "persist/model/model_json.h"
