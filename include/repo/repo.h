@@ -47,4 +47,9 @@ static inline int bb_repo_remove(BB_Repo *r, int id)
     return r->api->remove(r->handle, r->schema, id);
 }
 
+#define BB_DEFINE_REPO_TYPE(name, type) \
+    typedef struct { BB_Repo base; } name; \
+    static inline int name##_insert(name *r, type *e) { return bb_repo_insert(&r->base, e); } \
+    static inline int name##_find(name *r, type *out, int id) { return bb_repo_find_by_id(&r->base, out, id); }
+
 #endif
