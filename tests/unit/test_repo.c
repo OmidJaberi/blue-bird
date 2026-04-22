@@ -1,258 +1,247 @@
-#include "repo/repo.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
-/* ============================================================
-   Minimal in-memory persist backend (TEST ONLY)
-   ============================================================ */
+#include "repo/repo.h"
+#include "persist/model.h"
+#include "persist/schema.h"
 
-/*
- * We override persist_save/load/remove here so repo.c
- * links against these instead of any real backend.
- */
+/* ---------------------------
+ * Mock Backend State
+ * --------------------------- */
 
 typedef struct {
-    char   *key;
-    void   *data;
-    size_t  size;
-} entry_t;
+    int insert_called;
+    int find_called;
+    int update_called;
+    int remove_called;
 
-static entry_t *g_entries = NULL;
-static size_t   g_count   = 0;
+    int stored_id;
+    char stored_name[64];
+    int exists;
+} MockState;
 
-static void mem_reset(void)
+/* ---------------------------
+ * Mock Backend
+ * --------------------------- */
+
+static BB_ModelHandle *mock_open(const char *uri)
 {
-    for (size_t i = 0; i < g_count; i++) {
-        free(g_entries[i].key);
-        free(g_entries[i].data);
-    }
-    free(g_entries);
-    g_entries = NULL;
-    g_count = 0;
+    (void)uri;
+
+    MockState *m = malloc(sizeof(MockState));
+    memset(m, 0, sizeof(MockState));
+    return (BB_ModelHandle *)m;
 }
 
-int persist_save(const char *key, const void *data, size_t size)
+static void mock_close(BB_ModelHandle *h)
 {
-    /* overwrite if exists */
-    for (size_t i = 0; i < g_count; i++) {
-        if (strcmp(g_entries[i].key, key) == 0) {
-            free(g_entries[i].data);
-            g_entries[i].data = malloc(size);
-            memcpy(g_entries[i].data, data, size);
-            g_entries[i].size = size;
-            return 0;
-        }
-    }
+    free(h);
+}
 
-    entry_t *tmp = realloc(g_entries, sizeof(entry_t) * (g_count + 1));
-    if (!tmp)
+static int mock_insert(BB_ModelHandle *h, BB_Schema *schema, void *entity)
+{
+    MockState *m = (MockState *)h;
+    m->insert_called++;
+
+    int id = *(int *)((char *)entity + schema->fields[0].offset);
+    char *name = (char *)entity + schema->fields[1].offset;
+
+    if (m->exists && m->stored_id == id)
         return -1;
 
-    g_entries = tmp;
+    m->stored_id = id;
+    strncpy(m->stored_name, name, sizeof(m->stored_name));
+    m->exists = 1;
 
-    g_entries[g_count].key = strdup(key);
-    g_entries[g_count].data = malloc(size);
-    memcpy(g_entries[g_count].data, data, size);
-    g_entries[g_count].size = size;
-
-    g_count++;
     return 0;
 }
 
-int persist_load(const char *key, void *buf, size_t bufsize)
+static int mock_find(BB_ModelHandle *h, BB_Schema *schema, void *out, int id)
 {
-    for (size_t i = 0; i < g_count; i++) {
-        if (strcmp(g_entries[i].key, key) == 0) {
-            if (bufsize < g_entries[i].size)
-                return -1;
+    MockState *m = (MockState *)h;
+    m->find_called++;
 
-            memcpy(buf, g_entries[i].data, g_entries[i].size);
-            return (int)g_entries[i].size;
-        }
-    }
+    if (!m->exists || m->stored_id != id)
+        return -1;
 
-    return -1;
+    *(int *)((char *)out + schema->fields[0].offset) = m->stored_id;
+    snprintf((char *)out + schema->fields[1].offset,
+             schema->fields[1].size,
+             "%s", m->stored_name);
+
+    return 0;
 }
 
-int persist_remove(const char *key)
+static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
 {
-    for (size_t i = 0; i < g_count; i++) {
-        if (strcmp(g_entries[i].key, key) == 0) {
-            free(g_entries[i].key);
-            free(g_entries[i].data);
+    MockState *m = (MockState *)h;
+    m->update_called++;
 
-            for (size_t j = i; j < g_count - 1; j++)
-                g_entries[j] = g_entries[j + 1];
+    int id = *(int *)((char *)entity + schema->fields[0].offset);
+    char *name = (char *)entity + schema->fields[1].offset;
 
-            g_count--;
-            return 0;
-        }
-    }
+    if (!m->exists || m->stored_id != id)
+        return -1;
 
-    return -1;
+    snprintf(m->stored_name, sizeof(m->stored_name), "%s", name);
+    return 0;
 }
 
-/* ============================================================
-   Test Record + Encode/Decode
-   ============================================================ */
+static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, int id)
+{
+    MockState *m = (MockState *)h;
+    m->remove_called++;
+
+    if (!m->exists || m->stored_id != id)
+        return -1;
+
+    m->exists = 0;
+    return 0;
+}
+
+static BB_ModelAPI mock_api = {
+    .name = "mock",
+    .open = mock_open,
+    .close = mock_close,
+    .insert = mock_insert,
+    .find_by_id = mock_find,
+    .update = mock_update,
+    .remove = mock_remove
+};
+
+/* ---------------------------
+ * Test Model
+ * --------------------------- */
 
 typedef struct {
-    uint64_t id;
+    int id;
     char name[64];
-} user_t;
+} User;
 
-static int encode_user(
-    const void *record,
-    void **out_buf,
-    size_t *out_size
-)
+static BB_Field fields[] = {
+    { "id", BB_FIELD_INT, offsetof(User, id), sizeof(int) },
+    { "name", BB_FIELD_STRING, offsetof(User, name), 64 }
+};
+
+static BB_Schema schema = {
+    .name = "users",
+    .fields = fields,
+    .field_count = 2,
+    .struct_size = sizeof(User),
+    .primary_key_index = 0
+};
+
+/* ---------------------------
+ * Tests
+ * --------------------------- */
+
+static void test_repo_insert_and_find()
 {
-    *out_size = sizeof(user_t);
-    *out_buf = malloc(*out_size);
-    if (!*out_buf)
-        return -1;
+    printf("\tRepo insert & find...\n");
 
-    memcpy(*out_buf, record, *out_size);
-    return 0;
-}
+    BB_ModelHandle *h = mock_api.open("ignored");
 
-static int decode_user(
-    const void *buf,
-    size_t size,
-    void *out_record
-)
-{
-    if (size != sizeof(user_t))
-        return -1;
+    BB_Repo repo;
+    bb_repo_init(&repo, &mock_api, h, &schema);
 
-    memcpy(out_record, buf, size);
-    return 0;
-}
+    User u = { .id = 1 };
+    strncpy(u.name, "Alice", sizeof(u.name));
 
-/* ============================================================
-   Tests
-   ============================================================ */
+    assert(bb_repo_insert(&repo, &u) == 0);
 
-static void test_repo_create(void)
-{
-    bb_repo_t *repo =
-        bb_repo_create("users", encode_user, decode_user);
-
-    assert(repo != NULL);
-    bb_repo_destroy(repo);
-
-    assert(bb_repo_create(NULL, encode_user, decode_user) == NULL);
-    assert(bb_repo_create("x", NULL, decode_user) == NULL);
-    assert(bb_repo_create("x", encode_user, NULL) == NULL);
-}
-
-static void test_repo_put_get(void)
-{
-    mem_reset();
-
-    bb_repo_t *repo =
-        bb_repo_create("users", encode_user, decode_user);
-
-    assert(repo);
-
-    user_t in = { .id = 1 };
-    snprintf(in.name, sizeof in.name, "alice");
-
-    assert(bb_repo_put(repo, 1, &in) == BB_REPO_OK);
-
-    user_t out = {0};
-    assert(bb_repo_get(repo, 1, &out) == BB_REPO_OK);
+    User out = {0};
+    assert(bb_repo_find_by_id(&repo, &out, 1) == 0);
 
     assert(out.id == 1);
-    assert(strcmp(out.name, "alice") == 0);
+    assert(strcmp(out.name, "Alice") == 0);
 
-    bb_repo_destroy(repo);
+    mock_api.close(h);
 }
 
-static void test_repo_overwrite(void)
+static void test_repo_update()
 {
-    mem_reset();
+    printf("\tRepo update...\n");
 
-    bb_repo_t *repo =
-        bb_repo_create("users", encode_user, decode_user);
+    BB_ModelHandle *h = mock_api.open("ignored");
 
-    user_t u1 = { .id = 42 };
-    snprintf(u1.name, sizeof u1.name, "first");
+    BB_Repo repo;
+    bb_repo_init(&repo, &mock_api, h, &schema);
 
-    user_t u2 = { .id = 42 };
-    snprintf(u2.name, sizeof u2.name, "second");
+    User u = { .id = 1 };
+    strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(bb_repo_put(repo, 42, &u1) == BB_REPO_OK);
-    assert(bb_repo_put(repo, 42, &u2) == BB_REPO_OK);
+    assert(bb_repo_insert(&repo, &u) == 0);
 
-    user_t out = {0};
-    assert(bb_repo_get(repo, 42, &out) == BB_REPO_OK);
-    assert(strcmp(out.name, "second") == 0);
+    strncpy(u.name, "Bob", sizeof(u.name));
+    assert(bb_repo_update(&repo, &u) == 0);
 
-    bb_repo_destroy(repo);
+    User out = {0};
+    assert(bb_repo_find_by_id(&repo, &out, 1) == 0);
+
+    assert(strcmp(out.name, "Bob") == 0);
+
+    mock_api.close(h);
 }
 
-static void test_repo_get_missing(void)
+static void test_repo_remove()
 {
-    mem_reset();
+    printf("\tRepo remove...\n");
 
-    bb_repo_t *repo =
-        bb_repo_create("users", encode_user, decode_user);
+    BB_ModelHandle *h = mock_api.open("ignored");
 
-    user_t out;
-    assert(bb_repo_get(repo, 999, &out) == BB_REPO_NOT_FOUND);
+    BB_Repo repo;
+    bb_repo_init(&repo, &mock_api, h, &schema);
 
-    bb_repo_destroy(repo);
+    User u = { .id = 1 };
+    strncpy(u.name, "Alice", sizeof(u.name));
+
+    assert(bb_repo_insert(&repo, &u) == 0);
+    assert(bb_repo_remove(&repo, 1) == 0);
+
+    User out = {0};
+    assert(bb_repo_find_by_id(&repo, &out, 1) != 0);
+
+    mock_api.close(h);
 }
 
-static void test_repo_delete(void)
+static void test_repo_error_propagation()
 {
-    mem_reset();
+    printf("\tRepo error propagation...\n");
 
-    bb_repo_t *repo =
-        bb_repo_create("users", encode_user, decode_user);
+    BB_ModelHandle *h = mock_api.open("ignored");
 
-    user_t u = { .id = 5 };
-    snprintf(u.name, sizeof u.name, "bob");
+    BB_Repo repo;
+    bb_repo_init(&repo, &mock_api, h, &schema);
 
-    assert(bb_repo_put(repo, 5, &u) == BB_REPO_OK);
-    assert(bb_repo_delete(repo, 5) == BB_REPO_OK);
+    User u1 = { .id = 1 };
+    strncpy(u1.name, "Alice", sizeof(u1.name));
 
-    user_t out;
-    assert(bb_repo_get(repo, 5, &out) == BB_REPO_NOT_FOUND);
+    User u2 = { .id = 1 };
+    strncpy(u2.name, "Bob", sizeof(u2.name));
 
-    bb_repo_destroy(repo);
+    assert(bb_repo_insert(&repo, &u1) == 0);
+
+    /* duplicate insert should fail */
+    assert(bb_repo_insert(&repo, &u2) != 0);
+
+    mock_api.close(h);
 }
 
-static void test_repo_delete_missing(void)
-{
-    mem_reset();
-
-    bb_repo_t *repo =
-        bb_repo_create("users", encode_user, decode_user);
-
-    assert(bb_repo_delete(repo, 1234) == BB_REPO_NOT_FOUND);
-
-    bb_repo_destroy(repo);
-}
-
-/* ============================================================
-   Main
-   ============================================================ */
+/* ---------------------------
+ * Main
+ * --------------------------- */
 
 int main(void)
 {
-    test_repo_create();
-    test_repo_put_get();
-    test_repo_overwrite();
-    test_repo_get_missing();
-    test_repo_delete();
-    test_repo_delete_missing();
+    printf("Running repo unit tests...\n");
 
-    printf("All repo tests passed.\n");
+    test_repo_insert_and_find();
+    test_repo_update();
+    test_repo_remove();
+    test_repo_error_propagation();
+
+    printf("All repo tests passed!\n");
     return 0;
 }
