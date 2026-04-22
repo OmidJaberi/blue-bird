@@ -27,4 +27,24 @@ void bb_repo_init(BB_Repo *r,
                   BB_ModelHandle *handle,
                   BB_Schema *schema);
 
+static inline int bb_repo_insert(BB_Repo *r, void *entity)
+{
+    return r->api->insert(r->handle, r->schema, entity);
+}
+
+static inline int bb_repo_find_by_id(BB_Repo *r, void *out, int id)
+{
+    return r->api->find_by_id(r->handle, r->schema, out, id);
+}
+
+static inline int bb_repo_update(BB_Repo *r, void *entity)
+{
+    return r->api->update(r->handle, r->schema, entity);
+}
+
+static inline int bb_repo_remove(BB_Repo *r, int id)
+{
+    return r->api->remove(r->handle, r->schema, id);
+}
+
 #endif
