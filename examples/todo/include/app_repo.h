@@ -15,6 +15,8 @@ typedef struct {
     BB_Repo base;
 } TaskRepo;
 
+extern TaskRepo global_task_repo;
+
 extern BB_Field task_fields[];
 extern BB_Schema task_schema;
 

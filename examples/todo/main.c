@@ -1,11 +1,13 @@
 #include "app_handlers.h"
 #include "app_middleware.h"
+#include "app_repo.h"
 
 #include "core/http.h"
 #include "core/server.h"
 #include "log/console_logger.h"
 #include "persist/key_val.h"
 #include "persist/key_val/persist_sqlite.h"
+#include "persist/model/model_sqlite.h"
 
 int main()
 {
@@ -19,6 +21,14 @@ int main()
     persist_sqlite_register();
     persist_set_default("sqlite");
     persist_set_default_uri(dbfile);
+
+    /* Register repo backend */
+    bb_model_register(bb_model_sqlite_api());
+    const BB_ModelAPI *api = bb_model_get("sqlite");
+    BB_ModelHandle *handle = api->open(dbfile);
+
+    /* init repo */
+    bb_repo_init(&global_task_repo.base, api, handle, &task_schema);
 
     bb_server_t server;
     init_server(&server, 8080);

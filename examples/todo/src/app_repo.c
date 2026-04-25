@@ -1,5 +1,7 @@
 #include "app_repo.h"
 
+TaskRepo global_task_repo;
+
 BB_Field task_fields[] = {
     { "id", BB_FIELD_INT, offsetof(Task, id), sizeof(int) },
     { "name", BB_FIELD_STRING, offsetof(Task, name), 64 },
