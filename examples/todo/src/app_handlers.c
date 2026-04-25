@@ -1,4 +1,5 @@
 #include "app_handlers.h"
+#include "app_repo.h"
 #include "log/log.h"
 
 #include "persist/key_val.h"
@@ -179,21 +180,22 @@ BBError delete_task(const char *task_name)
 BBError add_task(request_t *req, response_t *res)
 {
     http_message_t *msg = &GET_REQUEST_MESSAGE(*req);
-    LOG_INFO("Add task: %s\n", msg->body);
-    BBError err = add_new_task(msg->body);
-    switch (err.code)
+
+    Task t = {0};
+    t.id = rand(); // for now...
+    strncpy(t.name, msg->body, sizeof(t.name));
+    strcpy(t.status, "not_done");
+
+    int rc = task_insert(&global_task_repo, &t);
+
+    if (rc == 0)
     {
-        case BB_OK:
-            set_response_status(res, 200);
-            break;
-        case BB_ERR_BAD_REQUEST:
-            set_response_status(res, 409);
-            break;
-        default:
-            set_response_status(res, 500);
-            break;
+        set_response_status(res, 200);
+        return BB_SUCCESS();
     }
-    return err;
+
+    set_response_status(res, 500);
+    return BB_ERROR(BB_ERR_INTERNAL, "Insert failed");
 }
 
 BBError remove_task(request_t *req, response_t *res)
