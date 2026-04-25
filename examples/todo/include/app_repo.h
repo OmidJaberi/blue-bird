@@ -19,7 +19,7 @@ extern BB_Field task_fields[];
 extern BB_Schema task_schema;
 
 int task_insert(TaskRepo *repo, Task *task);
-int task_remove(TaskRepo *repo, Task *task);
+int task_remove(TaskRepo *repo, int id);
 int task_update(TaskRepo *repo, Task *task);
 
 #endif //APP_REPO_H

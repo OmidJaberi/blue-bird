@@ -19,9 +19,9 @@ int task_insert(TaskRepo *repo, Task *task)
     return bb_repo_insert(&repo->base, task);
 }
 
-int task_remove(TaskRepo *repo, Task *task)
+int task_remove(TaskRepo *repo, int id)
 {
-    return bb_repo_remove(&repo->base, task);
+    return bb_repo_remove(&repo->base, id);
 }
 
 int task_update(TaskRepo *repo, Task *task)
