@@ -217,22 +217,27 @@ BBError remove_task(request_t *req, response_t *res)
 
 BBError mark_done(request_t *req, response_t *res)
 {
-    const char *task_name = get_request_param(req, "task_name");
-    LOG_INFO("Mark done: %s\n", task_name);
-    BBError err = mark_task_done(task_name);
-    switch (err.code)
+    const char *id_str = get_request_param(req, "id");
+    int id = atoi(id_str);
+
+    Task t = {0};
+
+    if (bb_repo_find_by_id(&global_task_repo.base, &t, id) != 0)
     {
-        case BB_OK:
-            set_response_status(res, 200);
-            break;
-        case BB_ERR_BAD_REQUEST:
-            set_response_status(res, 404);
-            break;
-        default:
-            set_response_status(res, 500);
-            break;
+        set_response_status(res, 404);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
     }
-    return err;
+
+    strcpy(t.status, "done");
+
+    if (task_update(&global_task_repo, &t) != 0)
+    {
+        set_response_status(res, 500);
+        return BB_ERROR(BB_ERR_INTERNAL, "Update failed");
+    }
+
+    set_response_status(res, 200);
+    return BB_SUCCESS();
 }
 
 BBError get_task(request_t *req, response_t *res)
