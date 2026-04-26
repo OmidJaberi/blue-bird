@@ -200,19 +200,19 @@ BBError add_task(request_t *req, response_t *res)
 
 BBError remove_task(request_t *req, response_t *res)
 {
-    const char *task_name = get_request_param(req, "task_name");
-    LOG_INFO("Remove task: %s\n", task_name);
-    BBError err = delete_task(task_name);
-    switch (err.code)
+    const char *id_str = get_request_param(req, "id");
+    int id = atoi(id_str);
+
+    int rc = task_remove(&global_task_repo, id);
+
+    if (rc == 0)
     {
-        case BB_OK:
-            set_response_status(res, 200);
-            break;
-        default:
-            set_response_status(res, 500);
-            break;
+        set_response_status(res, 200);
+        return BB_SUCCESS();
     }
-    return err;
+
+    set_response_status(res, 404);
+    return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
 }
 
 BBError mark_done(request_t *req, response_t *res)

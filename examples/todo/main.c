@@ -37,7 +37,7 @@ int main()
     use_post_middleware(&server, logger_middleware);
 
     add_route(&server, "POST", "/add_task", add_task);
-    add_route(&server, "DELETE", "/remove_task/:task_name", remove_task);
+    add_route(&server, "DELETE", "/remove_task/:id", remove_task);
     add_route(&server, "POST", "/mark_done/:task_name", mark_done);
     add_route(&server, "GET", "/:task_name/status", get_task);
     add_route(&server, "GET", "/list_tasks", list_tasks);
