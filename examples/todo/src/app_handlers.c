@@ -242,24 +242,21 @@ BBError mark_done(request_t *req, response_t *res)
 
 BBError get_task(request_t *req, response_t *res)
 {
-    const char *task_name = get_request_param(req, "task_name");
-    LOG_INFO("Get task: %s\n", task_name);
-    int is_done;
-    BBError err = is_task_done(task_name, &is_done);
-    switch (err.code)
+    const char *id_str = get_request_param(req, "id");
+    int id = atoi(id_str);
+
+    Task t = {0};
+
+    if (bb_repo_find_by_id(&global_task_repo.base, &t, id) != 0)
     {
-        case BB_OK:
-            set_response_status(res, 200);
-            set_response_body(res, is_done ? "not_done" : "done");
-            break;
-        case BB_ERR_BAD_REQUEST:
-            set_response_status(res, 404);
-            break;
-        default:
-            set_response_status(res, 500);
-            break;
+        set_response_status(res, 404);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
     }
-    return err;
+
+    set_response_status(res, 200);
+    set_response_body(res, t.status);
+
+    return BB_SUCCESS();
 }
 
 BBError list_tasks(request_t *req, response_t *res)
