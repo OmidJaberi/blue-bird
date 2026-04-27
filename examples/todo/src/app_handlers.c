@@ -19,6 +19,9 @@ BBError add_task(request_t *req, response_t *res)
 
     if (rc == 0)
     {
+        char buff[256];
+        snprintf(buff, 256, "id: %d", t.id);
+        set_response_body(res, buff);
         set_response_status(res, 200);
         return BB_SUCCESS();
     }
