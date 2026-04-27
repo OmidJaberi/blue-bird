@@ -1,6 +1,7 @@
 #include "app_handlers.h"
 #include "app_repo.h"
 #include "log/log.h"
+#include "utils/json.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -85,8 +86,25 @@ BBError get_task(request_t *req, response_t *res)
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
     }
 
+    json_node_t *doc = JSON(
+        OBJ(
+            KEY("id", INT(t.id)),
+            KEY("name", TEXT(t.name)),
+            KEY("status", TEXT(t.status))
+        )
+    );
+    char *buf;
+    int size;
+    serialize_json(doc, &buf, &size);
+    if (size <= 0)
+    {
+        set_response_status(res, 500);
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to serialize.");
+    }
+
     set_response_status(res, 200);
-    set_response_body(res, t.status);
+    set_response_body(res, buf);
+    free(buf);
 
     return BB_SUCCESS();
 }
