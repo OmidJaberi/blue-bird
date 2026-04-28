@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "repo/repo.h"
@@ -81,6 +82,38 @@ static void test_repo_sqlite_crud()
     /* REMOVE */
     assert(bb_repo_remove(&repo, 1) == 0);
     assert(bb_repo_find_by_id(&repo, &out, 1) != 0);
+
+    /* FIND ALL */
+    printf("\tRepo find_all...\n");
+
+    User u1 = { .id = 1 };
+    strcpy(u1.name, "Alice");
+
+    User u2 = { .id = 2 };
+    strcpy(u2.name, "Bob");
+
+    assert(bb_repo_insert(&repo, &u1) == 0);
+    assert(bb_repo_insert(&repo, &u2) == 0);
+
+    User *arr = NULL;
+    size_t count = 0;
+
+    assert(bb_repo_find_all(&repo, (void**)&arr, &count) == 0);
+
+    assert(count == 2);
+
+    /* order not guaranteed → just check existence */
+    int found1 = 0, found2 = 0;
+
+    for (size_t i = 0; i < count; i++)
+    {
+        if (arr[i].id == 1) found1 = 1;
+        if (arr[i].id == 2) found2 = 1;
+    }
+
+    assert(found1 && found2);
+
+    free(arr);
 
     api->close(h);
 }
