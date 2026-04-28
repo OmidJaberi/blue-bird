@@ -316,6 +316,88 @@ static int sqlite_remove(BB_ModelHandle *handle,
     return (changes > 0) ? 0 : -1;
 }
 
+static int sqlite_find_all(BB_ModelHandle *handle,
+                           BB_Schema *schema,
+                           void **out_array,
+                           size_t *out_count)
+{
+    BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
+
+    if (ensure_table(h->db, schema) != SQLITE_OK)
+        return -1;
+
+    char sql[256];
+    snprintf(sql, sizeof(sql), "SELECT * FROM %s;", schema->name);
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return -1;
+
+    size_t capacity = 8;
+    size_t count = 0;
+
+    void *buffer = malloc(schema->struct_size * capacity);
+    if (!buffer)
+    {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        if (count >= capacity)
+        {
+            capacity *= 2;
+            void *tmp = realloc(buffer, schema->struct_size * capacity);
+            if (!tmp)
+            {
+                free(buffer);
+                sqlite3_finalize(stmt);
+                return -1;
+            }
+            buffer = tmp;
+        }
+
+        void *entity = (char *)buffer + (count * schema->struct_size);
+
+        for (size_t i = 0; i < schema->field_count; i++)
+        {
+            BB_Field *f = &schema->fields[i];
+            void *field_ptr = (char *)entity + f->offset;
+
+            switch (f->type)
+            {
+                case BB_FIELD_INT:
+                    *(int *)field_ptr = sqlite3_column_int(stmt, i);
+                    break;
+
+                case BB_FIELD_STRING:
+                {
+                    const unsigned char *text = sqlite3_column_text(stmt, i);
+                    if (text)
+                        strncpy((char *)field_ptr, (const char *)text, f->size);
+                    break;
+                }
+
+                case BB_FIELD_BLOB:
+                    memcpy(field_ptr,
+                           sqlite3_column_blob(stmt, i),
+                           f->size);
+                    break;
+            }
+        }
+
+        count++;
+    }
+
+    sqlite3_finalize(stmt);
+
+    *out_array = buffer;
+    *out_count = count;
+
+    return 0;
+}
+
 static BB_ModelAPI model_sqlite_api = {
     .name       = "sqlite",
     .open       = sqlite_open,
@@ -323,7 +405,8 @@ static BB_ModelAPI model_sqlite_api = {
     .insert     = sqlite_insert,
     .find_by_id = sqlite_find_by_id,
     .update     = sqlite_update,
-    .remove     = sqlite_remove
+    .remove     = sqlite_remove,
+    .find_all   = sqlite_find_all
 };
 
 const BB_ModelAPI *bb_model_sqlite_api(void)
