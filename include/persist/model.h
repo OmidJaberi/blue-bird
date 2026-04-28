@@ -15,6 +15,7 @@ typedef struct {
     int (*find_by_id)(BB_ModelHandle *h, BB_Schema *schema, void *out, int id);
     int (*update)(BB_ModelHandle *h, BB_Schema *schema, void *entity);
     int (*remove)(BB_ModelHandle *h, BB_Schema *schema, int id);
+    int (*find_all)(BB_ModelHandle *h, BB_Schema *schema, void **out_array, size_t *out_count);
 
 } BB_ModelAPI;
 
