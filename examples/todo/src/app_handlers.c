@@ -96,6 +96,8 @@ BBError get_task(request_t *req, response_t *res)
     char *buf;
     int size;
     serialize_json(doc, &buf, &size);
+    destroy_json(doc);
+    free(doc);
     if (size <= 0)
     {
         set_response_status(res, 500);
@@ -111,10 +113,40 @@ BBError get_task(request_t *req, response_t *res)
 
 BBError list_tasks(request_t *req, response_t *res)
 {
-    (void)req;
+    Task *tasks = NULL;
+    size_t count = 0;
 
-    set_response_status(res, 501);
-    set_response_body(res, "Not implemented");
+    bb_repo_find_all(&global_task_repo.base, (void**)&tasks, &count);
+
+    json_node_t task_list;
+    init_json(&task_list, JSON_ARRAY);
+    for (int i = 0; i < count; i++)
+    {
+        json_node_t *task = JSON(
+            OBJ(
+                KEY("id", INT(tasks[i].id)),
+                KEY("name", TEXT(tasks[i].name)),
+                KEY("status", TEXT(tasks[i].status))
+            )
+        );
+        push_json_array(&task_list, task);
+    }
+
+    
+    char *buf;
+    int size;
+    serialize_json(&task_list, &buf, &size);
+    destroy_json(&task_list);
+    if (size <= 0)
+    {
+        set_response_status(res, 500);
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to serialize.");
+    }
+
+    set_response_status(res, 200);
+    set_response_body(res, buf);
+
+    free(tasks);
 
     return BB_SUCCESS();
 }
