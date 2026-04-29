@@ -286,13 +286,30 @@ static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_a
         return 0;
     }
 
-    if (root.type != JSON_ARRAY)
+    if (root.type != JSON_OBJECT)
     {
         destroy_json(&root);
         return -1;
     }
 
-    size_t count = root.size;
+    json_node_t *arr = get_json_object_value(&root, schema->name);
+
+    if (!arr)
+    {
+        *out_array = NULL;
+        *out_count = 0;
+
+        destroy_json(&root);
+        return 0;
+    }
+
+    if (arr->type != JSON_ARRAY)
+    {
+        destroy_json(&root);
+        return -1;
+    }
+
+    size_t count = arr->size;
 
     void *buffer = calloc(count, schema->struct_size);
     if (!buffer)
@@ -303,7 +320,7 @@ static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_a
 
     for (size_t i = 0; i < count; i++)
     {
-        json_node_t *obj = get_json_array_index(&root, i);
+        json_node_t *obj = get_json_array_index(arr, i);
 
         if (!obj || obj->type != JSON_OBJECT)
             continue;
@@ -314,8 +331,7 @@ static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_a
         {
             BB_Field *f = &schema->fields[j];
 
-            json_node_t *val =
-                get_json_object_value(obj, f->name);
+            json_node_t *val = get_json_object_value(obj, f->name);
 
             if (!val)
                 continue;
