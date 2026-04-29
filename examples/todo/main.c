@@ -5,8 +5,6 @@
 #include "core/http.h"
 #include "core/server.h"
 #include "log/console_logger.h"
-#include "persist/key_val.h"
-#include "persist/key_val/persist_sqlite.h"
 #include "persist/model/model_sqlite.h"
 
 int main()
@@ -16,11 +14,6 @@ int main()
     default_logger = console_logger;
 
     const char *dbfile = "todo_sqlite.db";
-
-    /* Register backend */
-    persist_sqlite_register();
-    persist_set_default("sqlite");
-    persist_set_default_uri(dbfile);
 
     /* Register repo backend */
     bb_model_register(bb_model_sqlite_api());
