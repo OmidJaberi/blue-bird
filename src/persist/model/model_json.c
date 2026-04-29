@@ -268,6 +268,99 @@ static int json_remove(BB_ModelHandle *handle, BB_Schema *schema, int id)
     return -1;
 }
 
+static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_array, size_t *out_count)
+{
+    BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
+
+    json_node_t root;
+    init_json(&root, JSON_ARRAY);
+
+    /* load file */
+    if (load_json(&root, h->path) != 0)
+    {
+        destroy_json(&root);
+
+        *out_array = NULL;
+        *out_count = 0;
+
+        return 0;
+    }
+
+    if (root.type != JSON_ARRAY)
+    {
+        destroy_json(&root);
+        return -1;
+    }
+
+    size_t count = root.size;
+
+    void *buffer = calloc(count, schema->struct_size);
+    if (!buffer)
+    {
+        destroy_json(&root);
+        return -1;
+    }
+
+    for (size_t i = 0; i < count; i++)
+    {
+        json_node_t *obj = get_json_array_index(&root, i);
+
+        if (!obj || obj->type != JSON_OBJECT)
+            continue;
+
+        void *entity = (char *)buffer + (i * schema->struct_size);
+
+        for (size_t j = 0; j < schema->field_count; j++)
+        {
+            BB_Field *f = &schema->fields[j];
+
+            json_node_t *val =
+                get_json_object_value(obj, f->name);
+
+            if (!val)
+                continue;
+
+            void *field_ptr =
+                (char *)entity + f->offset;
+
+            switch (f->type)
+            {
+                case BB_FIELD_INT:
+                {
+                    if (val->type == JSON_INT)
+                        *(int *)field_ptr =
+                            get_json_integer_value(val);
+                    break;
+                }
+
+                case BB_FIELD_STRING:
+                {
+                    if (val->type == JSON_TEXT)
+                    {
+                        strncpy((char *)field_ptr,
+                                get_json_text_value(val),
+                                f->size);
+                    }
+                    break;
+                }
+
+                case BB_FIELD_BLOB:
+                {
+                    /* unsupported for now */
+                    break;
+                }
+            }
+        }
+    }
+
+    destroy_json(&root);
+
+    *out_array = buffer;
+    *out_count = count;
+
+    return 0;
+}
+
 static BB_ModelAPI model_json_api = {
     .name       = "json",
     .open       = json_open,
@@ -275,7 +368,8 @@ static BB_ModelAPI model_json_api = {
     .insert     = json_insert,
     .find_by_id = json_find_by_id,
     .update     = json_update,
-    .remove     = json_remove
+    .remove     = json_remove,
+    .find_all   = json_find_all
 };
 
 const BB_ModelAPI *bb_model_json_api(void)
