@@ -43,18 +43,8 @@ static void cleanup(const char *path)
  * Tests
  * --------------------------- */
 
-static void test_repo_json_crud()
+static void run_tests(const char *file, const BB_ModelAPI *api)
 {
-    printf("\tJSON repo CRUD...\n");
-
-    const char *file = "test_repo_json.json";
-    cleanup(file);
-
-    assert(bb_model_register(bb_model_json_api()) == 0);
-
-    const BB_ModelAPI *api = bb_model_get("json");
-    assert(api);
-
     BB_ModelHandle *h = api->open(file);
     assert(h);
 
@@ -62,16 +52,19 @@ static void test_repo_json_crud()
     bb_repo_init(&repo, api, h, &schema);
 
     /* INSERT */
+    printf("\tInsert...\n");
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
     assert(bb_repo_insert(&repo, &u) == 0);
 
     /* FIND */
+    printf("\tFind...\n");
     User out = {0};
     assert(bb_repo_find_by_id(&repo, &out, 1) == 0);
     assert(strcmp(out.name, "Alice") == 0);
 
     /* UPDATE */
+    printf("\tUpdate...\n");
     strncpy(u.name, "Bob", sizeof(u.name));
     assert(bb_repo_update(&repo, &u) == 0);
 
@@ -80,10 +73,12 @@ static void test_repo_json_crud()
     assert(strcmp(out.name, "Bob") == 0);
 
     /* REMOVE */
+    printf("\tRemove...\n");
     assert(bb_repo_remove(&repo, 1) == 0);
     assert(bb_repo_find_by_id(&repo, &out, 1) != 0);
 
     /* FIND ALL */
+    printf("\tFind All...\n");
     printf("\tRepo find_all...\n");
 
     User u1 = { .id = 1 };
@@ -118,12 +113,29 @@ static void test_repo_json_crud()
     api->close(h);
 }
 
+static void test_repo_json_crud()
+{
+    printf("JSON repo CRUD...\n");
+
+    const char *file = "test_repo_json.json";
+    cleanup(file);
+
+    assert(bb_model_register(bb_model_json_api()) == 0);
+
+    const BB_ModelAPI *api = bb_model_get("json");
+    assert(api);
+
+    run_tests(file, api);
+
+    printf("JSON Tests passed...\n");
+}
+
 int main(void)
 {
-    printf("Running JSON repo integration tests...\n");
+    printf("Running repo integration tests...\n");
 
     test_repo_json_crud();
 
-    printf("All JSON repo tests passed!\n");
+    printf("All repo tests passed!\n");
     return 0;
 }
