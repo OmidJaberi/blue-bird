@@ -6,6 +6,7 @@
 #include "repo/repo.h"
 #include "persist/model.h"
 #include "persist/model/model_json.h"
+#include "persist/model/model_sqlite.h"
 #include "persist/schema.h"
 
 /* ---------------------------
@@ -130,11 +131,33 @@ static void test_repo_json_crud()
     printf("JSON Tests passed...\n");
 }
 
+static void test_repo_sqlite_crud()
+{
+    printf("SQLite repo CRUD...\n");
+
+    const char *db = "test_repo_sqlite.db";
+    cleanup(db);
+
+    assert(bb_model_register(bb_model_sqlite_api()) == 0);
+
+    const BB_ModelAPI *api = bb_model_get("sqlite");
+    assert(api);
+
+    BB_ModelHandle *h = api->open(db);
+    assert(h);
+
+    run_tests(db, api);
+
+    printf("SQLite Tests passed...\n");
+}
+
+
 int main(void)
 {
     printf("Running repo integration tests...\n");
 
     test_repo_json_crud();
+    test_repo_sqlite_crud();
 
     printf("All repo tests passed!\n");
     return 0;
