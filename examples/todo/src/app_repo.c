@@ -3,7 +3,7 @@
 TaskRepo global_task_repo;
 
 BB_Field task_fields[] = {
-    { "id", BB_FIELD_INT, offsetof(Task, id), sizeof(int) },
+    { "id", BB_FIELD_UUID, offsetof(Task, id), BB_UUID_BUF_LEN },
     { "name", BB_FIELD_STRING, offsetof(Task, name), 64 },
     { "status", BB_FIELD_STRING, offsetof(Task, status), 64 }
 };
@@ -21,9 +21,9 @@ int task_insert(TaskRepo *repo, Task *task)
     return bb_repo_insert(&repo->base, task);
 }
 
-int task_remove(TaskRepo *repo, int id)
+int task_remove(TaskRepo *repo, const char *id)
 {
-    return bb_repo_remove(&repo->base, &id);
+    return bb_repo_remove(&repo->base, id);
 }
 
 int task_update(TaskRepo *repo, Task *task)

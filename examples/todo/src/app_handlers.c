@@ -2,6 +2,7 @@
 #include "app_repo.h"
 #include "log/log.h"
 #include "utils/json.h"
+#include "utils/uuid.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@ BBError add_task(request_t *req, response_t *res)
     http_message_t *msg = &GET_REQUEST_MESSAGE(*req);
 
     Task t = {0};
-    t.id = rand(); // for now...
+    bb_uuid_v4_string(t.id);
     strncpy(t.name, msg->body, sizeof(t.name));
     strcpy(t.status, "not_done");
 
@@ -21,7 +22,7 @@ BBError add_task(request_t *req, response_t *res)
     if (rc == 0)
     {
         char buff[256];
-        snprintf(buff, 256, "id: %d", t.id);
+        snprintf(buff, 256, "id: %s", t.id);
         set_response_body(res, buff);
         set_response_status(res, 200);
         return BB_SUCCESS();
@@ -33,8 +34,7 @@ BBError add_task(request_t *req, response_t *res)
 
 BBError remove_task(request_t *req, response_t *res)
 {
-    const char *id_str = get_request_param(req, "id");
-    int id = atoi(id_str);
+    const char *id = get_request_param(req, "id");
 
     int rc = task_remove(&global_task_repo, id);
 
@@ -50,12 +50,11 @@ BBError remove_task(request_t *req, response_t *res)
 
 BBError mark_done(request_t *req, response_t *res)
 {
-    const char *id_str = get_request_param(req, "id");
-    int id = atoi(id_str);
+    const char *id = get_request_param(req, "id");
 
     Task t = {0};
 
-    if (bb_repo_find_by_pk(&global_task_repo.base, &t, &id) != 0)
+    if (bb_repo_find_by_pk(&global_task_repo.base, &t, id) != 0)
     {
         set_response_status(res, 404);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
@@ -75,12 +74,11 @@ BBError mark_done(request_t *req, response_t *res)
 
 BBError get_task(request_t *req, response_t *res)
 {
-    const char *id_str = get_request_param(req, "id");
-    int id = atoi(id_str);
+    const char *id = get_request_param(req, "id");
 
     Task t = {0};
 
-    if (bb_repo_find_by_pk(&global_task_repo.base, &t, &id) != 0)
+    if (bb_repo_find_by_pk(&global_task_repo.base, &t, id) != 0)
     {
         set_response_status(res, 404);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
@@ -88,7 +86,7 @@ BBError get_task(request_t *req, response_t *res)
 
     json_node_t *doc = JSON(
         OBJ(
-            KEY("id", INT(t.id)),
+            KEY("id", TEXT(t.id)),
             KEY("name", TEXT(t.name)),
             KEY("status", TEXT(t.status))
         )
@@ -124,7 +122,7 @@ BBError list_tasks(request_t *req, response_t *res)
     {
         json_node_t *task = JSON(
             OBJ(
-                KEY("id", INT(tasks[i].id)),
+                KEY("id", TEXT(tasks[i].id)),
                 KEY("name", TEXT(tasks[i].name)),
                 KEY("status", TEXT(tasks[i].status))
             )

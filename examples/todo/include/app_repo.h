@@ -3,10 +3,11 @@
 
 #include "persist/model.h"
 #include "repo/repo.h"
+#include "utils/uuid.h"
 #include <stddef.h>
 
 typedef struct {
-    int id;
+    char id[BB_UUID_BUF_LEN];
     char name[64];
     char status[64];
 } Task;
@@ -21,7 +22,7 @@ extern BB_Field task_fields[];
 extern BB_Schema task_schema;
 
 int task_insert(TaskRepo *repo, Task *task);
-int task_remove(TaskRepo *repo, int id);
+int task_remove(TaskRepo *repo, const char *id);
 int task_update(TaskRepo *repo, Task *task);
 
 #endif //APP_REPO_H
