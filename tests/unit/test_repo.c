@@ -205,7 +205,7 @@ static void test_repo_remove()
     assert(bb_repo_remove(&repo, &(int){1}) == 0);
 
     User out = {0};
-    assert(bb_repo_find_by_pk(&repo, &out, &(int){1}) == 0);
+    assert(bb_repo_find_by_pk(&repo, &out, &(int){1}) != 0);
 
     mock_api.close(h);
 }
