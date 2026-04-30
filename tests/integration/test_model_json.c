@@ -62,7 +62,8 @@ static void test_json_insert_and_find()
     assert(api->insert(h, &user_schema, &u) == 0);
 
     User out = {0};
-    assert(api->find_by_id(h, &user_schema, &out, 1) == 0);
+    int id = 1;
+    assert(api->find_by_pk(h, &user_schema, &out, &id) == 0);
 
     assert(out.id == 1);
     assert(strcmp(out.name, "Alice") == 0);
@@ -88,7 +89,8 @@ static void test_json_update()
     assert(api->update(h, &user_schema, &u) == 0);
 
     User out = {0};
-    assert(api->find_by_id(h, &user_schema, &out, 1) == 0);
+    int id = 1;
+    assert(api->find_by_pk(h, &user_schema, &out, &id) == 0);
 
     assert(strcmp(out.name, "Bob") == 0);
 
@@ -109,10 +111,12 @@ static void test_json_remove()
     strncpy(u.name, "Alice", sizeof(u.name));
 
     assert(api->insert(h, &user_schema, &u) == 0);
-    assert(api->remove(h, &user_schema, 1) == 0);
+    int id = 1;
+    assert(api->remove(h, &user_schema, &id) == 0);
 
     User out = {0};
-    assert(api->find_by_id(h, &user_schema, &out, 1) != 0);
+    id = 1;
+    assert(api->find_by_pk(h, &user_schema, &out, &id) != 0);
 
     api->close(h);
 }

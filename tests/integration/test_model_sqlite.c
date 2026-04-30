@@ -67,7 +67,8 @@ static void test_sqlite_insert_and_find()
     User out;
     memset(&out, 0, sizeof(out));
 
-    rc = api->find_by_id(h, &user_schema, &out, 1);
+    int id = 1;
+    rc = api->find_by_pk(h, &user_schema, &out, &id);
     assert(rc == 0);
 
     assert(out.id == 1);
@@ -100,8 +101,10 @@ static void test_sqlite_multiple_inserts()
     User out1 = {0};
     User out2 = {0};
 
-    assert(api->find_by_id(h, &user_schema, &out1, 1) == 0);
-    assert(api->find_by_id(h, &user_schema, &out2, 2) == 0);
+    int id = 1;
+    assert(api->find_by_pk(h, &user_schema, &out1, &id) == 0);
+    id = 2;
+    assert(api->find_by_pk(h, &user_schema, &out2, &id) == 0);
 
     assert(strcmp(out1.name, "Alice") == 0);
     assert(strcmp(out2.name, "Bob") == 0);
@@ -123,7 +126,8 @@ static void test_sqlite_not_found()
 
     User out = {0};
 
-    int rc = api->find_by_id(h, &user_schema, &out, 999);
+    int id = 999;
+    int rc = api->find_by_pk(h, &user_schema, &out, &id);
     assert(rc != 0); // should fail
 
     api->close(h);
@@ -151,7 +155,8 @@ static void test_sqlite_update()
     assert(api->update(h, &user_schema, &u) == 0);
 
     User out = {0};
-    assert(api->find_by_id(h, &user_schema, &out, 1) == 0);
+    int id = 1;
+    assert(api->find_by_pk(h, &user_schema, &out, &id) == 0);
 
     assert(strcmp(out.name, "Bob") == 0);
 
@@ -176,10 +181,12 @@ static void test_sqlite_remove()
     assert(api->insert(h, &user_schema, &u) == 0);
 
     // remove
-    assert(api->remove(h, &user_schema, 1) == 0);
+    int id = 1;
+    assert(api->remove(h, &user_schema, &id) == 0);
 
     User out = {0};
-    int rc = api->find_by_id(h, &user_schema, &out, 1);
+    id = 1;
+    int rc = api->find_by_pk(h, &user_schema, &out, &id);
 
     assert(rc != 0); // should not exist
 
@@ -247,7 +254,8 @@ static void test_sqlite_remove_not_found()
     BB_ModelHandle *h = api->open(db_path);
     assert(h != NULL);
 
-    int rc = api->remove(h, &user_schema, 999);
+    int id = 999;
+    int rc = api->remove(h, &user_schema, &id);
 
     assert(rc != 0); // should fail
 

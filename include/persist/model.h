@@ -12,9 +12,9 @@ typedef struct {
     void (*close)(BB_ModelHandle *h);
 
     int (*insert)(BB_ModelHandle *h, BB_Schema *schema, void *entity);
-    int (*find_by_id)(BB_ModelHandle *h, BB_Schema *schema, void *out, int id);
+    int (*find_by_pk)(BB_ModelHandle *h, BB_Schema *schema, void *out, const void *key);
     int (*update)(BB_ModelHandle *h, BB_Schema *schema, void *entity);
-    int (*remove)(BB_ModelHandle *h, BB_Schema *schema, int id);
+    int (*remove)(BB_ModelHandle *h, BB_Schema *schema, const void *key);
     int (*find_all)(BB_ModelHandle *h, BB_Schema *schema, void **out_array, size_t *out_count);
 
 } BB_ModelAPI;

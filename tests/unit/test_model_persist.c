@@ -58,10 +58,12 @@ static int mock_insert(BB_ModelHandle *h, BB_Schema *schema, void *entity)
     return 0;
 }
 
-static int mock_find(BB_ModelHandle *h, BB_Schema *schema, void *out, int id)
+static int mock_find_by_pk(BB_ModelHandle *h, BB_Schema *schema, void *out, const void *key)
 {
     MockState *m = (MockState *)h;
     m->find_called++;
+
+    int id = *(const int *)key;
 
     if (!m->exists || m->stored_id != id)
         return -1;
@@ -89,10 +91,12 @@ static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
     return 0;
 }
 
-static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, int id)
+static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, const void *key)
 {
     MockState *m = (MockState *)h;
     m->remove_called++;
+
+    int id = *(const int *)key;
 
     if (!m->exists || m->stored_id != id)
         return -1;
@@ -106,7 +110,7 @@ static BB_ModelAPI mock_api = {
     .open = mock_open,
     .close = mock_close,
     .insert = mock_insert,
-    .find_by_id = mock_find,
+    .find_by_pk = mock_find_by_pk,
     .update = mock_update,
     .remove = mock_remove
 };
@@ -155,14 +159,16 @@ static void test_mock_backend()
     assert(mock.insert_called == 1);
 
     User out = {0};
-    assert(api->find_by_id(h, &schema, &out, 1) == 0);
+    int id = 1;
+    assert(api->find_by_pk(h, &schema, &out, &id) == 0);
     assert(mock.find_called == 1);
 
     strncpy(u.name, "Bob", sizeof(u.name));
     assert(api->update(h, &schema, &u) == 0);
     assert(mock.update_called == 1);
 
-    assert(api->remove(h, &schema, 1) == 0);
+    id = 1;
+    assert(api->remove(h, &schema, &id) == 0);
     assert(mock.remove_called == 1);
 
     api->close(h);

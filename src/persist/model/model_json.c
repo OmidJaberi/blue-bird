@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "utils/json.h"
 #include "persist/model/model_json.h"
@@ -46,11 +47,35 @@ static json_node_t *get_table(json_node_t *root, const char *name)
     return table;
 }
 
-static int get_entity_id(BB_Schema *schema, void *entity)
+static void *get_entity_pk_ptr(BB_Schema *schema, void *entity)
 {
     BB_Field *pk = &schema->fields[schema->primary_key_index];
-    return *(int *)((char *)entity + pk->offset);
+    return (char *)entity + pk->offset;
 }
+
+static int pk_equals(BB_Field *pk, json_node_t *node, const void *key)
+{
+    if (!node) return 0;
+
+    switch (pk->type)
+    {
+        case BB_FIELD_INT:
+            return get_json_integer_value(node) == *(int *)key;
+
+        case BB_FIELD_STRING:
+        case BB_FIELD_UUID:
+        {
+            char *text = get_json_text_value(node);
+            return text && strcmp(text, (const char *)key) == 0;
+        }
+
+        case BB_FIELD_BLOB:
+            return 0; // not supported in JSON backend
+    }
+
+    return 0;
+}
+
 
 // Mapping
 
@@ -72,6 +97,7 @@ static json_node_t *entity_to_json(BB_Schema *schema, void *entity)
                 break;
 
             case BB_FIELD_STRING:
+            case BB_FIELD_UUID:
                 val = json_new_text((char *)field_ptr);
                 break;
 
@@ -106,6 +132,7 @@ static int json_to_entity(BB_Schema *schema, json_node_t *obj, void *out)
                 break;
             }
             case BB_FIELD_STRING:
+            case BB_FIELD_UUID:
             {
                 char *text = get_json_text_value(val);
                 if (text)
@@ -158,15 +185,16 @@ static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
-    int id = get_entity_id(schema, entity);
+    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    void *key = get_entity_pk_ptr(schema, entity);
 
     // check duplicate
     for (int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
-        json_node_t *id_node = get_json_object_value(item, schema->fields[schema->primary_key_index].name);
+        json_node_t *id_node = get_json_object_value(item, pk->name);
 
-        if (id_node && get_json_integer_value(id_node) == id)
+        if (pk_equals(pk, id_node, key))
         {
             destroy_json(root);
             free(root);
@@ -180,22 +208,21 @@ static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     return save_root(h->path, root);
 }
 
-static int json_find_by_id(BB_ModelHandle *handle, BB_Schema *schema, void *out, int id)
+static int json_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *out, const void *key)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
+    BB_Field *pk = &schema->fields[schema->primary_key_index];
+
     for (int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
+        json_node_t *id_node = get_json_object_value(item, pk->name);
 
-        json_node_t *id_node = get_json_object_value(
-            item, schema->fields[schema->primary_key_index].name
-        );
-
-        if (id_node && get_json_integer_value(id_node) == id)
+        if (pk_equals(pk, id_node, key))
         {
             int rc = json_to_entity(schema, item, out);
             destroy_json(root);
@@ -216,15 +243,15 @@ static int json_update(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
-    int id = get_entity_id(schema, entity);
-    const char *pk_name = schema->fields[schema->primary_key_index].name;
+    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    void *key = get_entity_pk_ptr(schema, entity);
 
     for (int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
-        json_node_t *id_node = get_json_object_value(item, pk_name);
+        json_node_t *id_node = get_json_object_value(item, pk->name);
 
-        if (id_node && get_json_integer_value(id_node) == id)
+        if (pk_equals(pk, id_node, key))
         {
             // remove old entry
             json_array_remove_at_index(table, i);
@@ -242,21 +269,21 @@ static int json_update(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     return -1;
 }
 
-static int json_remove(BB_ModelHandle *handle, BB_Schema *schema, int id)
+static int json_remove(BB_ModelHandle *handle, BB_Schema *schema, const void *key)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
-    const char *pk_name = schema->fields[schema->primary_key_index].name;
+    BB_Field *pk = &schema->fields[schema->primary_key_index];
 
     for (int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
-        json_node_t *id_node = get_json_object_value(item, pk_name);
+        json_node_t *id_node = get_json_object_value(item, pk->name);
 
-        if (id_node && get_json_integer_value(id_node) == id)
+        if (pk_equals(pk, id_node, key))
         {
             json_array_remove_at_index(table, i);
             return save_root(h->path, root);
@@ -327,46 +354,7 @@ static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_a
 
         void *entity = (char *)buffer + (i * schema->struct_size);
 
-        for (size_t j = 0; j < schema->field_count; j++)
-        {
-            BB_Field *f = &schema->fields[j];
-
-            json_node_t *val = get_json_object_value(obj, f->name);
-
-            if (!val)
-                continue;
-
-            void *field_ptr =
-                (char *)entity + f->offset;
-
-            switch (f->type)
-            {
-                case BB_FIELD_INT:
-                {
-                    if (val->type == JSON_INT)
-                        *(int *)field_ptr =
-                            get_json_integer_value(val);
-                    break;
-                }
-
-                case BB_FIELD_STRING:
-                {
-                    if (val->type == JSON_TEXT)
-                    {
-                        strncpy((char *)field_ptr,
-                                get_json_text_value(val),
-                                f->size);
-                    }
-                    break;
-                }
-
-                case BB_FIELD_BLOB:
-                {
-                    /* unsupported for now */
-                    break;
-                }
-            }
-        }
+        json_to_entity(schema, obj, entity);
     }
 
     destroy_json(&root);
@@ -382,7 +370,7 @@ static BB_ModelAPI model_json_api = {
     .open       = json_open,
     .close      = json_close,
     .insert     = json_insert,
-    .find_by_id = json_find_by_id,
+    .find_by_pk = json_find_by_pk,
     .update     = json_update,
     .remove     = json_remove,
     .find_all   = json_find_all

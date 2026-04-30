@@ -55,7 +55,7 @@ BBError mark_done(request_t *req, response_t *res)
 
     Task t = {0};
 
-    if (bb_repo_find_by_id(&global_task_repo.base, &t, id) != 0)
+    if (bb_repo_find_by_pk(&global_task_repo.base, &t, &id) != 0)
     {
         set_response_status(res, 404);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
@@ -80,7 +80,7 @@ BBError get_task(request_t *req, response_t *res)
 
     Task t = {0};
 
-    if (bb_repo_find_by_id(&global_task_repo.base, &t, id) != 0)
+    if (bb_repo_find_by_pk(&global_task_repo.base, &t, &id) != 0)
     {
         set_response_status(res, 404);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");

@@ -61,7 +61,8 @@ static void run_tests(const char *file, const BB_ModelAPI *api)
     /* FIND */
     printf("\tFind...\n");
     User out = {0};
-    assert(bb_repo_find_by_id(&repo, &out, 1) == 0);
+    int id = 1;
+    assert(bb_repo_find_by_pk(&repo, &out, &id) == 0);
     assert(strcmp(out.name, "Alice") == 0);
 
     /* UPDATE */
@@ -70,13 +71,13 @@ static void run_tests(const char *file, const BB_ModelAPI *api)
     assert(bb_repo_update(&repo, &u) == 0);
 
     memset(&out, 0, sizeof(out));
-    assert(bb_repo_find_by_id(&repo, &out, 1) == 0);
+    assert(bb_repo_find_by_pk(&repo, &out, &id) == 0);
     assert(strcmp(out.name, "Bob") == 0);
 
     /* REMOVE */
     printf("\tRemove...\n");
-    assert(bb_repo_remove(&repo, 1) == 0);
-    assert(bb_repo_find_by_id(&repo, &out, 1) != 0);
+    assert(bb_repo_remove(&repo, &id) == 0);
+    assert(bb_repo_find_by_pk(&repo, &out, &id) != 0);
 
     /* FIND ALL */
     printf("\tFind All...\n");
