@@ -52,6 +52,11 @@ static inline int bb_repo_find_all(BB_Repo *r, void **out_array, size_t *out_cou
     return r->api->find_all(r->handle, r->schema, out_array, out_count);
 }
 
+static inline int bb_repo_find_first_by_field(BB_Repo *r, void *out, const char *field, const void *value)
+{
+    return r->api->find_first_by_field(r->handle, r->schema, out, field, value);
+}
+
 #define BB_DEFINE_REPO_TYPE(name, type) \
     typedef struct { BB_Repo base; } name; \
     static inline int name##_insert(name *r, type *e) { return bb_repo_insert(&r->base, e); } \
