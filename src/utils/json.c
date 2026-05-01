@@ -50,14 +50,19 @@ void destroy_json(json_node_t *json)
             json->value.dynamic_array.array = NULL;
             break;
         case JSON_OBJECT:
-            for (hash_table_node_t *node = json->value.object.order_head; node != NULL; node = node->order_next)
+	{
+            hash_table_node_t *node = json->value.object.order_head;
+	    while (node != NULL)
             {
                 free(node->key);
                 destroy_json(node->value);
                 free(node->value);
-                free(node);
+                hash_table_node_t *next = node->order_next;
+		free(node);
+		node = node->next;
             }
             break;
+	}
         default:
             break;
     }
