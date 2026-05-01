@@ -365,15 +365,83 @@ static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_a
     return 0;
 }
 
+static int json_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema, void *out, const char *field_name, const void *value)
+{
+    void *arr = NULL;
+    size_t count = 0;
+
+    if (json_find_all(handle,
+                      schema,
+                      &arr,
+                      &count) != 0)
+    {
+        return -1;
+    }
+
+    BB_Field *field =
+        find_field(schema, field_name);
+
+    if (!field)
+    {
+        free(arr);
+        return -1;
+    }
+
+    for (size_t i = 0; i < count; i++)
+    {
+        void *entity =
+            (char *)arr + (i * schema->struct_size);
+
+        void *field_ptr =
+            (char *)entity + field->offset;
+
+        int match = 0;
+
+        switch (field->type)
+        {
+            case BB_FIELD_INT:
+                match =
+                    (*(int *)field_ptr ==
+                     *(int *)value);
+                break;
+
+            case BB_FIELD_STRING:
+            case BB_FIELD_UUID:
+                match =
+                    strcmp((char *)field_ptr,
+                           (char *)value) == 0;
+                break;
+
+            default:
+                break;
+        }
+
+        if (match)
+        {
+            memcpy(out,
+                   entity,
+                   schema->struct_size);
+
+            free(arr);
+            return 0;
+        }
+    }
+
+    free(arr);
+
+    return -1;
+}
+
 static BB_ModelAPI model_json_api = {
-    .name       = "json",
-    .open       = json_open,
-    .close      = json_close,
-    .insert     = json_insert,
-    .find_by_pk = json_find_by_pk,
-    .update     = json_update,
-    .remove     = json_remove,
-    .find_all   = json_find_all
+    .name                = "json",
+    .open                = json_open,
+    .close               = json_close,
+    .insert              = json_insert,
+    .find_by_pk          = json_find_by_pk,
+    .update              = json_update,
+    .remove              = json_remove,
+    .find_all            = json_find_all,
+    .find_first_by_field = json_find_first_by_field
 };
 
 const BB_ModelAPI *bb_model_json_api(void)
