@@ -131,7 +131,7 @@ void push_json_array(json_node_t *json_array, json_node_t *element)
     if (json_array->value.dynamic_array.alloc_size == 0)
     {
         json_array->value.dynamic_array.alloc_size = 1;
-        json_array->value.dynamic_array.array = (json_node_t **)malloc(json_array->value.dynamic_array.alloc_size);
+        json_array->value.dynamic_array.array = (json_node_t **)malloc(json_array->value.dynamic_array.alloc_size * sizeof(*json_array->value.dynamic_array.array));
     }
     else if (json_array->value.dynamic_array.alloc_size == json_array->size)
     {
