@@ -15,6 +15,10 @@ typedef struct {
     BB_FieldType type;
     size_t offset;
     size_t size;
+
+    /* relationship metadata (optional) */
+    const char *references_schema;
+    const char *references_field;
 } BB_Field;
 
 typedef struct {
