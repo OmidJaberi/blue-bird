@@ -444,15 +444,115 @@ static int sqlite_find_all(BB_ModelHandle *handle,
     return 0;
 }
 
+static int sqlite_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema, void *out, const char *field_name, const void *value)
+{
+    BB_ModelSQLiteHandle *h =
+        (BB_ModelSQLiteHandle *)handle;
+
+    BB_Field *field =
+        find_field(schema, field_name);
+
+    if (!field)
+        return -1;
+
+    char sql[512];
+
+    snprintf(sql, sizeof(sql),
+             "SELECT * FROM %s WHERE %s = ? LIMIT 1;",
+             schema->name,
+             field->name);
+
+    sqlite3_stmt *stmt;
+
+    if (sqlite3_prepare_v2(h->db,
+                           sql,
+                           -1,
+                           &stmt,
+                           NULL) != SQLITE_OK)
+    {
+        return -1;
+    }
+
+    switch (field->type)
+    {
+        case BB_FIELD_INT:
+            sqlite3_bind_int(stmt,
+                             1,
+                             *(int *)value);
+            break;
+
+        case BB_FIELD_STRING:
+        case BB_FIELD_UUID:
+            sqlite3_bind_text(stmt,
+                              1,
+                              (const char *)value,
+                              -1,
+                              SQLITE_STATIC);
+            break;
+
+        default:
+            sqlite3_finalize(stmt);
+            return -1;
+    }
+
+    int rc = sqlite3_step(stmt);
+
+    if (rc != SQLITE_ROW)
+    {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        BB_Field *f = &schema->fields[i];
+
+        void *field_ptr =
+            (char *)out + f->offset;
+
+        switch (f->type)
+        {
+            case BB_FIELD_INT:
+                *(int *)field_ptr =
+                    sqlite3_column_int(stmt, i);
+                break;
+
+            case BB_FIELD_STRING:
+            case BB_FIELD_UUID:
+            {
+                const unsigned char *text =
+                    sqlite3_column_text(stmt, i);
+
+                if (text)
+                {
+                    strncpy((char *)field_ptr,
+                            (const char *)text,
+                            f->size);
+                }
+
+                break;
+            }
+
+            default:
+                break;
+        }
+    }
+
+    sqlite3_finalize(stmt);
+
+    return 0;
+}
+
 static BB_ModelAPI model_sqlite_api = {
-    .name       = "sqlite",
-    .open       = sqlite_open,
-    .close      = sqlite_close,
-    .insert     = sqlite_insert,
-    .find_by_pk = sqlite_find_by_pk,
-    .update     = sqlite_update,
-    .remove     = sqlite_remove,
-    .find_all   = sqlite_find_all
+    .name                = "sqlite",
+    .open                = sqlite_open,
+    .close               = sqlite_close,
+    .insert              = sqlite_insert,
+    .find_by_pk          = sqlite_find_by_pk,
+    .update              = sqlite_update,
+    .remove              = sqlite_remove,
+    .find_all            = sqlite_find_all,
+    .find_first_by_field = sqlite_find_first_by_field
 };
 
 const BB_ModelAPI *bb_model_sqlite_api(void)
