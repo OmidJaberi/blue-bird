@@ -647,6 +647,7 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
         if (buffer[index] == ']')
             return index + 1;
         json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
+	if (!child) return -1;
         int res = parse_json_str_partial(child, buffer + index);
         if (res < 0) return -1;
         push_json_array(json, child);
