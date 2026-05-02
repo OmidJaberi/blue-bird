@@ -50,19 +50,19 @@ void destroy_json(json_node_t *json)
             json->value.dynamic_array.array = NULL;
             break;
         case JSON_OBJECT:
-	{
+        {
             hash_table_node_t *node = json->value.object.order_head;
-	    while (node != NULL)
+            while (node != NULL)
             {
                 free(node->key);
                 destroy_json(node->value);
                 free(node->value);
                 hash_table_node_t *next = node->order_next;
-		free(node);
-		node = node->next;
+                free(node);
+                node = node->next;
             }
             break;
-	}
+        }
         default:
             break;
     }
@@ -98,8 +98,8 @@ void set_json_text_value(json_node_t *json, const char *value)
     }
     if (!value)
         return;
-	size_t len = strlen(value);
-	json->value.text_val = (char *)malloc(len + 1);
+    size_t len = strlen(value);
+    json->value.text_val = (char *)malloc(len + 1);
     if (!json->value.text_val) return; // malloc failed
     memcpy(json->value.text_val, value, len);
     json->value.text_val[len] = '\0';
@@ -647,7 +647,7 @@ static int parse_json_str_array(json_node_t *json, char *buffer)
         if (buffer[index] == ']')
             return index + 1;
         json_node_t *child = (json_node_t*)malloc(sizeof(json_node_t));
-	if (!child) return -1;
+        if (!child) return -1;
         int res = parse_json_str_partial(child, buffer + index);
         if (res < 0) return -1;
         push_json_array(json, child);
