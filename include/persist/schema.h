@@ -41,4 +41,6 @@ static BB_Field *find_field(BB_Schema *schema, const char *name)
     return NULL;
 }
 
+int bb_schema_validate(BB_Schema *schema);
+
 #endif //BB_PERSIST_SCHEMA_H
