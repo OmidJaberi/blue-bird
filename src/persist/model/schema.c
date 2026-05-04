@@ -109,6 +109,28 @@ int bb_schema_validate(BB_Schema *schema)
 
         if (!f->references_schema && f->references_field)
             return -1;
+
+        if (f->references_schema)
+        {
+            BB_Schema *ref_schema = bb_schema_get(f->references_schema);
+
+            if (!ref_schema)
+                return -1;
+
+            int found = 0;
+
+            for (size_t k = 0; k < ref_schema->field_count; k++)
+            {
+                if (strcmp(ref_schema->fields[k].name, f->references_field) == 0)
+                {
+                    found = 1;
+                    break;
+                }
+            }
+
+            if (!found)
+                return -1;
+        }
     }
 
     return 0;
