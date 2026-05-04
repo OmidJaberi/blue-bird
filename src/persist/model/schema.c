@@ -2,6 +2,48 @@
 
 #include <string.h>
 
+#define BB_MAX_SCHEMAS 256
+
+static BB_Schema *g_schemas[BB_MAX_SCHEMAS];
+static size_t g_schema_count = 0;
+
+BB_Schema *bb_schema_get(const char *name)
+{
+    if (!name)
+        return NULL;
+
+    for (size_t i = 0; i < g_schema_count; i++)
+    {
+        BB_Schema *s = g_schemas[i];
+
+        if (strcmp(s->name, name) == 0)
+            return s;
+    }
+
+    return NULL;
+}
+
+int bb_schema_register(BB_Schema *schema)
+{
+    if (!schema)
+        return -1;
+
+    /* validate schema first */
+    if (bb_schema_validate(schema) != 0)
+        return -1;
+
+    /* duplicate schema name */
+    if (bb_schema_get(schema->name))
+        return -1;
+
+    if (g_schema_count >= BB_MAX_SCHEMAS)
+        return -1;
+
+    g_schemas[g_schema_count++] = schema;
+
+    return 0;
+}
+
 int bb_schema_validate(BB_Schema *schema)
 {
     if (!schema)
