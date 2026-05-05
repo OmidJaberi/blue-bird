@@ -54,3 +54,61 @@ json_node_t *bb_entity_to_json(BB_Schema *schema, void *entity)
 
     return obj;
 }
+
+int bb_json_to_entity(BB_Schema *schema, json_node_t *json, void *out)
+{
+    if (!schema || !json || !out)
+        return -1;
+
+    if (json->type != JSON_OBJECT)
+        return -1;
+
+    memset(out, 0, schema->struct_size);
+
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        BB_Field *f = &schema->fields[i];
+
+        json_node_t *val = get_json_object_value(json, f->name);
+
+        if (!val)
+            continue;
+
+        void *field_ptr = (char *)out + f->offset;
+
+        switch (f->type)
+        {
+            case BB_FIELD_INT:
+            {
+                if (val->type != JSON_INT)
+                    return -1;
+
+                *(int *)field_ptr = get_json_integer_value(val);
+
+                break;
+            }
+
+            case BB_FIELD_STRING:
+            case BB_FIELD_UUID:
+            {
+                if (val->type != JSON_TEXT)
+                    return -1;
+
+                strncpy((char *)field_ptr, get_json_text_value(val), f->size);
+
+                break;
+            }
+
+            case BB_FIELD_BLOB:
+            {
+                /* unsupported for now */
+                break;
+            }
+
+            default:
+                return -1;
+        }
+    }
+
+    return 0;
+}
