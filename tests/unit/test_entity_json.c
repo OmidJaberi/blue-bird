@@ -1,0 +1,73 @@
+#include "persist/entity_json.h"
+#include <assert.h>
+#include <stdio.h>
+
+static void test_entity_to_json()
+{
+    printf("\tTesting Entity to JSON...\n");
+    typedef struct {
+        int id;
+        char name[64];
+    } User;
+
+    BB_Field fields[] = {
+        {
+            "id",
+            BB_FIELD_INT,
+            offsetof(User, id),
+            sizeof(int)
+        },
+        {
+            "name",
+            BB_FIELD_STRING,
+            offsetof(User, name),
+            64
+        }
+    };
+
+    BB_Schema schema = {
+        .name = "users",
+        .fields = fields,
+        .field_count = 2,
+        .struct_size = sizeof(User),
+        .primary_key_index = 0
+    };
+
+    User u = {
+        .id = 1
+    };
+
+    strcpy(u.name, "Alice");
+
+    json_node_t *obj = bb_entity_to_json(&schema, &u);
+
+    assert(obj);
+
+    assert(
+        get_json_integer_value(
+            get_json_object_value(obj, "id")
+        ) == 1
+    );
+
+    assert(
+        strcmp(
+            get_json_text_value(
+                get_json_object_value(obj, "name")
+            ),
+            "Alice"
+        ) == 0
+    );
+
+    destroy_json(obj);
+    free(obj);
+}
+
+int main()
+{
+    printf("Running Entity_JSON tests...\n");
+
+    test_entity_to_json();
+
+    printf("All tests passed.\n");
+    return 0;
+}
