@@ -4,6 +4,7 @@
 
 #include "utils/json.h"
 #include "persist/model/model_json.h"
+#include "persist/entity_json.h"
 
 typedef struct {
     char *path;
@@ -76,80 +77,6 @@ static int pk_equals(BB_Field *pk, json_node_t *node, const void *key)
     return 0;
 }
 
-
-// Mapping
-
-static json_node_t *entity_to_json(BB_Schema *schema, void *entity)
-{
-    json_node_t *obj = json_new(JSON_OBJECT);
-
-    for (size_t i = 0; i < schema->field_count; i++)
-    {
-        BB_Field *f = &schema->fields[i];
-        void *field_ptr = (char *)entity + f->offset;
-
-        json_node_t *val = NULL;
-
-        switch (f->type)
-        {
-            case BB_FIELD_INT:
-                val = json_new_int(*(int *)field_ptr);
-                break;
-
-            case BB_FIELD_STRING:
-            case BB_FIELD_UUID:
-                val = json_new_text((char *)field_ptr);
-                break;
-
-            case BB_FIELD_BLOB:
-                // skip for now or store as null
-                val = json_new_null();
-                break;
-        }
-
-        set_json_object_value(obj, f->name, val);
-    }
-
-    return obj;
-}
-
-static int json_to_entity(BB_Schema *schema, json_node_t *obj, void *out)
-{
-    for (size_t i = 0; i < schema->field_count; i++)
-    {
-        BB_Field *f = &schema->fields[i];
-        void *field_ptr = (char *)out + f->offset;
-
-        json_node_t *val = get_json_object_value(obj, f->name);
-        if (!val)
-            return -1;
-
-        switch (f->type)
-        {
-            case BB_FIELD_INT:
-            {
-                *(int *)field_ptr = get_json_integer_value(val);
-                break;
-            }
-            case BB_FIELD_STRING:
-            case BB_FIELD_UUID:
-            {
-                char *text = get_json_text_value(val);
-                if (text)
-                    snprintf((char *)field_ptr, f->size, "%s", text);
-                break;
-            }
-            case BB_FIELD_BLOB:
-            {
-                // skip for now
-                break;
-            }
-        }
-    }
-
-    return 0;
-}
-
 // Model Operations:
 
 static BB_ModelHandle *json_open(const char *uri)
@@ -202,7 +129,7 @@ static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
         }
     }
 
-    json_node_t *obj = entity_to_json(schema, entity);
+    json_node_t *obj = bb_entity_to_json(schema, entity);
     push_json_array(table, obj);
 
     return save_root(h->path, root);
@@ -224,7 +151,7 @@ static int json_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *out,
 
         if (pk_equals(pk, id_node, key))
         {
-            int rc = json_to_entity(schema, item, out);
+            int rc = bb_json_to_entity(schema, item, out);
             destroy_json(root);
             free(root);
             return rc;
@@ -257,7 +184,7 @@ static int json_update(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
             json_array_remove_at_index(table, i);
 
             // insert updated version
-            json_node_t *new_obj = entity_to_json(schema, entity);
+            json_node_t *new_obj = bb_entity_to_json(schema, entity);
             push_json_array(table, new_obj);
 
             return save_root(h->path, root);
@@ -354,7 +281,7 @@ static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_a
 
         void *entity = (char *)buffer + (i * schema->struct_size);
 
-        json_to_entity(schema, obj, entity);
+        bb_json_to_entity(schema, obj, entity);
     }
 
     destroy_json(&root);
