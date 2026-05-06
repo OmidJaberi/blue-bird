@@ -8,6 +8,28 @@
 #include "persist/schema.h"
 
 /* ---------------------------
+ * Test Model
+ * --------------------------- */
+
+typedef struct {
+    int id;
+    char name[64];
+} User;
+
+static BB_Field fields[] = {
+    { "id", BB_FIELD_INT, offsetof(User, id), sizeof(int) },
+    { "name", BB_FIELD_STRING, offsetof(User, name), 64 }
+};
+
+static BB_Schema schema = {
+    .name = "users",
+    .fields = fields,
+    .field_count = 2,
+    .struct_size = sizeof(User),
+    .primary_key_index = 0
+};
+
+/* ---------------------------
  * Mock Backend State
  * --------------------------- */
 
@@ -17,9 +39,8 @@ typedef struct {
     int update_called;
     int remove_called;
 
-    int stored_id;
-    char stored_name[64];
-    int exists;
+    User users[16];
+    size_t count;
 } MockState;
 
 /* ---------------------------
@@ -42,66 +63,130 @@ static void mock_close(BB_ModelHandle *h)
 
 static int mock_insert(BB_ModelHandle *h, BB_Schema *schema, void *entity)
 {
+    (void)schema;
+
     MockState *m = (MockState *)h;
+
     m->insert_called++;
 
-    int id = *(int *)((char *)entity + schema->fields[0].offset);
-    char *name = (char *)entity + schema->fields[1].offset;
+    User *u = entity;
 
-    if (m->exists && m->stored_id == id)
+    for (size_t i = 0; i < m->count; i++)
+    {
+        if (m->users[i].id == u->id)
+            return -1;
+    }
+
+    if (m->count >= 16)
         return -1;
 
-    m->stored_id = id;
-    strncpy(m->stored_name, name, sizeof(m->stored_name));
-    m->exists = 1;
+    m->users[m->count++] = *u;
 
     return 0;
 }
 
 static int mock_find_by_pk(BB_ModelHandle *h, BB_Schema *schema, void *out, const void *key)
 {
+    (void)schema;
+
     MockState *m = (MockState *)h;
+
     m->find_called++;
 
     int id = *(const int *)key;
 
-    if (!m->exists || m->stored_id != id)
-        return -1;
+    for (size_t i = 0; i < m->count; i++)
+    {
+        if (m->users[i].id == id)
+        {
+            *(User *)out = m->users[i];
+            return 0;
+        }
+    }
 
-    *(int *)((char *)out + schema->fields[0].offset) = m->stored_id;
-    snprintf((char *)out + schema->fields[1].offset,
-             schema->fields[1].size,
-             "%s", m->stored_name);
-
-    return 0;
+    return -1;
 }
 
 static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
 {
+    (void)schema;
+
     MockState *m = (MockState *)h;
+
     m->update_called++;
 
-    int id = *(int *)((char *)entity + schema->fields[0].offset);
-    char *name = (char *)entity + schema->fields[1].offset;
+    User *u = entity;
 
-    if (!m->exists || m->stored_id != id)
-        return -1;
+    for (size_t i = 0; i < m->count; i++)
+    {
+        if (m->users[i].id == u->id)
+        {
+            m->users[i] = *u;
+            return 0;
+        }
+    }
 
-    snprintf(m->stored_name, sizeof(m->stored_name), "%s", name);
-    return 0;
+    return -1;
 }
 
 static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, const void *key)
 {
+    (void)schema;
+
     MockState *m = (MockState *)h;
+
     m->remove_called++;
 
     int id = *(const int *)key;
 
-    if (!m->exists || m->stored_id != id)
+    for (size_t i = 0; i < m->count; i++)
+    {
+        if (m->users[i].id == id)
+        {
+            for (size_t j = i;
+                 j < m->count - 1;
+                 j++)
+            {
+                m->users[j] =
+                    m->users[j + 1];
+            }
+
+            m->count--;
+
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+static int mock_find_all(BB_ModelHandle *h, BB_Schema *schema, void **out, size_t *count)
+{
+    MockState *m = (MockState *)h;
+
+    *count = m->count;
+
+    if (m->count == 0)
+    {
+        *out = NULL;
+        return 0;
+    }
+
+    void *buf =
+        calloc(m->count,
+               schema->struct_size);
+
+    if (!buf)
         return -1;
 
-    m->exists = 0;
+    memcpy(
+        buf,
+        m->users,
+        m->count * sizeof(User)
+    );
+
+    *out = buf;
+
     return 0;
 }
 
@@ -112,30 +197,22 @@ static BB_ModelAPI mock_api = {
     .insert = mock_insert,
     .find_by_pk = mock_find_by_pk,
     .update = mock_update,
-    .remove = mock_remove
+    .remove = mock_remove,
+    .find_all = mock_find_all
 };
 
 /* ---------------------------
- * Test Model
+ * Filter
  * --------------------------- */
 
-typedef struct {
-    int id;
-    char name[64];
-} User;
+static int filter_even_ids(const void *entity, void *ctx)
+{
+    (void)ctx;
 
-static BB_Field fields[] = {
-    { "id", BB_FIELD_INT, offsetof(User, id), sizeof(int) },
-    { "name", BB_FIELD_STRING, offsetof(User, name), 64 }
-};
+    const User *u = entity;
 
-static BB_Schema schema = {
-    .name = "users",
-    .fields = fields,
-    .field_count = 2,
-    .struct_size = sizeof(User),
-    .primary_key_index = 0
-};
+    return (u->id % 2) == 0;
+}
 
 /* ---------------------------
  * Tests
@@ -233,6 +310,57 @@ static void test_repo_error_propagation()
     mock_api.close(h);
 }
 
+static void test_repo_filter()
+{
+    printf("\tRepo filter...\n");
+
+    BB_ModelHandle *h = mock_api.open("ignored");
+
+    BB_Repo repo;
+
+    bb_repo_init(
+        &repo,
+        &mock_api,
+        h,
+        &schema
+    );
+
+    User u1 = { .id = 1 };
+    strcpy(u1.name, "Alice");
+
+    User u2 = { .id = 2 };
+    strcpy(u2.name, "Bob");
+
+    User u3 = { .id = 4 };
+    strcpy(u3.name, "Charlie");
+
+    assert(bb_repo_insert(&repo, &u1) == 0);
+    assert(bb_repo_insert(&repo, &u2) == 0);
+    assert(bb_repo_insert(&repo, &u3) == 0);
+
+    User *filtered = NULL;
+    size_t count = 0;
+
+    assert(
+        bb_repo_filter(
+            &repo,
+            (void **)&filtered,
+            &count,
+            filter_even_ids,
+            NULL
+        ) == 0
+    );
+
+    assert(count == 2);
+
+    assert(filtered[0].id == 2);
+    assert(filtered[1].id == 4);
+
+    free(filtered);
+
+    mock_api.close(h);
+}
+
 /* ---------------------------
  * Main
  * --------------------------- */
@@ -245,6 +373,7 @@ int main(void)
     test_repo_update();
     test_repo_remove();
     test_repo_error_propagation();
+    test_repo_filter();
 
     printf("All repo tests passed!\n");
     return 0;
