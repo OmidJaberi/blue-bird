@@ -86,8 +86,8 @@ BBError get_task(request_t *req, response_t *res)
 
     char *buf;
     int size;
-    int res = serialize_task(&t, &buf, &size);
-    if (res != 0)
+    int rc = serialize_task(&t, &buf, &size);
+    if (rc != 0)
     {
         set_response_status(res, 500);
         return BB_ERROR(BB_ERR_INTERNAL, "Failed to serialize.");
