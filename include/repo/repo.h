@@ -21,6 +21,19 @@ struct BB_Repo {
     BB_RepoOps ops;
 };
 
+typedef int (*BB_FilterFn)(
+    const void *entity,
+    void *ctx
+);
+
+int bb_repo_filter(
+    BB_Repo *repo,
+    void **out_array,
+    size_t *out_count,
+    BB_FilterFn fn,
+    void *ctx
+);
+
 /* constructor */
 void bb_repo_init(BB_Repo *r,
                   const BB_ModelAPI *api,
