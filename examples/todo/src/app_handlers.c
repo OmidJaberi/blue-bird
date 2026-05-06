@@ -84,19 +84,10 @@ BBError get_task(request_t *req, response_t *res)
         return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
     }
 
-    json_node_t *doc = JSON(
-        OBJ(
-            KEY("id", TEXT(t.id)),
-            KEY("name", TEXT(t.name)),
-            KEY("status", TEXT(t.status))
-        )
-    );
     char *buf;
     int size;
-    serialize_json(doc, &buf, &size);
-    destroy_json(doc);
-    free(doc);
-    if (size <= 0)
+    int res = serialize_task(&t, &buf, &size);
+    if (res != 0)
     {
         set_response_status(res, 500);
         return BB_ERROR(BB_ERR_INTERNAL, "Failed to serialize.");

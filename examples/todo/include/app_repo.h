@@ -25,4 +25,6 @@ int task_insert(TaskRepo *repo, Task *task);
 int task_remove(TaskRepo *repo, const char *id);
 int task_update(TaskRepo *repo, Task *task);
 
+int serialize_task(Task *task, char **s, int *size);
+
 #endif //APP_REPO_H

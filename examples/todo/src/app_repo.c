@@ -1,5 +1,8 @@
 #include "app_repo.h"
 
+#include "persist/entity_json.h"
+#include "utils/json.h"
+
 TaskRepo global_task_repo;
 
 BB_Field task_fields[] = {
@@ -29,4 +32,13 @@ int task_remove(TaskRepo *repo, const char *id)
 int task_update(TaskRepo *repo, Task *task)
 {
     return bb_repo_update(&repo->base, task);
+}
+
+int serialize_task(Task *task, char **s, int *size)
+{
+    json_node_t *json = bb_entity_to_json(&task_schema, task);
+    int res = serialize_json(json, s, &size);
+    destroy_json(json);
+    free(json);
+    return res;
 }
