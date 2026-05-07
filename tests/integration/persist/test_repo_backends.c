@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "repo/repo.h"
+#include "persist/repo.h"
 #include "persist/model.h"
 #include "persist/model/model_json.h"
 #include "persist/model/model_sqlite.h"

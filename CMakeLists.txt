@@ -12,7 +12,6 @@ file(GLOB CORE_SOURCES
     "src/utils/*.c"
     "src/persist/key_val/*.c"
     "src/persist/model/*.c"
-    "src/repo/*.c"
     "src/log/*.c"
 )
 

@@ -2,7 +2,7 @@
 #define APP_REPO_H
 
 #include "persist/model.h"
-#include "repo/repo.h"
+#include "persist/repo.h"
 #include "utils/uuid.h"
 #include <stddef.h>
 
