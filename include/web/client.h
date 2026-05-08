@@ -1,7 +1,7 @@
 #ifndef BB_CLIENT_H
 #define BB_CLIENT_H
 
-#include "core/http.h"
+#include "web/http.h"
 #include "error/error.h"
 
 typedef struct {

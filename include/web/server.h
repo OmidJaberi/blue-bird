@@ -1,8 +1,8 @@
 #ifndef BB_SERVER_H
 #define BB_SERVER_H
 
-#include "core/router.h"
-#include "core/middleware.h"
+#include "web/router.h"
+#include "web/middleware.h"
 
 typedef struct {
     int server_fd;

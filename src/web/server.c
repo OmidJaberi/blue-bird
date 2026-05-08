@@ -1,7 +1,7 @@
-#include "core/server.h"
-#include "core/http.h"
-#include "core/router.h"
-#include "core/middleware.h"
+#include "web/server.h"
+#include "web/http.h"
+#include "web/router.h"
+#include "web/middleware.h"
 #include "log/log.h"
 
 #include <stdio.h>

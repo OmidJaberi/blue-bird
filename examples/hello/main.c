@@ -1,5 +1,5 @@
 #include "app_handlers.h"
-#include "core/server.h"
+#include "web/server.h"
 
 int main()
 {

@@ -1,5 +1,5 @@
-#include "core/middleware.h"
-#include "core/http.h"
+#include "web/middleware.h"
+#include "web/http.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

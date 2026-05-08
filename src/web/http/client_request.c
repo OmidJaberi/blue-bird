@@ -1,5 +1,5 @@
-#include "core/http/client_request.h"
-#include "core/http/message.h"
+#include "web/http/client_request.h"
+#include "web/http/message.h"
 
 #include <stdlib.h>
 #include <string.h>

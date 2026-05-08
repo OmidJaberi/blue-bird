@@ -1,5 +1,5 @@
-#include "core/client.h"
-#include "core/http.h"
+#include "web/client.h"
+#include "web/http.h"
 
 #include <stdio.h>
 #include <string.h>
