@@ -1,5 +1,5 @@
-#include "utils/json.h"
-#include "error/assert.h"
+#include "blue-bird/utils/json.h"
+#include "blue-bird/error/assert.h"
 
 #include <stdlib.h>
 #include <string.h>

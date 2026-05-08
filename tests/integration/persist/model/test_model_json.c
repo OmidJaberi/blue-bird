@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "persist/model.h"
-#include "persist/model/model_json.h"
-#include "persist/schema.h"
+#include "blue-bird/persist/model.h"
+#include "blue-bird/persist/model/model_json.h"
+#include "blue-bird/persist/schema.h"
 
 /* ---------------------------
  * Test Model

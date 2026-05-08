@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include "persist/model.h"
+#include "blue-bird/persist/model.h"
 
 #define MAX_MODEL_APIS 16
 

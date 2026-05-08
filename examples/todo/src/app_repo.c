@@ -1,7 +1,7 @@
 #include "app_repo.h"
 
-#include "persist/entity_json.h"
-#include "utils/json.h"
+#include "blue-bird/persist/entity_json.h"
+#include "blue-bird/utils/json.h"
 
 TaskRepo global_task_repo;
 

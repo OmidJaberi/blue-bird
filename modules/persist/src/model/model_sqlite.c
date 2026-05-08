@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "persist/model/model_sqlite.h"
+#include "blue-bird/persist/model/model_sqlite.h"
 
 typedef struct {
     sqlite3 *db;

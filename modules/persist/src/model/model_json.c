@@ -2,9 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "utils/json.h"
-#include "persist/model/model_json.h"
-#include "persist/entity_json.h"
+#include "blue-bird/utils/json.h"
+#include "blue-bird/persist/model/model_json.h"
+#include "blue-bird/persist/entity_json.h"
 
 typedef struct {
     char *path;

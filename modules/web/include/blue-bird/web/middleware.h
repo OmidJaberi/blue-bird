@@ -1,7 +1,7 @@
 #ifndef BB_MIDDLEWARE_H
 #define BB_MIDDLEWARE_H
 
-#include "web/http.h"
+#include "blue-bird/web/http.h"
 
 typedef http_handler_cb middleware_cb;
 

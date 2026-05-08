@@ -1,4 +1,4 @@
-#include "persist/schema.h"
+#include "blue-bird/persist/schema.h"
 
 #include <string.h>
 

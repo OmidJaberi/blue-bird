@@ -1,5 +1,5 @@
 #include "app_middleware.h"
-#include "log/log.h"
+#include "blue-bird/log/log.h"
 
 BBError logger_middleware(request_t *req, response_t *res)
 {

@@ -1,5 +1,5 @@
-#include "log/log.h"
-#include "log/console_logger.h"
+#include "blue-bird/log/log.h"
+#include "blue-bird/log/console_logger.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>

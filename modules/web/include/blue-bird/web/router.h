@@ -2,7 +2,7 @@
 #define BB_ROUTER_H
 
 #include "http.h"
-#include "error/error.h"
+#include "blue-bird/error/error.h"
 
 #define MAX_SEGMENTS 20
 #define MAX_PATH_LEN 256

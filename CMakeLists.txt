@@ -1,47 +1,52 @@
-cmake_minimum_required(VERSION 3.10)
-project(Blue-Bird C)
+cmake_minimum_required(VERSION 3.20)
 
-set(CMAKE_C_STANDARD 11)
-
-include_directories(include)
-
-# Core library
-file(GLOB CORE_SOURCES
-    "src/web/*.c"
-    "src/web/http/*.c"
-    "src/utils/*.c"
-    "src/persist/key_val/*.c"
-    "src/persist/model/*.c"
-    "src/log/*.c"
+project(
+    BlueBird
+    VERSION 0.1.0
+    LANGUAGES C
 )
 
-add_library(bluebird_core STATIC ${CORE_SOURCES})
-find_package(SQLite3 REQUIRED)
-target_link_libraries(bluebird_core PRIVATE SQLite::SQLite3)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+option(BUILD_TESTS "Build tests" ON)
+option(BUILD_EXAMPLES "Build examples" ON)
+
+# Global warnings
+if(MSVC)
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# Modules
+add_subdirectory(modules/error)
+add_subdirectory(modules/utils)
+add_subdirectory(modules/persist)
+add_subdirectory(modules/log)
+add_subdirectory(modules/web)
+
+
+# Umbrella target
+add_library(bluebird INTERFACE)
+
+target_link_libraries(bluebird INTERFACE
+    bluebird_web
+    bluebird_persist
+    bluebird_utils
+    bluebird_log
+    bluebird_error
+)
+
+add_library(BlueBird::bluebird ALIAS bluebird)
 
 # Examples
-add_subdirectory(examples)
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
-# Recursively gather test sources
-file(GLOB_RECURSE TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.c")
-
-foreach(test_file ${TEST_SOURCES})
-    # Compute relative path from the tests/ directory
-    file(RELATIVE_PATH rel_path "${CMAKE_CURRENT_SOURCE_DIR}/tests" "${test_file}")
-
-    # Extract filename without extension
-    get_filename_component(target_name ${rel_path} NAME_WE)
-
-    # Build output path mirroring directory structure
-    get_filename_component(rel_dir "${rel_path}" DIRECTORY)
-    set(output_dir "${CMAKE_BINARY_DIR}/tests/${rel_dir}")
-
-    # Create the executable
-    add_executable(${target_name} ${test_file})
-    target_link_libraries(${target_name} bluebird_core)
-
-    # Set the executable output directory
-    set_target_properties(${target_name} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${output_dir}"
-    )
-endforeach()
+# Tests
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

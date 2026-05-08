@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "persist/key_val.h"
-#include "persist/key_val/persist_json.h"
-#include "utils/json.h"
+#include "blue-bird/persist/key_val.h"
+#include "blue-bird/persist/key_val/persist_json.h"
+#include "blue-bird/utils/json.h"
 
 struct PersistHandle {
     char *jsonpath;

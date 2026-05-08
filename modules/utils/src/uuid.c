@@ -1,4 +1,4 @@
-#include "utils/uuid.h"
+#include "blue-bird/utils/uuid.h"
 
 #include <stdio.h>
 #include <string.h>

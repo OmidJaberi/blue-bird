@@ -2,10 +2,10 @@
 #include "app_middleware.h"
 #include "app_repo.h"
 
-#include "web/http.h"
-#include "web/server.h"
-#include "log/console_logger.h"
-#include "persist/model/model_sqlite.h"
+#include "blue-bird/web/http.h"
+#include "blue-bird/web/server.h"
+#include "blue-bird/log/console_logger.h"
+#include "blue-bird/persist/model/model_sqlite.h"
 
 int main()
 {

@@ -1,5 +1,5 @@
-#include "web/http/server_request.h"
-#include "utils/encoding.h"
+#include "blue-bird/web/http/server_request.h"
+#include "blue-bird/utils/encoding.h"
 
 #include <stdio.h>
 #include <stdlib.h>

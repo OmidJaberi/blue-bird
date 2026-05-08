@@ -3,8 +3,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "persist/key_val.h"
-#include "persist/key_val/persist_json.h"
+#include "blue-bird/persist/key_val.h"
+#include "blue-bird/persist/key_val/persist_json.h"
 
 int main(void)
 {

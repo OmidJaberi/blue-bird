@@ -1,5 +1,5 @@
-#include "web/http/message.h"
-#include "utils/encoding.h"
+#include "blue-bird/web/http/message.h"
+#include "blue-bird/utils/encoding.h"
 
 #include <stdio.h>
 #include <string.h>

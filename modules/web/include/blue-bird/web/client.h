@@ -1,8 +1,8 @@
 #ifndef BB_CLIENT_H
 #define BB_CLIENT_H
 
-#include "web/http.h"
-#include "error/error.h"
+#include "blue-bird/web/http.h"
+#include "blue-bird/error/error.h"
 
 typedef struct {
     int sock_fd;

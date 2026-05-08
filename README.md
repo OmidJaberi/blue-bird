@@ -48,7 +48,7 @@ After building, navigate to the `examples/` directory and run any of the built e
 Here’s how to create a minimal web server using Blue-Bird:
 
 ```c
-#include "web/server.h"
+#include "blue-bird/web/server.h"
 
 BBError root_handler(request_t *req, response_t *res)
 {

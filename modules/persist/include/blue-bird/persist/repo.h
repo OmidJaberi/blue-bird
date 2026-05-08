@@ -1,8 +1,8 @@
 #ifndef BB_REPO_H
 #define BB_REPO_H
 
-#include "persist/model.h"
-#include "persist/schema.h"
+#include "blue-bird/persist/model.h"
+#include "blue-bird/persist/schema.h"
 
 typedef struct BB_Repo BB_Repo;
 

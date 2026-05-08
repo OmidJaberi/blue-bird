@@ -1,8 +1,8 @@
 #ifndef BB_SERVER_H
 #define BB_SERVER_H
 
-#include "web/router.h"
-#include "web/middleware.h"
+#include "blue-bird/web/router.h"
+#include "blue-bird/web/middleware.h"
 
 typedef struct {
     int server_fd;

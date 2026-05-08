@@ -1,5 +1,5 @@
-#include "web/http/request.h"
-#include "error/assert.h"
+#include "blue-bird/web/http/request.h"
+#include "blue-bird/error/assert.h"
 
 void init_request_with_type(request_t *req, request_type type)
 {

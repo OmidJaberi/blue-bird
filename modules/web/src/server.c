@@ -1,8 +1,8 @@
-#include "web/server.h"
-#include "web/http.h"
-#include "web/router.h"
-#include "web/middleware.h"
-#include "log/log.h"
+#include "blue-bird/web/server.h"
+#include "blue-bird/web/http.h"
+#include "blue-bird/web/router.h"
+#include "blue-bird/web/middleware.h"
+#include "blue-bird/log/log.h"
 
 #include <stdio.h>
 #include <stdlib.h>

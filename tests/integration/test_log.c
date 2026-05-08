@@ -1,8 +1,8 @@
-#include "log/log.h"
-#include "log/console_logger.h"
-#include "log/persist_logger.h"
-#include "persist/key_val.h"
-#include "persist/key_val/persist_file.h"
+#include "blue-bird/log/log.h"
+#include "blue-bird/log/console_logger.h"
+#include "blue-bird/log/persist_logger.h"
+#include "blue-bird/persist/key_val.h"
+#include "blue-bird/persist/key_val/persist_file.h"
 #include <stdio.h>
 
 int main(void)

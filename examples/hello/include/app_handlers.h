@@ -1,7 +1,7 @@
 #ifndef APP_HANDLERS_H
 #define APP_HANDLERS_H
 
-#include "web/http.h"
+#include "blue-bird/web/http.h"
 
 BBError root_handler(request_t *req, response_t *res);
 BBError hello_post_handler(request_t *req, response_t *res);

@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "persist/model.h"
-#include "persist/schema.h"
+#include "blue-bird/persist/model.h"
+#include "blue-bird/persist/schema.h"
 
 /* ---------------------------
  * Mock State
