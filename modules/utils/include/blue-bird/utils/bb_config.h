@@ -1,6 +1,11 @@
 #ifndef BB_UTILS_CONFIG_H
 #define BB_UTILS_CONFIG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stddef.h>
 
 typedef struct bb_config bb_config_t;
@@ -40,5 +45,10 @@ int bb_config_get_int(bb_config_t *cfg,
 int bb_config_get_bool(bb_config_t *cfg,
                        const char *key,
                        int def);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_UTILS_CONFIG_H

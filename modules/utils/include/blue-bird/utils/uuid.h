@@ -1,6 +1,11 @@
 #ifndef BB_UTILS_UUID_H
 #define BB_UTILS_UUID_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -23,5 +28,10 @@ int bb_uuid_to_string(const uint8_t uuid[16],
  * Generate UUID v4 directly as string
  */
 int bb_uuid_v4_string(char out[BB_UUID_BUF_LEN]);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_UTILS_UUID_H

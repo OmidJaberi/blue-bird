@@ -1,6 +1,11 @@
 #ifndef BB_MIDDLEWARE_H
 #define BB_MIDDLEWARE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "blue-bird/web/http.h"
 
 typedef http_handler_cb middleware_cb;
@@ -16,5 +21,10 @@ void init_middleware_list(middleware_list_t *list);
 void append_to_middleware_list(middleware_list_t *list, middleware_cb mw);
 BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res);
 void destroy_middleware_list(middleware_list_t *list);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_MIDDLEWARE_H

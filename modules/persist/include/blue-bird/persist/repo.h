@@ -1,6 +1,11 @@
 #ifndef BB_REPO_H
 #define BB_REPO_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "blue-bird/persist/model.h"
 #include "blue-bird/persist/schema.h"
 
@@ -74,5 +79,10 @@ static inline int bb_repo_find_first_by_field(BB_Repo *r, void *out, const char 
     typedef struct { BB_Repo base; } name; \
     static inline int name##_insert(name *r, type *e) { return bb_repo_insert(&r->base, e); } \
     static inline int name##_find(name *r, type *out, const void *key) { return bb_repo_find_by_pk(&r->base, out, key); }
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

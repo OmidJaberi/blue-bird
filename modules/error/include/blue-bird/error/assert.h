@@ -1,6 +1,11 @@
 #ifndef BB_ASSERT_H
 #define BB_ASSERT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -14,5 +19,9 @@
         } \
     } while (0)
 
-#endif //BB_ASSERT_H
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif //BB_ASSERT_H

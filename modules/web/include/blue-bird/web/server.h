@@ -1,6 +1,11 @@
 #ifndef BB_SERVER_H
 #define BB_SERVER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "blue-bird/web/router.h"
 #include "blue-bird/web/middleware.h"
 
@@ -17,5 +22,10 @@ void use_pre_middleware(bb_server_t *server, middleware_cb mw);
 void use_post_middleware(bb_server_t *server, middleware_cb mw);
 void start_server(bb_server_t *server);
 void destroy_server(bb_server_t *server);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_SERVER_H

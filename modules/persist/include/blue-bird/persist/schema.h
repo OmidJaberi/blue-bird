@@ -1,6 +1,11 @@
 #ifndef BB_PERSIST_SCHEMA_H
 #define BB_PERSIST_SCHEMA_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stddef.h>
 #include <string.h>
 
@@ -44,5 +49,10 @@ static BB_Field *find_field(BB_Schema *schema, const char *name)
 int bb_schema_validate(BB_Schema *schema);
 int bb_schema_register(BB_Schema *schema);
 BB_Schema *bb_schema_get(const char *name);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_PERSIST_SCHEMA_H

@@ -1,6 +1,11 @@
 #ifndef BB_UTILS_TIME_H
 #define BB_UTILS_TIME_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -34,5 +39,10 @@ int bb_time_format_iso8601(int64_t ts, char *buf, size_t bufsize);
 
 /* Parse RFC1123 string into epoch seconds */
 int bb_time_parse_rfc1123(const char *str, int64_t *out_ts);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_UTILS_TIME_H

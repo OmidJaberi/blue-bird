@@ -1,6 +1,11 @@
 #ifndef BB_PERSIST_MODEL_H
 #define BB_PERSIST_MODEL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "schema.h"
 
 typedef struct BB_ModelHandle BB_ModelHandle;
@@ -27,5 +32,10 @@ const BB_ModelAPI *bb_model_get(const char *name);
 //Defaults:
 void bb_model_set_default(const char *name);
 BB_ModelHandle *bb_model_open_default(const char *uri);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

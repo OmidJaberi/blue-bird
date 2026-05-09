@@ -1,6 +1,11 @@
 #ifndef BB_LOG_H
 #define BB_LOG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -40,5 +45,10 @@ extern Logger default_logger;
 
 /* Close logger (only needed for persist/file backends) */
 void logger_close(Logger *logger);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_LOG_H

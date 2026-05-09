@@ -1,6 +1,11 @@
 #ifndef BB_KEY_VAL_PERSIST_H
 #define BB_KEY_VAL_PERSIST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stddef.h>
 
 typedef struct PersistHandle PersistHandle;
@@ -36,5 +41,9 @@ int persist_save(const char *key, const void *data, size_t size);
 int persist_load(const char *key, void *buf, size_t bufsize);
 int persist_remove(const char *key);
 
-#endif //BB_KEY_VAL_PERSIST_H
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif //BB_KEY_VAL_PERSIST_H

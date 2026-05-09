@@ -1,6 +1,11 @@
 #ifndef BB_ERROR_H
 #define BB_ERROR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 typedef enum {
 	BB_OK = 0,
     BB_ERR_ALLOC,
@@ -23,5 +28,10 @@ typedef struct {
 #define BB_FAILED(err) ((err).code != BB_OK)
 
 const char *bb_strerror(BBErrorCode code);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_ERROR_H

@@ -1,6 +1,11 @@
 #ifndef BB_JSON_H
 #define BB_JSON_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -181,5 +186,10 @@ typedef struct {
         set_json_object_value(_obj, _kvs[_i].key, _kvs[_i].value);  \
     _obj;                                                           \
 })
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_JSON_H
