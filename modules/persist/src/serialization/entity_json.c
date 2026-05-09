@@ -1,4 +1,4 @@
-#include "blue-bird/persist/entity_json.h"
+#include "blue-bird/persist/serialization/entity_json.h"
 
 #include <string.h>
 

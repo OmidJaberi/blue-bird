@@ -4,7 +4,7 @@
 
 #include "blue-bird/utils/json.h"
 #include "blue-bird/persist/model/model_json.h"
-#include "blue-bird/persist/entity_json.h"
+#include "blue-bird/persist/serialization/entity_json.h"
 
 typedef struct {
     char *path;
