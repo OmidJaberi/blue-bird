@@ -1,9 +1,10 @@
 #ifndef APP_REPO_H
 #define APP_REPO_H
 
-#include "blue-bird/persist/model.h"
-#include "blue-bird/persist/repo.h"
-#include "blue-bird/utils/uuid.h"
+#include <blue-bird/persist/model.h>
+#include <blue-bird/persist/repo.h>
+#include <blue-bird/utils/uuid.h>
+
 #include <stddef.h>
 
 typedef struct {

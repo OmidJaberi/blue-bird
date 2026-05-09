@@ -1,8 +1,9 @@
 #include "app_handlers.h"
 #include "app_repo.h"
-#include "blue-bird/log/log.h"
-#include "blue-bird/utils/json.h"
-#include "blue-bird/utils/uuid.h"
+
+#include <blue-bird/log/log.h>
+#include <blue-bird/utils/json.h>
+#include <blue-bird/utils/uuid.h>
 
 #include <stdlib.h>
 #include <string.h>
