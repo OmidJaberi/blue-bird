@@ -141,7 +141,7 @@ static BB_Schema schema = {
  * Tests
  * --------------------------- */
 
-static void test_mock_backend()
+static void test_mock_backend(void)
 {
     printf("\tTesting mock backend...\n");
 

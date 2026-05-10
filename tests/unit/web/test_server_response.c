@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void test_response_basic()
+void test_response_basic(void)
 {
     server_response_t res;
     char *buffer;
@@ -26,7 +26,7 @@ void test_response_basic()
     destroy_server_response(&res);
 }
 
-void test_response_multiple_headers()
+void test_response_multiple_headers(void)
 {
     server_response_t res;
     char *buffer;
@@ -50,7 +50,7 @@ void test_response_multiple_headers()
     destroy_server_response(&res);
 }
 
-void test_response_empty_body()
+void test_response_empty_body(void)
 {
     server_response_t res;
     char *buffer;
@@ -68,7 +68,7 @@ void test_response_empty_body()
     destroy_server_response(&res);
 }
 
-void test_response_large_body()
+void test_response_large_body(void)
 {
     server_response_t res;
     char *buffer;
@@ -95,7 +95,7 @@ void test_response_large_body()
     destroy_server_response(&res);
 }
 
-int main()
+int main(void)
 {
     printf("Running Response tests...\n");
     test_response_basic();

@@ -7,7 +7,7 @@
 #include <blue-bird/log/console_logger.h>
 #include <blue-bird/persist/model/model_sqlite.h>
 
-int main()
+int main(void)
 {
     Logger console_logger;
     logger_init_console(&console_logger, LOG_LEVEL_INFO, stderr);

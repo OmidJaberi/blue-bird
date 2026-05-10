@@ -34,7 +34,7 @@ BBError mw_stop(request_t *req, response_t *res)
     return BB_ERROR(BB_ERR_BAD_REQUEST, "Forbidden"); // stop chain
 }
 
-void test_middleware_order()
+void test_middleware_order(void)
 {
     printf("Testing Middleware order...\n");
     middleware_list_t mw_list;
@@ -58,7 +58,7 @@ void test_middleware_order()
     destroy_response(&res);
 }
 
-void test_middleware_stop()
+void test_middleware_stop(void)
 {
     printf("Testing Middleware stop...\n");
     middleware_list_t mw_list;
@@ -78,7 +78,7 @@ void test_middleware_stop()
     destroy_response(&res);
 }
 
-int main()
+int main(void)
 {
     test_middleware_order();
     test_middleware_stop();

@@ -1,7 +1,7 @@
 #include "app_handlers.h"
 #include <blue-bird/web/server.h>
 
-int main()
+int main(void)
 {
     bb_server_t server;
     init_server(&server, 8080);

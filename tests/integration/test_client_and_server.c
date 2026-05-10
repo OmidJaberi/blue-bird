@@ -114,7 +114,7 @@ void client_request(request_t *req, response_t *res)
     http_client_close(&client);
 }
 
-void test_root_req()
+void test_root_req(void)
 {
     printf("Testing root path...\n");
 
@@ -143,7 +143,7 @@ void test_root_req()
     destroy_response(&res);
 }
 
-void test_missing_path_req()
+void test_missing_path_req(void)
 {
     printf("Testing missing path...\n");
 
@@ -171,7 +171,7 @@ void test_missing_path_req()
     destroy_response(&res);
 }
 
-void test_param_req()
+void test_param_req(void)
 {
     printf("Testing path with parameter...\n");
 
@@ -200,7 +200,7 @@ void test_param_req()
     destroy_response(&res);
 }
 
-void test_multi_param_req()
+void test_multi_param_req(void)
 {
     printf("Testing path with multiple parameter...\n");
 
@@ -229,7 +229,7 @@ void test_multi_param_req()
     destroy_response(&res);
 }
 
-void test_missing_param()
+void test_missing_param(void)
 {
     printf("Testing missing route parameter...\n");
 
@@ -251,7 +251,7 @@ void test_missing_param()
     destroy_response(&res);
 }
 
-void test_max_length_param()
+void test_max_length_param(void)
 {
     printf("Testing path with maxium length parameter...\n");
 
@@ -287,7 +287,7 @@ void test_max_length_param()
     destroy_response(&res);
 }
 
-void test_over_sized_param()
+void test_over_sized_param(void)
 {
     printf("Testing path with over sized parameter...\n");
 
@@ -320,7 +320,7 @@ void test_over_sized_param()
     destroy_response(&res);
 }
 
-void test_query_param_req()
+void test_query_param_req(void)
 {
     printf("Testing path with Query parameter...\n");
 
@@ -349,7 +349,7 @@ void test_query_param_req()
     destroy_response(&res);
 }
 
-void test_encoded_query_param()
+void test_encoded_query_param(void)
 {
     printf("Testing encoded query parameter...\n");
     request_t req;
@@ -370,7 +370,7 @@ void test_encoded_query_param()
     destroy_response(&res);
 }
 
-void test_multi_query_param_req()
+void test_multi_query_param_req(void)
 {
     printf("Testing path with multiple Query parameter...\n");
 
@@ -399,7 +399,7 @@ void test_multi_query_param_req()
     destroy_response(&res);
 }
 
-void test_too_many_query_params()
+void test_too_many_query_params(void)
 {
     printf("Testing too many query parameters...\n");
     request_t req; response_t res;
@@ -424,7 +424,7 @@ void test_too_many_query_params()
     destroy_response(&res);
 }
 
-void test_missing_query_param_req()
+void test_missing_query_param_req(void)
 {
     printf("Testing path with missing Query parameter...\n");
 
@@ -452,7 +452,7 @@ void test_missing_query_param_req()
     destroy_response(&res);
 }
 
-void test_duplicate_query_param()
+void test_duplicate_query_param(void)
 {
     printf("Testing duplicate query parameter...\n");
     request_t req;
@@ -473,7 +473,7 @@ void test_duplicate_query_param()
     destroy_response(&res);
 }
 
-void test_empty_query_value()
+void test_empty_query_value(void)
 {
     printf("Testing empty query value...\n");
     request_t req;
@@ -492,7 +492,7 @@ void test_empty_query_value()
     destroy_response(&res);
 }
 
-void test_invalid_query_format()
+void test_invalid_query_format(void)
 {
     printf("Testing invalid query format (no '?')...\n");
     request_t req;
@@ -511,7 +511,7 @@ void test_invalid_query_format()
     destroy_response(&res);
 }
 
-void test_req_body()
+void test_req_body(void)
 {
     printf("Testing request body...\n");
 
@@ -540,7 +540,7 @@ void test_req_body()
     destroy_response(&res);
 }
 
-void test_req_large_body()
+void test_req_large_body(void)
 {
     printf("Testing request with large body...\n");
 
@@ -579,7 +579,7 @@ void test_req_large_body()
     destroy_response(&res);
 }
 
-void test_empty_body_req()
+void test_empty_body_req(void)
 {
     printf("Testing empty body...\n");
     request_t req;
@@ -600,7 +600,7 @@ void test_empty_body_req()
     destroy_response(&res);
 }
 
-void test_encoded_body_req()
+void test_encoded_body_req(void)
 {
     printf("Testing encoded body...\n");
 
@@ -632,7 +632,7 @@ void test_encoded_body_req()
     destroy_response(&res);
 }
 
-void test_encoded_path_segment()
+void test_encoded_path_segment(void)
 {
     printf("Testing URL encoded path segment...\n");
     request_t req;
@@ -653,7 +653,7 @@ void test_encoded_path_segment()
     destroy_response(&res);
 }
 
-void test_invalid_body_encoding()
+void test_invalid_body_encoding(void)
 {
     printf("Testing invalid body encoding...\n");
     request_t req; response_t res;
@@ -672,7 +672,7 @@ void test_invalid_body_encoding()
     destroy_response(&res);
 }
 
-void test_invalid_method()
+void test_invalid_method(void)
 {
     printf("Testing unsupported HTTP method...\n");
     request_t req;
@@ -692,7 +692,7 @@ void test_invalid_method()
     destroy_response(&res);
 }
 
-void test_trailing_slash()
+void test_trailing_slash(void)
 {
     printf("Testing route with trailing slash...\n");
     request_t req;
@@ -712,7 +712,7 @@ void test_trailing_slash()
     destroy_response(&res);
 }
 
-void test_invalid_url_chars()
+void test_invalid_url_chars(void)
 {
     printf("Testing path with invalid characters...\n");
     request_t req; response_t res;
@@ -729,7 +729,7 @@ void test_invalid_url_chars()
     destroy_response(&res);
 }
 
-int main()
+int main(void)
 {
     pthread_t thread_id;
     if (pthread_create(&thread_id, NULL, server, NULL) != 0)

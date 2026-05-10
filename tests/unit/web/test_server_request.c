@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-void test_request()
+void test_request(void)
 {
     server_request_t req;
 
@@ -24,7 +24,7 @@ void test_request()
     destroy_server_request(&req);
 }
 
-void test_parse_get_request()
+void test_parse_get_request(void)
 {
     const char *raw =
         "GET /hello HTTP/1.1\r\n"
@@ -49,7 +49,7 @@ void test_parse_get_request()
     destroy_server_request(&req);
 }
 
-void test_parse_post_request_with_body()
+void test_parse_post_request_with_body(void)
 {
     const char *raw =
         "POST /submit HTTP/1.1\r\n"
@@ -76,7 +76,7 @@ void test_parse_post_request_with_body()
     destroy_server_request(&req);
 }
 
-void test_parse_server_request_with_no_headers()
+void test_parse_server_request_with_no_headers(void)
 {
     const char *raw =
         "GET /ping HTTP/1.0\r\n"
@@ -96,7 +96,7 @@ void test_parse_server_request_with_no_headers()
     destroy_server_request(&req);
 }
 
-void test_malformed_request()
+void test_malformed_request(void)
 {
     const char *raw = "GET /hello\r\n\r\n";
     
@@ -105,7 +105,7 @@ void test_malformed_request()
     assert(result == -1);
 }
 
-void test_request_with_invalid_header()
+void test_request_with_invalid_header(void)
 {
     const char *raw =
         "GET /ping HTTP/1.1\r\n"
@@ -117,7 +117,7 @@ void test_request_with_invalid_header()
     assert(result == -1);
 }
 
-void test_request_with_query_params()
+void test_request_with_query_params(void)
 {
     const char *raw =
         "GET /search?q=bluebird&limit=10 HTTP/1.1\r\n"
@@ -139,7 +139,7 @@ void test_request_with_query_params()
     destroy_server_request(&req);
 }
 
-void test_request_with_empty_query_value()
+void test_request_with_empty_query_value(void)
 {
     const char *raw =
         "GET /filter?enabled=&sort=asc HTTP/1.1\r\n"
@@ -159,7 +159,7 @@ void test_request_with_empty_query_value()
     destroy_server_request(&req);
 }
 
-void test_request_with_no_query_value()
+void test_request_with_no_query_value(void)
 {
     const char *raw =
         "GET /items?flag HTTP/1.1\r\n"
@@ -178,7 +178,7 @@ void test_request_with_no_query_value()
     destroy_server_request(&req);
 }
 
-void test_request_max_query_params()
+void test_request_max_query_params(void)
 {
     const char *raw =
         "GET /many?"
@@ -205,7 +205,7 @@ void test_request_max_query_params()
     destroy_server_request(&req);
 }
 
-int main()
+int main(void)
 {
     printf("Running Request tests...\n");
     test_request();

@@ -135,7 +135,7 @@ BBError root_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-int main()
+int main(void)
 {
     bb_server_t server;
     init_server(&server, 8080);

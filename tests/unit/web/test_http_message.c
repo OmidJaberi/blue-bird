@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void test_message_basic()
+void test_message_basic(void)
 {
     http_message_t msg;
     char *buffer;
@@ -26,7 +26,7 @@ void test_message_basic()
     destroy_message(&msg);
 }
 
-void test_message_multiple_headers()
+void test_message_multiple_headers(void)
 {
     http_message_t msg;
     char *buffer;
@@ -50,7 +50,7 @@ void test_message_multiple_headers()
     destroy_message(&msg);
 }
 
-void test_message_large_body()
+void test_message_large_body(void)
 {
     http_message_t msg;
     char *buffer;
@@ -77,7 +77,7 @@ void test_message_large_body()
     destroy_message(&msg);
 }
 
-int main()
+int main(void)
 {
     printf("Running HTTP Message tests...\n");
     test_message_basic();

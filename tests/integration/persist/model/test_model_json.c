@@ -41,7 +41,7 @@ static void cleanup_file(const char *path)
  * Tests
  * --------------------------- */
 
-static void test_json_insert_and_find()
+static void test_json_insert_and_find(void)
 {
     printf("\tJSON insert & find...\n");
 
@@ -71,7 +71,7 @@ static void test_json_insert_and_find()
     api->close(h);
 }
 
-static void test_json_update()
+static void test_json_update(void)
 {
     printf("\tJSON update...\n");
 
@@ -97,7 +97,7 @@ static void test_json_update()
     api->close(h);
 }
 
-static void test_json_remove()
+static void test_json_remove(void)
 {
     printf("\tJSON remove...\n");
 
@@ -121,7 +121,7 @@ static void test_json_remove()
     api->close(h);
 }
 
-static void test_json_conflict()
+static void test_json_conflict(void)
 {
     printf("\tJSON insert conflict...\n");
 

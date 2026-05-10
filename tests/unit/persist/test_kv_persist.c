@@ -29,7 +29,7 @@ static PersistAPI mock_api = {
     .remove = NULL
 };
 
-int main()
+int main(void)
 {
     persist_register(&mock_api);
     persist_set_default("mock");

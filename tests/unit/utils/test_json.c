@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void test_json_text()
+void test_json_text(void)
 {
     printf("\tTesting JSON text...\n");
     json_node_t json;
@@ -15,7 +15,7 @@ void test_json_text()
     destroy_json(&json);
 }
 
-void test_json_array()
+void test_json_array(void)
 {
     printf("\tTesting JSON array...\n");
     char *vals[] = {"ZERO", "ONE", "TWO", "THREE", "FOUR"};
@@ -36,7 +36,7 @@ void test_json_array()
     destroy_json(&arr);
 }
 
-void test_json_array_remove_at_index()
+void test_json_array_remove_at_index(void)
 {
     printf("\tTesting JSON array remove at index...\n");
     json_node_t arr;
@@ -51,7 +51,7 @@ void test_json_array_remove_at_index()
     destroy_json(&arr);
 }
 
-void test_json_array_multi_remove_at_index()
+void test_json_array_multi_remove_at_index(void)
 {
     printf("\tTesting JSON array remove multiple elements...\n");
     json_node_t *arr = JSON_NEW(JSON_ARRAY);
@@ -75,7 +75,7 @@ void test_json_array_multi_remove_at_index()
     destroy_json(arr);
 }
 
-void test_json_object()
+void test_json_object(void)
 {
     printf("\tTesting JSON object...\n");
     char *keys[] = {"one", "two", "three", "four", "five"};
@@ -97,7 +97,7 @@ void test_json_object()
     destroy_json(&obj);
 }
 
-void test_object_key_overwrite()
+void test_object_key_overwrite(void)
 {
     printf("\tTesting JSON object key overwrite...\n");
     json_node_t obj;
@@ -119,7 +119,7 @@ void test_object_key_overwrite()
     destroy_json(&obj);
 }
 
-void test_object_key_deletion()
+void test_object_key_deletion(void)
 {
     printf("\tTesting JSON object key deletion...\n");
     json_node_t obj;
@@ -138,7 +138,7 @@ void test_object_key_deletion()
     destroy_json(&obj);
 }
 
-void test_serialize_text_json()
+void test_serialize_text_json(void)
 {
     printf("\tTesting serializing JSON text...\n");
     json_node_t json;
@@ -152,7 +152,7 @@ void test_serialize_text_json()
     destroy_json(&json);
 }
 
-void test_serialize_text_json_with_escape_characters()
+void test_serialize_text_json_with_escape_characters(void)
 {
     printf("\tTesting serializing JSON text with escape characters...\n");
     json_node_t json;
@@ -166,7 +166,7 @@ void test_serialize_text_json_with_escape_characters()
     destroy_json(&json);
 }
 
-void test_serialize_array_json()
+void test_serialize_array_json(void)
 {
     printf("\tTesting serializing JSON array...\n");
     char *vals[] = {"ZERO", "ONE", "TWO", "THREE", "FOUR"};
@@ -187,7 +187,7 @@ void test_serialize_array_json()
     destroy_json(&arr);
 }
 
-void test_serialize_object_json()
+void test_serialize_object_json(void)
 {
     printf("\tTesting serializing JSON object...\n");
     char *keys[] = {"one", "two", "three", "four", "five"};
@@ -209,7 +209,7 @@ void test_serialize_object_json()
     destroy_json(&obj);
 }
 
-void test_serialize_large_json()
+void test_serialize_large_json(void)
 {
     printf("\tTesting serializing large JSON object...\n");
     int n = 100;
@@ -253,7 +253,7 @@ void test_serialize_large_json()
     destroy_json(&json);
 }
 
-void test_parse_and_serialize_json()
+void test_parse_and_serialize_json(void)
 {
     printf("\tTesting JSON parsing...\n");
     char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
@@ -268,7 +268,7 @@ void test_parse_and_serialize_json()
     destroy_json(&json);
 }
 
-void test_parse_empty_text_json()
+void test_parse_empty_text_json(void)
 {
     printf("\tTesting empty text JSON parsing...\n");
     json_node_t json;
@@ -278,7 +278,7 @@ void test_parse_empty_text_json()
     destroy_json(&json);
 }
 
-void test_parse_empty_array_json()
+void test_parse_empty_array_json(void)
 {
     printf("\tTesting empty array JSON parsing...\n");
     json_node_t json;
@@ -288,7 +288,7 @@ void test_parse_empty_array_json()
     destroy_json(&json);
 }
 
-void test_parse_empty_object_json()
+void test_parse_empty_object_json(void)
 {
     printf("\tTesting empty object JSON parsing...\n");
     json_node_t json;
@@ -298,7 +298,7 @@ void test_parse_empty_object_json()
     destroy_json(&json);
 }
 
-void test_parse_large_json()
+void test_parse_large_json(void)
 {
     printf("\tTesting large JSON parsing...\n");
     int n = 100;
@@ -334,7 +334,7 @@ void test_parse_large_json()
     destroy_json(&json);
 }
 
-void test_parse_text_with_escapes()
+void test_parse_text_with_escapes(void)
 {
     printf("\tTesting parse JSON text with escapes...\n");
 
@@ -364,7 +364,7 @@ void test_parse_text_with_escapes()
     destroy_json(&json);
 }
 
-void test_serialize_json_size()
+void test_serialize_json_size(void)
 {
     printf("\tTesting serialized JSON size...\n");
     char *s = "[\"one\", \"two\", \"escape\tcharacter\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
@@ -383,7 +383,7 @@ void test_serialize_json_size()
 }
 
 // Broken JSON Parsing:
-void test_incomplete_text_json()
+void test_incomplete_text_json(void)
 {
     printf("\tTesting incomplete text JSON parsing...\n");
     json_node_t json;
@@ -392,7 +392,7 @@ void test_incomplete_text_json()
     destroy_json(&json);
 }
 
-void test_incomplete_array_json()
+void test_incomplete_array_json(void)
 {
     printf("\tTesting incomplete array JSON parsing...\n");
     json_node_t json;
@@ -401,7 +401,7 @@ void test_incomplete_array_json()
     destroy_json(&json);
 }
 
-void test_multiple_comma_array_json()
+void test_multiple_comma_array_json(void)
 {
     printf("\tTesting multiple comma array JSON parsing...\n");
     json_node_t json;
@@ -410,7 +410,7 @@ void test_multiple_comma_array_json()
     destroy_json(&json);
 }
 
-void test_missing_comma_array_json()
+void test_missing_comma_array_json(void)
 {
     printf("\tTesting missing comma array JSON parsing...\n");
     json_node_t json;
@@ -419,7 +419,7 @@ void test_missing_comma_array_json()
     destroy_json(&json);
 }
 
-void test_incomplete_object_json()
+void test_incomplete_object_json(void)
 {
     printf("\tTesting incomplete object JSON parsing...\n");
     json_node_t json;
@@ -428,7 +428,7 @@ void test_incomplete_object_json()
     destroy_json(&json);
 }
 
-void test_multiple_comma_object_json()
+void test_multiple_comma_object_json(void)
 {
     printf("\tTesting multiple comma object JSON parsing...\n");
     json_node_t json;
@@ -437,7 +437,7 @@ void test_multiple_comma_object_json()
     destroy_json(&json);
 }
 
-void test_missing_comma_object_json()
+void test_missing_comma_object_json(void)
 {
     printf("\tTesting missing comma object JSON parsing...\n");
     json_node_t json;
@@ -446,7 +446,7 @@ void test_missing_comma_object_json()
     destroy_json(&json);
 }
 
-void test_missing_colon_object_json()
+void test_missing_colon_object_json(void)
 {
     printf("\tTesting missing colon object JSON parsing...\n");
     json_node_t json;
@@ -455,7 +455,7 @@ void test_missing_colon_object_json()
     destroy_json(&json);
 }
 
-void test_missing_value_object_json()
+void test_missing_value_object_json(void)
 {
     printf("\tTesting missing value object JSON parsing...\n");
     json_node_t json;
@@ -464,7 +464,7 @@ void test_missing_value_object_json()
     destroy_json(&json);
 }
 
-void test_missing_key_object_json()
+void test_missing_key_object_json(void)
 {
     printf("\tTesting missing key object JSON parsing...\n");
     json_node_t json;
@@ -473,7 +473,7 @@ void test_missing_key_object_json()
     destroy_json(&json);
 }
 
-void test_parse_json_with_trailing_str()
+void test_parse_json_with_trailing_str(void)
 {
     printf("\tTesting parsing object JSON with trailing str...\n");
     json_node_t json;
@@ -482,7 +482,7 @@ void test_parse_json_with_trailing_str()
     destroy_json(&json);
 }
 
-void test_serialize_with_non_empty_buffer()
+void test_serialize_with_non_empty_buffer(void)
 {
     printf("\tTesting serializing JSON on non-empty buffer...\n");
     json_node_t json;
@@ -503,7 +503,7 @@ void test_serialize_with_non_empty_buffer()
     destroy_json(&json);
 }
 
-void test_compare_equal_jsons()
+void test_compare_equal_jsons(void)
 {
     printf("\tTesting comparison of equal JSONs...\n");
     json_node_t json_1, json_2;
@@ -514,7 +514,7 @@ void test_compare_equal_jsons()
     destroy_json(&json_2);
 }
 
-void test_compare_equal_jsons_different_order()
+void test_compare_equal_jsons_different_order(void)
 {
     printf("\tTesting comparison of equal JSONs with different order...\n");
     json_node_t json_1, json_2;
@@ -525,7 +525,7 @@ void test_compare_equal_jsons_different_order()
     destroy_json(&json_2);
 }
 
-void test_compare_jsons_missing_key()
+void test_compare_jsons_missing_key(void)
 {
     printf("\tTesting comparison of JSONs: missing key...\n");
     json_node_t json_1, json_2;
@@ -536,7 +536,7 @@ void test_compare_jsons_missing_key()
     destroy_json(&json_2);
 }
 
-void test_compare_jsons_extra_key()
+void test_compare_jsons_extra_key(void)
 {
     printf("\tTesting comparison of JSONs: extra key...\n");
     json_node_t json_1, json_2;
@@ -547,7 +547,7 @@ void test_compare_jsons_extra_key()
     destroy_json(&json_2);
 }
 
-void test_compare_complex_equal_jsons()
+void test_compare_complex_equal_jsons(void)
 {
     printf("\tTesting comparison of complex equal JSONs...\n");
     json_node_t json_1, json_2;
@@ -558,7 +558,7 @@ void test_compare_complex_equal_jsons()
     destroy_json(&json_2);
 }
 
-void test_dump_and_load_json()
+void test_dump_and_load_json(void)
 {
     printf("\tTesting JSON file load and dump...\n");
     json_node_t json_1, json_2;
@@ -585,7 +585,7 @@ void test_dump_and_load_json()
     destroy_json(&json_2);
 }
 
-void test_json_dsl_macros()
+void test_json_dsl_macros(void)
 {
     printf("\tTesting JSON DSL Macros...\n");
     json_node_t *doc = JSON(
@@ -611,7 +611,7 @@ void test_json_dsl_macros()
     free(doc);
 }
 
-int main()
+int main(void)
 {
     printf("Running JSON tests...\n");
     test_json_text();

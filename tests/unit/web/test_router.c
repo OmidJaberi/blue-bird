@@ -41,7 +41,7 @@ BBError handler_user(request_t *req, response_t *res)
 }
 
 // Tests
-void test_route_match_get()
+void test_route_match_get(void)
 {
     printf("Testing Router: match GET...\n");
     route_list_t route_list;
@@ -65,7 +65,7 @@ void test_route_match_get()
     assert(strcmp(res.msg.body, "Hello GET OK") == 0);
 }
 
-void test_route_match_post()
+void test_route_match_post(void)
 {
     printf("Testing Router: match POST...\n");
     route_list_t route_list;
@@ -88,7 +88,7 @@ void test_route_match_post()
     assert(strcmp(res.msg.body, "Hello POST OK") == 0);
 }
 
-void test_route_not_found()
+void test_route_not_found(void)
 {
     printf("Testing Router: route not found...\n");
     route_list_t route_list;
@@ -109,7 +109,7 @@ void test_route_not_found()
     assert(strcmp(res.msg.body, "Route Not Found") == 0);
 }
 
-void test_route_with_param()
+void test_route_with_param(void)
 {
     printf("Testing Router: route with param...\n");
     route_list_t route_list;
@@ -132,7 +132,7 @@ void test_route_with_param()
     assert(strcmp(res.msg.body, "User ID: 42") == 0);
 }
 
-int main()
+int main(void)
 {
     test_route_match_get();
     test_route_match_post();

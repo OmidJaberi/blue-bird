@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-static void test_valid_schema()
+static void test_valid_schema(void)
 {
     printf("\tTesting valid schema...\n");
     typedef struct {
@@ -36,7 +36,7 @@ static void test_valid_schema()
     assert(bb_schema_validate(&schema) == 0);
 }
 
-static void test_duplicate_field_names()
+static void test_duplicate_field_names(void)
 {
     printf("\tTesting duplicate field names...\n");
     typedef struct {
@@ -69,7 +69,7 @@ static void test_duplicate_field_names()
     assert(bb_schema_validate(&schema) != 0);
 }
 
-static void test_relationship_validation()
+static void test_relationship_validation(void)
 {
     printf("\tTesting relationship validation...\n");
     typedef struct {
@@ -129,7 +129,7 @@ static void test_relationship_validation()
     assert(bb_schema_validate(&task_schema) == 0);
 }
 
-int main()
+int main(void)
 {
     printf("Running schema tests...\n");
 

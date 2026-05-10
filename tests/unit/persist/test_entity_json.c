@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-static void test_entity_to_json()
+static void test_entity_to_json(void)
 {
     printf("\tTesting Entity to JSON...\n");
     typedef struct {
@@ -62,7 +62,7 @@ static void test_entity_to_json()
     free(obj);
 }
 
-static void test_json_to_entity()
+static void test_json_to_entity(void)
 {
     printf("\tTesting JSON to Entity...\n");
     typedef struct {
@@ -116,7 +116,7 @@ static void test_json_to_entity()
     free(obj);
 }
 
-static void test_json_to_entity_invalid_type()
+static void test_json_to_entity_invalid_type(void)
 {
     printf("\tTesting JSON to Entity with invalid type...\n");
     typedef struct {
@@ -158,7 +158,7 @@ static void test_json_to_entity_invalid_type()
     destroy_json(obj);
     free(obj);
 }
-int main()
+int main(void)
 {
     printf("Running Entity_JSON tests...\n");
 

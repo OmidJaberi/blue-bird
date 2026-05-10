@@ -218,7 +218,7 @@ static int filter_even_ids(const void *entity, void *ctx)
  * Tests
  * --------------------------- */
 
-static void test_repo_insert_and_find()
+static void test_repo_insert_and_find(void)
 {
     printf("\tRepo insert & find...\n");
 
@@ -241,7 +241,7 @@ static void test_repo_insert_and_find()
     mock_api.close(h);
 }
 
-static void test_repo_update()
+static void test_repo_update(void)
 {
     printf("\tRepo update...\n");
 
@@ -266,7 +266,7 @@ static void test_repo_update()
     mock_api.close(h);
 }
 
-static void test_repo_remove()
+static void test_repo_remove(void)
 {
     printf("\tRepo remove...\n");
 
@@ -287,7 +287,7 @@ static void test_repo_remove()
     mock_api.close(h);
 }
 
-static void test_repo_error_propagation()
+static void test_repo_error_propagation(void)
 {
     printf("\tRepo error propagation...\n");
 
@@ -310,7 +310,7 @@ static void test_repo_error_propagation()
     mock_api.close(h);
 }
 
-static void test_repo_filter()
+static void test_repo_filter(void)
 {
     printf("\tRepo filter...\n");
 

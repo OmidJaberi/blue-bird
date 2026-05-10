@@ -115,7 +115,7 @@ static void run_tests(const char *file, const BB_ModelAPI *api)
     api->close(h);
 }
 
-static void test_repo_json_crud()
+static void test_repo_json_crud(void)
 {
     printf("JSON repo CRUD...\n");
 
@@ -132,7 +132,7 @@ static void test_repo_json_crud()
     printf("JSON Tests passed...\n");
 }
 
-static void test_repo_sqlite_crud()
+static void test_repo_sqlite_crud(void)
 {
     printf("SQLite repo CRUD...\n");
 

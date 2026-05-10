@@ -41,7 +41,7 @@ static void cleanup_db(const char *path)
  * Tests
  * --------------------------- */
 
-static void test_sqlite_insert_and_find()
+static void test_sqlite_insert_and_find(void)
 {
     printf("\tTesting insert and find...\n");
     const char *db_path = "test_model_sqlite.db";
@@ -77,7 +77,7 @@ static void test_sqlite_insert_and_find()
     api->close(h);
 }
 
-static void test_sqlite_multiple_inserts()
+static void test_sqlite_multiple_inserts(void)
 {
     printf("\tTesting multiple insert...\n");
     const char *db_path = "test_model_sqlite_multi.db";
@@ -112,7 +112,7 @@ static void test_sqlite_multiple_inserts()
     api->close(h);
 }
 
-static void test_sqlite_not_found()
+static void test_sqlite_not_found(void)
 {
     printf("\tTesting not found...\n");
     const char *db_path = "test_model_sqlite_not_found.db";
@@ -133,7 +133,7 @@ static void test_sqlite_not_found()
     api->close(h);
 }
 
-static void test_sqlite_update()
+static void test_sqlite_update(void)
 {
     printf("\tTesting update...\n");
     const char *db_path = "test_model_sqlite_update.db";
@@ -163,7 +163,7 @@ static void test_sqlite_update()
     api->close(h);
 }
 
-static void test_sqlite_remove()
+static void test_sqlite_remove(void)
 {
     printf("\tTesting remove...\n");
     const char *db_path = "test_model_sqlite_remove.db";
@@ -193,7 +193,7 @@ static void test_sqlite_remove()
     api->close(h);
 }
 
-static void test_sqlite_insert_conflict()
+static void test_sqlite_insert_conflict(void)
 {
     printf("\tTesting insert conflict...\n");
     const char *db_path = "test_model_sqlite_conflict.db";
@@ -220,7 +220,7 @@ static void test_sqlite_insert_conflict()
     api->close(h);
 }
 
-static void test_sqlite_update_not_found()
+static void test_sqlite_update_not_found(void)
 {
     printf("\tTesting update on non-existent row...\n");
     const char *db_path = "test_model_sqlite_update_not_found.db";
@@ -242,7 +242,7 @@ static void test_sqlite_update_not_found()
     api->close(h);
 }
 
-static void test_sqlite_remove_not_found()
+static void test_sqlite_remove_not_found(void)
 {
     printf("\tTesting remove on non-existent row...\n");
     const char *db_path = "test_model_sqlite_remove_not_found.db";
