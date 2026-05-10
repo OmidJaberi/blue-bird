@@ -125,4 +125,3 @@ void http_client_close(bb_client_t *client)
         client->sock_fd = -1;
     }
 }
-

@@ -157,4 +157,3 @@ int persist_sqlite_register(void)
 {
     return persist_register(&sqlite_api);
 }
-

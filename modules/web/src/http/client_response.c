@@ -33,4 +33,3 @@ int parse_client_response(const char *raw, client_response_t *res)
 
     return 0;
 }
-
