@@ -37,7 +37,7 @@ void destroy_json(json_node_t *json)
             }
             break;
         case JSON_ARRAY:
-            for (int i = 0; i < json->size; i++)
+            for (unsigned int i = 0; i < json->size; i++)
             {
                 if (json->value.dynamic_array.array[i])
                 {
@@ -59,7 +59,7 @@ void destroy_json(json_node_t *json)
                 free(node->value);
                 hash_table_node_t *next = node->order_next;
                 free(node);
-                node = node->next;
+                node = next;
             }
             break;
         }
@@ -160,7 +160,7 @@ void json_array_remove_at_index(json_node_t *json_array, unsigned int index)
     BB_ASSERT(json_array->size > index, "Index larger than array size");
     destroy_json(json_array->value.dynamic_array.array[index]);
     free(json_array->value.dynamic_array.array[index]);
-    for (int i = index; i < json_array->size; i++)
+    for (unsigned int i = index; i < json_array->size; i++)
         json_array->value.dynamic_array.array[i] = (i + 1 < json_array->value.dynamic_array.alloc_size ? json_array->value.dynamic_array.array[i + 1] : NULL);
     json_array->size--;
 }
@@ -332,7 +332,7 @@ static int serialize_text_json(json_node_t *json, char *buffer)
     int index = 0;
     index += sprintf(s + index, "\"");
 
-    for (int i = 0; i < json->size; i++)
+    for (unsigned int i = 0; i < json->size; i++)
     {
         char c = json->value.text_val[i];
         switch (c)
@@ -374,7 +374,7 @@ static int serialize_array_json(json_node_t *json, char *buffer, int indent, boo
     len += buffer ? sprintf(buffer, "[") : 1;
     if (has_indent)
         len += buffer ? sprintf(buffer + len, "\n") : 1;
-    for (int i = 0; i < json->size; i++)
+    for (unsigned int i = 0; i < json->size; i++)
     {
         for (int j = 0; has_indent && j < indent + 1; j++)
             len += buffer ? sprintf(buffer + len, "\t") : 1;
@@ -382,7 +382,7 @@ static int serialize_array_json(json_node_t *json, char *buffer, int indent, boo
         int serialize_child = has_indent ? serialize_json_with_indent(json->value.dynamic_array.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->value.dynamic_array.array[i], child_buffer);
         if (serialize_child < 0) return -1;
         len += serialize_child;
-        len += buffer ? sprintf(buffer + len, i < json->size - 1 ? ", " : "") : (i < json->size - 1 ? 2 : 0);
+        len += buffer ? sprintf(buffer + len, (i + 1) < json->size ? ", " : "") : ((i + 1) < json->size ? 2 : 0);
         if (has_indent)
             len += buffer ? sprintf(buffer + len, "\n") : 1;
     }
@@ -462,7 +462,7 @@ static int serialize_json_with_indent(json_node_t *json, char *buffer, int inden
     if (json->type == JSON_ARRAY)
     {
         bool indented = false;
-        for (int i = 0; i < json->size; i++)
+        for (unsigned int i = 0; i < json->size; i++)
         {
             json_node_t* child = get_json_array_index(json, i);
             indented = indented || (child->type == JSON_ARRAY || child->type == JSON_OBJECT);
@@ -503,7 +503,7 @@ int indented_serialize_json(json_node_t *json, char **buffer, int *size)
 
 static bool is_substr(char *buffer, const char *str)
 {
-    for (int i = 0; i < strlen(str); i++)
+    for (unsigned long i = 0; i < strlen(str); i++)
         if (buffer[i] != str[i])
             return false;
     return true;
@@ -758,7 +758,7 @@ static int parse_json_str_partial(json_node_t *json, char *buffer)
 int parse_json_str(json_node_t *json, char *buffer)
 {
     int res = parse_json_str_partial(json, buffer);
-    if (res != strlen(buffer))
+    if ((unsigned long)res != strlen(buffer))
     {
         destroy_json(json);
         return -1;
@@ -802,7 +802,7 @@ static int compare_json_array(json_node_t *json_a, json_node_t *json_b)
     {
         return -1;
     }
-    for (int i = 0; i < json_a->size; i++)
+    for (unsigned int i = 0; i < json_a->size; i++)
     {
         if (compare_json(json_a->value.dynamic_array.array[i], json_b->value.dynamic_array.array[i]) != 0)
         {
