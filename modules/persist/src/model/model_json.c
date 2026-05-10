@@ -116,7 +116,7 @@ static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     void *key = get_entity_pk_ptr(schema, entity);
 
     // check duplicate
-    for (int i = 0; i < table->size; i++)
+    for (unsigned int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
         json_node_t *id_node = get_json_object_value(item, pk->name);
@@ -144,7 +144,7 @@ static int json_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *out,
 
     BB_Field *pk = &schema->fields[schema->primary_key_index];
 
-    for (int i = 0; i < table->size; i++)
+    for (unsigned int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
         json_node_t *id_node = get_json_object_value(item, pk->name);
@@ -173,7 +173,7 @@ static int json_update(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     BB_Field *pk = &schema->fields[schema->primary_key_index];
     void *key = get_entity_pk_ptr(schema, entity);
 
-    for (int i = 0; i < table->size; i++)
+    for (unsigned int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
         json_node_t *id_node = get_json_object_value(item, pk->name);
@@ -205,7 +205,7 @@ static int json_remove(BB_ModelHandle *handle, BB_Schema *schema, const void *ke
 
     BB_Field *pk = &schema->fields[schema->primary_key_index];
 
-    for (int i = 0; i < table->size; i++)
+    for (unsigned int i = 0; i < table->size; i++)
     {
         json_node_t *item = get_json_array_index(table, i);
         json_node_t *id_node = get_json_object_value(item, pk->name);

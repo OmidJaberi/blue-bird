@@ -8,6 +8,7 @@ project(
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
@@ -16,7 +17,17 @@ option(BUILD_EXAMPLES "Build examples" ON)
 if(MSVC)
     add_compile_options(/W4)
 else()
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    add_compile_options(
+        -Wall
+        -Wextra
+        -Wpedantic
+
+        # Intentional GNU extensions
+        -Wno-gnu-statement-expression-from-macro-expansion
+        -Wno-gnu-zero-variadic-macro-arguments
+
+        # -Werror
+    )
 endif()
 
 # Modules

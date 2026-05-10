@@ -5,6 +5,7 @@
 
 BBError root_handler(request_t *req, response_t *res)
 {
+    (void) req;
     set_response_header(res, "Content-Type", "text/plain");
     set_response_body(res, "Blue-Bird :)");
     return BB_SUCCESS();
@@ -12,6 +13,7 @@ BBError root_handler(request_t *req, response_t *res)
 
 BBError hello_post_handler(request_t *req, response_t *res)
 {
+    (void) req;
     set_response_header(res, "Content-Type", "text/plain");
     set_response_body(res, "Hello via POST!");
     return BB_SUCCESS();
@@ -19,6 +21,7 @@ BBError hello_post_handler(request_t *req, response_t *res)
 
 BBError hello_get_handler(request_t *req, response_t *res)
 {
+    (void) req;
     set_response_header(res, "Content-Type", "text/plain");
     const char *name = get_request_query_param(req, "name");
     if (name)

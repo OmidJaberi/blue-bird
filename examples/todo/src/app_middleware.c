@@ -10,6 +10,7 @@ BBError logger_middleware(request_t *req, response_t *res)
 
 BBError server_header_middleware(request_t *req, response_t *res)
 {
+    (void) req;
     set_response_header(res, "Server", "Blue-Bird/0.1");
     return BB_SUCCESS();
 }

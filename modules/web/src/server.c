@@ -93,7 +93,7 @@ void start_server(bb_server_t *server)
         }
 
         // Read request (not parsed, yet)
-        ssize_t req_len = read_http_message(client_fd, &buffer);
+        read_http_message(client_fd, &buffer);
         LOG_INFO("Received request:\n%s\n", buffer);
 
         // Parse request

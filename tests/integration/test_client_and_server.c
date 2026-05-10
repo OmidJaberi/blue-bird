@@ -10,6 +10,7 @@
 
 BBError root_handler(request_t *req, response_t *res)
 {
+    (void) req;
     set_response_header(res, "Content-Type", "text/plain");
     set_response_body(res, "Hello, Blue-Bird :)");
     return BB_SUCCESS();
@@ -80,6 +81,7 @@ BBError request_body_handler(request_t *req, response_t *res)
 
 void *server(void* arg)
 {
+    (void) arg;
     bb_server_t server;
 
     init_server(&server, 8080);

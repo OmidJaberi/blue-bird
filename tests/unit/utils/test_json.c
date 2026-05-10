@@ -29,7 +29,7 @@ void test_json_array(void)
         push_json_array(&arr, element);
     }
     assert(arr.size == 5);
-    for (int i = 0; i < arr.size; i++)
+    for (unsigned int i = 0; i < arr.size; i++)
     {
         assert(strcmp(get_json_text_value(get_json_array_index(&arr, i)), vals[i]) == 0);
     }
@@ -40,7 +40,7 @@ void test_json_array_remove_at_index(void)
 {
     printf("\tTesting JSON array remove at index...\n");
     json_node_t arr;
-    int res = parse_json_str(&arr, "[1, 2, 3, 4, 5, 6, 7, 8]");
+    parse_json_str(&arr, "[1, 2, 3, 4, 5, 6, 7, 8]");
     json_array_remove_at_index(&arr, 2);
     assert(arr.size == 7);
     char *buffer;
@@ -89,7 +89,7 @@ void test_json_object(void)
         set_json_text_value(value, vals[i]);
         set_json_object_value(&obj, keys[i], value);
     }
-    for (int i = 0; i < obj.size; i++)
+    for (unsigned int i = 0; i < obj.size; i++)
     {
         json_node_t *res = get_json_object_value(&obj, keys[i]);
         assert(strcmp(get_json_text_value(res), vals[i]) == 0);
@@ -301,22 +301,22 @@ void test_parse_empty_object_json(void)
 void test_parse_large_json(void)
 {
     printf("\tTesting large JSON parsing...\n");
-    int n = 100;
+    unsigned int n = 100;
     char *large_buffer = (char *)malloc(sizeof(char) * 20000);
     int index = sprintf(large_buffer, "{");
-    for (int i = 0; i < n; i++)
+    for (unsigned int i = 0; i < n; i++)
     {
         index += sprintf(large_buffer + index, "\"%d\": ", i);
         index += sprintf(large_buffer + index, "[");
-        for (int j = 0; j < i; j++)
-            index += sprintf(large_buffer + index, "%d%s", j, j < i - 1 ? ", " : "");
-        index += sprintf(large_buffer + index, "]%s", i < n - 1 ? ", " : "");
+        for (unsigned int j = 0; j < i; j++)
+            index += sprintf(large_buffer + index, "%d%s", j, (j + 1) < i ? ", " : "");
+        index += sprintf(large_buffer + index, "]%s", (i + 1) < n ? ", " : "");
     }
     index += sprintf(large_buffer + index, "}");
     json_node_t json;
     parse_json_str(&json, large_buffer);
     assert(json.size == n);
-    for (int i = 0; i < n; i++)
+    for (unsigned int i = 0; i < n; i++)
     {
         char key[4];
         sprintf(key, "%d", i);
@@ -324,11 +324,11 @@ void test_parse_large_json(void)
         assert(child);
         assert(child->type == JSON_ARRAY);
         assert(child->size == i);
-        for (int j = 0; j < i; j++)
+        for (unsigned int j = 0; j < i; j++)
         {
             json_node_t *sub_child = get_json_array_index(child, j);
             assert(sub_child->type == JSON_INT);
-            assert(get_json_integer_value(sub_child) == j);
+            assert(get_json_integer_value(sub_child) == (int)j);
         }
     }
     destroy_json(&json);
@@ -578,7 +578,7 @@ void test_dump_and_load_json(void)
     
     assert(json_1.type == json_2.type);
     assert(json_1.size == json_2.size);
-    for (int i = 0; i < json_1.size; i++)
+    for (unsigned int i = 0; i < json_1.size; i++)
         assert(get_json_integer_value(get_json_array_index(&json_1, i)) == get_json_integer_value(get_json_array_index(&json_2, i)));
     
     destroy_json(&json_1);

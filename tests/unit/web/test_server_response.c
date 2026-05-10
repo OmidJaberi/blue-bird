@@ -15,7 +15,7 @@ void test_response_basic(void)
     set_server_response_header(&res, "Content-Type", "text/plain");
     set_server_response_body(&res, "Hello there!");
 
-    int len = serialize_server_response(&res, &buffer, &size);
+    serialize_server_response(&res, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
     assert(strstr(buffer, "Content-Type: text/plain") != NULL);
@@ -38,7 +38,7 @@ void test_response_multiple_headers(void)
     set_server_response_header(&res, "X-Custom", "Blue-Bird");
     set_server_response_body(&res, "{\"ok\":true}");
 
-    int len = serialize_server_response(&res, &buffer, &size);
+    serialize_server_response(&res, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
     assert(strstr(buffer, "Content-Type: application/json") != NULL);
@@ -59,7 +59,7 @@ void test_response_empty_body(void)
     init_server_response(&res);
     set_server_response_status(&res, 204);
 
-    int len = serialize_server_response(&res, &buffer, &size);
+    serialize_server_response(&res, &buffer, &size);
    
     assert(strstr(buffer, "HTTP/1.1 204 No Content") != NULL);
     assert(strstr(buffer, "Content-Length: 0") != NULL);
@@ -77,7 +77,7 @@ void test_response_large_body(void)
     size_t large_size = 50 * 1000 + 1;
     char *large_body = malloc(large_size); // 50 KB
 
-    for (int i = 0; i < large_size - 1; i++)
+    for (unsigned long i = 0; i < large_size - 1; i++)
         large_body[i] = 'A';
     large_body[large_size - 1] = '\0';
 

@@ -32,10 +32,10 @@ typedef struct {
     BB_Field *fields;
     size_t field_count;
     size_t struct_size;
-    int primary_key_index;
+    unsigned long primary_key_index;
 } BB_Schema;
 
-static BB_Field *find_field(BB_Schema *schema, const char *name)
+static inline BB_Field *find_field(BB_Schema *schema, const char *name)
 {
     for (size_t i = 0; i < schema->field_count; i++)
     {

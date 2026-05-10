@@ -6,9 +6,9 @@
 TaskRepo global_task_repo;
 
 BB_Field task_fields[] = {
-    { "id", BB_FIELD_UUID, offsetof(Task, id), BB_UUID_BUF_LEN },
-    { "name", BB_FIELD_STRING, offsetof(Task, name), 64 },
-    { "status", BB_FIELD_STRING, offsetof(Task, status), 64 }
+    { "id", BB_FIELD_UUID, offsetof(Task, id), BB_UUID_BUF_LEN, NULL, NULL },
+    { "name", BB_FIELD_STRING, offsetof(Task, name), 64, NULL, NULL },
+    { "status", BB_FIELD_STRING, offsetof(Task, status), 64, NULL, NULL }
 };
 
 BB_Schema task_schema = {

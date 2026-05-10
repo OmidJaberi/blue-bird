@@ -35,6 +35,7 @@ static void json_close(PersistHandle *h)
 static int json_save(PersistHandle *h, const char *key,
                      const void *data, size_t size)
 {
+    (void) size;
     if (!h || !key || !data) return 1;
 
     load_json(&h->json, h->jsonpath);
@@ -50,6 +51,8 @@ static int json_save(PersistHandle *h, const char *key,
 static int json_load(PersistHandle *h, const char *key,
                      void *buf, size_t bufsize)
 {
+    (void) bufsize;
+
     if (!h || !key || !buf) return 1;
 
     load_json(&h->json, h->jsonpath);

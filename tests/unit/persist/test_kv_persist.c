@@ -5,16 +5,25 @@
 /* mock backend counters */
 static int open_called=0, close_called=0, save_called=0;
 
-static PersistHandle* mock_open(const char *uri) {
+static PersistHandle* mock_open(const char *uri)
+{
+    (void) uri;
     open_called++;
     return (PersistHandle*)0x1; // dummy pointer
 }
 
-static void mock_close(PersistHandle *h) {
+static void mock_close(PersistHandle *h)
+{
+    (void) h;
     close_called++;
 }
 
-static int mock_save(PersistHandle *h, const char *key, const void *data, size_t size) {
+static int mock_save(PersistHandle *h, const char *key, const void *data, size_t size)
+{
+    (void) h;
+    (void) key;
+    (void) data;
+    (void) size;
     save_called++;
     return 0;
 }

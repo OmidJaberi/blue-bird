@@ -93,6 +93,7 @@ static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
 
 static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, const void *key)
 {
+    (void) schema;
     MockState *m = (MockState *)h;
     m->remove_called++;
 
@@ -125,8 +126,8 @@ typedef struct {
 } User;
 
 static BB_Field fields[] = {
-    { "id", BB_FIELD_INT, offsetof(User, id), sizeof(int) },
-    { "name", BB_FIELD_STRING, offsetof(User, name), 64 }
+    { "id", BB_FIELD_INT, offsetof(User, id), sizeof(int), NULL, NULL },
+    { "name", BB_FIELD_STRING, offsetof(User, name), 64, NULL, NULL }
 };
 
 static BB_Schema schema = {

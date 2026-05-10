@@ -103,6 +103,7 @@ BBError get_task(request_t *req, response_t *res)
 
 BBError list_tasks(request_t *req, response_t *res)
 {
+    (void) req;
     Task *tasks = NULL;
     size_t count = 0;
 
@@ -110,7 +111,7 @@ BBError list_tasks(request_t *req, response_t *res)
 
     json_node_t task_list;
     init_json(&task_list, JSON_ARRAY);
-    for (int i = 0; i < count; i++)
+    for (unsigned long i = 0; i < count; i++)
     {
         json_node_t *task = JSON(
             OBJ(

@@ -15,7 +15,7 @@ void test_message_basic(void)
     set_message_header(&msg, "Content-Type", "text/plain");
     set_message_body(&msg, "Hello there!");
 
-    int len = serialize_message(&msg, &buffer, &size);
+    serialize_message(&msg, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
     assert(strstr(buffer, "Content-Type: text/plain") != NULL);
@@ -38,7 +38,7 @@ void test_message_multiple_headers(void)
     set_message_header(&msg, "X-Custom", "Blue-Bird");
     set_message_body(&msg, "{\"ok\":true}");
 
-    int len = serialize_message(&msg, &buffer, &size);
+    serialize_message(&msg, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
     assert(strstr(buffer, "Content-Type: application/json") != NULL);
@@ -59,7 +59,7 @@ void test_message_large_body(void)
     size_t large_size = 50 * 1000 + 1;
     char *large_body = malloc(large_size); // 50 KB
 
-    for (int i = 0; i < large_size - 1; i++)
+    for (unsigned long i = 0; i < large_size - 1; i++)
         large_body[i] = 'A';
     large_body[large_size - 1] = '\0';
 

@@ -15,13 +15,17 @@ static void test_valid_schema(void)
             "id",
             BB_FIELD_INT,
             offsetof(User, id),
-            sizeof(int)
+            sizeof(int),
+            NULL,
+            NULL
         },
         {
             "name",
             BB_FIELD_STRING,
             offsetof(User, name),
-            64
+            64,
+            NULL,
+            NULL
         }
     };
 
@@ -48,13 +52,17 @@ static void test_duplicate_field_names(void)
             "id",
             BB_FIELD_INT,
             offsetof(User, id),
-            sizeof(int)
+            sizeof(int),
+            NULL,
+            NULL
         },
         {
             "id",
             BB_FIELD_INT,
             offsetof(User, id),
-            sizeof(int)
+            sizeof(int),
+            NULL,
+            NULL
         }
     };
 
@@ -86,7 +94,9 @@ static void test_relationship_validation(void)
             "id",
             BB_FIELD_UUID,
             offsetof(User, id),
-            37
+            37,
+            NULL,
+            NULL
         }
     };
 
@@ -105,7 +115,9 @@ static void test_relationship_validation(void)
             "id",
             BB_FIELD_UUID,
             offsetof(Task, id),
-            37
+            37,
+            NULL,
+            NULL
         },
         {
             "user_id",

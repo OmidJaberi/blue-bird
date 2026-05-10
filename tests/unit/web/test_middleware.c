@@ -10,18 +10,24 @@ static int call_index = 0;
 
 BBError mw1(request_t *req, response_t *res)
 {
+    (void) req;
+    (void) res;
     call_order[call_index++] = 1;
     return BB_SUCCESS();
 }
 
 BBError mw2(request_t *req, response_t *res)
 {
+    (void) req;
+    (void) res;
     call_order[call_index++] = 2;
     return BB_SUCCESS();
 }
 
 BBError mw3(request_t *req, response_t *res)
 {
+    (void) req;
+    (void) res;
     call_order[call_index++] = 3;
     return BB_SUCCESS();
 }
@@ -29,6 +35,7 @@ BBError mw3(request_t *req, response_t *res)
 // Test stop middleware
 BBError mw_stop(request_t *req, response_t *res)
 {
+    (void) req;
     set_response_status(res, 403);
     set_response_body(res, "Forbidden");
     return BB_ERROR(BB_ERR_BAD_REQUEST, "Forbidden"); // stop chain

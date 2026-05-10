@@ -36,7 +36,7 @@ static int ensure_table(sqlite3 *db, BB_Schema *schema)
         strcat(sql, " ");
         strcat(sql, field_type_to_sql(f->type));
 
-        if ((int)i == schema->primary_key_index)
+        if (i == schema->primary_key_index)
             strcat(sql, " PRIMARY KEY");
 
         if (i < schema->field_count - 1)
@@ -233,7 +233,7 @@ static int sqlite_update(BB_ModelHandle *handle,
     int first = 1;
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        if ((int)i == schema->primary_key_index)
+        if (i == schema->primary_key_index)
             continue;
 
         if (!first)
@@ -258,7 +258,7 @@ static int sqlite_update(BB_ModelHandle *handle,
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        if ((int)i == schema->primary_key_index)
+        if (i == schema->primary_key_index)
             continue;
 
         BB_Field *f = &schema->fields[i];

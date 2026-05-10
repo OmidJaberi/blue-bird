@@ -6,6 +6,7 @@
 // Handlers
 BBError handler_root(request_t *req, response_t *res)
 {
+    (void) req;
     init_response(res);
     set_response_header(res, "Content-Type", "text/plain");
     set_response_body(res, "Root OK");
@@ -14,6 +15,7 @@ BBError handler_root(request_t *req, response_t *res)
 
 BBError handler_hello_get(request_t *req, response_t *res)
 {
+    (void) req;
     init_response(res);
     set_response_header(res, "Content-Type", "text/plain");
     set_response_body(res, "Hello GET OK");
@@ -22,6 +24,7 @@ BBError handler_hello_get(request_t *req, response_t *res)
 
 BBError handler_hello_post(request_t *req, response_t *res)
 {
+    (void) req;
     init_response(res);
     set_response_header(res, "Content-Type", "text/plain");
     set_response_body(res, "Hello POST OK");

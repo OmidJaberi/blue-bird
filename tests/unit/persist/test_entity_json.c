@@ -15,13 +15,17 @@ static void test_entity_to_json(void)
             "id",
             BB_FIELD_INT,
             offsetof(User, id),
-            sizeof(int)
+            sizeof(int),
+            NULL,
+            NULL
         },
         {
             "name",
             BB_FIELD_STRING,
             offsetof(User, name),
-            64
+            64,
+            NULL,
+            NULL
         }
     };
 
@@ -75,13 +79,17 @@ static void test_json_to_entity(void)
             "id",
             BB_FIELD_INT,
             offsetof(User, id),
-            sizeof(int)
+            sizeof(int),
+            NULL,
+            NULL
         },
         {
             "name",
             BB_FIELD_STRING,
             offsetof(User, name),
-            64
+            64,
+            NULL,
+            NULL
         }
     };
 
@@ -128,7 +136,9 @@ static void test_json_to_entity_invalid_type(void)
             "id",
             BB_FIELD_INT,
             offsetof(User, id),
-            sizeof(int)
+            sizeof(int),
+            NULL,
+            NULL
         }
     };
 
