@@ -16,6 +16,8 @@ typedef struct {
     int (*find_by_pk)(BB_Repo *r, void *out, const void *key);
     int (*update)(BB_Repo *r, void *entity);
     int (*remove)(BB_Repo *r, const void *key);
+    int (*find_all)(BB_Repo *r, void **out_array, size_t *out_count);
+    int (*find_first_by_field)(BB_Repo *r, void *out, const char *field_name, const void *value);
 } BB_RepoOps;
 
 struct BB_Repo {
