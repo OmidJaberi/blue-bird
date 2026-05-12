@@ -6,15 +6,7 @@ Blue-Bird is organized into modular subsystems with clear dependency direction.
 
 # High-Level Structure
 
-```txt
-web
-  ↓
-persist
-  ↓
-utils
-  ↓
-error
-```
+Higher level **web** and **persist** modules sit on top of **error** and **utils**. While **log** sits on top of **persist**.
 
 Each layer builds on lower-level infrastructure while remaining modular and loosely coupled.
 
