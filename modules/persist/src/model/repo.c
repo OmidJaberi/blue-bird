@@ -15,13 +15,6 @@ void bb_repo_init(BB_Repo *r,
     r->api = api;
     r->handle = handle;
     r->schema = schema;
-
-    r->ops.insert = bb_repo_insert;
-    r->ops.find_by_pk = bb_repo_find_by_pk;
-    r->ops.update = bb_repo_update;
-    r->ops.remove = bb_repo_remove;
-    r->ops.find_all = bb_repo_find_all;
-    r->ops.find_first_by_field = bb_repo_find_first_by_field;
 }
 
 int bb_repo_filter(BB_Repo *repo, void **out_array, size_t *out_count, BB_FilterFn fn, void *ctx)
