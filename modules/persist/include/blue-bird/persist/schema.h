@@ -16,13 +16,24 @@ typedef enum {
     BB_FIELD_BLOB
 } BB_FieldType;
 
+typedef enum {
+    BB_FIELD_NONE           = 0,
+
+    BB_FIELD_PRIMARY_KEY    = 1 << 0,
+    BB_FIELD_REQUIRED       = 1 << 1,
+    BB_FIELD_UNIQUE         = 1 << 2,
+    BB_FIELD_AUTO_GENERATE  = 1 << 3
+} BB_FieldFlags;
+
 typedef struct {
     const char *name;
     BB_FieldType type;
+
     size_t offset;
     size_t size;
 
-    /* relationship metadata (optional) */
+    unsigned int flags;
+
     const char *references_schema;
     const char *references_field;
 } BB_Field;
