@@ -9,7 +9,7 @@
 #include <string.h>
 
 // Route Handlers:
-BBError add_task(request_t *req, response_t *res)
+bb_error_t add_task(request_t *req, response_t *res)
 {
     http_message_t *msg = &GET_REQUEST_MESSAGE(*req);
 
@@ -33,7 +33,7 @@ BBError add_task(request_t *req, response_t *res)
     return BB_ERROR(BB_ERR_INTERNAL, "Insert failed");
 }
 
-BBError remove_task(request_t *req, response_t *res)
+bb_error_t remove_task(request_t *req, response_t *res)
 {
     const char *id = get_request_param(req, "id");
 
@@ -49,7 +49,7 @@ BBError remove_task(request_t *req, response_t *res)
     return BB_ERROR(BB_ERR_BAD_REQUEST, "Not found");
 }
 
-BBError mark_done(request_t *req, response_t *res)
+bb_error_t mark_done(request_t *req, response_t *res)
 {
     const char *id = get_request_param(req, "id");
 
@@ -73,7 +73,7 @@ BBError mark_done(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError get_task(request_t *req, response_t *res)
+bb_error_t get_task(request_t *req, response_t *res)
 {
     const char *id = get_request_param(req, "id");
 
@@ -101,7 +101,7 @@ BBError get_task(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError list_tasks(request_t *req, response_t *res)
+bb_error_t list_tasks(request_t *req, response_t *res)
 {
     (void) req;
     Task *tasks = NULL;

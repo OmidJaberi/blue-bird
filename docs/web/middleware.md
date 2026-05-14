@@ -36,7 +36,7 @@ use_pre_middleware(
 # Example Middleware
 
 ```c
-BBError logger_middleware(request_t *req, response_t *res)
+bb_error_t logger_middleware(request_t *req, response_t *res)
 {
     printf("Incoming request\n");
 

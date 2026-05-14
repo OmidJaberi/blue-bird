@@ -8,7 +8,7 @@
 static int call_order[3];
 static int call_index = 0;
 
-BBError mw1(request_t *req, response_t *res)
+bb_error_t mw1(request_t *req, response_t *res)
 {
     (void) req;
     (void) res;
@@ -16,7 +16,7 @@ BBError mw1(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError mw2(request_t *req, response_t *res)
+bb_error_t mw2(request_t *req, response_t *res)
 {
     (void) req;
     (void) res;
@@ -24,7 +24,7 @@ BBError mw2(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError mw3(request_t *req, response_t *res)
+bb_error_t mw3(request_t *req, response_t *res)
 {
     (void) req;
     (void) res;
@@ -33,7 +33,7 @@ BBError mw3(request_t *req, response_t *res)
 }
 
 // Test stop middleware
-BBError mw_stop(request_t *req, response_t *res)
+bb_error_t mw_stop(request_t *req, response_t *res)
 {
     (void) req;
     set_response_status(res, 403);
@@ -55,7 +55,7 @@ void test_middleware_order(void)
     append_to_middleware_list(&mw_list, mw2);
     append_to_middleware_list(&mw_list, mw3);
 
-    BBError result = run_middleware(&mw_list, &req, &res);
+    bb_error_t result = run_middleware(&mw_list, &req, &res);
     assert(!BB_FAILED(result));
     assert(call_order[0] == 1);
     assert(call_order[1] == 2);
@@ -76,7 +76,7 @@ void test_middleware_stop(void)
     init_response(&res);
     append_to_middleware_list(&mw_list, mw_stop);
 
-    BBError result = run_middleware(&mw_list, &req, &res);
+    bb_error_t result = run_middleware(&mw_list, &req, &res);
     assert(BB_FAILED(result));
     assert(res.status_code == 403);
     assert(strcmp(res.msg.body, "Forbidden") == 0);

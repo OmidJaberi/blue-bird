@@ -3,7 +3,7 @@
 
 #include <blue-bird/web/http.h>
 
-BBError logger_middleware(request_t *req, response_t *res);
-BBError server_header_middleware(request_t *req, response_t *res);
+bb_error_t logger_middleware(request_t *req, response_t *res);
+bb_error_t server_header_middleware(request_t *req, response_t *res);
 
 #endif // APP_MIDDLEWARE_H

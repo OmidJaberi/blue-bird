@@ -33,12 +33,12 @@ void append_to_middleware_list(middleware_list_t *list, middleware_cb mw)
     }
 }
 
-BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res)
+bb_error_t run_middleware(middleware_list_t *list, request_t *req, response_t *res)
 {
     middleware_object_t *current = *list;
     while (current)
     {
-        BBError result = current->middleware(req, res);
+        bb_error_t result = current->middleware(req, res);
         if (BB_FAILED(result))
             return result;
         current = current->next;

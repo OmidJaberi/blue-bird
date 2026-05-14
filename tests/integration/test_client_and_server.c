@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-BBError root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(request_t *req, response_t *res)
 {
     (void) req;
     set_response_header(res, "Content-Type", "text/plain");
@@ -16,7 +16,7 @@ BBError root_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError request_param_handler(request_t *req, response_t *res)
+bb_error_t request_param_handler(request_t *req, response_t *res)
 {
     const char *name = get_request_param(req, "name");
     set_response_header(res, "Content-Type", "text/plain");
@@ -26,7 +26,7 @@ BBError request_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError multi_request_param_handler(request_t *req, response_t *res)
+bb_error_t multi_request_param_handler(request_t *req, response_t *res)
 {
     const char *p_1 = get_request_param(req, "param_1");
     const char *p_2 = get_request_param(req, "param_2");
@@ -37,7 +37,7 @@ BBError multi_request_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError request_query_param_handler(request_t *req, response_t *res)
+bb_error_t request_query_param_handler(request_t *req, response_t *res)
 {
     const char *value = get_request_query_param(req, "val");
     if (!value)
@@ -52,7 +52,7 @@ BBError request_query_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError request_multi_query_param_handler(request_t *req, response_t *res)
+bb_error_t request_multi_query_param_handler(request_t *req, response_t *res)
 {
     const char *value_1 = get_request_query_param(req, "val_1");
     const char *value_2 = get_request_query_param(req, "val_2");
@@ -68,7 +68,7 @@ BBError request_multi_query_param_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError request_body_handler(request_t *req, response_t *res)
+bb_error_t request_body_handler(request_t *req, response_t *res)
 {
     http_message_t *http_msg = &GET_REQUEST_MESSAGE(*req);
     set_response_header(res, "Content-Type", "text/plain");
@@ -101,7 +101,7 @@ void client_request(request_t *req, response_t *res)
     bb_client_t client;
 
     /* ---- connect ---- */
-    BBError err = http_client_connect(&client, "127.0.0.1", 8080);
+    bb_error_t err = http_client_connect(&client, "127.0.0.1", 8080);
     assert(err.code == 0);
 
     /* ---- send ---- */

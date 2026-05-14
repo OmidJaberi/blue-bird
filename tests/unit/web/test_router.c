@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 // Handlers
-BBError handler_root(request_t *req, response_t *res)
+bb_error_t handler_root(request_t *req, response_t *res)
 {
     (void) req;
     init_response(res);
@@ -13,7 +13,7 @@ BBError handler_root(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError handler_hello_get(request_t *req, response_t *res)
+bb_error_t handler_hello_get(request_t *req, response_t *res)
 {
     (void) req;
     init_response(res);
@@ -22,7 +22,7 @@ BBError handler_hello_get(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError handler_hello_post(request_t *req, response_t *res)
+bb_error_t handler_hello_post(request_t *req, response_t *res)
 {
     (void) req;
     init_response(res);
@@ -31,7 +31,7 @@ BBError handler_hello_post(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError handler_user(request_t *req, response_t *res)
+bb_error_t handler_user(request_t *req, response_t *res)
 {
     const char *id = get_request_param(req, "id");
     init_response(res);

@@ -3,10 +3,10 @@
 
 #include <blue-bird/web/http.h>
 
-BBError add_task(request_t *req, response_t *res);
-BBError remove_task(request_t *req, response_t *res);
-BBError get_task(request_t *req, response_t *res);
-BBError mark_done(request_t *req, response_t *res);
-BBError list_tasks(request_t *req, response_t *res);
+bb_error_t add_task(request_t *req, response_t *res);
+bb_error_t remove_task(request_t *req, response_t *res);
+bb_error_t get_task(request_t *req, response_t *res);
+bb_error_t mark_done(request_t *req, response_t *res);
+bb_error_t list_tasks(request_t *req, response_t *res);
 
 #endif // APP_HANDLERS_H

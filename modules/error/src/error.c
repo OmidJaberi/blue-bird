@@ -11,7 +11,7 @@ static const char *error_strings[] = {
     [BB_ERR_UNKNOWN] = "Unknown error"
 };
 
-const char *bb_strerror(BBErrorCode code)
+const char *bb_strerror(bb_error_code_t code)
 {
     if (code < 0 || code >= (int)(sizeof(error_strings) / sizeof(error_strings[0])))
         return "Invalid error code";

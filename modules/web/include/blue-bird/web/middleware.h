@@ -19,7 +19,7 @@ typedef middleware_object_t* middleware_list_t;
 
 void init_middleware_list(middleware_list_t *list);
 void append_to_middleware_list(middleware_list_t *list, middleware_cb mw);
-BBError run_middleware(middleware_list_t *list, request_t *req, response_t *res);
+bb_error_t run_middleware(middleware_list_t *list, request_t *req, response_t *res);
 void destroy_middleware_list(middleware_list_t *list);
 
 

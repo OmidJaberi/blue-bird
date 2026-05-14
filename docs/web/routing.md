@@ -29,7 +29,7 @@ Handlers process incoming requests and generate responses.
 Example:
 
 ```c
-BBError root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(request_t *req, response_t *res)
 {
     bb_response_set_body(res, "Hello");
 
@@ -52,7 +52,7 @@ add_route(&server, "GET", "/param/:name", request_param_handler);
 Example handler:
 
 ```c
-BBError request_param_handler(request_t *req, response_t *res)
+bb_error_t request_param_handler(request_t *req, response_t *res)
 {
     const char *name = get_request_param(req, "name");
 
@@ -88,7 +88,7 @@ add_route(&server, "GET", "/param/:param_1/:param_2", multi_request_param_handle
 ```
 
 ```c
-BBError multi_request_param_handler(request_t *req, response_t *res)
+bb_error_t multi_request_param_handler(request_t *req, response_t *res)
 {
     const char *p_1 = get_request_param(req, "param_1");
     const char *p_2 = get_request_param(req, "param_2");
@@ -131,7 +131,7 @@ add_route(&server, "GET", "/q_param", request_query_param_handler);
 Example handler:
 
 ```c
-BBError request_query_param_handler(request_t *req, response_t *res)
+bb_error_t request_query_param_handler(request_t *req, response_t *res)
 {
     const char *value = get_request_query_param(req, "val");
 
@@ -173,7 +173,7 @@ add_route(&server, "GET", "/q_param/multi", request_multi_query_param_handler);
 ```
 
 ```c
-BBError request_multi_query_param_handler(request_t *req, response_t *res)
+bb_error_t request_multi_query_param_handler(request_t *req, response_t *res)
 {
     const char *value_1 = get_request_query_param(req, "val_1");
     const char *value_2 = get_request_query_param(req, "val_2");

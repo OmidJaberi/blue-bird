@@ -128,7 +128,7 @@ Or run test binaries directly from the generated `build/tests/` directory.
 ```c
 #include <blue-bird/web/server.h>
 
-BBError root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(request_t *req, response_t *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello, Blue-Bird :)");

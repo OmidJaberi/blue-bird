@@ -77,7 +77,7 @@ Handlers receive:
 Example:
 
 ```c
-BBError root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(request_t *req, response_t *res)
 {
     (void) req;
 
@@ -252,7 +252,7 @@ Middleware executes before route handlers and can:
 
 # Error Handling
 
-Blue-Bird uses the `BBError` abstraction for error reporting.
+Blue-Bird uses the `bb_error_t` abstraction for error reporting.
 
 Example:
 

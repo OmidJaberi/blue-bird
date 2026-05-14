@@ -12,7 +12,7 @@ extern "C" {
 
 #include <unistd.h>
 
-typedef BBError (*http_handler_cb)(request_t *req, response_t *res);
+typedef bb_error_t (*http_handler_cb)(request_t *req, response_t *res);
 ssize_t read_http_message(int fd, char **out_buf);
 
 

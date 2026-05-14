@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-BBError root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(request_t *req, response_t *res)
 {
     (void) req;
     set_response_header(res, "Content-Type", "text/plain");
@@ -11,7 +11,7 @@ BBError root_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError hello_post_handler(request_t *req, response_t *res)
+bb_error_t hello_post_handler(request_t *req, response_t *res)
 {
     (void) req;
     set_response_header(res, "Content-Type", "text/plain");
@@ -19,7 +19,7 @@ BBError hello_post_handler(request_t *req, response_t *res)
     return BB_SUCCESS();
 }
 
-BBError hello_get_handler(request_t *req, response_t *res)
+bb_error_t hello_get_handler(request_t *req, response_t *res)
 {
     (void) req;
     set_response_header(res, "Content-Type", "text/plain");

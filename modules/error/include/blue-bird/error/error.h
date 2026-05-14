@@ -7,7 +7,7 @@ extern "C" {
 
 
 typedef enum {
-	BB_OK = 0,
+    BB_OK = 0,
     BB_ERR_ALLOC,
     BB_ERR_NULL,
     BB_ERR_BAD_REQUEST,
@@ -15,19 +15,19 @@ typedef enum {
     BB_ERR_INTERNAL,
     BB_ERR_IO,
     BB_ERR_UNKNOWN
-} BBErrorCode;
+} bb_error_code_t;
 
 typedef struct {
-    BBErrorCode code;
+    bb_error_code_t code;
     const char *msg;
-} BBError;
+} bb_error_t;
 
 // Helper Macros
-#define BB_SUCCESS() ((BBError){BB_OK, "OK"})
-#define BB_ERROR(code, msg) ((BBError){code, msg})
+#define BB_SUCCESS() ((bb_error_t){BB_OK, "OK"})
+#define BB_ERROR(code, msg) ((bb_error_t){code, msg})
 #define BB_FAILED(err) ((err).code != BB_OK)
 
-const char *bb_strerror(BBErrorCode code);
+const char *bb_strerror(bb_error_code_t code);
 
 
 #ifdef __cplusplus
