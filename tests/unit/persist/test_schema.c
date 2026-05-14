@@ -12,20 +12,18 @@ static void test_valid_schema(void)
 
     BB_Field fields[] = {
         {
-            "id",
-            BB_FIELD_INT,
-            offsetof(User, id),
-            sizeof(int),
-            NULL,
-            NULL
+            .name = "id",
+            .type = BB_FIELD_INT,
+            .offset = offsetof(User, id),
+            .size = sizeof(int),
+            .flags = BB_FIELD_NONE
         },
         {
-            "name",
-            BB_FIELD_STRING,
-            offsetof(User, name),
-            64,
-            NULL,
-            NULL
+            .name = "name",
+            .type = BB_FIELD_STRING,
+            .offset = offsetof(User, name),
+            .size = 64,
+            .flags = BB_FIELD_NONE
         }
     };
 
@@ -49,20 +47,18 @@ static void test_duplicate_field_names(void)
 
     BB_Field fields[] = {
         {
-            "id",
-            BB_FIELD_INT,
-            offsetof(User, id),
-            sizeof(int),
-            NULL,
-            NULL
+            .name = "id",
+            .type = BB_FIELD_INT,
+            .offset = offsetof(User, id),
+            .size = sizeof(int),
+            .flags = BB_FIELD_NONE
         },
         {
-            "id",
-            BB_FIELD_INT,
-            offsetof(User, id),
-            sizeof(int),
-            NULL,
-            NULL
+            .name = "id",
+            .type = BB_FIELD_INT,
+            .offset = offsetof(User, id),
+            .size = sizeof(int),
+            .flags = BB_FIELD_NONE
         }
     };
 
@@ -91,12 +87,11 @@ static void test_relationship_validation(void)
 
     BB_Field user_fields[] = {
         {
-            "id",
-            BB_FIELD_UUID,
-            offsetof(User, id),
-            37,
-            NULL,
-            NULL
+            .name = "id",
+            .type = BB_FIELD_UUID,
+            .offset = offsetof(User, id),
+            .size = 37,
+            .flags = BB_FIELD_NONE
         }
     };
 
@@ -112,18 +107,18 @@ static void test_relationship_validation(void)
 
     BB_Field task_fields[] = {
         {
-            "id",
-            BB_FIELD_UUID,
-            offsetof(Task, id),
-            37,
-            NULL,
-            NULL
+            .name = "id",
+            .type = BB_FIELD_UUID,
+            .offset = offsetof(Task, id),
+            .size = 37,
+            .flags = BB_FIELD_NONE
         },
         {
-            "user_id",
-            BB_FIELD_UUID,
-            offsetof(Task, user_id),
-            37,
+            .name = "user_id",
+            .type = BB_FIELD_UUID,
+            .offset = offsetof(Task, user_id),
+            .size = 37,
+            .flags = BB_FIELD_NONE,
 
             .references_schema = "users",
             .references_field = "id"
