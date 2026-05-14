@@ -4,17 +4,17 @@
 
 #define BB_MAX_SCHEMAS 256
 
-static BB_Schema *g_schemas[BB_MAX_SCHEMAS];
+static bb_schema_t *g_schemas[BB_MAX_SCHEMAS];
 static size_t g_schema_count = 0;
 
-BB_Schema *bb_schema_get(const char *name)
+bb_schema_t *bb_schema_get(const char *name)
 {
     if (!name)
         return NULL;
 
     for (size_t i = 0; i < g_schema_count; i++)
     {
-        BB_Schema *s = g_schemas[i];
+        bb_schema_t *s = g_schemas[i];
 
         if (strcmp(s->name, name) == 0)
             return s;
@@ -23,7 +23,7 @@ BB_Schema *bb_schema_get(const char *name)
     return NULL;
 }
 
-int bb_schema_register(BB_Schema *schema)
+int bb_schema_register(bb_schema_t *schema)
 {
     if (!schema)
         return -1;
@@ -44,7 +44,7 @@ int bb_schema_register(BB_Schema *schema)
     return 0;
 }
 
-int bb_schema_validate(BB_Schema *schema)
+int bb_schema_validate(bb_schema_t *schema)
 {
     if (!schema)
         return -1;
@@ -71,7 +71,7 @@ int bb_schema_validate(BB_Schema *schema)
     /* validate fields */
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
 
         /* field name */
         if (!f->name || f->name[0] == '\0')
@@ -97,7 +97,7 @@ int bb_schema_validate(BB_Schema *schema)
         /* duplicate field names */
         for (size_t j = i + 1; j < schema->field_count; j++)
         {
-            BB_Field *other = &schema->fields[j];
+            bb_field_t *other = &schema->fields[j];
 
             if (strcmp(f->name, other->name) == 0)
                 return -1;
@@ -112,7 +112,7 @@ int bb_schema_validate(BB_Schema *schema)
 
         if (f->references_schema)
         {
-            BB_Schema *ref_schema = bb_schema_get(f->references_schema);
+            bb_schema_t *ref_schema = bb_schema_get(f->references_schema);
 
             if (!ref_schema)
                 return -1;

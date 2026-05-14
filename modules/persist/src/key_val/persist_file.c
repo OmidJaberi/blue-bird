@@ -5,15 +5,15 @@
 #include "blue-bird/persist/key_val.h"
 #include "blue-bird/persist/key_val/persist_file.h"
 
-struct PersistHandle {
+struct bb_persist_kv_handle_t {
     char *basepath;
 };
 
-static PersistHandle *file_open(const char *uri)
+static bb_persist_kv_handle_t *file_open(const char *uri)
 {
     if (!uri) return NULL;
 
-    PersistHandle *h = calloc(1, sizeof(*h));
+    bb_persist_kv_handle_t *h = calloc(1, sizeof(*h));
     if (!h) return NULL;
 
     h->basepath = strdup(uri);
@@ -27,14 +27,14 @@ static PersistHandle *file_open(const char *uri)
     return h;
 }
 
-static void file_close(PersistHandle *h)
+static void file_close(bb_persist_kv_handle_t *h)
 {
     if (!h) return;
     free(h->basepath);
     free(h);
 }
 
-static char *make_path(PersistHandle *h, const char *key)
+static char *make_path(bb_persist_kv_handle_t *h, const char *key)
 {
     size_t len = strlen(h->basepath) + 1 + strlen(key) + 1;
     char *path = malloc(len);
@@ -42,7 +42,7 @@ static char *make_path(PersistHandle *h, const char *key)
     return path;
 }
 
-static int file_save(PersistHandle *h, const char *key,
+static int file_save(bb_persist_kv_handle_t *h, const char *key,
                      const void *data, size_t size)
 {
     if (!h || !key || !data) return 1;
@@ -58,7 +58,7 @@ static int file_save(PersistHandle *h, const char *key,
     return 0;
 }
 
-static int file_load(PersistHandle *h, const char *key,
+static int file_load(bb_persist_kv_handle_t *h, const char *key,
                      void *buf, size_t bufsize)
 {
     if (!h || !key || !buf) return 1;
@@ -83,7 +83,7 @@ static int file_load(PersistHandle *h, const char *key,
     return 0;
 }
 
-static int file_remove(PersistHandle *h, const char *key)
+static int file_remove(bb_persist_kv_handle_t *h, const char *key)
 {
     if (!h || !key) return 1;
 
@@ -94,7 +94,7 @@ static int file_remove(PersistHandle *h, const char *key)
     return (rc == 0) ? 0 : 1;
 }
 
-static const PersistAPI file_api = {
+static const bb_persist_kv_api_t file_api = {
     .name   = "file",
     .open   = file_open,
     .close  = file_close,
@@ -103,7 +103,7 @@ static const PersistAPI file_api = {
     .remove = file_remove,
 };
 
-int persist_file_register(void)
+int bb_persist_kv_file_register(void)
 {
-    return persist_register(&file_api);
+    return bb_persist_kv_register(&file_api);
 }

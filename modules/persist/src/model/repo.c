@@ -7,17 +7,17 @@
  * Init
  * --------------------------- */
 
-void bb_repo_init(BB_Repo *r,
-                  const BB_ModelAPI *api,
-                  BB_ModelHandle *handle,
-                  BB_Schema *schema)
+void bb_repo_init(bb_repo_t *r,
+                  const bb_model_api_t *api,
+                  bb_model_handle_t *handle,
+                  bb_schema_t *schema)
 {
     r->api = api;
     r->handle = handle;
     r->schema = schema;
 }
 
-int bb_repo_filter(BB_Repo *repo, void **out_array, size_t *out_count, BB_FilterFn fn, void *ctx)
+int bb_repo_filter(bb_repo_t *repo, void **out_array, size_t *out_count, bb_filter_cb fn, void *ctx)
 {
     if (!repo || !out_array || !out_count || !fn)
     {

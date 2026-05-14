@@ -8,7 +8,7 @@ extern "C" {
 
 #include "blue-bird/persist/model.h"
 
-const BB_ModelAPI *bb_model_sqlite_api(void);
+const bb_model_api_t *bb_model_sqlite_api(void);
 
 
 #ifdef __cplusplus

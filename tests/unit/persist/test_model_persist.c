@@ -26,19 +26,19 @@ static MockState mock;
  * Mock Backend
  * --------------------------- */
 
-static BB_ModelHandle *mock_open(const char *uri)
+static bb_model_handle_t *mock_open(const char *uri)
 {
     (void)uri;
     memset(&mock, 0, sizeof(mock));
-    return (BB_ModelHandle *)&mock;
+    return (bb_model_handle_t *)&mock;
 }
 
-static void mock_close(BB_ModelHandle *h)
+static void mock_close(bb_model_handle_t *h)
 {
     (void)h;
 }
 
-static int mock_insert(BB_ModelHandle *h, BB_Schema *schema, void *entity)
+static int mock_insert(bb_model_handle_t *h, bb_schema_t *schema, void *entity)
 {
     (void)schema;
     MockState *m = (MockState *)h;
@@ -58,7 +58,7 @@ static int mock_insert(BB_ModelHandle *h, BB_Schema *schema, void *entity)
     return 0;
 }
 
-static int mock_find_by_pk(BB_ModelHandle *h, BB_Schema *schema, void *out, const void *key)
+static int mock_find_by_pk(bb_model_handle_t *h, bb_schema_t *schema, void *out, const void *key)
 {
     MockState *m = (MockState *)h;
     m->find_called++;
@@ -76,7 +76,7 @@ static int mock_find_by_pk(BB_ModelHandle *h, BB_Schema *schema, void *out, cons
     return 0;
 }
 
-static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
+static int mock_update(bb_model_handle_t *h, bb_schema_t *schema, void *entity)
 {
     MockState *m = (MockState *)h;
     m->update_called++;
@@ -91,7 +91,7 @@ static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
     return 0;
 }
 
-static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, const void *key)
+static int mock_remove(bb_model_handle_t *h, bb_schema_t *schema, const void *key)
 {
     (void) schema;
     MockState *m = (MockState *)h;
@@ -106,7 +106,7 @@ static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, const void *key)
     return 0;
 }
 
-static BB_ModelAPI mock_api = {
+static bb_model_api_t mock_api = {
     .name = "mock",
     .open = mock_open,
     .close = mock_close,
@@ -125,7 +125,7 @@ typedef struct {
     char name[64];
 } User;
 
-static BB_Field fields[] = {
+static bb_field_t fields[] = {
     {
         .name = "id",
         .type = BB_FIELD_INT,
@@ -142,7 +142,7 @@ static BB_Field fields[] = {
     }
 };
 
-static BB_Schema schema = {
+static bb_schema_t schema = {
     .name = "users",
     .fields = fields,
     .field_count = 2,
@@ -160,10 +160,10 @@ static void test_mock_backend(void)
 
     assert(bb_model_register(&mock_api) == 0);
 
-    const BB_ModelAPI *api = bb_model_get("mock");
+    const bb_model_api_t *api = bb_model_get("mock");
     assert(api);
 
-    BB_ModelHandle *h = api->open("ignored");
+    bb_model_handle_t *h = api->open("ignored");
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));

@@ -48,13 +48,13 @@ static json_node_t *get_table(json_node_t *root, const char *name)
     return table;
 }
 
-static void *get_entity_pk_ptr(BB_Schema *schema, void *entity)
+static void *get_entity_pk_ptr(bb_schema_t *schema, void *entity)
 {
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
     return (char *)entity + pk->offset;
 }
 
-static int pk_equals(BB_Field *pk, json_node_t *node, const void *key)
+static int pk_equals(bb_field_t *pk, json_node_t *node, const void *key)
 {
     if (!node) return 0;
 
@@ -79,7 +79,7 @@ static int pk_equals(BB_Field *pk, json_node_t *node, const void *key)
 
 // Model Operations:
 
-static BB_ModelHandle *json_open(const char *uri)
+static bb_model_handle_t *json_open(const char *uri)
 {
     if (!uri) return NULL;
 
@@ -93,10 +93,10 @@ static BB_ModelHandle *json_open(const char *uri)
         return NULL;
     }
 
-    return (BB_ModelHandle *)h;
+    return (bb_model_handle_t *)h;
 }
 
-static void json_close(BB_ModelHandle *handle)
+static void json_close(bb_model_handle_t *handle)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
     if (!h) return;
@@ -105,14 +105,14 @@ static void json_close(BB_ModelHandle *handle)
     free(h);
 }
 
-static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
+static int json_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *entity)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
     void *key = get_entity_pk_ptr(schema, entity);
 
     // check duplicate
@@ -135,14 +135,14 @@ static int json_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     return save_root(h->path, root);
 }
 
-static int json_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *out, const void *key)
+static int json_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, void *out, const void *key)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
     for (unsigned int i = 0; i < table->size; i++)
     {
@@ -163,14 +163,14 @@ static int json_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *out,
     return -1;
 }
 
-static int json_update(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
+static int json_update(bb_model_handle_t *handle, bb_schema_t *schema, void *entity)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
     void *key = get_entity_pk_ptr(schema, entity);
 
     for (unsigned int i = 0; i < table->size; i++)
@@ -196,14 +196,14 @@ static int json_update(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
     return -1;
 }
 
-static int json_remove(BB_ModelHandle *handle, BB_Schema *schema, const void *key)
+static int json_remove(bb_model_handle_t *handle, bb_schema_t *schema, const void *key)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
     json_node_t *root = load_root(h->path);
     json_node_t *table = get_table(root, schema->name);
 
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
     for (unsigned int i = 0; i < table->size; i++)
     {
@@ -222,7 +222,7 @@ static int json_remove(BB_ModelHandle *handle, BB_Schema *schema, const void *ke
     return -1;
 }
 
-static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_array, size_t *out_count)
+static int json_find_all(bb_model_handle_t *handle, bb_schema_t *schema, void **out_array, size_t *out_count)
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
@@ -292,7 +292,7 @@ static int json_find_all(BB_ModelHandle *handle, BB_Schema *schema, void **out_a
     return 0;
 }
 
-static int json_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema, void *out, const char *field_name, const void *value)
+static int json_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *schema, void *out, const char *field_name, const void *value)
 {
     void *arr = NULL;
     size_t count = 0;
@@ -305,8 +305,8 @@ static int json_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema, v
         return -1;
     }
 
-    BB_Field *field =
-        find_field(schema, field_name);
+    bb_field_t *field =
+        bb_schema_find_field(schema, field_name);
 
     if (!field)
     {
@@ -359,7 +359,7 @@ static int json_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema, v
     return -1;
 }
 
-static BB_ModelAPI model_json_api = {
+static bb_model_api_t model_json_api = {
     .name                = "json",
     .open                = json_open,
     .close               = json_close,
@@ -371,7 +371,7 @@ static BB_ModelAPI model_json_api = {
     .find_first_by_field = json_find_first_by_field
 };
 
-const BB_ModelAPI *bb_model_json_api(void)
+const bb_model_api_t *bb_model_json_api(void)
 {
     return &model_json_api;
 }

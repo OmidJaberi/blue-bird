@@ -10,7 +10,7 @@ static void test_valid_schema(void)
         char name[64];
     } User;
 
-    BB_Field fields[] = {
+    bb_field_t fields[] = {
         {
             .name = "id",
             .type = BB_FIELD_INT,
@@ -27,7 +27,7 @@ static void test_valid_schema(void)
         }
     };
 
-    BB_Schema schema = {
+    bb_schema_t schema = {
         .name = "users",
         .fields = fields,
         .field_count = 2,
@@ -45,7 +45,7 @@ static void test_duplicate_field_names(void)
         int id;
     } User;
 
-    BB_Field fields[] = {
+    bb_field_t fields[] = {
         {
             .name = "id",
             .type = BB_FIELD_INT,
@@ -62,7 +62,7 @@ static void test_duplicate_field_names(void)
         }
     };
 
-    BB_Schema schema = {
+    bb_schema_t schema = {
         .name = "users",
         .fields = fields,
         .field_count = 2,
@@ -85,7 +85,7 @@ static void test_relationship_validation(void)
         char user_id[37];
     } Task;
 
-    BB_Field user_fields[] = {
+    bb_field_t user_fields[] = {
         {
             .name = "id",
             .type = BB_FIELD_UUID,
@@ -95,7 +95,7 @@ static void test_relationship_validation(void)
         }
     };
 
-    BB_Schema user_schema = {
+    bb_schema_t user_schema = {
         .name = "users",
         .fields = user_fields,
         .field_count = 1,
@@ -105,7 +105,7 @@ static void test_relationship_validation(void)
 
     assert(bb_schema_register(&user_schema) == 0);
 
-    BB_Field task_fields[] = {
+    bb_field_t task_fields[] = {
         {
             .name = "id",
             .type = BB_FIELD_UUID,
@@ -125,7 +125,7 @@ static void test_relationship_validation(void)
         }
     };
 
-    BB_Schema task_schema = {
+    bb_schema_t task_schema = {
         .name = "tasks",
         .fields = task_fields,
         .field_count = 2,

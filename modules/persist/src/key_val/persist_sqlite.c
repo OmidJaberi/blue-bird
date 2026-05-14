@@ -8,7 +8,7 @@
  *  SQLite Handle
  * ========================================================================= */
 
-struct PersistHandle {
+struct bb_persist_kv_handle_t {
     sqlite3 *db;
 };
 
@@ -31,12 +31,12 @@ static int persist_sqlite_exec(sqlite3 *db, const char *sql)
  *  Backend API Implementation
  * ========================================================================= */
 
-static PersistHandle *sqlite_open(const char *uri)
+static bb_persist_kv_handle_t *sqlite_open(const char *uri)
 {
     if (!uri)
         return NULL;
 
-    PersistHandle *h = calloc(1, sizeof(*h));
+    bb_persist_kv_handle_t *h = calloc(1, sizeof(*h));
     if (!h)
         return NULL;
 
@@ -58,7 +58,7 @@ static PersistHandle *sqlite_open(const char *uri)
     return h;
 }
 
-static void sqlite_close(PersistHandle *h)
+static void sqlite_close(bb_persist_kv_handle_t *h)
 {
     if (!h)
         return;
@@ -66,7 +66,7 @@ static void sqlite_close(PersistHandle *h)
     free(h);
 }
 
-static int sqlite_save(PersistHandle *h,
+static int sqlite_save(bb_persist_kv_handle_t *h,
                        const char *key,
                        const void *data,
                        size_t size)
@@ -89,7 +89,7 @@ static int sqlite_save(PersistHandle *h,
     return (rc == SQLITE_DONE) ? 0 : 1;
 }
 
-static int sqlite_load(PersistHandle *h,
+static int sqlite_load(bb_persist_kv_handle_t *h,
                        const char *key,
                        void *buf,
                        size_t bufsize)
@@ -121,7 +121,7 @@ static int sqlite_load(PersistHandle *h,
     return result;
 }
 
-static int sqlite_remove(PersistHandle *h, const char *key)
+static int sqlite_remove(bb_persist_kv_handle_t *h, const char *key)
 {
     if (!h || !key)
         return 1;
@@ -144,7 +144,7 @@ static int sqlite_remove(PersistHandle *h, const char *key)
  *  API Registration
  * ========================================================================= */
 
-static const PersistAPI sqlite_api = {
+static const bb_persist_kv_api_t sqlite_api = {
     .name   = "sqlite",
     .open   = sqlite_open,
     .close  = sqlite_close,
@@ -153,7 +153,7 @@ static const PersistAPI sqlite_api = {
     .remove = sqlite_remove,
 };
 
-int persist_sqlite_register(void)
+int bb_persist_kv_sqlite_register(void)
 {
-    return persist_register(&sqlite_api);
+    return bb_persist_kv_register(&sqlite_api);
 }

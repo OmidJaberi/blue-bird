@@ -15,7 +15,7 @@ typedef struct {
     char name[64];
 } User;
 
-static BB_Field user_fields[] = {
+static bb_field_t user_fields[] = {
     {
         .name = "id",
         .type = BB_FIELD_INT,
@@ -32,7 +32,7 @@ static BB_Field user_fields[] = {
     }
 };
 
-static BB_Schema user_schema = {
+static bb_schema_t user_schema = {
     .name = "users",
     .fields = user_fields,
     .field_count = 2,
@@ -62,10 +62,10 @@ static void test_sqlite_insert_and_find(void)
     /* register backend */
     assert(bb_model_register(bb_model_sqlite_api()) == 0);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     /* insert */
@@ -95,10 +95,10 @@ static void test_sqlite_multiple_inserts(void)
     const char *db_path = "test_model_sqlite_multi.db";
     cleanup_db(db_path);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     User u1 = { .id = 1 };
@@ -130,10 +130,10 @@ static void test_sqlite_not_found(void)
     const char *db_path = "test_model_sqlite_not_found.db";
     cleanup_db(db_path);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     User out = {0};
@@ -151,10 +151,10 @@ static void test_sqlite_update(void)
     const char *db_path = "test_model_sqlite_update.db";
     cleanup_db(db_path);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     User u = { .id = 1 };
@@ -181,10 +181,10 @@ static void test_sqlite_remove(void)
     const char *db_path = "test_model_sqlite_remove.db";
     cleanup_db(db_path);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     User u = { .id = 1 };
@@ -211,10 +211,10 @@ static void test_sqlite_insert_conflict(void)
     const char *db_path = "test_model_sqlite_conflict.db";
     cleanup_db(db_path);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     User u1 = { .id = 1 };
@@ -238,10 +238,10 @@ static void test_sqlite_update_not_found(void)
     const char *db_path = "test_model_sqlite_update_not_found.db";
     cleanup_db(db_path);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     User u = { .id = 999 };
@@ -260,10 +260,10 @@ static void test_sqlite_remove_not_found(void)
     const char *db_path = "test_model_sqlite_remove_not_found.db";
     cleanup_db(db_path);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api != NULL);
 
-    BB_ModelHandle *h = api->open(db_path);
+    bb_model_handle_t *h = api->open(db_path);
     assert(h != NULL);
 
     int id = 999;

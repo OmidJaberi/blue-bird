@@ -35,13 +35,13 @@ static void persist_write(Logger *logger, LogLevel level, const char *fmt, va_li
 
     // Load existing log
     char prev[65536] = {0}; // adjust if needed
-    persist_load("bluebird_log", prev, sizeof(prev));
+    bb_persist_kv_load("bluebird_log", prev, sizeof(prev));
 
     // Append new entry
     strncat(prev, outbuf, sizeof(prev)-strlen(prev)-1);
 
     // Save back to persist
-    persist_save("bluebird_log", prev, strlen(prev));
+    bb_persist_kv_save("bluebird_log", prev, strlen(prev));
 }
 
 void logger_init_persist(Logger *logger, LogLevel level)

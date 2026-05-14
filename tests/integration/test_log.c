@@ -14,9 +14,9 @@ int main(void)
     logger_init_console(&console_logger, LOG_LEVEL_INFO, stderr);
 
     // Register persist backend and set default
-    persist_file_register();
-    persist_set_default("file");
-    persist_set_default_uri("logs");  // directory to store logs
+    bb_persist_kv_file_register();
+    bb_persist_kv_set_default("file");
+    bb_persist_kv_set_default_uri("logs");  // directory to store logs
 
     // Initialize persist logger
     logger_init_persist(&persist_logger, LOG_LEVEL_DEBUG);

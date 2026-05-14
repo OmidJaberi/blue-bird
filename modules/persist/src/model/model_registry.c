@@ -4,10 +4,10 @@
 
 #define MAX_MODEL_APIS 16
 
-static const BB_ModelAPI *g_apis[MAX_MODEL_APIS];
+static const bb_model_api_t *g_apis[MAX_MODEL_APIS];
 static int g_api_count = 0;
 
-int bb_model_register(const BB_ModelAPI *api)
+int bb_model_register(const bb_model_api_t *api)
 {
     if (!api || !api->name)
         return -1;
@@ -26,7 +26,7 @@ int bb_model_register(const BB_ModelAPI *api)
     return 0;
 }
 
-const BB_ModelAPI *bb_model_get(const char *name)
+const bb_model_api_t *bb_model_get(const char *name)
 {
     if (!name)
         return NULL;

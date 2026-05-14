@@ -9,7 +9,7 @@ typedef struct {
     sqlite3 *db;
 } BB_ModelSQLiteHandle;
 
-static const char *field_type_to_sql(BB_FieldType type)
+static const char *field_type_to_sql(bb_field_type_t type)
 {
     switch (type)
     {
@@ -21,7 +21,7 @@ static const char *field_type_to_sql(BB_FieldType type)
     }
 }
 
-static int ensure_table(sqlite3 *db, BB_Schema *schema)
+static int ensure_table(sqlite3 *db, bb_schema_t *schema)
 {
     char sql[1024] = {0};
     strcat(sql, "CREATE TABLE IF NOT EXISTS ");
@@ -30,7 +30,7 @@ static int ensure_table(sqlite3 *db, BB_Schema *schema)
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
 
         strcat(sql, f->name);
         strcat(sql, " ");
@@ -48,7 +48,7 @@ static int ensure_table(sqlite3 *db, BB_Schema *schema)
     return sqlite3_exec(db, sql, NULL, NULL, NULL);
 }
 
-static BB_ModelHandle *sqlite_open(const char *uri)
+static bb_model_handle_t *sqlite_open(const char *uri)
 {
     BB_ModelSQLiteHandle *h = malloc(sizeof(*h));
     if (!h) return NULL;
@@ -59,10 +59,10 @@ static BB_ModelHandle *sqlite_open(const char *uri)
         return NULL;
     }
 
-    return (BB_ModelHandle *)h;
+    return (bb_model_handle_t *)h;
 }
 
-static void sqlite_close(BB_ModelHandle *handle)
+static void sqlite_close(bb_model_handle_t *handle)
 {
     BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
     if (!h) return;
@@ -71,7 +71,7 @@ static void sqlite_close(BB_ModelHandle *handle)
     free(h);
 }
 
-static int sqlite_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity)
+static int sqlite_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *entity)
 {
     BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
 
@@ -109,7 +109,7 @@ static int sqlite_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity
     // bind values
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
         void *field_ptr = (char *)entity + f->offset;
 
         switch (f->type)
@@ -140,14 +140,14 @@ static int sqlite_insert(BB_ModelHandle *handle, BB_Schema *schema, void *entity
     return (rc == SQLITE_DONE) ? 0 : -1;
 }
 
-static int sqlite_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *out, const void *key)
+static int sqlite_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, void *out, const void *key)
 {
     BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
 
     if (ensure_table(h->db, schema) != SQLITE_OK)
         return -1;
 
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
     char sql[512];
     snprintf(sql, sizeof(sql),
@@ -183,7 +183,7 @@ static int sqlite_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *ou
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
         void *field_ptr = (char *)out + f->offset;
 
         switch (f->type)
@@ -213,8 +213,8 @@ static int sqlite_find_by_pk(BB_ModelHandle *handle, BB_Schema *schema, void *ou
     return 0;
 }
 
-static int sqlite_update(BB_ModelHandle *handle,
-                         BB_Schema *schema,
+static int sqlite_update(bb_model_handle_t *handle,
+                         bb_schema_t *schema,
                          void *entity)
 {
     BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
@@ -222,7 +222,7 @@ static int sqlite_update(BB_ModelHandle *handle,
     if (ensure_table(h->db, schema) != SQLITE_OK)
         return -1;
 
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
     char sql[1024] = {0};
     strcat(sql, "UPDATE ");
@@ -261,7 +261,7 @@ static int sqlite_update(BB_ModelHandle *handle,
         if (i == schema->primary_key_index)
             continue;
 
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
         void *field_ptr = (char *)entity + f->offset;
 
         switch (f->type)
@@ -316,14 +316,14 @@ static int sqlite_update(BB_ModelHandle *handle,
     return (changes > 0) ? 0 : -1;
 }
 
-static int sqlite_remove(BB_ModelHandle *handle, BB_Schema *schema, const void *key)
+static int sqlite_remove(bb_model_handle_t *handle, bb_schema_t *schema, const void *key)
 {
     BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
 
     if (ensure_table(h->db, schema) != SQLITE_OK)
         return -1;
 
-    BB_Field *pk = &schema->fields[schema->primary_key_index];
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
     char sql[512];
     snprintf(sql, sizeof(sql),
@@ -361,8 +361,8 @@ static int sqlite_remove(BB_ModelHandle *handle, BB_Schema *schema, const void *
     return (changes > 0) ? 0 : -1;
 }
 
-static int sqlite_find_all(BB_ModelHandle *handle,
-                           BB_Schema *schema,
+static int sqlite_find_all(bb_model_handle_t *handle,
+                           bb_schema_t *schema,
                            void **out_array,
                            size_t *out_count)
 {
@@ -407,7 +407,7 @@ static int sqlite_find_all(BB_ModelHandle *handle,
 
         for (size_t i = 0; i < schema->field_count; i++)
         {
-            BB_Field *f = &schema->fields[i];
+            bb_field_t *f = &schema->fields[i];
             void *field_ptr = (char *)entity + f->offset;
 
             switch (f->type)
@@ -444,13 +444,13 @@ static int sqlite_find_all(BB_ModelHandle *handle,
     return 0;
 }
 
-static int sqlite_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema, void *out, const char *field_name, const void *value)
+static int sqlite_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *schema, void *out, const char *field_name, const void *value)
 {
     BB_ModelSQLiteHandle *h =
         (BB_ModelSQLiteHandle *)handle;
 
-    BB_Field *field =
-        find_field(schema, field_name);
+    bb_field_t *field =
+        bb_schema_find_field(schema, field_name);
 
     if (!field)
         return -1;
@@ -505,7 +505,7 @@ static int sqlite_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema,
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
 
         void *field_ptr =
             (char *)out + f->offset;
@@ -543,7 +543,7 @@ static int sqlite_find_first_by_field(BB_ModelHandle *handle, BB_Schema *schema,
     return 0;
 }
 
-static BB_ModelAPI model_sqlite_api = {
+static bb_model_api_t model_sqlite_api = {
     .name                = "sqlite",
     .open                = sqlite_open,
     .close               = sqlite_close,
@@ -555,7 +555,7 @@ static BB_ModelAPI model_sqlite_api = {
     .find_first_by_field = sqlite_find_first_by_field
 };
 
-const BB_ModelAPI *bb_model_sqlite_api(void)
+const bb_model_api_t *bb_model_sqlite_api(void)
 {
     return &model_sqlite_api;
 }

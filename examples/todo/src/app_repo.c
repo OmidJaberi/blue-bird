@@ -5,7 +5,7 @@
 
 TaskRepo global_task_repo;
 
-BB_Field task_fields[] = {
+bb_field_t task_fields[] = {
     {
         .name = "id",
         .type = BB_FIELD_UUID,
@@ -29,7 +29,7 @@ BB_Field task_fields[] = {
     }
 };
 
-BB_Schema task_schema = {
+bb_schema_t task_schema = {
     .name = "tasks",
     .fields = task_fields,
     .field_count = 3,

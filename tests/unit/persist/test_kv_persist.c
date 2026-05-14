@@ -5,20 +5,20 @@
 /* mock backend counters */
 static int open_called=0, close_called=0, save_called=0;
 
-static PersistHandle* mock_open(const char *uri)
+static bb_persist_kv_handle_t* mock_open(const char *uri)
 {
     (void) uri;
     open_called++;
-    return (PersistHandle*)0x1; // dummy pointer
+    return (bb_persist_kv_handle_t*)0x1; // dummy pointer
 }
 
-static void mock_close(PersistHandle *h)
+static void mock_close(bb_persist_kv_handle_t *h)
 {
     (void) h;
     close_called++;
 }
 
-static int mock_save(PersistHandle *h, const char *key, const void *data, size_t size)
+static int mock_save(bb_persist_kv_handle_t *h, const char *key, const void *data, size_t size)
 {
     (void) h;
     (void) key;
@@ -29,7 +29,7 @@ static int mock_save(PersistHandle *h, const char *key, const void *data, size_t
 }
 
 /* static backend definition */
-static PersistAPI mock_api = {
+static bb_persist_kv_api_t mock_api = {
     .name = "mock",
     .open = mock_open,
     .close = mock_close,
@@ -40,11 +40,11 @@ static PersistAPI mock_api = {
 
 int main(void)
 {
-    persist_register(&mock_api);
-    persist_set_default("mock");
-    persist_set_default_uri("whatever");
+    bb_persist_kv_register(&mock_api);
+    bb_persist_kv_set_default("mock");
+    bb_persist_kv_set_default_uri("whatever");
 
-    persist_save("k", "v", 1);
+    bb_persist_kv_save("k", "v", 1);
 
     if (open_called != 1) return 1;
     if (save_called != 1) return 2;

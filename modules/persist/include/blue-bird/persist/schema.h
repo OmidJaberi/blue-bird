@@ -14,7 +14,7 @@ typedef enum {
     BB_FIELD_STRING,
     BB_FIELD_UUID,
     BB_FIELD_BLOB
-} BB_FieldType;
+} bb_field_type_t;
 
 typedef enum {
     BB_FIELD_NONE           = 0,
@@ -23,11 +23,11 @@ typedef enum {
     BB_FIELD_REQUIRED       = 1 << 1,
     BB_FIELD_UNIQUE         = 1 << 2,
     BB_FIELD_AUTO_GENERATE  = 1 << 3
-} BB_FieldFlags;
+} bb_field_flags_t;
 
 typedef struct {
     const char *name;
-    BB_FieldType type;
+    bb_field_type_t type;
 
     size_t offset;
     size_t size;
@@ -36,17 +36,17 @@ typedef struct {
 
     const char *references_schema;
     const char *references_field;
-} BB_Field;
+} bb_field_t;
 
 typedef struct {
     const char *name;
-    BB_Field *fields;
+    bb_field_t *fields;
     size_t field_count;
     size_t struct_size;
     unsigned long primary_key_index;
-} BB_Schema;
+} bb_schema_t;
 
-static inline BB_Field *find_field(BB_Schema *schema, const char *name)
+static inline bb_field_t *bb_schema_find_field(bb_schema_t *schema, const char *name)
 {
     for (size_t i = 0; i < schema->field_count; i++)
     {
@@ -57,9 +57,9 @@ static inline BB_Field *find_field(BB_Schema *schema, const char *name)
     return NULL;
 }
 
-int bb_schema_validate(BB_Schema *schema);
-int bb_schema_register(BB_Schema *schema);
-BB_Schema *bb_schema_get(const char *name);
+int bb_schema_validate(bb_schema_t *schema);
+int bb_schema_register(bb_schema_t *schema);
+bb_schema_t *bb_schema_get(const char *name);
 
 
 #ifdef __cplusplus

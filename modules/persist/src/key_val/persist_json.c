@@ -6,16 +6,16 @@
 #include "blue-bird/persist/key_val/persist_json.h"
 #include "blue-bird/utils/json.h"
 
-struct PersistHandle {
+struct bb_persist_kv_handle_t {
     char *jsonpath;
     json_node_t json;
 };
 
-static PersistHandle *json_open(const char *uri)
+static bb_persist_kv_handle_t *json_open(const char *uri)
 {
     if (!uri) return NULL;
 
-    PersistHandle *h = calloc(1, sizeof(*h));
+    bb_persist_kv_handle_t *h = calloc(1, sizeof(*h));
     if (!h) return NULL;
 
     h->jsonpath = strdup(uri);
@@ -24,7 +24,7 @@ static PersistHandle *json_open(const char *uri)
     return h;
 }
 
-static void json_close(PersistHandle *h)
+static void json_close(bb_persist_kv_handle_t *h)
 {
     if (!h) return;
     destroy_json(&h->json);
@@ -32,7 +32,7 @@ static void json_close(PersistHandle *h)
     free(h);
 }
 
-static int json_save(PersistHandle *h, const char *key,
+static int json_save(bb_persist_kv_handle_t *h, const char *key,
                      const void *data, size_t size)
 {
     (void) size;
@@ -48,7 +48,7 @@ static int json_save(PersistHandle *h, const char *key,
     return 0;
 }
 
-static int json_load(PersistHandle *h, const char *key,
+static int json_load(bb_persist_kv_handle_t *h, const char *key,
                      void *buf, size_t bufsize)
 {
     (void) bufsize;
@@ -66,7 +66,7 @@ static int json_load(PersistHandle *h, const char *key,
     return -1;
 }
 
-static int json_remove(PersistHandle *h, const char *key)
+static int json_remove(bb_persist_kv_handle_t *h, const char *key)
 {
     if (!h || !key) return 1;
     load_json(&h->json, h->jsonpath);
@@ -75,7 +75,7 @@ static int json_remove(PersistHandle *h, const char *key)
     return 0;
 }
 
-static const PersistAPI file_api = {
+static const bb_persist_kv_api_t file_api = {
     .name   = "json",
     .open   = json_open,
     .close  = json_close,
@@ -84,7 +84,7 @@ static const PersistAPI file_api = {
     .remove = json_remove,
 };
 
-int persist_json_register(void)
+int bb_persist_kv_json_register(void)
 {
-    return persist_register(&file_api);
+    return bb_persist_kv_register(&file_api);
 }

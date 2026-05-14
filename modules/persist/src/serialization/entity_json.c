@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-json_node_t *bb_entity_to_json(BB_Schema *schema, void *entity)
+json_node_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
 {
     if (!schema || !entity)
         return NULL;
@@ -11,7 +11,7 @@ json_node_t *bb_entity_to_json(BB_Schema *schema, void *entity)
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
 
         void *field_ptr = (char *)entity + f->offset;
 
@@ -55,7 +55,7 @@ json_node_t *bb_entity_to_json(BB_Schema *schema, void *entity)
     return obj;
 }
 
-int bb_json_to_entity(BB_Schema *schema, json_node_t *json, void *out)
+int bb_json_to_entity(bb_schema_t *schema, json_node_t *json, void *out)
 {
     if (!schema || !json || !out)
         return -1;
@@ -67,7 +67,7 @@ int bb_json_to_entity(BB_Schema *schema, json_node_t *json, void *out)
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        BB_Field *f = &schema->fields[i];
+        bb_field_t *f = &schema->fields[i];
 
         json_node_t *val = get_json_object_value(json, f->name);
 

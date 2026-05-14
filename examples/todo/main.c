@@ -17,8 +17,8 @@ int main(void)
 
     /* Register repo backend */
     bb_model_register(bb_model_sqlite_api());
-    const BB_ModelAPI *api = bb_model_get("sqlite");
-    BB_ModelHandle *handle = api->open(dbfile);
+    const bb_model_api_t *api = bb_model_get("sqlite");
+    bb_model_handle_t *handle = api->open(dbfile);
 
     /* init repo */
     bb_repo_init(&global_task_repo.base, api, handle, &task_schema);

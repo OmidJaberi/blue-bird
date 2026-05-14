@@ -9,7 +9,7 @@ They provide a lightweight reflection system for persistence and serialization.
 # Example Schema
 
 ```c
-BB_Schema task_schema = {
+bb_schema_t task_schema = {
     .name = "tasks",
     .fields = task_fields,
     .field_count = 3,

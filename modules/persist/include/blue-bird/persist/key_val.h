@@ -8,38 +8,38 @@ extern "C" {
 
 #include <stddef.h>
 
-typedef struct PersistHandle PersistHandle;
+typedef struct bb_persist_kv_handle_t bb_persist_kv_handle_t;
 
 /* Backends expose this, and register once */
-typedef struct PersistAPI {
+typedef struct {
     const char *name;
 
-    PersistHandle *(*open)(const char *uri);
-    void (*close)(PersistHandle *h);
+    bb_persist_kv_handle_t *(*open)(const char *uri);
+    void (*close)(bb_persist_kv_handle_t *h);
 
-    int (*save)(PersistHandle *h, const char *key,
+    int (*save)(bb_persist_kv_handle_t *h, const char *key,
                 const void *data, size_t size);
 
-    int (*load)(PersistHandle *h, const char *key,
+    int (*load)(bb_persist_kv_handle_t *h, const char *key,
                 void *buf, size_t bufsize);
 
-    int (*remove)(PersistHandle *h, const char *key);
-} PersistAPI;
+    int (*remove)(bb_persist_kv_handle_t *h, const char *key);
+} bb_persist_kv_api_t;
 
 /* registry */
-int persist_register(const PersistAPI *api);
-const PersistAPI *persist_get(const char *name);
+int bb_persist_kv_register(const bb_persist_kv_api_t *api);
+const bb_persist_kv_api_t *persist_get(const char *name);
 
 /* default backend */
-void persist_set_default(const char *name);
-void persist_set_default_uri(const char *uri);
-const char *persist_get_default(void);
-PersistHandle *persist_open_default(const char *uri);
+void bb_persist_kv_set_default(const char *name);
+void bb_persist_kv_set_default_uri(const char *uri);
+const char *bb_persist_kv_get_default(void);
+bb_persist_kv_handle_t *bb_persist_kv_open_default(const char *uri);
 
 /* simple wrappers using default backend */
-int persist_save(const char *key, const void *data, size_t size);
-int persist_load(const char *key, void *buf, size_t bufsize);
-int persist_remove(const char *key);
+int bb_persist_kv_save(const char *key, const void *data, size_t size);
+int bb_persist_kv_load(const char *key, void *buf, size_t bufsize);
+int bb_persist_kv_remove(const char *key);
 
 
 #ifdef __cplusplus

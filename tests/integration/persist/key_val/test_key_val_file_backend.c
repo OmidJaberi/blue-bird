@@ -20,22 +20,22 @@ int main(void)
     /* Clean up */
     rmdir_recursive(dir);
 
-    persist_file_register();
-    persist_set_default("file");
-    persist_set_default_uri(dir);   /* directory */
+    bb_persist_kv_file_register();
+    bb_persist_kv_set_default("file");
+    bb_persist_kv_set_default_uri(dir);   /* directory */
 
     const char *msg = "file backend test successful";
 
     /* Save */
-    if (persist_save("mykey", msg, strlen(msg)) != 0) {
-        printf("FAIL: persist_save\n");
+    if (bb_persist_kv_save("mykey", msg, strlen(msg)) != 0) {
+        printf("FAIL: bb_persist_kv_save\n");
         return 1;
     }
 
     /* Load */
     char buf[128] = {0};
-    if (persist_load("mykey", buf, sizeof(buf)) != 0) {
-        printf("FAIL: persist_load\n");
+    if (bb_persist_kv_load("mykey", buf, sizeof(buf)) != 0) {
+        printf("FAIL: bb_persist_kv_load\n");
         return 2;
     }
 
@@ -45,13 +45,13 @@ int main(void)
     }
 
     /* Remove */
-    if (persist_remove("mykey") != 0) {
-        printf("FAIL: persist_remove\n");
+    if (bb_persist_kv_remove("mykey") != 0) {
+        printf("FAIL: bb_persist_kv_remove\n");
         return 4;
     }
 
     /* Confirm deletion */
-    if (persist_load("mykey", buf, sizeof(buf)) == 0) {
+    if (bb_persist_kv_load("mykey", buf, sizeof(buf)) == 0) {
         printf("FAIL: key should not exist after deletion\n");
         return 5;
     }

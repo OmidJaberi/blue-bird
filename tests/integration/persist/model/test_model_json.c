@@ -15,7 +15,7 @@ typedef struct {
     char name[64];
 } User;
 
-static BB_Field user_fields[] = {
+static bb_field_t user_fields[] = {
     {
         .name = "id",
         .type = BB_FIELD_INT,
@@ -32,7 +32,7 @@ static BB_Field user_fields[] = {
     }
 };
 
-static BB_Schema user_schema = {
+static bb_schema_t user_schema = {
     .name = "users",
     .fields = user_fields,
     .field_count = 2,
@@ -62,10 +62,10 @@ static void test_json_insert_and_find(void)
 
     assert(bb_model_register(bb_model_json_api()) == 0);
 
-    const BB_ModelAPI *api = bb_model_get("json");
+    const bb_model_api_t *api = bb_model_get("json");
     assert(api);
 
-    BB_ModelHandle *h = api->open(path);
+    bb_model_handle_t *h = api->open(path);
     assert(h);
 
     User u = { .id = 1 };
@@ -90,8 +90,8 @@ static void test_json_update(void)
     const char *path = "test_model_json_update.json";
     cleanup_file(path);
 
-    const BB_ModelAPI *api = bb_model_get("json");
-    BB_ModelHandle *h = api->open(path);
+    const bb_model_api_t *api = bb_model_get("json");
+    bb_model_handle_t *h = api->open(path);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
@@ -116,8 +116,8 @@ static void test_json_remove(void)
     const char *path = "test_model_json_remove.json";
     cleanup_file(path);
 
-    const BB_ModelAPI *api = bb_model_get("json");
-    BB_ModelHandle *h = api->open(path);
+    const bb_model_api_t *api = bb_model_get("json");
+    bb_model_handle_t *h = api->open(path);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
@@ -140,8 +140,8 @@ static void test_json_conflict(void)
     const char *path = "test_model_json_conflict.json";
     cleanup_file(path);
 
-    const BB_ModelAPI *api = bb_model_get("json");
-    BB_ModelHandle *h = api->open(path);
+    const bb_model_api_t *api = bb_model_get("json");
+    bb_model_handle_t *h = api->open(path);
 
     User u1 = { .id = 1 };
     strncpy(u1.name, "Alice", sizeof(u1.name));

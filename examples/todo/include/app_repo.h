@@ -14,13 +14,13 @@ typedef struct {
 } Task;
 
 typedef struct {
-    BB_Repo base;
+    bb_repo_t base;
 } TaskRepo;
 
 extern TaskRepo global_task_repo;
 
-extern BB_Field task_fields[];
-extern BB_Schema task_schema;
+extern bb_field_t task_fields[];
+extern bb_schema_t task_schema;
 
 int task_insert(TaskRepo *repo, Task *task);
 int task_remove(TaskRepo *repo, const char *id);

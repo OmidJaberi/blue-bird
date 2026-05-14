@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 
-int persist_file_register(void);
+int bb_persist_kv_file_register(void);
 
 
 #ifdef __cplusplus

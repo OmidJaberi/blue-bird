@@ -18,7 +18,7 @@ typedef struct {
     char name[64];
 } User;
 
-static BB_Field fields[] = {
+static bb_field_t fields[] = {
     {
         .name = "id",
         .type = BB_FIELD_INT,
@@ -35,7 +35,7 @@ static BB_Field fields[] = {
     }
 };
 
-static BB_Schema schema = {
+static bb_schema_t schema = {
     .name = "users",
     .fields = fields,
     .field_count = 2,
@@ -56,12 +56,12 @@ static void cleanup(const char *path)
  * Tests
  * --------------------------- */
 
-static void run_tests(const char *file, const BB_ModelAPI *api)
+static void run_tests(const char *file, const bb_model_api_t *api)
 {
-    BB_ModelHandle *h = api->open(file);
+    bb_model_handle_t *h = api->open(file);
     assert(h);
 
-    BB_Repo repo;
+    bb_repo_t repo;
     bb_repo_init(&repo, api, h, &schema);
 
     /* INSERT */
@@ -136,7 +136,7 @@ static void test_repo_json_crud(void)
 
     assert(bb_model_register(bb_model_json_api()) == 0);
 
-    const BB_ModelAPI *api = bb_model_get("json");
+    const bb_model_api_t *api = bb_model_get("json");
     assert(api);
 
     run_tests(file, api);
@@ -153,10 +153,10 @@ static void test_repo_sqlite_crud(void)
 
     assert(bb_model_register(bb_model_sqlite_api()) == 0);
 
-    const BB_ModelAPI *api = bb_model_get("sqlite");
+    const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api);
 
-    BB_ModelHandle *h = api->open(db);
+    bb_model_handle_t *h = api->open(db);
     assert(h);
 
     run_tests(db, api);

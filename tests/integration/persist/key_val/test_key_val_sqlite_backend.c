@@ -13,21 +13,21 @@ int main(void)
     unlink(dbfile);
 
     /* Register backend */
-    persist_sqlite_register();
-    persist_set_default("sqlite");
-    persist_set_default_uri(dbfile);
+    bb_persist_kv_sqlite_register();
+    bb_persist_kv_set_default("sqlite");
+    bb_persist_kv_set_default_uri(dbfile);
 
     /* Save */
     const char *value = "hello world";
-    if (persist_save("greeting", value, strlen(value)) != 0) {
-        printf("FAIL: persist_save\n");
+    if (bb_persist_kv_save("greeting", value, strlen(value)) != 0) {
+        printf("FAIL: bb_persist_kv_save\n");
         return 1;
     }
 
     /* Load */
     char buf[64] = {0};
-    if (persist_load("greeting", buf, sizeof(buf)) != 0) {
-        printf("FAIL: persist_load\n");
+    if (bb_persist_kv_load("greeting", buf, sizeof(buf)) != 0) {
+        printf("FAIL: bb_persist_kv_load\n");
         return 2;
     }
 
@@ -37,13 +37,13 @@ int main(void)
     }
 
     /* Remove */
-    if (persist_remove("greeting") != 0) {
-        printf("FAIL: persist_remove\n");
+    if (bb_persist_kv_remove("greeting") != 0) {
+        printf("FAIL: bb_persist_kv_remove\n");
         return 4;
     }
 
     /* Confirm deletion */
-    if (persist_load("greeting", buf, sizeof(buf)) == 0) {
+    if (bb_persist_kv_load("greeting", buf, sizeof(buf)) == 0) {
         printf("FAIL: key should not exist after removal\n");
         return 5;
     }

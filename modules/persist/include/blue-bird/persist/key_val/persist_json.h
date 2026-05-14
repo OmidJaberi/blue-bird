@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 
-int persist_json_register(void);
+int bb_persist_kv_json_register(void);
 
 
 #ifdef __cplusplus

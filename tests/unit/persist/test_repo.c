@@ -16,7 +16,7 @@ typedef struct {
     char name[64];
 } User;
 
-static BB_Field fields[] = {
+static bb_field_t fields[] = {
     {
         .name = "id",
         .type = BB_FIELD_INT,
@@ -33,7 +33,7 @@ static BB_Field fields[] = {
     }
 };
 
-static BB_Schema schema = {
+static bb_schema_t schema = {
     .name = "users",
     .fields = fields,
     .field_count = 2,
@@ -59,21 +59,21 @@ typedef struct {
  * Mock Backend
  * --------------------------- */
 
-static BB_ModelHandle *mock_open(const char *uri)
+static bb_model_handle_t *mock_open(const char *uri)
 {
     (void)uri;
 
     MockState *m = malloc(sizeof(MockState));
     memset(m, 0, sizeof(MockState));
-    return (BB_ModelHandle *)m;
+    return (bb_model_handle_t *)m;
 }
 
-static void mock_close(BB_ModelHandle *h)
+static void mock_close(bb_model_handle_t *h)
 {
     free(h);
 }
 
-static int mock_insert(BB_ModelHandle *h, BB_Schema *schema, void *entity)
+static int mock_insert(bb_model_handle_t *h, bb_schema_t *schema, void *entity)
 {
     (void)schema;
 
@@ -97,7 +97,7 @@ static int mock_insert(BB_ModelHandle *h, BB_Schema *schema, void *entity)
     return 0;
 }
 
-static int mock_find_by_pk(BB_ModelHandle *h, BB_Schema *schema, void *out, const void *key)
+static int mock_find_by_pk(bb_model_handle_t *h, bb_schema_t *schema, void *out, const void *key)
 {
     (void)schema;
 
@@ -119,7 +119,7 @@ static int mock_find_by_pk(BB_ModelHandle *h, BB_Schema *schema, void *out, cons
     return -1;
 }
 
-static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
+static int mock_update(bb_model_handle_t *h, bb_schema_t *schema, void *entity)
 {
     (void)schema;
 
@@ -141,7 +141,7 @@ static int mock_update(BB_ModelHandle *h, BB_Schema *schema, void *entity)
     return -1;
 }
 
-static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, const void *key)
+static int mock_remove(bb_model_handle_t *h, bb_schema_t *schema, const void *key)
 {
     (void)schema;
 
@@ -172,7 +172,7 @@ static int mock_remove(BB_ModelHandle *h, BB_Schema *schema, const void *key)
     return -1;
 }
 
-static int mock_find_all(BB_ModelHandle *h, BB_Schema *schema, void **out, size_t *count)
+static int mock_find_all(bb_model_handle_t *h, bb_schema_t *schema, void **out, size_t *count)
 {
     MockState *m = (MockState *)h;
 
@@ -202,7 +202,7 @@ static int mock_find_all(BB_ModelHandle *h, BB_Schema *schema, void **out, size_
     return 0;
 }
 
-static BB_ModelAPI mock_api = {
+static bb_model_api_t mock_api = {
     .name = "mock",
     .open = mock_open,
     .close = mock_close,
@@ -234,9 +234,9 @@ static void test_repo_insert_and_find(void)
 {
     printf("\tRepo insert & find...\n");
 
-    BB_ModelHandle *h = mock_api.open("ignored");
+    bb_model_handle_t *h = mock_api.open("ignored");
 
-    BB_Repo repo;
+    bb_repo_t repo;
     bb_repo_init(&repo, &mock_api, h, &schema);
 
     User u = { .id = 1 };
@@ -257,9 +257,9 @@ static void test_repo_update(void)
 {
     printf("\tRepo update...\n");
 
-    BB_ModelHandle *h = mock_api.open("ignored");
+    bb_model_handle_t *h = mock_api.open("ignored");
 
-    BB_Repo repo;
+    bb_repo_t repo;
     bb_repo_init(&repo, &mock_api, h, &schema);
 
     User u = { .id = 1 };
@@ -282,9 +282,9 @@ static void test_repo_remove(void)
 {
     printf("\tRepo remove...\n");
 
-    BB_ModelHandle *h = mock_api.open("ignored");
+    bb_model_handle_t *h = mock_api.open("ignored");
 
-    BB_Repo repo;
+    bb_repo_t repo;
     bb_repo_init(&repo, &mock_api, h, &schema);
 
     User u = { .id = 1 };
@@ -303,9 +303,9 @@ static void test_repo_error_propagation(void)
 {
     printf("\tRepo error propagation...\n");
 
-    BB_ModelHandle *h = mock_api.open("ignored");
+    bb_model_handle_t *h = mock_api.open("ignored");
 
-    BB_Repo repo;
+    bb_repo_t repo;
     bb_repo_init(&repo, &mock_api, h, &schema);
 
     User u1 = { .id = 1 };
@@ -326,9 +326,9 @@ static void test_repo_filter(void)
 {
     printf("\tRepo filter...\n");
 
-    BB_ModelHandle *h = mock_api.open("ignored");
+    bb_model_handle_t *h = mock_api.open("ignored");
 
-    BB_Repo repo;
+    bb_repo_t repo;
 
     bb_repo_init(
         &repo,

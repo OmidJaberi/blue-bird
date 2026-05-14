@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 
-int persist_sqlite_register(void);
+int bb_persist_kv_sqlite_register(void);
 
 
 #ifdef __cplusplus

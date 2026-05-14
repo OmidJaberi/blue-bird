@@ -10,7 +10,7 @@ static void test_entity_to_json(void)
         char name[64];
     } User;
 
-    BB_Field fields[] = {
+    bb_field_t fields[] = {
         {
             .name = "id",
             .type = BB_FIELD_INT,
@@ -27,7 +27,7 @@ static void test_entity_to_json(void)
         }
     };
 
-    BB_Schema schema = {
+    bb_schema_t schema = {
         .name = "users",
         .fields = fields,
         .field_count = 2,
@@ -72,7 +72,7 @@ static void test_json_to_entity(void)
         char name[64];
     } User;
 
-    BB_Field fields[] = {
+    bb_field_t fields[] = {
         {
             .name = "id",
             .type = BB_FIELD_INT,
@@ -89,7 +89,7 @@ static void test_json_to_entity(void)
         }
     };
 
-    BB_Schema schema = {
+    bb_schema_t schema = {
         .name = "users",
         .fields = fields,
         .field_count = 2,
@@ -127,7 +127,7 @@ static void test_json_to_entity_invalid_type(void)
         int id;
     } User;
 
-    BB_Field fields[] = {
+    bb_field_t fields[] = {
         {
             .name = "id",
             .type = BB_FIELD_INT,
@@ -137,7 +137,7 @@ static void test_json_to_entity_invalid_type(void)
         }
     };
 
-    BB_Schema schema = {
+    bb_schema_t schema = {
         .name = "users",
         .fields = fields,
         .field_count = 1,
