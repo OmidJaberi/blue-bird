@@ -10,7 +10,7 @@ void bb_json_init(bb_json_node_t *json, bb_json_node_type_t type)
     json->size = 0;
     switch (type) {
         case BB_JSON_OBJECT:
-            for (int i = 0; i < HASH_TABLE_SIZE; i++)
+            for (int i = 0; i < BB_JSON_HASH_TABLE_SIZE; i++)
                 json->value.object.hash_table[i] = NULL;
             json->value.object.order_head = NULL;
             json->value.object.order_tail = NULL;
@@ -172,7 +172,7 @@ static int hash_function(const char *str)
     int sum = 0;
     for (int i = 0; str[i] != '\0'; i++)
         sum += str[i];
-    return sum % HASH_TABLE_SIZE;
+    return sum % BB_JSON_HASH_TABLE_SIZE;
 }
 
 void bb_json_object_set_value(bb_json_node_t *json_object, const char *key, bb_json_node_t *value)

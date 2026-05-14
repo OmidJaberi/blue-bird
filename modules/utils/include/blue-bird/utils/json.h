@@ -9,7 +9,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define HASH_TABLE_SIZE 100047
+#define BB_JSON_HASH_TABLE_SIZE 100047
 
 typedef enum {
     BB_JSON_NULL,
@@ -41,7 +41,7 @@ typedef struct BBJsonNode {
             struct BBJsonNode **array;
         } dynamic_array;
         struct {
-            _bb_hash_table_node_t *hash_table[HASH_TABLE_SIZE];
+            _bb_hash_table_node_t *hash_table[BB_JSON_HASH_TABLE_SIZE];
             _bb_hash_table_node_t *order_head;
             _bb_hash_table_node_t *order_tail;
         } object;
@@ -162,14 +162,14 @@ static inline bb_json_node_t *bb_json_new_text(const char *v)
 #define TEXT(v)   bb_json_new_text(v)
 
 
-#define ARR(...)                                                   \
-({                                                                 \
-    bb_json_node_t *_arr = bb_json_new(BB_JSON_ARRAY);                      \
-    bb_json_node_t *_items[] = { __VA_ARGS__ };                       \
-    int _n = sizeof(_items) / sizeof(_items[0]);                   \
-    for (int _i = 0; _i < _n; _i++)                                \
-        bb_json_array_push(_arr, _items[_i]);                         \
-    _arr;                                                          \
+#define ARR(...)                                                        \
+({                                                                      \
+    bb_json_node_t *_arr = bb_json_new(BB_JSON_ARRAY);                  \
+    bb_json_node_t *_items[] = { __VA_ARGS__ };                         \
+    int _n = sizeof(_items) / sizeof(_items[0]);                        \
+    for (int _i = 0; _i < _n; _i++)                                     \
+        bb_json_array_push(_arr, _items[_i]);                           \
+    _arr;                                                               \
 })
 
 
@@ -179,14 +179,14 @@ typedef struct {
 } json_kv_t;
 
 #define KEY(k, v) ((json_kv_t){ (k), (v) })
-#define OBJ(...)                                                    \
-({                                                                  \
-    bb_json_node_t *_obj = bb_json_new(BB_JSON_OBJECT);                      \
-    json_kv_t _kvs[] = { __VA_ARGS__ };                             \
-    int _n = sizeof(_kvs) / sizeof(_kvs[0]);                        \
-    for (int _i = 0; _i < _n; _i++)                                 \
-        bb_json_object_set_value(_obj, _kvs[_i].key, _kvs[_i].value);  \
-    _obj;                                                           \
+#define OBJ(...)                                                        \
+({                                                                      \
+    bb_json_node_t *_obj = bb_json_new(BB_JSON_OBJECT);                 \
+    json_kv_t _kvs[] = { __VA_ARGS__ };                                 \
+    int _n = sizeof(_kvs) / sizeof(_kvs[0]);                            \
+    for (int _i = 0; _i < _n; _i++)                                     \
+        bb_json_object_set_value(_obj, _kvs[_i].key, _kvs[_i].value);   \
+    _obj;                                                               \
 })
 
 
