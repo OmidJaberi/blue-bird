@@ -27,14 +27,14 @@ int bb_server_init(bb_server_t *server, int port)
     // Create socket
     if ((server->server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
-        LOG_ERROR("socket failed");
+        BB_LOG_ERROR("socket failed");
         exit(EXIT_FAILURE);
     }
 
     // Reuse port
     if (setsockopt(server->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
-        LOG_ERROR("setsockopt failed");
+        BB_LOG_ERROR("setsockopt failed");
         exit(EXIT_FAILURE);
     }
 
@@ -45,18 +45,18 @@ int bb_server_init(bb_server_t *server, int port)
     // Bind
     if (bind(server->server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
-        LOG_ERROR("bind failed");
+        BB_LOG_ERROR("bind failed");
         exit(EXIT_FAILURE);
     }
 
     // Listen
     if (listen(server->server_fd, 3) < 0)
     {
-        LOG_ERROR("listen failed");
+        BB_LOG_ERROR("listen failed");
         exit(EXIT_FAILURE);
     }
 
-    LOG_INFO("Blue-Bird server initialized on port %d\n", port);
+    BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return 0;
 }
 
@@ -82,19 +82,19 @@ void bb_server_start(bb_server_t *server)
     int addrlen = sizeof(address);
     char *buffer = NULL;
 
-    LOG_INFO("Blue-Bird server started.\n");
+    BB_LOG_INFO("Blue-Bird server started.\n");
     while (1)
     {
         // Accept new connection
         if ((client_fd = accept(server->server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0)
         {
-            LOG_ERROR("accept failed");
+            BB_LOG_ERROR("accept failed");
             continue;
         }
 
         // Read request (not parsed, yet)
         bb_http_read_message(client_fd, &buffer);
-        LOG_INFO("Received request:\n%s\n", buffer);
+        BB_LOG_INFO("Received request:\n%s\n", buffer);
 
         // Parse request
         bb_request_t req;

@@ -9,7 +9,7 @@ extern "C" {
 #include "blue-bird/log/log.h"
 #include <stdio.h>
 
-void logger_init_console(Logger *logger, LogLevel level, FILE *out);
+void bb_logger_init_console(bb_logger_t *logger, bb_log_level_t level, FILE *out);
 
 
 #ifdef __cplusplus

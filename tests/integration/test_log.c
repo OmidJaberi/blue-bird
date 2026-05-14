@@ -7,11 +7,11 @@
 
 int main(void)
 {
-    Logger console_logger;
-    Logger persist_logger;
+    bb_logger_t console_logger;
+    bb_logger_t persist_logger;
 
     // Initialize console logger
-    logger_init_console(&console_logger, LOG_LEVEL_INFO, stderr);
+    bb_logger_init_console(&console_logger, BB_LOG_LEVEL_INFO, stderr);
 
     // Register persist backend and set default
     bb_persist_kv_file_register();
@@ -19,19 +19,19 @@ int main(void)
     bb_persist_kv_set_default_uri("logs");  // directory to store logs
 
     // Initialize persist logger
-    logger_init_persist(&persist_logger, LOG_LEVEL_DEBUG);
+    bb_logger_init_persist(&persist_logger, BB_LOG_LEVEL_DEBUG);
 
     // Default logger for macros
     default_logger = console_logger;
 
-    LOG_INFO("Server started");
-    logger_log(&persist_logger, LOG_LEVEL_DEBUG, "Debug info saved to persist log");
-    logger_log(&persist_logger, LOG_LEVEL_DEBUG, "Another log appended to persist log");
-    logger_log(&persist_logger, LOG_LEVEL_DEBUG, "And a third log ...");
+    BB_LOG_INFO("Server started");
+    bb_logger_log(&persist_logger, BB_LOG_LEVEL_DEBUG, "Debug info saved to persist log");
+    bb_logger_log(&persist_logger, BB_LOG_LEVEL_DEBUG, "Another log appended to persist log");
+    bb_logger_log(&persist_logger, BB_LOG_LEVEL_DEBUG, "And a third log ...");
 
     // Cleanup
-    logger_close(&console_logger);
-    logger_free_persist_context(&persist_logger);
+    bb_logger_close(&console_logger);
+    bb_logger_free_persist_context(&persist_logger);
 
     return 0;
 }

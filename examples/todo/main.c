@@ -9,8 +9,8 @@
 
 int main(void)
 {
-    Logger console_logger;
-    logger_init_console(&console_logger, LOG_LEVEL_INFO, stderr);
+    bb_logger_t console_logger;
+    bb_logger_init_console(&console_logger, BB_LOG_LEVEL_INFO, stderr);
     default_logger = console_logger;
 
     const char *dbfile = "todo_sqlite.db";

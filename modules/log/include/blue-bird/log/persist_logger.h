@@ -8,8 +8,8 @@ extern "C" {
 
 #include "blue-bird/log/log.h"
 
-void logger_init_persist(Logger *logger, LogLevel level);
-void logger_free_persist_context(Logger *logger);
+void bb_logger_init_persist(bb_logger_t *logger, bb_log_level_t level);
+void bb_logger_free_persist_context(bb_logger_t *logger);
 
 
 #ifdef __cplusplus

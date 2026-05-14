@@ -3,9 +3,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-Logger default_logger;
+bb_logger_t default_logger;
 
-void logger_log(Logger *logger, LogLevel level, const char *fmt, ...)
+void bb_logger_log(bb_logger_t *logger, bb_log_level_t level, const char *fmt, ...)
 {
     if (!logger || !logger->write || level > logger->level) return;
 
@@ -15,14 +15,14 @@ void logger_log(Logger *logger, LogLevel level, const char *fmt, ...)
     va_end(args);
 }
 
-void logger_vlog(Logger *logger, LogLevel level, const char *fmt, va_list args)
+void bb_logger_vlog(bb_logger_t *logger, bb_log_level_t level, const char *fmt, va_list args)
 {
     if (!logger || !logger->write || level > logger->level) return;
 
     logger->write(logger, level, fmt, args);
 }
 
-void logger_close(Logger *logger)
+void bb_logger_close(bb_logger_t *logger)
 {
     if (!logger) return;
 

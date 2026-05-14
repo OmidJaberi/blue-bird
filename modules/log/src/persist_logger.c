@@ -10,9 +10,9 @@
 typedef struct {
     // currently empty, but allows future expansion
     int dummy;
-} PersistLoggerCtx;
+} _bb_persist_logger_ctx;
 
-static void persist_write(Logger *logger, LogLevel level, const char *fmt, va_list args)
+static void persist_write(bb_logger_t *logger, bb_log_level_t level, const char *fmt, va_list args)
 {
     if (!logger || !logger->userdata) return;
 
@@ -27,10 +27,10 @@ static void persist_write(Logger *logger, LogLevel level, const char *fmt, va_li
 
     char outbuf[1152];
     snprintf(outbuf, sizeof(outbuf), "[%s] %-5s: %s\n", timebuf,
-             (level==LOG_LEVEL_ERROR?"ERROR":
-              level==LOG_LEVEL_WARN?"WARN":
-              level==LOG_LEVEL_INFO?"INFO":
-              level==LOG_LEVEL_DEBUG?"DEBUG":"TRACE"),
+             (level==BB_LOG_LEVEL_ERROR?"ERROR":
+              level==BB_LOG_LEVEL_WARN?"WARN":
+              level==BB_LOG_LEVEL_INFO?"INFO":
+              level==BB_LOG_LEVEL_DEBUG?"DEBUG":"TRACE"),
              buf);
 
     // Load existing log
@@ -44,11 +44,11 @@ static void persist_write(Logger *logger, LogLevel level, const char *fmt, va_li
     bb_persist_kv_save("bluebird_log", prev, strlen(prev));
 }
 
-void logger_init_persist(Logger *logger, LogLevel level)
+void bb_logger_init_persist(bb_logger_t *logger, bb_log_level_t level)
 {
     if (!logger) return;
 
-    PersistLoggerCtx *ctx = malloc(sizeof(PersistLoggerCtx));
+    _bb_persist_logger_ctx *ctx = malloc(sizeof(_bb_persist_logger_ctx));
     ctx->dummy = 0;  // placeholder
 
     logger->level = level;
@@ -56,7 +56,7 @@ void logger_init_persist(Logger *logger, LogLevel level)
     logger->userdata = ctx;
 }
 
-void logger_free_persist_context(Logger *logger)
+void bb_logger_free_persist_context(bb_logger_t *logger)
 {
     if (!logger || !logger->userdata)
         return;
