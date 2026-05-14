@@ -35,8 +35,8 @@ This builds:
 
 bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
-    set_header(res, "Content-Type", "text/plain");
-    set_body(res, "Hello, Blue-Bird :)");
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Hello, Blue-Bird :)");
     return BB_SUCCESS();
 }
 
