@@ -109,25 +109,25 @@ bb_error_t list_tasks(bb_request_t *req, bb_response_t *res)
 
     bb_repo_find_all(&global_task_repo.base, (void**)&tasks, &count);
 
-    json_node_t task_list;
-    init_json(&task_list, JSON_ARRAY);
+    bb_json_t task_list;
+    bb_json_init(&task_list, BB_JSON_ARRAY);
     for (unsigned long i = 0; i < count; i++)
     {
-        json_node_t *task = JSON(
+        bb_json_t *task = BB_JSON(
             OBJ(
                 KEY("id", TEXT(tasks[i].id)),
                 KEY("name", TEXT(tasks[i].name)),
                 KEY("status", TEXT(tasks[i].status))
             )
         );
-        push_json_array(&task_list, task);
+        bb_json_array_push(&task_list, task);
     }
 
     
     char *buf;
     int size;
-    serialize_json(&task_list, &buf, &size);
-    destroy_json(&task_list);
+    bb_json_serialize(&task_list, &buf, &size);
+    bb_json_destroy(&task_list);
     if (size <= 0)
     {
         bb_response_set_status(res, 500);

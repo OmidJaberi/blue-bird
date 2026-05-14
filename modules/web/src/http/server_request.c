@@ -53,11 +53,11 @@ static void parse_query_params(bb_server_request_t *req)
         {
             char *eq = strchr(pair, '=');
 
-            decode_percent(pair, 1);      // '+' becomes space in query
+            bb_decode_percent(pair, 1);      // '+' becomes space in query
             
             if (eq)
             {
-                decode_percent(eq + 1, 1);
+                bb_decode_percent(eq + 1, 1);
                 *eq = '\0';
                 bb_server_request_add_query_param(req, pair, eq + 1);
 
@@ -97,7 +97,7 @@ int bb_server_request_parse(const char *raw, bb_server_request_t *req)
     if (!is_valid_path(req->path))
         return -1;
 
-    decode_percent(req->path, 0); // do NOT treat '+' as space in path
+    bb_decode_percent(req->path, 0); // do NOT treat '+' as space in path
     if (strstr(req->path, ".."))
         return -1;
 

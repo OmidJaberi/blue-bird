@@ -2,12 +2,12 @@
 
 #include <string.h>
 
-json_node_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
+bb_json_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
 {
     if (!schema || !entity)
         return NULL;
 
-    json_node_t *obj = json_new(JSON_OBJECT);
+    bb_json_t *obj = bb_json_new(BB_JSON_OBJECT);
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
@@ -15,13 +15,13 @@ json_node_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
 
         void *field_ptr = (char *)entity + f->offset;
 
-        json_node_t *val = NULL;
+        bb_json_t *val = NULL;
 
         switch (f->type)
         {
             case BB_FIELD_INT:
             {
-                val = json_new_int(
+                val = bb_json_new_int(
                     *(int *)field_ptr
                 );
                 break;
@@ -30,7 +30,7 @@ json_node_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
             case BB_FIELD_STRING:
             case BB_FIELD_UUID:
             {
-                val = json_new_text(
+                val = bb_json_new_text(
                     (char *)field_ptr
                 );
                 break;
@@ -48,19 +48,19 @@ json_node_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
 
         if (val)
         {
-            set_json_object_value(obj, f->name, val);
+            bb_json_object_set_value(obj, f->name, val);
         }
     }
 
     return obj;
 }
 
-int bb_json_to_entity(bb_schema_t *schema, json_node_t *json, void *out)
+int bb_json_to_entity(bb_schema_t *schema, bb_json_t *json, void *out)
 {
     if (!schema || !json || !out)
         return -1;
 
-    if (json->type != JSON_OBJECT)
+    if (json->type != BB_JSON_OBJECT)
         return -1;
 
     memset(out, 0, schema->struct_size);
@@ -69,7 +69,7 @@ int bb_json_to_entity(bb_schema_t *schema, json_node_t *json, void *out)
     {
         bb_field_t *f = &schema->fields[i];
 
-        json_node_t *val = get_json_object_value(json, f->name);
+        bb_json_t *val = bb_json_object_get_value(json, f->name);
 
         if (!val)
             continue;
@@ -80,10 +80,10 @@ int bb_json_to_entity(bb_schema_t *schema, json_node_t *json, void *out)
         {
             case BB_FIELD_INT:
             {
-                if (val->type != JSON_INT)
+                if (val->type != BB_JSON_INT)
                     return -1;
 
-                *(int *)field_ptr = get_json_integer_value(val);
+                *(int *)field_ptr = bb_json_get_value_integer(val);
 
                 break;
             }
@@ -91,10 +91,10 @@ int bb_json_to_entity(bb_schema_t *schema, json_node_t *json, void *out)
             case BB_FIELD_STRING:
             case BB_FIELD_UUID:
             {
-                if (val->type != JSON_TEXT)
+                if (val->type != BB_JSON_TEXT)
                     return -1;
 
-                strncpy((char *)field_ptr, get_json_text_value(val), f->size);
+                strncpy((char *)field_ptr, bb_json_get_value_text(val), f->size);
 
                 break;
             }

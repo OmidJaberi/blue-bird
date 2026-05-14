@@ -54,9 +54,9 @@ int task_update(TaskRepo *repo, Task *task)
 
 int serialize_task(Task *task, char **s, int *size)
 {
-    json_node_t *json = bb_entity_to_json(&task_schema, task);
-    int res = serialize_json(json, s, size);
-    destroy_json(json);
+    bb_json_t *json = bb_entity_to_json(&task_schema, task);
+    int res = bb_json_serialize(json, s, size);
+    bb_json_destroy(json);
     free(json);
     return res;
 }

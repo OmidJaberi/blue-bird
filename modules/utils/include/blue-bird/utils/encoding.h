@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 
-void decode_percent(char *s, int decode_plus);
+void bb_decode_percent(char *s, int decode_plus);
 
 
 #ifdef __cplusplus

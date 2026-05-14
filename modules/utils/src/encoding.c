@@ -7,7 +7,7 @@ static int hexval(char c) {
     return -1;
 }
 
-void decode_percent(char *s, int decode_plus)
+void bb_decode_percent(char *s, int decode_plus)
 {
     char *src = s;
     char *dst = s;

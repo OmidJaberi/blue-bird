@@ -41,26 +41,26 @@ static void test_entity_to_json(void)
 
     strcpy(u.name, "Alice");
 
-    json_node_t *obj = bb_entity_to_json(&schema, &u);
+    bb_json_t *obj = bb_entity_to_json(&schema, &u);
 
     assert(obj);
 
     assert(
-        get_json_integer_value(
-            get_json_object_value(obj, "id")
+        bb_json_get_value_integer(
+            bb_json_object_get_value(obj, "id")
         ) == 1
     );
 
     assert(
         strcmp(
-            get_json_text_value(
-                get_json_object_value(obj, "name")
+            bb_json_get_value_text(
+                bb_json_object_get_value(obj, "name")
             ),
             "Alice"
         ) == 0
     );
 
-    destroy_json(obj);
+    bb_json_destroy(obj);
     free(obj);
 }
 
@@ -97,10 +97,10 @@ static void test_json_to_entity(void)
         .primary_key_index = 0
     };
 
-    json_node_t *obj = json_new(JSON_OBJECT);
+    bb_json_t *obj = bb_json_new(BB_JSON_OBJECT);
 
-    set_json_object_value(obj, "id", json_new_int(42));
-    set_json_object_value(obj,"name", json_new_text("Bob"));
+    bb_json_object_set_value(obj, "id", bb_json_new_int(42));
+    bb_json_object_set_value(obj,"name", bb_json_new_text("Bob"));
 
     User u;
     memset(&u, 0, sizeof(u));
@@ -116,7 +116,7 @@ static void test_json_to_entity(void)
     assert(u.id == 42);
     assert(strcmp(u.name, "Bob") == 0);
 
-    destroy_json(obj);
+    bb_json_destroy(obj);
     free(obj);
 }
 
@@ -145,10 +145,10 @@ static void test_json_to_entity_invalid_type(void)
         .primary_key_index = 0
     };
 
-    json_node_t *obj = json_new(JSON_OBJECT);
+    bb_json_t *obj = bb_json_new(BB_JSON_OBJECT);
 
     /* WRONG TYPE: TEXT instead of INT */
-    set_json_object_value(obj, "id", json_new_text("oops"));
+    bb_json_object_set_value(obj, "id", bb_json_new_text("oops"));
 
     User u;
 
@@ -160,7 +160,7 @@ static void test_json_to_entity_invalid_type(void)
         ) != 0
     );
 
-    destroy_json(obj);
+    bb_json_destroy(obj);
     free(obj);
 }
 int main(void)

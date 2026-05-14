@@ -20,8 +20,8 @@ The JSON module provides parsing, serialization, and JSON object utilities.
 Example:
 
 ```c
-json_node_t json;
-int rc = parse_json_str(&json, "{ \"name\": \"Bob\" }");
+bb_json_t json;
+int rc = bb_json_parse(&json, "{ \"name\": \"Bob\" }");
 ```
 
 ---
@@ -31,7 +31,7 @@ int rc = parse_json_str(&json, "{ \"name\": \"Bob\" }");
 Example:
 
 ```c
-json_node_t *obj = JSON(
+bb_json_t *obj = BB_JSON(
     OBJ(
         KEY("name", TEXT("Bob")),
         KEY("age", INT(24))
@@ -46,7 +46,7 @@ json_node_t *obj = JSON(
 ```c
 int size;
 char *buffer;
-int rc = serialize_json(&json, &buffer, &size);
+int rc = bb_json_serialize(&json, &buffer, &size);
 ```
 
 ---
@@ -58,7 +58,7 @@ The DSL provides a lightweight syntax for constructing JSON structures programma
 Example:
 
 ```c
-JSON(
+BB_JSON(
     OBJ(
         KEY("active", BOOL(true)),
         KEY("count", INT(10))

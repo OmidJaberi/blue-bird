@@ -8,7 +8,7 @@
 
 struct bb_persist_kv_handle_t {
     char *jsonpath;
-    json_node_t json;
+    bb_json_t json;
 };
 
 static bb_persist_kv_handle_t *json_open(const char *uri)
@@ -19,7 +19,7 @@ static bb_persist_kv_handle_t *json_open(const char *uri)
     if (!h) return NULL;
 
     h->jsonpath = strdup(uri);
-    init_json(&h->json, JSON_OBJECT);
+    bb_json_init(&h->json, BB_JSON_OBJECT);
 
     return h;
 }
@@ -27,7 +27,7 @@ static bb_persist_kv_handle_t *json_open(const char *uri)
 static void json_close(bb_persist_kv_handle_t *h)
 {
     if (!h) return;
-    destroy_json(&h->json);
+    bb_json_destroy(&h->json);
     free(h->jsonpath);
     free(h);
 }
@@ -38,12 +38,12 @@ static int json_save(bb_persist_kv_handle_t *h, const char *key,
     (void) size;
     if (!h || !key || !data) return 1;
 
-    load_json(&h->json, h->jsonpath);
-    json_node_t *value = (json_node_t*)malloc(sizeof(json_node_t));
-    init_json(value, JSON_TEXT);
-    set_json_text_value(value, data);
-    set_json_object_value(&h->json, key, value); // non str data?
-    dump_json(&h->json, h->jsonpath);
+    bb_json_load(&h->json, h->jsonpath);
+    bb_json_t *value = (bb_json_t*)malloc(sizeof(bb_json_t));
+    bb_json_init(value, BB_JSON_TEXT);
+    bb_json_set_value_text(value, data);
+    bb_json_object_set_value(&h->json, key, value); // non str data?
+    bb_json_dump(&h->json, h->jsonpath);
 
     return 0;
 }
@@ -55,11 +55,11 @@ static int json_load(bb_persist_kv_handle_t *h, const char *key,
 
     if (!h || !key || !buf) return 1;
 
-    load_json(&h->json, h->jsonpath);
-    json_node_t *val_json = get_json_object_value(&h->json, key);
+    bb_json_load(&h->json, h->jsonpath);
+    bb_json_t *val_json = bb_json_object_get_value(&h->json, key);
     if (val_json)
     {
-        char *val = get_json_text_value(val_json);
+        char *val = bb_json_get_value_text(val_json);
         memcpy(buf, val, val_json->size);    
         return 0;
     }
@@ -69,9 +69,9 @@ static int json_load(bb_persist_kv_handle_t *h, const char *key,
 static int json_remove(bb_persist_kv_handle_t *h, const char *key)
 {
     if (!h || !key) return 1;
-    load_json(&h->json, h->jsonpath);
-    remove_json_object_value(&h->json, key);
-    dump_json(&h->json, h->jsonpath);
+    bb_json_load(&h->json, h->jsonpath);
+    bb_json_object_remove_key(&h->json, key);
+    bb_json_dump(&h->json, h->jsonpath);
     return 0;
 }
 
