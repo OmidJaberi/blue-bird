@@ -30,14 +30,14 @@ typedef struct BBHashTableNode {
 
 typedef struct BBJsonNode {
     bb_json_node_type_t type;
-    unsigned int size;               // For text, array, and object types
+    size_t size;               // For text, array, and object types
     union {
         bool bool_val;
         int int_val;
         float real_val;
         char *text_val;
         struct {
-            unsigned int alloc_size; // allocated size for dynamic array
+            size_t alloc_size; // allocated size for dynamic array
             struct BBJsonNode **array;
         } dynamic_array;
         struct {

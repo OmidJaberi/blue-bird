@@ -503,7 +503,7 @@ int bb_json_serialize_indented(bb_json_node_t *json, char **buffer, int *size)
 
 static bool is_substr(char *buffer, const char *str)
 {
-    for (unsigned long i = 0; i < strlen(str); i++)
+    for (size_t i = 0; i < strlen(str); i++)
         if (buffer[i] != str[i])
             return false;
     return true;
@@ -758,7 +758,7 @@ static int parse_json_str_partial(bb_json_node_t *json, char *buffer)
 int bb_json_parse(bb_json_node_t *json, char *buffer)
 {
     int res = parse_json_str_partial(json, buffer);
-    if ((unsigned long)res != strlen(buffer))
+    if ((size_t)res != strlen(buffer))
     {
         bb_json_destroy(json);
         return -1;
