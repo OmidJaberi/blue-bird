@@ -3,11 +3,11 @@
 
 #include "server_response.h"
 
-typedef server_response_t client_response_t;
+typedef bb_server_response_t bb_client_response_t;
 
-void init_client_response(client_response_t *res);
-void destroy_client_response(client_response_t *res);
-const char *get_client_response_header(client_response_t *res, const char *name);
-int parse_client_response(const char *raw, client_response_t *res);
+void bb_client_response_init(bb_client_response_t *res);
+void bb_client_response_destroy(bb_client_response_t *res);
+const char *bb_client_response_get_header(bb_client_response_t *res, const char *name);
+int bb_client_response_parse(const char *raw, bb_client_response_t *res);
 
 #endif //BB_CLIENT_RESPONSE_H

@@ -7,7 +7,7 @@ Routing maps incoming HTTP requests to application handlers.
 # Registering Routes
 
 ```c
-add_route(
+bb_server_add_route(
     &server,
     "GET",
     "/",
@@ -29,7 +29,7 @@ Handlers process incoming requests and generate responses.
 Example:
 
 ```c
-bb_error_t root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
     bb_response_set_body(res, "Hello");
 
@@ -46,22 +46,22 @@ Blue-Bird supports parameterized routes using the `:param_name` syntax.
 Example route registration:
 
 ```c
-add_route(&server, "GET", "/param/:name", request_param_handler);
+bb_server_add_route(&server, "GET", "/param/:name", request_param_handler);
 ```
 
 Example handler:
 
 ```c
-bb_error_t request_param_handler(request_t *req, response_t *res)
+bb_error_t request_param_handler(bb_request_t *req, bb_response_t *res)
 {
-    const char *name = get_request_param(req, "name");
+    const char *name = bb_request_get_param(req, "name");
 
-    set_response_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, "Content-Type", "text/plain");
 
     char msg[512];
     sprintf(msg, "name: %s", name);
 
-    set_response_body(res, msg);
+    bb_response_set_body(res, msg);
 
     return BB_SUCCESS();
 }
@@ -84,21 +84,21 @@ Blue-Bird also supports multiple route parameters.
 Example:
 
 ```c
-add_route(&server, "GET", "/param/:param_1/:param_2", multi_request_param_handler);
+bb_server_add_route(&server, "GET", "/param/:param_1/:param_2", multi_request_param_handler);
 ```
 
 ```c
-bb_error_t multi_request_param_handler(request_t *req, response_t *res)
+bb_error_t multi_request_param_handler(bb_request_t *req, bb_response_t *res)
 {
-    const char *p_1 = get_request_param(req, "param_1");
-    const char *p_2 = get_request_param(req, "param_2");
+    const char *p_1 = bb_request_get_param(req, "param_1");
+    const char *p_2 = bb_request_get_param(req, "param_2");
 
-    set_response_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, "Content-Type", "text/plain");
 
     char msg[512];
     sprintf(msg, "%s and %s", p_1, p_2);
 
-    set_response_body(res, msg);
+    bb_response_set_body(res, msg);
 
     return BB_SUCCESS();
 }
@@ -120,33 +120,33 @@ hello and good_bye
 
 # Query Parameters
 
-Blue-Bird supports query parameters using `get_request_query_param()`.
+Blue-Bird supports query parameters using `bb_request_get_query_param()`.
 
 Example route registration:
 
 ```c
-add_route(&server, "GET", "/q_param", request_query_param_handler);
+bb_server_add_route(&server, "GET", "/q_param", request_query_param_handler);
 ```
 
 Example handler:
 
 ```c
-bb_error_t request_query_param_handler(request_t *req, response_t *res)
+bb_error_t request_query_param_handler(bb_request_t *req, bb_response_t *res)
 {
-    const char *value = get_request_query_param(req, "val");
+    const char *value = bb_request_get_query_param(req, "val");
 
     if (!value)
     {
-        set_response_status(res, 400);
+        bb_response_set_status(res, 400);
         return BB_SUCCESS();
     }
 
-    set_response_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, "Content-Type", "text/plain");
 
     char msg[512];
     sprintf(msg, "val: %s", value);
 
-    set_response_body(res, msg);
+    bb_response_set_body(res, msg);
 
     return BB_SUCCESS();
 }
@@ -169,27 +169,27 @@ Blue-Bird also supports multiple query parameters.
 Example:
 
 ```c
-add_route(&server, "GET", "/q_param/multi", request_multi_query_param_handler);
+bb_server_add_route(&server, "GET", "/q_param/multi", request_multi_query_param_handler);
 ```
 
 ```c
-bb_error_t request_multi_query_param_handler(request_t *req, response_t *res)
+bb_error_t request_multi_query_param_handler(bb_request_t *req, bb_response_t *res)
 {
-    const char *value_1 = get_request_query_param(req, "val_1");
-    const char *value_2 = get_request_query_param(req, "val_2");
+    const char *value_1 = bb_request_get_query_param(req, "val_1");
+    const char *value_2 = bb_request_get_query_param(req, "val_2");
 
     if (!value_1 || !value_2)
     {
-        set_response_status(res, 400);
+        bb_response_set_status(res, 400);
         return BB_SUCCESS();
     }
 
-    set_response_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, "Content-Type", "text/plain");
 
     char msg[512];
     sprintf(msg, "%s-%s", value_1, value_2);
 
-    set_response_body(res, msg);
+    bb_response_set_body(res, msg);
 
     return BB_SUCCESS();
 }

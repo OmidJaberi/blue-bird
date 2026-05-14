@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-void init_message(http_message_t *msg)
+void bb_message_init(bb_http_message_t *msg)
 {
     msg->start_line = NULL;
     msg->headers = NULL;
@@ -14,7 +14,7 @@ void init_message(http_message_t *msg)
     msg->body_len = 0;
 }
 
-void set_message_start_line(http_message_t *msg, const char *start_line)
+void bb_message_set_start_line(bb_http_message_t *msg, const char *start_line)
 {
     if (!msg) return;
 
@@ -34,7 +34,7 @@ void set_message_start_line(http_message_t *msg, const char *start_line)
     msg->start_line[len] = '\0';
 }
 
-const char *get_message_header(http_message_t *msg, const char *name)
+const char *bb_message_get_header(bb_http_message_t *msg, const char *name)
 {
     for (int i = 0; i < msg->header_count; i++)
         if (strcmp(msg->headers[i].name, name) == 0)
@@ -42,7 +42,7 @@ const char *get_message_header(http_message_t *msg, const char *name)
     return NULL;
 }
 
-void set_message_header(http_message_t *msg, const char *name, const char *value)
+void bb_message_set_header(bb_http_message_t *msg, const char *name, const char *value)
 {
     msg->headers = realloc(msg->headers, (msg->header_count + 1)* sizeof(*msg->headers));
     msg->headers[msg->header_count].name = strdup(name);
@@ -50,7 +50,7 @@ void set_message_header(http_message_t *msg, const char *name, const char *value
     msg->header_count++;
 }
 
-void set_message_body(http_message_t *msg, const char *body)
+void bb_message_set_body(bb_http_message_t *msg, const char *body)
 {
     if (!msg) return;
 
@@ -106,13 +106,13 @@ static int parse_header(const char **raw, char **name_buf, char **value_buf)
     return 0;
 }
 
-static int parse_body(http_message_t *msg, const char *raw)
+static int parse_body(bb_http_message_t *msg, const char *raw)
 {
     const char *body_start = strstr(raw, "\r\n\r\n");
     if (!body_start) return 0;
 
     body_start += 4; // skip "\r\n\r\n"
-    const char *content_length = get_message_header(msg, "Content-Length");
+    const char *content_length = bb_message_get_header(msg, "Content-Length");
     size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
 
     if (body_len <= 0)
@@ -124,22 +124,22 @@ static int parse_body(http_message_t *msg, const char *raw)
     memcpy(body_buf, body_start, body_len);
     body_buf[body_len] = '\0';
 
-    const char *ctype = get_message_header(msg, "Content-Type");
+    const char *ctype = bb_message_get_header(msg, "Content-Type");
     if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
         decode_percent(body_buf, 1);
 
     // Store into message
-    set_message_body(msg, body_buf);
+    bb_message_set_body(msg, body_buf);
     free(body_buf);
 
     return 0;
 }
 
-int parse_message(const char *raw, http_message_t *msg)
+int bb_message_parse(const char *raw, bb_http_message_t *msg)
 {
     if (!raw || !msg) return -1;
 
-    init_message(msg);
+    bb_message_init(msg);
 
     // Parse start line
     const char *line_end = strstr(raw, "\r\n");
@@ -151,8 +151,8 @@ int parse_message(const char *raw, http_message_t *msg)
     strncpy(line, raw, len);
     line[len] = '\0';
 
-    // Set the start line in http_message_t
-    set_message_start_line(msg, line);
+    // Set the start line in bb_http_message_t
+    bb_message_set_start_line(msg, line);
 
     // Parse headers
     const char *header_start = line_end + 2;
@@ -169,7 +169,7 @@ int parse_message(const char *raw, http_message_t *msg)
             return -1;
         }
 
-        set_message_header(msg, name_buf, value_buf);
+        bb_message_set_header(msg, name_buf, value_buf);
 
         if (name_buf) free(name_buf);
         if (value_buf) free(value_buf);
@@ -179,11 +179,11 @@ int parse_message(const char *raw, http_message_t *msg)
     return parse_body(msg, raw);
 }
 
-int serialize_message(http_message_t *msg, char **buffer, int *buffer_size)
+int bb_message_serialize(bb_http_message_t *msg, char **buffer, int *buffer_size)
 {
     if (buffer)
     {
-        *buffer_size = serialize_message(msg, NULL, NULL) + 1;
+        *buffer_size = bb_message_serialize(msg, NULL, NULL) + 1;
         *buffer = malloc(*buffer_size);
         if (!*buffer)
             return -1;
@@ -194,7 +194,7 @@ int serialize_message(http_message_t *msg, char **buffer, int *buffer_size)
         int body_len = msg->body ? strlen(msg->body) : 0;
         char len_buf[256];
         snprintf(len_buf, 256, "%d", body_len);
-        set_message_header(msg, "Content-Length", len_buf);
+        bb_message_set_header(msg, "Content-Length", len_buf);
     }
 
     // Start Line:
@@ -221,7 +221,7 @@ int serialize_message(http_message_t *msg, char **buffer, int *buffer_size)
     return written;
 }
 
-void destroy_message(http_message_t *msg)
+void bb_message_destroy(bb_http_message_t *msg)
 {
     for (int i = 0; i < msg->header_count; i++)
     {

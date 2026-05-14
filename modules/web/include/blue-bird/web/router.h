@@ -12,22 +12,22 @@ extern "C" {
 #define MAX_SEGMENTS 20
 #define MAX_PATH_LEN 256
 
-typedef http_handler_cb route_handler_cb;
+typedef bb_http_handler_cb bb_route_handler_cb;
 
 typedef struct Route {
     char *method;
     char path_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int segments_count;
-    route_handler_cb handler;
+    bb_route_handler_cb handler;
     struct Route *next_route;
-} route_t;
+} bb_route_t;
 
-typedef route_t* route_list_t;
+typedef bb_route_t* bb_route_list_t;
 
-void init_route_list(route_list_t *route_list);
-bb_error_t add_route_to_list(route_list_t *route_list, const char *method, const char *path, route_handler_cb handler);
-void handle_request(route_list_t *route_list, request_t *req, response_t *res);
-void destroy_route_list(route_list_t *route_list);
+void bb_route_list_init(bb_route_list_t *route_list);
+bb_error_t bb_route_list_add(bb_route_list_t *route_list, const char *method, const char *path, bb_route_handler_cb handler);
+void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res);
+void bb_route_list_destroy(bb_route_list_t *route_list);
 
 
 #ifdef __cplusplus

@@ -52,11 +52,11 @@ Example server setup:
 ```c
 bb_server_t server;
 
-init_server(&server, 8080);
+bb_server_init(&server, 8080);
 
-add_route(&server, "GET", "/", root_handler);
+bb_server_add_route(&server, "GET", "/", root_handler);
 
-start_server(&server);
+bb_server_start(&server);
 ```
 
 A route consists of:
@@ -77,12 +77,12 @@ Handlers receive:
 Example:
 
 ```c
-bb_error_t root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
 
-    set_response_header(res, "Content-Type", "text/plain");
-    set_response_body(res, "Hello, Blue-Bird :)");
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Hello, Blue-Bird :)");
 
     return BB_SUCCESS();
 }
@@ -101,14 +101,14 @@ Handlers can:
 
 # Request Object
 
-The `request_t` structure represents an incoming HTTP request.
+The `bb_request_t` structure represents an incoming HTTP request.
 
 Common operations include:
 
 ```c
-set_request_method(&req, "GET");
-set_request_url(&req, "/");
-set_request_body(&req, "");
+bb_request_set_method(&req, "GET");
+bb_request_set_url(&req, "/");
+bb_request_set_body(&req, "");
 ```
 
 The request object supports:
@@ -121,33 +121,33 @@ The request object supports:
 Route parameters:
 
 ```c
-const char *name = get_request_param(req, "name");
+const char *name = bb_request_get_param(req, "name");
 ```
 
 Query parameters:
 
 ```c
-const char *value = get_request_query_param(req, "val");
+const char *value = bb_request_get_query_param(req, "val");
 ```
 
 ---
 
 # Response Object
 
-The `response_t` structure represents an outgoing HTTP response.
+The `bb_response_t` structure represents an outgoing HTTP response.
 
 Example:
 
 ```c
-set_response_status(res, 200);
+bb_response_set_status(res, 200);
 
-set_response_header(
+bb_response_set_header(
     res,
     "Content-Type",
     "text/plain"
 );
 
-set_response_body(res, "Hello");
+bb_response_set_body(res, "Hello");
 ```
 
 The response object supports:
@@ -172,18 +172,18 @@ Example:
 ```c
 bb_client_t client;
 
-http_client_connect(&client, "127.0.0.1", 8080);
+bb_client_connect(&client, "127.0.0.1", 8080);
 
-http_client_send(&client, &req);
+bb_client_send(&client, &req);
 
-http_client_receive(&client, &res);
+bb_client_receive(&client, &res);
 
-http_client_close(&client);
+bb_client_close(&client);
 ```
 
 The client works directly with:
-- `request_t`
-- `response_t`
+- `bb_request_t`
+- `bb_response_t`
 
 This allows shared request/response abstractions between client and server code.
 
@@ -194,13 +194,13 @@ This allows shared request/response abstractions between client and server code.
 The module exposes lower-level HTTP message access through:
 
 ```c
-http_message_t
+bb_http_message_t
 ```
 
 Example:
 
 ```c
-http_message_t *http_msg = &GET_REQUEST_MESSAGE(*req);
+bb_http_message_t *http_msg = &BB_REQUEST_GET_MESSAGE(*req);
 ```
 
 This layer provides direct access to:
@@ -225,7 +225,7 @@ Supported features include:
 Example:
 
 ```c
-add_route(&server, "GET", "/param/:name", handler);
+bb_server_add_route(&server, "GET", "/param/:name", handler);
 ```
 
 ---

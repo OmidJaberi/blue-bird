@@ -33,7 +33,7 @@ This builds:
 ```c
 #include <blue-bird/web/server.h>
 
-bb_error_t root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
     set_header(res, "Content-Type", "text/plain");
     set_body(res, "Hello, Blue-Bird :)");
@@ -43,11 +43,11 @@ bb_error_t root_handler(request_t *req, response_t *res)
 int main(void)
 {
     bb_server_t server;
-    init_server(&server, 8080);
+    bb_server_init(&server, 8080);
 
-    add_route(&server, "GET", "/", root_handler);
+    bb_server_add_route(&server, "GET", "/", root_handler);
     
-    start_server(&server);
+    bb_server_start(&server);
     return 0;
 }
 ```

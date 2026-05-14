@@ -11,7 +11,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-bb_error_t http_client_connect(bb_client_t *client, const char *host, int port)
+bb_error_t bb_client_connect(bb_client_t *client, const char *host, int port)
 {
     if (!client || !host)
         return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or host");
@@ -67,7 +67,7 @@ static ssize_t send_all(int fd, const void *data, size_t len)
     return sent;
 }
 
-bb_error_t http_client_send(bb_client_t *client, request_t *req)
+bb_error_t bb_client_send(bb_client_t *client, bb_request_t *req)
 {
     if (!client || !req)
         return BB_ERROR(BB_ERR_UNKNOWN,"Invalid client or request");
@@ -76,8 +76,8 @@ bb_error_t http_client_send(bb_client_t *client, request_t *req)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
     /* ---- Build request start line ---- */
-    const char *method = GET_REQUEST_METHOD(*req) ? GET_REQUEST_METHOD(*req) : "GET";
-    const char *url = GET_REQUEST_URL(*req) ? GET_REQUEST_URL(*req) : "/";
+    const char *method = BB_REQUEST_GET_METHOD(*req) ? BB_REQUEST_GET_METHOD(*req) : "GET";
+    const char *url = BB_REQUEST_GET_URL(*req) ? BB_REQUEST_GET_URL(*req) : "/";
     
     char start_line[512];
     snprintf(start_line, sizeof(start_line),
@@ -86,15 +86,15 @@ bb_error_t http_client_send(bb_client_t *client, request_t *req)
     // Temporary:
     char *message;
     int size;
-    set_message_start_line(&GET_REQUEST_MESSAGE(*req), start_line);
-    serialize_message(&GET_REQUEST_MESSAGE(*req), &message, &size);
+    bb_message_set_start_line(&BB_REQUEST_GET_MESSAGE(*req), start_line);
+    bb_message_serialize(&BB_REQUEST_GET_MESSAGE(*req), &message, &size);
     send_all(client->sock_fd, message, size);
 
     free(message);
     return BB_SUCCESS();
 }
 
-bb_error_t http_client_receive(bb_client_t *client, response_t *res)
+bb_error_t bb_client_receive(bb_client_t *client, bb_response_t *res)
 {
     if (!client || !res)
         return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or response");
@@ -102,20 +102,20 @@ bb_error_t http_client_receive(bb_client_t *client, response_t *res)
     if (client->sock_fd < 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
-    init_response(res);
+    bb_response_init(res);
 
     char *buffer;
-    read_http_message(client->sock_fd, &buffer);
+    bb_http_read_message(client->sock_fd, &buffer);
 
     /* Delegate parsing */
-    if (parse_response(buffer, res) != 0)
+    if (bb_response_parse(buffer, res) != 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Failed to parse response");
 
     free(buffer);
     return BB_SUCCESS();
 }
 
-void http_client_close(bb_client_t *client)
+void bb_client_close(bb_client_t *client)
 {
     if (!client) return;
 

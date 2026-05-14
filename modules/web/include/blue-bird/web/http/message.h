@@ -6,32 +6,32 @@
 typedef struct {
     char *name;
     char *value;
-} header_t;
+} _bb_message_header_t;
 
 typedef struct {
     char *start_line; // Fixed size ?
 
-    header_t *headers;
+    _bb_message_header_t *headers;
     int header_count;
 
     char *body;
     size_t body_len;
-} http_message_t;
+} bb_http_message_t;
 
-void init_message(http_message_t *msg);
+void bb_message_init(bb_http_message_t *msg);
 
-void set_message_start_line(http_message_t *msg, const char *start_line);
+void bb_message_set_start_line(bb_http_message_t *msg, const char *start_line);
 
-const char *get_message_header(http_message_t *msg, const char *name);
+const char *bb_message_get_header(bb_http_message_t *msg, const char *name);
 
-void set_message_header(http_message_t *msg, const char *name, const char *value);
+void bb_message_set_header(bb_http_message_t *msg, const char *name, const char *value);
 
-void set_message_body(http_message_t *msg, const char *body);
+void bb_message_set_body(bb_http_message_t *msg, const char *body);
 
-int parse_message(const char *raw, http_message_t *msg);
+int bb_message_parse(const char *raw, bb_http_message_t *msg);
 
-int serialize_message(http_message_t *msg, char **buffer, int *buffer_size);
+int bb_message_serialize(bb_http_message_t *msg, char **buffer, int *buffer_size);
 
-void destroy_message(http_message_t *msg);
+void bb_message_destroy(bb_http_message_t *msg);
 
 #endif //BB_HTTP_MESSAGE_H

@@ -1,23 +1,23 @@
 #include "blue-bird/web/http/response.h"
 
-void init_response(response_t *res) { init_server_response(res); }
+void bb_response_init(bb_response_t *res) { bb_server_response_init(res); }
 
-void destroy_response(response_t *res) { destroy_server_response(res); }
+void bb_response_destroy(bb_response_t *res) { bb_server_response_destroy(res); }
 
 // Server:
 
-int set_response_status(response_t *res, int code) { return set_server_response_status(res, code); }
+int bb_response_set_status(bb_response_t *res, int code) { return bb_server_response_set_status(res, code); }
 
-void set_response_header(response_t *res, const char *name, const char *value) { set_server_response_header(res, name, value); }
+void bb_response_set_header(bb_response_t *res, const char *name, const char *value) { bb_server_response_set_header(res, name, value); }
 
-void set_response_body(response_t *res, char *body) { set_server_response_body(res, body); }
+void bb_response_set_body(bb_response_t *res, char *body) { bb_server_response_set_body(res, body); }
 
-int serialize_response(response_t *res, char **buffer, int *size) { return serialize_server_response(res, buffer, size); }
+int bb_response_serialize(bb_response_t *res, char **buffer, int *size) { return bb_server_response_serialize(res, buffer, size); }
 
-int send_response(int sock_fd, response_t *res) { return send_server_response(sock_fd, res); }
+int bb_response_send(int sock_fd, bb_response_t *res) { return bb_server_response_send(sock_fd, res); }
 
 // Client:
 
-const char *get_response_header(response_t *res, const char *name) { return get_client_response_header(res, name); }
+const char *bb_response_get_header(bb_response_t *res, const char *name) { return bb_client_response_get_header(res, name); }
 
-int parse_response(const char *raw, response_t *res) { return parse_client_response(raw, res); }
+int bb_response_parse(const char *raw, bb_response_t *res) { return bb_client_response_parse(raw, res); }

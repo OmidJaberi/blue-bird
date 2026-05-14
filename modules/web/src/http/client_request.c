@@ -4,11 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-void init_client_request(client_request_t *req)
+void bb_client_request_init(bb_client_request_t *req)
 {
     if (!req) return;
 
-    init_message(&req->msg);
+    bb_message_init(&req->msg);
 
     req->method = NULL;
     req->url = NULL;
@@ -16,7 +16,7 @@ void init_client_request(client_request_t *req)
     req->port = 80; // default HTTP port
 }
 
-void set_client_request_method(client_request_t *req, const char *method)
+void bb_client_request_set_method(bb_client_request_t *req, const char *method)
 {
     if (!req) return;
 
@@ -30,7 +30,7 @@ void set_client_request_method(client_request_t *req, const char *method)
     req->method = strdup(method);
 }
 
-void set_client_request_url(client_request_t *req, const char *url)
+void bb_client_request_set_url(bb_client_request_t *req, const char *url)
 {
     if (!req) return;
 
@@ -44,23 +44,23 @@ void set_client_request_url(client_request_t *req, const char *url)
     req->url = strdup(url);
 }
 
-void set_client_request_header(client_request_t *req, const char *name, const char *value)
+void bb_client_request_set_header(bb_client_request_t *req, const char *name, const char *value)
 {
     if (!req) return;
 
-    set_message_header(&req->msg, name, value);
+    bb_message_set_header(&req->msg, name, value);
 }
 
-void set_client_request_body(client_request_t *req, char *body)
+void bb_client_request_set_body(bb_client_request_t *req, char *body)
 {
-    set_message_body(&req->msg, body);
+    bb_message_set_body(&req->msg, body);
 }
 
-void destroy_client_request(client_request_t *req)
+void bb_client_request_destroy(bb_client_request_t *req)
 {
     if (!req) return;
 
-    destroy_message(&req->msg);
+    bb_message_destroy(&req->msg);
 
     if (req->method) {
         free(req->method);

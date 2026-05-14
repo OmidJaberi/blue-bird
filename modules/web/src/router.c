@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-void init_route_list(route_list_t *route_list)
+void bb_route_list_init(bb_route_list_t *route_list)
 {
     *route_list = NULL;
 }
@@ -41,7 +41,7 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
     return count;
 }
 
-bb_error_t add_route_to_list(route_list_t *route_list, const char *method, const char *path, route_handler_cb handler)
+bb_error_t bb_route_list_add(bb_route_list_t *route_list, const char *method, const char *path, bb_route_handler_cb handler)
 {
     // Basic sanity checks
     BB_ASSERT(route_list != NULL, "Route list pointer is NULL");
@@ -49,7 +49,7 @@ bb_error_t add_route_to_list(route_list_t *route_list, const char *method, const
     BB_ASSERT(path != NULL, "Route path is NULL");
     BB_ASSERT(handler != NULL, "Route handler is NULL");
 
-    route_t *new_route = malloc(sizeof(route_t));
+    bb_route_t *new_route = malloc(sizeof(bb_route_t));
     
     // Add the route
     new_route->method = strdup(method);
@@ -62,7 +62,7 @@ bb_error_t add_route_to_list(route_list_t *route_list, const char *method, const
     return BB_SUCCESS();
 }
 
-static int match_segments(route_t *route, char segments[][MAX_PATH_LEN], int segments_count)
+static int match_segments(bb_route_t *route, char segments[][MAX_PATH_LEN], int segments_count)
 {
     if (segments_count != route->segments_count)
         return -1;
@@ -76,21 +76,21 @@ static int match_segments(route_t *route, char segments[][MAX_PATH_LEN], int seg
     return 0;
 }
 
-void handle_request(route_list_t *route_list, request_t *req, response_t *res)
+void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
-    int req_count = split_path(GET_REQUEST_PATH(*req), req_segments);
+    int req_count = split_path(BB_REQUEST_GET_PATH(*req), req_segments);
 
-    for (route_t *route = *route_list; route != NULL; route = route->next_route)
+    for (bb_route_t *route = *route_list; route != NULL; route = route->next_route)
     {
-        if (strcmp(GET_REQUEST_METHOD(*req), route->method) != 0) continue;
+        if (strcmp(BB_REQUEST_GET_METHOD(*req), route->method) != 0) continue;
 
         if (match_segments(route, req_segments, req_count) == 0)
         {
             for (int j = 0; j < req_count; j++)
             {
                 if (route->path_segments[j][0] == ':')
-                    add_request_param(req, route->path_segments[j] + 1, req_segments[j]);
+                    bb_request_add_param(req, route->path_segments[j] + 1, req_segments[j]);
             }
             route->handler(req, res);
             return;
@@ -98,18 +98,18 @@ void handle_request(route_list_t *route_list, request_t *req, response_t *res)
     }
 
     // Default 404
-    init_response(res);
-    set_response_status(res, 404);
-    set_response_header(res, "Content-Type", "text/plain");
-    set_response_body(res, "Route Not Found");
+    bb_response_init(res);
+    bb_response_set_status(res, 404);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Route Not Found");
 }
 
-void destroy_route_list(route_list_t *route_list)
+void bb_route_list_destroy(bb_route_list_t *route_list)
 {
-    route_t *current = *route_list;
+    bb_route_t *current = *route_list;
     while (current)
     {
-        route_t *next = current->next_route;
+        bb_route_t *next = current->next_route;
         free(current->method);
         free(current);
         current = next;

@@ -2,14 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void init_middleware_list(middleware_list_t *list)
+void bb_middleware_list_init(bb_middleware_list_t *list)
 {
     *list = NULL;
 }
 
-static middleware_object_t *create_middleware_object(middleware_cb mw)
+static bb_middleware_object_t *create_middleware_object(bb_middleware_cb mw)
 {
-    middleware_object_t *mw_obj = malloc(sizeof(middleware_object_t));
+    bb_middleware_object_t *mw_obj = malloc(sizeof(bb_middleware_object_t));
     if (mw_obj == NULL)
     {
         return NULL;
@@ -19,23 +19,23 @@ static middleware_object_t *create_middleware_object(middleware_cb mw)
     return mw_obj;
 }
 
-void append_to_middleware_list(middleware_list_t *list, middleware_cb mw)
+void bb_middleware_list_append(bb_middleware_list_t *list, bb_middleware_cb mw)
 {
-    middleware_object_t *mw_obj = create_middleware_object(mw);
+    bb_middleware_object_t *mw_obj = create_middleware_object(mw);
     if (!*list)
         *list = mw_obj;
     else
     {
-        middleware_object_t *last = *list;
+        bb_middleware_object_t *last = *list;
         while (last->next)
             last = last->next;
         last->next = mw_obj;
     }
 }
 
-bb_error_t run_middleware(middleware_list_t *list, request_t *req, response_t *res)
+bb_error_t bb_middleware_list_run(bb_middleware_list_t *list, bb_request_t *req, bb_response_t *res)
 {
-    middleware_object_t *current = *list;
+    bb_middleware_object_t *current = *list;
     while (current)
     {
         bb_error_t result = current->middleware(req, res);
@@ -46,12 +46,12 @@ bb_error_t run_middleware(middleware_list_t *list, request_t *req, response_t *r
     return BB_SUCCESS();
 }
 
-void destroy_middleware_list(middleware_list_t *list)
+void bb_middleware_list_destroy(bb_middleware_list_t *list)
 {
-    middleware_object_t *current = *list;
+    bb_middleware_object_t *current = *list;
     while (current)
     {
-        middleware_object_t *next = current->next;
+        bb_middleware_object_t *next = current->next;
         free(current);
         current = next;
     }

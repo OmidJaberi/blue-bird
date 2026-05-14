@@ -12,8 +12,8 @@ extern "C" {
 
 #include <unistd.h>
 
-typedef bb_error_t (*http_handler_cb)(request_t *req, response_t *res);
-ssize_t read_http_message(int fd, char **out_buf);
+typedef bb_error_t (*bb_http_handler_cb)(bb_request_t *req, bb_response_t *res);
+ssize_t bb_http_read_message(int fd, char **out_buf);
 
 
 #ifdef __cplusplus

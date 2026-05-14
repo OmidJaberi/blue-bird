@@ -6,16 +6,16 @@
 
 void test_message_basic(void)
 {
-    http_message_t msg;
+    bb_http_message_t msg;
     char *buffer;
     int size;
 
-    init_message(&msg);
-    set_message_start_line(&msg, "HTTP/1.1 200 OK");
-    set_message_header(&msg, "Content-Type", "text/plain");
-    set_message_body(&msg, "Hello there!");
+    bb_message_init(&msg);
+    bb_message_set_start_line(&msg, "HTTP/1.1 200 OK");
+    bb_message_set_header(&msg, "Content-Type", "text/plain");
+    bb_message_set_body(&msg, "Hello there!");
 
-    serialize_message(&msg, &buffer, &size);
+    bb_message_serialize(&msg, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
     assert(strstr(buffer, "Content-Type: text/plain") != NULL);
@@ -23,22 +23,22 @@ void test_message_basic(void)
     assert(strstr(buffer, "Hello there!") != NULL);
 
     free(buffer);
-    destroy_message(&msg);
+    bb_message_destroy(&msg);
 }
 
 void test_message_multiple_headers(void)
 {
-    http_message_t msg;
+    bb_http_message_t msg;
     char *buffer;
     int size;
 
-    init_message(&msg);
-    set_message_start_line(&msg, "HTTP/1.1 201 Created");
-    set_message_header(&msg, "Content-Type", "application/json");
-    set_message_header(&msg, "X-Custom", "Blue-Bird");
-    set_message_body(&msg, "{\"ok\":true}");
+    bb_message_init(&msg);
+    bb_message_set_start_line(&msg, "HTTP/1.1 201 Created");
+    bb_message_set_header(&msg, "Content-Type", "application/json");
+    bb_message_set_header(&msg, "X-Custom", "Blue-Bird");
+    bb_message_set_body(&msg, "{\"ok\":true}");
 
-    serialize_message(&msg, &buffer, &size);
+    bb_message_serialize(&msg, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
     assert(strstr(buffer, "Content-Type: application/json") != NULL);
@@ -47,12 +47,12 @@ void test_message_multiple_headers(void)
     assert(strstr(buffer, "{\"ok\":true}") != NULL);
 
     free(buffer);
-    destroy_message(&msg);
+    bb_message_destroy(&msg);
 }
 
 void test_message_large_body(void)
 {
-    http_message_t msg;
+    bb_http_message_t msg;
     char *buffer;
     int size;
 
@@ -63,18 +63,18 @@ void test_message_large_body(void)
         large_body[i] = 'A';
     large_body[large_size - 1] = '\0';
 
-    init_message(&msg);
-    set_message_start_line(&msg, "HTTP/1.1 200 OK");
-    set_message_header(&msg, "Content-Type", "text/plain");
-    set_message_body(&msg, large_body);
+    bb_message_init(&msg);
+    bb_message_set_start_line(&msg, "HTTP/1.1 200 OK");
+    bb_message_set_header(&msg, "Content-Type", "text/plain");
+    bb_message_set_body(&msg, large_body);
 
-    int len = serialize_message(&msg, &buffer, &size);
+    int len = bb_message_serialize(&msg, &buffer, &size);
 
     assert(strstr(buffer, "Content-Length: 50000") != NULL);
     assert(buffer[len - 1] == 'A');
 
     free(buffer);
-    destroy_message(&msg);
+    bb_message_destroy(&msg);
 }
 
 int main(void)

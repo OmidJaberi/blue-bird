@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-ssize_t read_http_message(int fd, char **out_buf)
+ssize_t bb_http_read_message(int fd, char **out_buf)
 {
     size_t cap = 4096;
     size_t len = 0;

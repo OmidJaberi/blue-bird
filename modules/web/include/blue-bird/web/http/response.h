@@ -4,28 +4,28 @@
 #include "server_response.h"
 #include "client_response.h"
 
-typedef server_response_t response_t;
+typedef bb_server_response_t bb_response_t;
 
-void init_response(response_t *res);
+void bb_response_init(bb_response_t *res);
 
-void destroy_response(response_t *res);
+void bb_response_destroy(bb_response_t *res);
 
 // Server:
 
-int set_response_status(response_t *res, int code);
+int bb_response_set_status(bb_response_t *res, int code);
 
-void set_response_header(response_t *res, const char *name, const char *value);
+void bb_response_set_header(bb_response_t *res, const char *name, const char *value);
 
-void set_response_body(response_t *res, char *body);
+void bb_response_set_body(bb_response_t *res, char *body);
 
-int serialize_response(response_t *res, char **buffer, int *size);
+int bb_response_serialize(bb_response_t *res, char **buffer, int *size);
 
-int send_response(int sock_fd, response_t *res);
+int bb_response_send(int sock_fd, bb_response_t *res);
 
 // Client:
 
-const char *get_response_header(response_t *res, const char *name);
+const char *bb_response_get_header(bb_response_t *res, const char *name);
 
-int parse_response(const char *raw, response_t *res);
+int bb_response_parse(const char *raw, bb_response_t *res);
 
 #endif //BB_RESPONSE_H

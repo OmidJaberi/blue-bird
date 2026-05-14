@@ -4,12 +4,12 @@
 int main(void)
 {
     bb_server_t server;
-    init_server(&server, 8080);
+    bb_server_init(&server, 8080);
 
-    add_route(&server, "GET", "/", root_handler);
-    add_route(&server, "POST", "/hello", hello_post_handler);
-    add_route(&server, "GET", "/hello", hello_get_handler);
+    bb_server_add_route(&server, "GET", "/", root_handler);
+    bb_server_add_route(&server, "POST", "/hello", hello_post_handler);
+    bb_server_add_route(&server, "GET", "/hello", hello_get_handler);
     
-    start_server(&server);
+    bb_server_start(&server);
     return 0;
 }

@@ -35,13 +35,13 @@ static int is_valid_path(const char *path)
     return 1;
 }
 
-void init_server_request(server_request_t *req)
+void bb_server_request_init(bb_server_request_t *req)
 {
     if (!req) return;
-    init_message(&req->msg);
+    bb_message_init(&req->msg);
 }
 
-static void parse_query_params(server_request_t *req)
+static void parse_query_params(bb_server_request_t *req)
 {
     char *qmark = strchr(req->path, '?');
     if (qmark)
@@ -59,24 +59,24 @@ static void parse_query_params(server_request_t *req)
             {
                 decode_percent(eq + 1, 1);
                 *eq = '\0';
-                add_server_request_query_param(req, pair, eq + 1);
+                bb_server_request_add_query_param(req, pair, eq + 1);
 
             }
             else
-                add_server_request_query_param(req, pair, "");
+                bb_server_request_add_query_param(req, pair, "");
             pair = strtok(NULL, "&");
         }
     }
 }
 
-int parse_server_request(const char *raw, server_request_t *req)
+int bb_server_request_parse(const char *raw, bb_server_request_t *req)
 {
     if (!raw || !req) return -1;
 
     req->param_count = 0;
     req->query_count = 0;
-    init_message(&req->msg);
-    if (parse_message(raw, &req->msg) != 0)
+    bb_message_init(&req->msg);
+    if (bb_message_parse(raw, &req->msg) != 0)
         return -1;
 
     // Parse method, path, version
@@ -107,18 +107,18 @@ int parse_server_request(const char *raw, server_request_t *req)
     return 0;
 }
 
-void destroy_server_request(server_request_t *req)
+void bb_server_request_destroy(bb_server_request_t *req)
 {
-    destroy_message(&req->msg);
+    bb_message_destroy(&req->msg);
     req->param_count = 0;
 }
 
-int add_server_request_param(server_request_t *req, const char *key, const char *value)
+int bb_server_request_add_param(bb_server_request_t *req, const char *key, const char *value)
 {
     if (req->param_count >= MAX_PARAMS)
        return -1;
     
-    param_t *qp = &req->params[req->param_count];
+    _bb_param_t *qp = &req->params[req->param_count];
 
     strncpy(qp->name, key, sizeof(qp->name) - 1);
     qp->name[sizeof(qp->name) - 1] = '\0';
@@ -130,7 +130,7 @@ int add_server_request_param(server_request_t *req, const char *key, const char 
     return 0;
 }
 
-const char *get_server_request_param(server_request_t *req, const char *name)
+const char *bb_server_request_get_param(bb_server_request_t *req, const char *name)
 {
     for (int i = 0; i < req->param_count; i++)
     {
@@ -142,12 +142,12 @@ const char *get_server_request_param(server_request_t *req, const char *name)
     return NULL;
 }
 
-int add_server_request_query_param(server_request_t *req, const char *key, const char *value)
+int bb_server_request_add_query_param(bb_server_request_t *req, const char *key, const char *value)
 {
     if (req->query_count >= MAX_QUERY_PARAMS)
        return -1;
     
-    query_param_t *qp = &req->query[req->query_count];
+    _bb_query_param_t *qp = &req->query[req->query_count];
 
     strncpy(qp->key, key, sizeof(qp->key) - 1);
     qp->key[sizeof(qp->key) - 1] = '\0';
@@ -159,7 +159,7 @@ int add_server_request_query_param(server_request_t *req, const char *key, const
     return 0;
 }
 
-const char *get_server_request_query_param(server_request_t *req, const char *key)
+const char *bb_server_request_get_query_param(bb_server_request_t *req, const char *key)
 {
     for (int i = 0; i < req->query_count; i++)
     {
@@ -171,7 +171,7 @@ const char *get_server_request_query_param(server_request_t *req, const char *ke
     return NULL;
 }
 
-const char *get_server_request_header(server_request_t *req, const char *name)
+const char *bb_server_request_get_header(bb_server_request_t *req, const char *name)
 {
-    return get_message_header(&req->msg, name);
+    return bb_message_get_header(&req->msg, name);
 }

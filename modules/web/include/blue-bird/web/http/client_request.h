@@ -10,20 +10,20 @@ extern "C" {
 #include "message.h"
 
 typedef struct {
-    http_message_t msg;
+    bb_http_message_t msg;
     
     char *method;
     char *url;
     char *host;
     int port;
-} client_request_t;
+} bb_client_request_t;
 
-void init_client_request(client_request_t *req);
-void set_client_request_method(client_request_t *req, const char *method);
-void set_client_request_url(client_request_t *req, const char *url);
-void set_client_request_header(client_request_t *req, const char *name, const char *value);
-void set_client_request_body(client_request_t *req, char *body);
-void destroy_client_request(client_request_t *req);
+void bb_client_request_init(bb_client_request_t *req);
+void bb_client_request_set_method(bb_client_request_t *req, const char *method);
+void bb_client_request_set_url(bb_client_request_t *req, const char *url);
+void bb_client_request_set_header(bb_client_request_t *req, const char *name, const char *value);
+void bb_client_request_set_body(bb_client_request_t *req, char *body);
+void bb_client_request_destroy(bb_client_request_t *req);
 
 
 #ifdef __cplusplus

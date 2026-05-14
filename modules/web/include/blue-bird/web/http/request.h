@@ -5,65 +5,65 @@
 #include "client_request.h"
 
 typedef enum {
-    SERVER_REQUEST,
-    CLIENT_REQUEST
-} request_type;
+    BB_SERVER_REQUEST,
+    BB_CLIENT_REQUEST
+} _bb_request_type_t;
 
 typedef struct {
-    request_type type;
+    _bb_request_type_t type;
     union {
-        server_request_t s_req;
-        client_request_t c_req;
+        bb_server_request_t s_req;
+        bb_client_request_t c_req;
     } inner_req;
-} request_t;
+} bb_request_t;
 
-void init_request_with_type(request_t *req, request_type type);
+void bb_request_init_with_type(bb_request_t *req, _bb_request_type_t type);
 
-void init_request(request_t *req); // For Client only
+void bb_request_init(bb_request_t *req); // For Client only
 
-void destroy_request(request_t *req);
+void bb_request_destroy(bb_request_t *req);
 
-static inline http_message_t *get_request_message(request_t *req)
+static inline bb_http_message_t *bb_request_get_message(bb_request_t *req)
 {
-    return (req->type == CLIENT_REQUEST)
+    return (req->type == BB_CLIENT_REQUEST)
         ? &req->inner_req.c_req.msg
         : &req->inner_req.s_req.msg;
 }
 
 // Server:
 
-int parse_request(const char *raw, request_t *req);
+int bb_request_parse(const char *raw, bb_request_t *req);
 
-int add_request_param(request_t *req, const char *key, const char *value);
+int bb_request_add_param(bb_request_t *req, const char *key, const char *value);
 
-const char *get_request_param(request_t *req, const char *name);
+const char *bb_request_get_param(bb_request_t *req, const char *name);
 
-int add_request_query_param(request_t *req, const char *key, const char *value);
+int bb_request_add_query_param(bb_request_t *req, const char *key, const char *value);
 
-const char *get_request_query_param(request_t *req, const char *key);
+const char *bb_request_get_query_param(bb_request_t *req, const char *key);
 
-const char *get_request_header(request_t *req, const char *name);
+const char *bb_request_get_header(bb_request_t *req, const char *name);
 
 
 // Client:
 
-void set_request_method(request_t *req, const char *method);
+void bb_request_set_method(bb_request_t *req, const char *method);
 
-void set_request_url(request_t *req, const char *url);
+void bb_request_set_url(bb_request_t *req, const char *url);
 
-void set_request_header(request_t *req, const char *name, const char *value);
+void bb_request_set_header(bb_request_t *req, const char *name, const char *value);
 
-void set_request_body(request_t *req, char *body);
+void bb_request_set_body(bb_request_t *req, char *body);
 
 //Helper Macros
-#define GET_REQUEST_PATH(req) ((req).inner_req.s_req.path)
-#define GET_REQUEST_PARAMS(req) ((req).inner_req.s_req.params)
-#define GET_REQUEST_PARAM_COUNT(req) ((req).inner_req.s_req.param_count)
+#define BB_REQUEST_GET_PATH(req) ((req).inner_req.s_req.path)
+#define BB_REQUEST_GET_PARAMS(req) ((req).inner_req.s_req.params)
+#define BB_REQUEST_GET_PARAM_COUNT(req) ((req).inner_req.s_req.param_count)
 
-#define GET_REQUEST_METHOD(req) ((req).type == CLIENT_REQUEST ? (req).inner_req.c_req.method : (req).inner_req.s_req.method)
-#define GET_REQUEST_MESSAGE(req) (*(get_request_message(&(req))))
+#define BB_REQUEST_GET_METHOD(req) ((req).type == BB_CLIENT_REQUEST ? (req).inner_req.c_req.method : (req).inner_req.s_req.method)
+#define BB_REQUEST_GET_MESSAGE(req) (*(bb_request_get_message(&(req))))
 
-#define GET_REQUEST_URL(req) ((req).inner_req.c_req.url)
+#define BB_REQUEST_GET_URL(req) ((req).inner_req.c_req.url)
 
 
 #endif //BB_REQUEST_H

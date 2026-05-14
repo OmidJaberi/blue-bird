@@ -19,42 +19,42 @@
 typedef struct {
     char name[MAX_PARAM_NAME];
     char value[MAX_PARAM_VALUE];
-} param_t;
+} _bb_param_t;
 
 typedef struct {
     char key[MAX_QUERY_PARAM_KEY];
     char value[MAX_QUERY_PARAM_VALUE];
-} query_param_t;
+} _bb_query_param_t;
 
 typedef struct {
-    http_message_t msg;
+    bb_http_message_t msg;
 
     char method[METHOD_SIZE];
     char path[PATH_SIZE];
     char version[VERSION_SIZE];
 
-    param_t params[MAX_PARAMS];
+    _bb_param_t params[MAX_PARAMS];
     int param_count;
 
-    query_param_t query[MAX_QUERY_PARAMS];
+    _bb_query_param_t query[MAX_QUERY_PARAMS];
     int query_count;
 
-} server_request_t;
+} bb_server_request_t;
 
-void init_server_request(server_request_t *req);
+void bb_server_request_init(bb_server_request_t *req);
 
-int parse_server_request(const char *raw, server_request_t *req);
+int bb_server_request_parse(const char *raw, bb_server_request_t *req);
 
-void destroy_server_request(server_request_t *req);
+void bb_server_request_destroy(bb_server_request_t *req);
 
-int add_server_request_param(server_request_t *req, const char *key, const char *value);
+int bb_server_request_add_param(bb_server_request_t *req, const char *key, const char *value);
 
-const char *get_server_request_param(server_request_t *req, const char *name);
+const char *bb_server_request_get_param(bb_server_request_t *req, const char *name);
 
-int add_server_request_query_param(server_request_t *req, const char *key, const char *value);
+int bb_server_request_add_query_param(bb_server_request_t *req, const char *key, const char *value);
 
-const char *get_server_request_query_param(server_request_t *req, const char *key);
+const char *bb_server_request_get_query_param(bb_server_request_t *req, const char *key);
 
-const char *get_server_request_header(server_request_t *req, const char *name);
+const char *bb_server_request_get_header(bb_server_request_t *req, const char *name);
 
 #endif //BB_SERVER_REQUEST_H

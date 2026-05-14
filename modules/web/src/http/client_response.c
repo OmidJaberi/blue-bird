@@ -4,28 +4,28 @@
 #include <string.h>
 #include <unistd.h>
 
-void init_client_response(client_response_t *res)
+void bb_client_response_init(bb_client_response_t *res)
 {
-    init_server_response(res);
+    bb_server_response_init(res);
 }
 
-void destroy_client_response(client_response_t *res)
+void bb_client_response_destroy(bb_client_response_t *res)
 {
-    destroy_server_response(res);
+    bb_server_response_destroy(res);
 }
 
-const char *get_client_response_header(client_response_t *res, const char *name)
+const char *bb_client_response_get_header(bb_client_response_t *res, const char *name)
 {
-    return get_message_header(&res->msg, name);
+    return bb_message_get_header(&res->msg, name);
 }
 
-int parse_client_response(const char *raw, client_response_t *res)
+int bb_client_response_parse(const char *raw, bb_client_response_t *res)
 {
     if (!raw || !res)
         return -1;
 
-    init_client_response(res);
-    if (parse_message(raw, &res->msg) != 0)
+    bb_client_response_init(res);
+    if (bb_message_parse(raw, &res->msg) != 0)
         return -1;
 
     /* HTTP/1.1 200 OK */

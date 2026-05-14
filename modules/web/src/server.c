@@ -10,16 +10,16 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-int init_server(bb_server_t *server, int port)
+int bb_server_init(bb_server_t *server, int port)
 {
-    server->route_list = (route_list_t *)malloc(sizeof(route_list_t));
-    init_route_list(server->route_list);
+    server->route_list = (bb_route_list_t *)malloc(sizeof(bb_route_list_t));
+    bb_route_list_init(server->route_list);
 
-    server->pre_middleware_list = (middleware_list_t *)malloc(sizeof(middleware_list_t));
-    init_middleware_list(server->pre_middleware_list);
+    server->pre_middleware_list = (bb_middleware_list_t *)malloc(sizeof(bb_middleware_list_t));
+    bb_middleware_list_init(server->pre_middleware_list);
 
-    server->post_middleware_list = (middleware_list_t *)malloc(sizeof(middleware_list_t));
-    init_middleware_list(server->post_middleware_list);
+    server->post_middleware_list = (bb_middleware_list_t *)malloc(sizeof(bb_middleware_list_t));
+    bb_middleware_list_init(server->post_middleware_list);
 
     struct sockaddr_in address;
     int opt = 1;
@@ -60,22 +60,22 @@ int init_server(bb_server_t *server, int port)
     return 0;
 }
 
-void add_route(bb_server_t *server, const char *method, const char *path, route_handler_cb handler)
+void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_route_handler_cb handler)
 {
-    add_route_to_list(server->route_list, method, path, handler);
+    bb_route_list_add(server->route_list, method, path, handler);
 }
 
-void use_pre_middleware(bb_server_t *server, middleware_cb mw)
+void bb_server_use_pre_middleware(bb_server_t *server, bb_middleware_cb mw)
 {
-    append_to_middleware_list(server->pre_middleware_list, mw);
+    bb_middleware_list_append(server->pre_middleware_list, mw);
 }
 
-void use_post_middleware(bb_server_t *server, middleware_cb mw)
+void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw)
 {
-    append_to_middleware_list(server->post_middleware_list, mw);
+    bb_middleware_list_append(server->post_middleware_list, mw);
 }
 
-void start_server(bb_server_t *server)
+void bb_server_start(bb_server_t *server)
 {
     int client_fd;
     struct sockaddr_in address;
@@ -93,40 +93,40 @@ void start_server(bb_server_t *server)
         }
 
         // Read request (not parsed, yet)
-        read_http_message(client_fd, &buffer);
+        bb_http_read_message(client_fd, &buffer);
         LOG_INFO("Received request:\n%s\n", buffer);
 
         // Parse request
-        request_t req;
-        response_t res;
-        init_request_with_type(&req, SERVER_REQUEST);
-        init_response(&res);
-        if (parse_request(buffer, &req) == 0)
+        bb_request_t req;
+        bb_response_t res;
+        bb_request_init_with_type(&req, BB_SERVER_REQUEST);
+        bb_response_init(&res);
+        if (bb_request_parse(buffer, &req) == 0)
         {
-            if (!BB_FAILED(run_middleware(server->pre_middleware_list, &req, &res))) // Pre-Middleware
-                handle_request(server->route_list, &req, &res);
-            run_middleware(server->post_middleware_list, &req, &res);               // Post-Middleware
+            if (!BB_FAILED(bb_middleware_list_run(server->pre_middleware_list, &req, &res))) // Pre-Middleware
+                bb_route_list_handle_request(server->route_list, &req, &res);
+            bb_middleware_list_run(server->post_middleware_list, &req, &res);               // Post-Middleware
         }
         else
         {
-            set_response_status(&res, 400);
-            set_response_header(&res, "Content-Type", "text/plain");
-            set_response_body(&res, "Bad Request");
+            bb_response_set_status(&res, 400);
+            bb_response_set_header(&res, "Content-Type", "text/plain");
+            bb_response_set_body(&res, "Bad Request");
         }
 
-        send_response(client_fd, &res);
-        destroy_request(&req);
-        destroy_response(&res);
+        bb_response_send(client_fd, &res);
+        bb_request_destroy(&req);
+        bb_response_destroy(&res);
         close(client_fd);
     }
 }
 
-void destroy_server(bb_server_t *server)
+void bb_server_destroy(bb_server_t *server)
 {
-    destroy_route_list(server->route_list);
+    bb_route_list_destroy(server->route_list);
     free(server->route_list);
-    destroy_middleware_list(server->pre_middleware_list);
+    bb_middleware_list_destroy(server->pre_middleware_list);
     free(server->pre_middleware_list);
-    destroy_middleware_list(server->post_middleware_list);
+    bb_middleware_list_destroy(server->post_middleware_list);
     free(server->post_middleware_list);
 }

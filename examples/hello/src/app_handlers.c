@@ -3,34 +3,34 @@
 #include <stdio.h>
 #include <string.h>
 
-bb_error_t root_handler(request_t *req, response_t *res)
+bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
-    set_response_header(res, "Content-Type", "text/plain");
-    set_response_body(res, "Blue-Bird :)");
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Blue-Bird :)");
     return BB_SUCCESS();
 }
 
-bb_error_t hello_post_handler(request_t *req, response_t *res)
+bb_error_t hello_post_handler(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
-    set_response_header(res, "Content-Type", "text/plain");
-    set_response_body(res, "Hello via POST!");
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Hello via POST!");
     return BB_SUCCESS();
 }
 
-bb_error_t hello_get_handler(request_t *req, response_t *res)
+bb_error_t hello_get_handler(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
-    set_response_header(res, "Content-Type", "text/plain");
-    const char *name = get_request_query_param(req, "name");
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    const char *name = bb_request_get_query_param(req, "name");
     if (name)
     {
         char buf[256];
         snprintf(buf, sizeof(buf), "Hello %s, via GET!", name);
-        set_response_body(res, buf);
+        bb_response_set_body(res, buf);
     }
     else
-        set_response_body(res, "Hello via GET!");
+        bb_response_set_body(res, "Hello via GET!");
     return BB_SUCCESS();
 }
