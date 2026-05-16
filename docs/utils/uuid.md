@@ -48,7 +48,7 @@ Convert a binary UUID into its canonical string representation:
 #include <blue-bird/utils/uuid.h>
 
 uint8_t uuid[16];
-char str[BB_UUID_BUF_LEN];
+bb_uuid_t str;
 
 bb_uuid_v4(uuid);
 
@@ -66,7 +66,7 @@ Generate a UUID v4 directly into a string buffer:
 ```c
 #include <blue-bird/utils/uuid.h>
 
-char str[BB_UUID_BUF_LEN];
+bb_uuid_t str;
 
 if (bb_uuid_v4_string(str) != 0) {
     /* handle error */

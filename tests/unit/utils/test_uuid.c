@@ -20,7 +20,7 @@ static void test_uuid_v4_generation(void)
 
 static void test_uuid_string_format(void)
 {
-    char buf[BB_UUID_BUF_LEN];
+    bb_uuid_t buf;
 
     int rc = bb_uuid_v4_string(buf);
     assert(rc == 0);
@@ -36,8 +36,8 @@ static void test_uuid_string_format(void)
 
 static void test_uuid_uniqueness(void)
 {
-    char a[BB_UUID_BUF_LEN];
-    char b[BB_UUID_BUF_LEN];
+    bb_uuid_t a;
+    bb_uuid_t b;
 
     bb_uuid_v4_string(a);
     bb_uuid_v4_string(b);

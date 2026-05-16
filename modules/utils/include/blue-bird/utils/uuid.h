@@ -12,6 +12,8 @@ extern "C" {
 #define BB_UUID_STR_LEN 36
 #define BB_UUID_BUF_LEN 37 /* includes null terminator */
 
+typedef char bb_uuid_t[BB_UUID_BUF_LEN];
+
 /*
  * Generate a random UUID v4 (binary 16-byte form)
  */

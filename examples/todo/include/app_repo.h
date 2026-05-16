@@ -8,7 +8,7 @@
 #include <stddef.h>
 
 typedef struct {
-    char id[BB_UUID_BUF_LEN];
+    bb_uuid_t id;
     char name[64];
     char status[64];
 } Task;

@@ -8,7 +8,7 @@ Models represent structured application entities.
 
 ```c
 typedef struct {
-    char id[BB_UUID_BUF_LEN];
+    bb_uuid_t id;
     char *title;
     bool completed;
 } Task;
