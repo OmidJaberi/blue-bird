@@ -12,6 +12,8 @@
 
 int bb_server_init(bb_server_t *server, int port)
 {
+    server->executor = bb_web_executor_create();
+
     server->route_list = (bb_route_list_t *)malloc(sizeof(bb_route_list_t));
     bb_route_list_init(server->route_list);
 
@@ -104,7 +106,7 @@ void bb_server_start(bb_server_t *server)
         if (bb_request_parse(buffer, &req) == 0)
         {
             if (!BB_FAILED(bb_middleware_list_run(server->pre_middleware_list, &req, &res))) // Pre-Middleware
-                bb_route_list_handle_request(server->route_list, &req, &res);
+                bb_route_list_handle_request(server->route_list, &req, &res, NULL /* server->executor */);
             bb_middleware_list_run(server->post_middleware_list, &req, &res);               // Post-Middleware
         }
         else

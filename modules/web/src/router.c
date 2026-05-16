@@ -77,7 +77,7 @@ static int match_segments(bb_route_t *route, char segments[][MAX_PATH_LEN], int 
     return 0;
 }
 
-void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res)
+void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res, bb_web_executor_t *executor)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(BB_REQUEST_GET_PATH(*req), req_segments);
@@ -93,7 +93,7 @@ void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req
                 if (route->path_segments[j][0] == ':')
                     bb_request_add_param(req, route->path_segments[j] + 1, req_segments[j]);
             }
-            bb_web_executor_execute(NULL, route->handler, req, res);
+            bb_web_executor_execute(executor, route->handler, req, res);
             return;
         }
     }

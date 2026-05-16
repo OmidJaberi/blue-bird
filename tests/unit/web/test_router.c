@@ -64,7 +64,7 @@ void test_route_match_get(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "GET");
     strcpy(BB_REQUEST_GET_PATH(req), "/hello");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    bb_route_list_handle_request(&route_list, &req, &res, NULL);
     assert(strcmp(res.msg.body, "Hello GET OK") == 0);
 }
 
@@ -87,7 +87,7 @@ void test_route_match_post(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "POST");
     strcpy(BB_REQUEST_GET_PATH(req), "/hello");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    bb_route_list_handle_request(&route_list, &req, &res, NULL);
     assert(strcmp(res.msg.body, "Hello POST OK") == 0);
 }
 
@@ -108,7 +108,7 @@ void test_route_not_found(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "GET");
     strcpy(BB_REQUEST_GET_PATH(req), "/doesnotexist");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    bb_route_list_handle_request(&route_list, &req, &res, NULL);
     assert(strcmp(res.msg.body, "Route Not Found") == 0);
 }
 
@@ -131,7 +131,7 @@ void test_route_with_param(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "GET");
     strcpy(BB_REQUEST_GET_PATH(req), "/users/42");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    bb_route_list_handle_request(&route_list, &req, &res, NULL);
     assert(strcmp(res.msg.body, "User ID: 42") == 0);
 }
 

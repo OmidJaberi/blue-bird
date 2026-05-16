@@ -8,7 +8,7 @@ extern "C" {
 
 #include "http/request.h"
 #include "http/response.h"
-#include "router.h"
+#include "http.h"
 
 typedef struct bb_web_executor bb_web_executor_t;
 
@@ -22,7 +22,7 @@ void bb_web_executor_destroy(
 
 bb_error_t bb_web_executor_execute(
     bb_web_executor_t *executor,
-    bb_route_handler_cb handler,
+    bb_http_handler_cb handler,
     bb_request_t *req,
     bb_response_t *res
 );

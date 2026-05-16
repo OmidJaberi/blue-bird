@@ -29,6 +29,7 @@ target_link_libraries(bluebird_web
         bluebird_error
     PRIVATE
         bluebird_log
+        bluebird_runtime
 )
 
 add_library(BlueBird::web ALIAS bluebird_web)
