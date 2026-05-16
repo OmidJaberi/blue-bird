@@ -1,4 +1,5 @@
 #include "blue-bird/web/router.h"
+#include "blue-bird/web/executor.h"
 #include "blue-bird/error/assert.h"
 #include <string.h>
 #include <stdio.h>
@@ -92,7 +93,7 @@ void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req
                 if (route->path_segments[j][0] == ':')
                     bb_request_add_param(req, route->path_segments[j] + 1, req_segments[j]);
             }
-            route->handler(req, res);
+            bb_web_executor_execute(NULL, route->handler, req, res);
             return;
         }
     }
