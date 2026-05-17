@@ -75,6 +75,42 @@ void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw)
     bb_middleware_list_append(server->post_middleware_list, mw);
 }
 
+static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_status(res, 400);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Bad Request");
+    return BB_SUCCESS();
+}
+
+static bb_error_t default_404(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_status(res, 404);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Route Not Found");
+    return BB_SUCCESS();
+}
+
+static bb_error_t _run_request_pipeline(bb_server_t *server, bb_request_t *req, bb_response_t *res)
+{
+    bb_error_t err;
+
+    err = bb_middleware_list_run(server->pre_middleware_list, req, res);
+    if (BB_FAILED(err))
+        return err;
+
+    bb_route_t *route = bb_route_list_match(server->route_list, req);
+    bb_http_handler_cb handler = route ? route->handler : default_404;
+
+    err = handler(req, res);
+    if (BB_FAILED(err))
+        return err;
+
+    return bb_middleware_list_run(server->post_middleware_list, req, res);
+}
+
 static void _handle_request(bb_server_t *server, int client_fd, char *buffer)
 {
     bb_request_t req;
@@ -83,46 +119,21 @@ static void _handle_request(bb_server_t *server, int client_fd, char *buffer)
     bb_request_init_with_type(&req, BB_SERVER_REQUEST);
     bb_response_init(&res);
 
-    if (bb_request_parse(buffer, &req) == 0)
+    if (bb_request_parse(buffer, &req) != 0)
     {
-        // Pre-Middleware
-        bb_error_t err = bb_middleware_list_run(server->pre_middleware_list, &req, &res);
-        if (!BB_FAILED(err))
-        {
-            bb_route_t *route = bb_route_list_match(server->route_list, &req);
-            if (route)
-            {
-                err = route->handler(&req, &res);
-            }
-            else
-            {
-                // Default 404
-                bb_response_init(&res);
-                bb_response_set_status(&res, 404);
-                bb_response_set_header(&res, "Content-Type", "text/plain");
-                bb_response_set_body(&res, "Route Not Found");
-            }
-        }
-        if (!BB_FAILED(err))
-        {
-            // Post-Middleware
-            bb_middleware_list_run(server->post_middleware_list, &req, &res);
-        }
+        default_400(&req, &res);
     }
     else
     {
-        // Default 400
-        bb_response_set_status(&res, 400);
-        bb_response_set_header(&res, "Content-Type", "text/plain");
-        bb_response_set_body(&res, "Bad Request");
+        _run_request_pipeline(server, &req, &res);
     }
 
     bb_response_send(client_fd, &res);
+
     bb_request_destroy(&req);
     bb_response_destroy(&res);
 
     free(buffer);
-
     close(client_fd);
 }
 
