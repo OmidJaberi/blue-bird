@@ -7,7 +7,6 @@ extern "C" {
 
 
 #include "http.h"
-#include "executor.h"
 #include "blue-bird/error/error.h"
 
 #define MAX_SEGMENTS 20
@@ -27,7 +26,7 @@ typedef bb_route_t* bb_route_list_t;
 
 void bb_route_list_init(bb_route_list_t *route_list);
 bb_error_t bb_route_list_add(bb_route_list_t *route_list, const char *method, const char *path, bb_route_handler_cb handler);
-void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res, bb_web_executor_t *executor);
+void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res);
 void bb_route_list_destroy(bb_route_list_t *route_list);
 
 

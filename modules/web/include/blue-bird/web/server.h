@@ -8,11 +8,9 @@ extern "C" {
 
 #include "blue-bird/web/router.h"
 #include "blue-bird/web/middleware.h"
-#include "blue-bird/web/executor.h"
 
 typedef struct {
     int server_fd;
-    bb_web_executor_t *executor;
     bb_route_list_t *route_list;
     bb_middleware_list_t *pre_middleware_list; // Runs before the handler
     bb_middleware_list_t *post_middleware_list; // Runs after the handler

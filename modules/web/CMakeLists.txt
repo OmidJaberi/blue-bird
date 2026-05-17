@@ -14,8 +14,6 @@ add_library(bluebird_web
 
     src/http/server_request.c
     src/http/server_response.c
-
-    src/executor.c
 )
 
 target_include_directories(bluebird_web
