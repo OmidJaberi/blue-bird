@@ -75,6 +75,36 @@ void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw)
     bb_middleware_list_append(server->post_middleware_list, mw);
 }
 
+static void _handle_request(bb_server_t *server, int client_fd, char *buffer)
+{
+    bb_request_t req;
+    bb_response_t res;
+
+    bb_request_init_with_type(&req, BB_SERVER_REQUEST);
+    bb_response_init(&res);
+
+    if (bb_request_parse(buffer, &req) == 0)
+    {
+        if (!BB_FAILED(bb_middleware_list_run(server->pre_middleware_list, &req, &res))) // Pre-Middleware
+            bb_route_list_handle_request(server->route_list, &req, &res);
+        bb_middleware_list_run(server->post_middleware_list, &req, &res);                // Post-Middleware
+    }
+    else
+    {
+        bb_response_set_status(&res, 400);
+        bb_response_set_header(&res, "Content-Type", "text/plain");
+        bb_response_set_body(&res, "Bad Request");
+    }
+
+    bb_response_send(client_fd, &res);
+    bb_request_destroy(&req);
+    bb_response_destroy(&res);
+
+    free(buffer);
+
+    close(client_fd);
+}
+
 void bb_server_start(bb_server_t *server)
 {
     int client_fd;
@@ -96,28 +126,7 @@ void bb_server_start(bb_server_t *server)
         bb_http_read_message(client_fd, &buffer);
         BB_LOG_INFO("Received request:\n%s\n", buffer);
 
-        // Parse request
-        bb_request_t req;
-        bb_response_t res;
-        bb_request_init_with_type(&req, BB_SERVER_REQUEST);
-        bb_response_init(&res);
-        if (bb_request_parse(buffer, &req) == 0)
-        {
-            if (!BB_FAILED(bb_middleware_list_run(server->pre_middleware_list, &req, &res))) // Pre-Middleware
-                bb_route_list_handle_request(server->route_list, &req, &res);
-            bb_middleware_list_run(server->post_middleware_list, &req, &res);               // Post-Middleware
-        }
-        else
-        {
-            bb_response_set_status(&res, 400);
-            bb_response_set_header(&res, "Content-Type", "text/plain");
-            bb_response_set_body(&res, "Bad Request");
-        }
-
-        bb_response_send(client_fd, &res);
-        bb_request_destroy(&req);
-        bb_response_destroy(&res);
-        close(client_fd);
+        _handle_request(server, client_fd, buffer);
     }
 }
 
