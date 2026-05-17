@@ -76,7 +76,7 @@ static int match_segments(bb_route_t *route, char segments[][MAX_PATH_LEN], int 
     return 0;
 }
 
-void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res)
+bb_route_t *bb_route_list_match(bb_route_list_t *route_list, bb_request_t *req)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(BB_REQUEST_GET_PATH(*req), req_segments);
@@ -92,16 +92,11 @@ void bb_route_list_handle_request(bb_route_list_t *route_list, bb_request_t *req
                 if (route->path_segments[j][0] == ':')
                     bb_request_add_param(req, route->path_segments[j] + 1, req_segments[j]);
             }
-            route->handler(req, res);
-            return;
+            return route;
         }
     }
 
-    // Default 404
-    bb_response_init(res);
-    bb_response_set_status(res, 404);
-    bb_response_set_header(res, "Content-Type", "text/plain");
-    bb_response_set_body(res, "Route Not Found");
+    return NULL;
 }
 
 void bb_route_list_destroy(bb_route_list_t *route_list)

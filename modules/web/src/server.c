@@ -85,12 +85,33 @@ static void _handle_request(bb_server_t *server, int client_fd, char *buffer)
 
     if (bb_request_parse(buffer, &req) == 0)
     {
-        if (!BB_FAILED(bb_middleware_list_run(server->pre_middleware_list, &req, &res))) // Pre-Middleware
-            bb_route_list_handle_request(server->route_list, &req, &res);
-        bb_middleware_list_run(server->post_middleware_list, &req, &res);                // Post-Middleware
+        // Pre-Middleware
+        bb_error_t err = bb_middleware_list_run(server->pre_middleware_list, &req, &res);
+        if (!BB_FAILED(err))
+        {
+            bb_route_t *route = bb_route_list_match(server->route_list, &req);
+            if (route)
+            {
+                err = route->handler(&req, &res);
+            }
+            else
+            {
+                // Default 404
+                bb_response_init(&res);
+                bb_response_set_status(&res, 404);
+                bb_response_set_header(&res, "Content-Type", "text/plain");
+                bb_response_set_body(&res, "Route Not Found");
+            }
+        }
+        if (!BB_FAILED(err))
+        {
+            // Post-Middleware
+            bb_middleware_list_run(server->post_middleware_list, &req, &res);
+        }
     }
     else
     {
+        // Default 400
         bb_response_set_status(&res, 400);
         bb_response_set_header(&res, "Content-Type", "text/plain");
         bb_response_set_body(&res, "Bad Request");

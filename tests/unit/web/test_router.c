@@ -43,6 +43,25 @@ bb_error_t handler_user(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+//handle_request
+static void _handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res)
+{
+    bb_route_t *match = bb_route_list_match(route_list, req);
+
+    if (match)
+    {
+        match->handler(req, res);
+    }
+    else
+    {
+        // Default 404
+        bb_response_init(res);
+        bb_response_set_status(res, 404);
+        bb_response_set_header(res, "Content-Type", "text/plain");
+        bb_response_set_body(res, "Route Not Found");
+    }
+}
+
 // Tests
 void test_route_match_get(void)
 {
@@ -64,7 +83,7 @@ void test_route_match_get(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "GET");
     strcpy(BB_REQUEST_GET_PATH(req), "/hello");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    _handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "Hello GET OK") == 0);
 }
 
@@ -87,7 +106,7 @@ void test_route_match_post(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "POST");
     strcpy(BB_REQUEST_GET_PATH(req), "/hello");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    _handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "Hello POST OK") == 0);
 }
 
@@ -108,7 +127,7 @@ void test_route_not_found(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "GET");
     strcpy(BB_REQUEST_GET_PATH(req), "/doesnotexist");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    _handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "Route Not Found") == 0);
 }
 
@@ -131,7 +150,7 @@ void test_route_with_param(void)
     strcpy(BB_REQUEST_GET_METHOD(req), "GET");
     strcpy(BB_REQUEST_GET_PATH(req), "/users/42");
 
-    bb_route_list_handle_request(&route_list, &req, &res);
+    _handle_request(&route_list, &req, &res);
     assert(strcmp(res.msg.body, "User ID: 42") == 0);
 }
 
