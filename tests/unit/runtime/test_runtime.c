@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "blue-bird/runtime/runtime.h"
@@ -9,10 +8,12 @@ static int executed = 0;
 
 static void runtime_task_cb(bb_task_t *task, void *userdata)
 {
-    (void)task;
-    (void)userdata;
+    bb_runtime_t *runtime = userdata;
 
     executed = 1;
+
+    bb_runtime_stop(runtime);
+    bb_task_destroy(task);
 }
 
 void test_runtime(void)
@@ -21,15 +22,14 @@ void test_runtime(void)
 
     assert(runtime != NULL);
 
-    bb_task_t *task = bb_task_create(runtime_task_cb, NULL);
+    bb_task_t *task = bb_task_create(runtime_task_cb, runtime);
+    assert(task != NULL);
 
-    bb_loop_schedule(bb_runtime_loop(runtime), task);
+    assert(bb_runtime_schedule(runtime, task) == 0);
 
     bb_runtime_run(runtime);
 
     assert(executed == 1);
-
-    bb_task_destroy(task);
 
     bb_runtime_destroy(runtime);
 }

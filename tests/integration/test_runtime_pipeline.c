@@ -2,14 +2,13 @@
 #include <stdio.h>
 
 #include "blue-bird/runtime/runtime.h"
-#include "blue-bird/runtime/loop.h"
 #include "blue-bird/runtime/task.h"
 
 static int execution_order[10];
 static int execution_index = 0;
 
 typedef struct {
-    bb_loop_t *loop;
+    bb_runtime_t *runtime;
 } runtime_test_ctx_t;
 
 static void task_c_cb(bb_task_t *task, void *userdata)
@@ -20,7 +19,7 @@ static void task_c_cb(bb_task_t *task, void *userdata)
 
     printf("Task C executed\n");
 
-    bb_loop_stop(ctx->loop);
+    bb_runtime_stop(ctx->runtime);
 
     bb_task_destroy(task);
 }
@@ -37,7 +36,7 @@ static void task_b_cb(bb_task_t *task, void *userdata)
 
     assert(task_c != NULL);
 
-    assert(bb_loop_schedule(ctx->loop, task_c) == 0);
+    assert(bb_runtime_schedule(ctx->runtime, task_c) == 0);
 
     bb_task_destroy(task);
 }
@@ -54,7 +53,7 @@ static void task_a_cb(bb_task_t *task, void *userdata)
 
     assert(task_b != NULL);
 
-    assert(bb_loop_schedule(ctx->loop, task_b) == 0);
+    assert(bb_runtime_schedule(ctx->runtime, task_b) == 0);
 
     bb_task_destroy(task);
 }
@@ -65,19 +64,15 @@ void test_runtime_chain(void)
 
     assert(runtime != NULL);
 
-    bb_loop_t *loop = bb_runtime_loop(runtime);
-
-    assert(loop != NULL);
-
     runtime_test_ctx_t ctx = {
-        .loop = loop
+        .runtime = runtime
     };
 
     bb_task_t *task_a = bb_task_create(task_a_cb, &ctx);
 
     assert(task_a != NULL);
 
-    assert(bb_loop_schedule(loop, task_a) == 0);
+    assert(bb_runtime_schedule(runtime, task_a) == 0);
 
     bb_runtime_run(runtime);
 
