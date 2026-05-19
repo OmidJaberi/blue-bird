@@ -6,6 +6,8 @@ extern "C" {
 #endif
 
 
+#include <stdlib.h>
+
 #include "blue-bird/runtime/task.h"
 
 typedef struct bb_runtime bb_runtime_t;
@@ -43,6 +45,18 @@ int bb_runtime_watch_fd(
 int bb_runtime_unwatch_fd(
     bb_runtime_t *runtime,
     int fd
+);
+
+int bb_runtime_set_interval(
+    bb_runtime_t *runtime,
+    uint64_t interval_ms,
+    bb_task_t *task
+);
+
+int bb_runtime_set_timeout(
+    bb_runtime_t *runtime,
+    uint64_t timeout_ms,
+    bb_task_t *task
 );
 
 
