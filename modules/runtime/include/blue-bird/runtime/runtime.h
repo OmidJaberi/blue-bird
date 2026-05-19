@@ -33,6 +33,18 @@ int bb_runtime_schedule(
     bb_task_t *task
 );
 
+int bb_runtime_watch_fd(
+    bb_runtime_t *runtime,
+    int fd,
+    int events,
+    bb_task_t *task
+);
+
+int bb_runtime_unwatch_fd(
+    bb_runtime_t *runtime,
+    int fd
+);
+
 
 #ifdef __cplusplus
 }
