@@ -81,6 +81,7 @@ int main(void)
         runtime,
         STDIN_FILENO,
         BB_EVENT_READ,
+        BB_WATCH_PERSISTENT,
         stdin_watcher
     );
 
