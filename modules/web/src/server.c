@@ -181,37 +181,52 @@ static void _bb_accept_task(bb_task_t *task, void *userdata)
 
     socklen_t addrlen = sizeof(address);
 
-    int client_fd = accept(server->server_fd, (struct sockaddr *)&address, &addrlen);
-
-    if (client_fd < 0)
+    while (1)
     {
-        return;
+        int client_fd = accept(server->server_fd, (struct sockaddr *)&address, &addrlen);
+
+        if (client_fd < 0)
+        {
+            /*
+             * Nonblocking socket:
+             * no more pending connections.
+             */
+            break;
+        }
+
+        _bb_set_nonblocking(client_fd);
+
+        bb_connection_t *connection = bb_connection_create(server, client_fd);
+
+        if (!connection)
+        {
+            close(client_fd);
+            continue;
+        }
+
+        /*
+         * Register client watcher
+         */
+        _bb_client_task_data_t *client_data = malloc(sizeof(*client_data));
+
+        if (!client_data)
+        {
+            bb_connection_destroy(connection);
+            continue;
+        }
+
+        client_data->connection = connection;
+
+        bb_task_t *client_task = bb_task_create(_bb_client_read_task, client_data);
+
+        if (!client_task)
+        {
+            bb_connection_destroy(connection);
+            free(client_data);
+            continue;
+        }
+        bb_runtime_watch_fd(server->runtime, client_fd, BB_EVENT_READ, BB_WATCH_ONESHOT, client_task);
     }
-
-    _bb_set_nonblocking(client_fd);
-
-    bb_connection_t *connection = bb_connection_create(server, client_fd);
-
-    if (!connection)
-    {
-        close(client_fd);
-        return;
-    }
-
-    //register client watcher
-     _bb_client_task_data_t *client_data = malloc(sizeof(*client_data));
-
-    if (!client_data)
-    {
-        bb_connection_destroy(connection);
-        return;
-    }
-
-    client_data->connection = connection;
-
-    bb_task_t *client_task = bb_task_create(_bb_client_read_task, client_data);
-
-    bb_runtime_watch_fd(server->runtime, client_fd, BB_EVENT_READ, client_task);
 }
 
 void bb_server_start(bb_server_t *server)
@@ -227,7 +242,7 @@ void bb_server_start(bb_server_t *server)
 
     bb_task_t *task = bb_task_create(_bb_accept_task, data);
 
-    bb_runtime_watch_fd(server->runtime, server->server_fd, BB_EVENT_READ, task);
+    bb_runtime_watch_fd(server->runtime, server->server_fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
 
     BB_LOG_INFO("Blue-Bird async server started.\n");
     bb_runtime_run(server->runtime); //temp
