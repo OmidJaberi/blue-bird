@@ -9,6 +9,7 @@ extern "C" {
 #include <stdlib.h>
 
 #include "blue-bird/runtime/task.h"
+#include "blue-bird/runtime/event.h"
 
 typedef struct bb_runtime bb_runtime_t;
 
@@ -39,6 +40,7 @@ int bb_runtime_watch_fd(
     bb_runtime_t *runtime,
     int fd,
     int events,
+    bb_watch_mode_t mode,
     bb_task_t *task
 );
 

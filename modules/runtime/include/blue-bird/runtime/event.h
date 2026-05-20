@@ -11,6 +11,11 @@ typedef enum {
     BB_EVENT_WRITE = 1 << 1
 } bb_event_type_t;
 
+typedef enum {
+    BB_WATCH_ONESHOT    = 0,
+    BB_WATCH_PERSISTENT = 1
+} bb_watch_mode_t;
+
 typedef struct {
     int fd;
     int events;

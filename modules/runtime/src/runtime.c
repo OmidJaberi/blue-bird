@@ -11,6 +11,7 @@
 typedef struct {
     int fd;
     int events;
+    bb_watch_mode_t mode;
     bb_task_t *task;
 } _bb_runtime_watcher_t;
 
@@ -108,6 +109,9 @@ void bb_runtime_tick(bb_runtime_t *runtime)
 
     int ready = bb_poller_wait(runtime->poller, events, 64, 10);
 
+    /*
+     * FD Events
+     */
     for (int i = 0; i < ready; i++)
     {
         for (int j = 0; j < runtime->watcher_count; j++)
@@ -117,12 +121,30 @@ void bb_runtime_tick(bb_runtime_t *runtime)
             if (watcher->fd == events[i].fd)
             {
                 bb_scheduler_schedule(runtime->scheduler, watcher->task);
+
+                /*
+                 * One-shot watchers
+                 * auto-remove after fire
+                 */
+                if (watcher->mode == BB_WATCH_ONESHOT)
+                {
+                    bb_runtime_unwatch_fd(runtime, watcher->fd);
+
+                    /*
+                     * watcher array compacted,
+                     * so revisit current index
+                     */
+                    j--;
+                }
             }
         }
     }
 
-    // Timers:
+    /*
+     * Timers
+     */
     uint64_t now = _bb_runtime_now_ms();
+
     for (int i = 0; i < runtime->timer_count;)
     {
         _bb_runtime_timer_t *timer = &runtime->timers[i];
@@ -148,6 +170,9 @@ void bb_runtime_tick(bb_runtime_t *runtime)
         }
     }
 
+    /*
+     * Execute scheduled tasks
+     */
     bb_task_t *task;
 
     while ((task = bb_scheduler_next(runtime->scheduler)))
@@ -181,7 +206,7 @@ void bb_runtime_stop(bb_runtime_t *runtime)
     runtime->running = 0;
 }
 
-int bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_task_t *task)
+int bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task)
 {
     if (!runtime || !task)
     {
@@ -202,6 +227,7 @@ int bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_task_t *ta
 
     watcher->fd = fd;
     watcher->events = events;
+    watcher->mode = mode;
     watcher->task = task;
 
     runtime->watcher_count++;
