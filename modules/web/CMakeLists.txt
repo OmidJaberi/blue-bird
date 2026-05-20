@@ -3,6 +3,7 @@ add_library(bluebird_web
     src/server.c
     src/router.c
     src/middleware.c
+    src/connection.c
     src/http.c
 
     src/http/message.c
@@ -25,9 +26,9 @@ target_link_libraries(bluebird_web
     PUBLIC
         bluebird_utils
         bluebird_error
+        bluebird_runtime
     PRIVATE
         bluebird_log
-        bluebird_runtime
 )
 
 add_library(BlueBird::web ALIAS bluebird_web)

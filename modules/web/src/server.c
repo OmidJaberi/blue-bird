@@ -2,6 +2,10 @@
 #include "blue-bird/web/http.h"
 #include "blue-bird/web/router.h"
 #include "blue-bird/web/middleware.h"
+#include "blue-bird/web/connection.h"
+
+#include "blue-bird/runtime/event.h"
+
 #include "blue-bird/log/log.h"
 
 #include <stdio.h>
@@ -9,9 +13,30 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
-int bb_server_init(bb_server_t *server, int port)
+typedef struct {
+    bb_server_t *server;
+} _bb_accept_task_data_t;
+
+typedef struct {
+    bb_connection_t *connection;
+} _bb_client_task_data_t;
+
+static int _bb_set_nonblocking(int fd)
 {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0)
+    {
+        return -1;
+    }
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+int bb_server_init_on_runtime(bb_server_t *server, bb_runtime_t *runtime, int port)
+{
+    server->runtime = runtime;
+
     server->route_list = (bb_route_list_t *)malloc(sizeof(bb_route_list_t));
     bb_route_list_init(server->route_list);
 
@@ -30,6 +55,8 @@ int bb_server_init(bb_server_t *server, int port)
         BB_LOG_ERROR("socket failed");
         exit(EXIT_FAILURE);
     }
+
+    _bb_set_nonblocking(server->server_fd);
 
     // Reuse port
     if (setsockopt(server->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
@@ -60,19 +87,17 @@ int bb_server_init(bb_server_t *server, int port)
     return 0;
 }
 
-void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_route_handler_cb handler)
+int bb_server_init(bb_server_t *server, int port)
 {
-    bb_route_list_add(server->route_list, method, path, handler);
-}
+    bb_runtime_t *runtime = bb_runtime_create();
+    
+    if (!runtime)
+    {
+        return -1;
+    }
 
-void bb_server_use_pre_middleware(bb_server_t *server, bb_middleware_cb mw)
-{
-    bb_middleware_list_append(server->pre_middleware_list, mw);
-}
-
-void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw)
-{
-    bb_middleware_list_append(server->post_middleware_list, mw);
+    bb_server_init_on_runtime(server, runtime, port);
+    return 0;
 }
 
 static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
@@ -111,55 +136,101 @@ static bb_error_t _run_request_pipeline(bb_server_t *server, bb_request_t *req, 
     return bb_middleware_list_run(server->post_middleware_list, req, res);
 }
 
-static void _handle_request(bb_server_t *server, int client_fd, char *buffer)
+static void _bb_client_read_task(bb_task_t *task, void *userdata)
 {
-    bb_request_t req;
-    bb_response_t res;
+    (void)task;
 
-    bb_request_init_with_type(&req, BB_SERVER_REQUEST);
-    bb_response_init(&res);
+    _bb_client_task_data_t *data = userdata;
 
-    if (bb_request_parse(buffer, &req) != 0)
+    bb_connection_t *connection = data->connection;
+
+    bb_server_t *server = connection->server;
+
+    if (bb_http_read_message(connection->client_fd, &connection->buffer) <= 0)
     {
-        default_400(&req, &res);
+        bb_connection_destroy(connection);
+        free(data);
+        return;
+    }
+
+    if (bb_request_parse(connection->buffer, &connection->request) != 0)
+    {
+        default_400(&connection->request, &connection->response);
     }
     else
     {
-        _run_request_pipeline(server, &req, &res);
+        _run_request_pipeline(server, &connection->request, &connection->response);
     }
 
-    bb_response_send(client_fd, &res);
+    bb_response_send(connection->client_fd, &connection->response);
 
-    bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_connection_destroy(connection);
 
-    free(buffer);
-    close(client_fd);
+    free(data);
+}
+
+static void _bb_accept_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_accept_task_data_t *data = userdata;
+
+    bb_server_t *server = data->server;
+
+    struct sockaddr_in address;
+
+    socklen_t addrlen = sizeof(address);
+
+    int client_fd = accept(server->server_fd, (struct sockaddr *)&address, &addrlen);
+
+    if (client_fd < 0)
+    {
+        return;
+    }
+
+    _bb_set_nonblocking(client_fd);
+
+    bb_connection_t *connection = bb_connection_create(server, client_fd);
+
+    if (!connection)
+    {
+        close(client_fd);
+        return;
+    }
+
+    //register client watcher
+     _bb_client_task_data_t *client_data = malloc(sizeof(*client_data));
+
+    if (!client_data)
+    {
+        bb_connection_destroy(connection);
+        return;
+    }
+
+    client_data->connection = connection;
+
+    bb_task_t *client_task = bb_task_create(_bb_client_read_task, client_data);
+
+    bb_runtime_watch_fd(server->runtime, client_fd, BB_EVENT_READ, client_task);
 }
 
 void bb_server_start(bb_server_t *server)
 {
-    int client_fd;
-    struct sockaddr_in address;
-    int addrlen = sizeof(address);
-    char *buffer = NULL;
+    _bb_accept_task_data_t *data = malloc(sizeof(*data));
 
-    BB_LOG_INFO("Blue-Bird server started.\n");
-    while (1)
+    if (!data)
     {
-        // Accept new connection
-        if ((client_fd = accept(server->server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0)
-        {
-            BB_LOG_ERROR("accept failed");
-            continue;
-        }
-
-        // Read request (not parsed, yet)
-        bb_http_read_message(client_fd, &buffer);
-        BB_LOG_INFO("Received request:\n%s\n", buffer);
-
-        _handle_request(server, client_fd, buffer);
+        return;
     }
+
+    data->server = server;
+
+    bb_task_t *task = bb_task_create(_bb_accept_task, data);
+
+    bb_runtime_watch_fd(server->runtime, server->server_fd, BB_EVENT_READ, task);
+
+    BB_LOG_INFO("Blue-Bird async server started.\n");
+    bb_runtime_run(server->runtime); //temp
 }
 
 void bb_server_destroy(bb_server_t *server)
@@ -170,4 +241,20 @@ void bb_server_destroy(bb_server_t *server)
     free(server->pre_middleware_list);
     bb_middleware_list_destroy(server->post_middleware_list);
     free(server->post_middleware_list);
+    bb_runtime_destroy(server->runtime); // temp
+}
+
+void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_route_handler_cb handler)
+{
+    bb_route_list_add(server->route_list, method, path, handler);
+}
+
+void bb_server_use_pre_middleware(bb_server_t *server, bb_middleware_cb mw)
+{
+    bb_middleware_list_append(server->pre_middleware_list, mw);
+}
+
+void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw)
+{
+    bb_middleware_list_append(server->post_middleware_list, mw);
 }
