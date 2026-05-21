@@ -34,6 +34,7 @@ endif()
 add_subdirectory(modules/error)
 add_subdirectory(modules/utils)
 add_subdirectory(modules/runtime)
+add_subdirectory(modules/template)
 add_subdirectory(modules/persist)
 add_subdirectory(modules/log)
 add_subdirectory(modules/web)
@@ -49,6 +50,7 @@ target_link_libraries(bluebird INTERFACE
     bluebird_log
     bluebird_error
     bluebird_runtime
+    bluebird_template
 )
 
 add_library(BlueBird::bluebird ALIAS bluebird)
