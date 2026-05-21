@@ -88,7 +88,35 @@ bb_template_t *bb_template_parse(const char *source, bb_error_t *err)
             source[i + 1] == '{' &&
             source[i + 2] == '{'
         ) {
-            i++;
+
+            /*
+            * Flush text before escape.
+            */
+            if (i > text_start)
+            {
+                if (bb_template_append_text(&tpl->ast, source + text_start, i - text_start) != 0)
+                {
+                    bb_template_destroy(tpl);
+                    return NULL;
+                }
+            }
+
+            /*
+            * Emit literal {{
+            */
+            if (bb_template_append_text(&tpl->ast, "{{", 2) != 0)
+            {
+                bb_template_destroy(tpl);
+                return NULL;
+            }
+
+            /*
+            * Skip:
+            * \{{
+            */
+            i += 3;
+
+            text_start = i;
             continue;
         }
 
@@ -137,7 +165,8 @@ bb_template_t *bb_template_parse(const char *source, bb_error_t *err)
         i++;
     }
 
-    if (i > text_start) {
+    if (i > text_start)
+    {
         if (bb_template_append_text(&tpl->ast, source + text_start, i - text_start) != 0)
         {
             bb_template_destroy(tpl);
