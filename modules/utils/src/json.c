@@ -10,13 +10,13 @@ void bb_json_init(bb_json_node_t *json, bb_json_node_type_t type)
     json->size = 0;
     switch (type) {
         case BB_JSON_OBJECT:
-            for (int i = 0; i < BB_JSON_HASH_TABLE_SIZE; i++)
-                json->value.object.hash_table[i] = NULL;
+            json->value.object.hash_table = calloc(BB_JSON_HASH_TABLE_SIZE, sizeof(*json->value.object.hash_table));
             json->value.object.order_head = NULL;
             json->value.object.order_tail = NULL;
             break;
         case BB_JSON_ARRAY:
             json->value.dynamic_array.alloc_size = 0;
+            json->value.dynamic_array.array = NULL;
             break;
         case BB_JSON_TEXT:
             json->value.text_val = NULL;

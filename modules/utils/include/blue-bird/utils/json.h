@@ -41,7 +41,7 @@ typedef struct BBJsonNode {
             struct BBJsonNode **array;
         } dynamic_array;
         struct {
-            _bb_hash_table_node_t *hash_table[BB_JSON_HASH_TABLE_SIZE];
+            _bb_hash_table_node_t **hash_table;
             _bb_hash_table_node_t *order_head;
             _bb_hash_table_node_t *order_tail;
         } object;
