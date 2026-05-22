@@ -9,7 +9,9 @@ extern "C" {
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define BB_JSON_HASH_TABLE_SIZE 100047
+#define BB_JSON_INITIAL_BUCKET_COUNT 8
+#define BB_JSON_MAX_LOAD_NUM 3
+#define BB_JSON_MAX_LOAD_DEN 4
 
 typedef enum {
     BB_JSON_NULL,
@@ -41,7 +43,9 @@ typedef struct BBJsonNode {
             struct BBJsonNode **array;
         } dynamic_array;
         struct {
-            _bb_hash_table_node_t **hash_table;
+            size_t bucket_count;
+            size_t item_count;
+            _bb_hash_table_node_t **buckets;
             _bb_hash_table_node_t *order_head;
             _bb_hash_table_node_t *order_tail;
         } object;

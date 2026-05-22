@@ -8,19 +8,28 @@ void bb_json_init(bb_json_node_t *json, bb_json_node_type_t type)
 {
     json->type = type;
     json->size = 0;
-    switch (type) {
+    switch (type)
+    {
         case BB_JSON_OBJECT:
-            json->value.object.hash_table = calloc(BB_JSON_HASH_TABLE_SIZE, sizeof(*json->value.object.hash_table));
+        {
+            json->value.object.bucket_count = BB_JSON_INITIAL_BUCKET_COUNT;
+            json->value.object.item_count = 0;
+            json->value.object.buckets = calloc(json->value.object.bucket_count, sizeof(*json->value.object.buckets));
             json->value.object.order_head = NULL;
             json->value.object.order_tail = NULL;
             break;
+        }
         case BB_JSON_ARRAY:
+        {
             json->value.dynamic_array.alloc_size = 0;
             json->value.dynamic_array.array = NULL;
             break;
+        }
         case BB_JSON_TEXT:
+        {
             json->value.text_val = NULL;
             break;
+        }
         default:
             break;
     }
@@ -28,16 +37,20 @@ void bb_json_init(bb_json_node_t *json, bb_json_node_type_t type)
 
 void bb_json_destroy(bb_json_node_t *json)
 {
-    switch (json->type) {
+    switch (json->type)
+    {
         case BB_JSON_TEXT:
+        {
             if (json->value.text_val)
             {
                 free(json->value.text_val);
                 json->value.text_val = NULL;
             }
             break;
+        }
         case BB_JSON_ARRAY:
-            for (unsigned int i = 0; i < json->size; i++)
+        {
+            for (size_t i = 0; i < json->size; i++)
             {
                 if (json->value.dynamic_array.array[i])
                 {
@@ -49,18 +62,25 @@ void bb_json_destroy(bb_json_node_t *json)
                 free(json->value.dynamic_array.array);
             json->value.dynamic_array.array = NULL;
             break;
+        }
         case BB_JSON_OBJECT:
         {
             _bb_hash_table_node_t *node = json->value.object.order_head;
-            while (node != NULL)
+            while (node)
             {
+                _bb_hash_table_node_t *next = node->order_next;
                 free(node->key);
                 bb_json_destroy(node->value);
                 free(node->value);
-                _bb_hash_table_node_t *next = node->order_next;
                 free(node);
                 node = next;
             }
+            free(json->value.object.buckets);
+            json->value.object.buckets = NULL;
+            json->value.object.bucket_count = 0;
+            json->value.object.item_count = 0;
+            json->value.object.order_head = NULL;
+            json->value.object.order_tail = NULL;
             break;
         }
         default:
@@ -167,12 +187,36 @@ void bb_json_array_remove_at_index(bb_json_node_t *json_array, unsigned int inde
 
 // JSON Object: Implemented as hash table
 
-static int hash_function(const char *str)
+static size_t hash_function(const char *str, size_t bucket_count)
 {
-    int sum = 0;
-    for (int i = 0; str[i] != '\0'; i++)
-        sum += str[i];
-    return sum % BB_JSON_HASH_TABLE_SIZE;
+    // djb2 hash
+    size_t hash = 5381;
+    while (*str)
+    {
+        hash = ((hash << 5) + hash) + (unsigned char)(*str);
+        str++;
+    }
+    return hash & (bucket_count - 1);
+}
+
+static void bb_json_object_resize(bb_json_node_t *json_object, size_t new_bucket_count)
+{
+    _bb_hash_table_node_t **new_buckets = calloc(new_bucket_count, sizeof(*new_buckets));
+    for (size_t i = 0; i < json_object->value.object.bucket_count; i++)
+    {
+        _bb_hash_table_node_t *node = json_object->value.object.buckets[i];
+        while (node)
+        {
+            _bb_hash_table_node_t *next = node->next;
+            size_t index = hash_function(node->key, new_bucket_count);
+            node->next = new_buckets[index];
+            new_buckets[index] = node;
+            node = next;
+        }
+    }
+    free(json_object->value.object.buckets);
+    json_object->value.object.buckets = new_buckets;
+    json_object->value.object.bucket_count = new_bucket_count;
 }
 
 void bb_json_object_set_value(bb_json_node_t *json_object, const char *key, bb_json_node_t *value)
@@ -180,52 +224,62 @@ void bb_json_object_set_value(bb_json_node_t *json_object, const char *key, bb_j
     BB_ASSERT(json_object->type == BB_JSON_OBJECT, "Invalid JSON type.");
     if (!json_object || !value || !key) return;
 
-    int index = hash_function(key);
-    _bb_hash_table_node_t *node = json_object->value.object.hash_table[index];
+    // Resize if load factor > 0.75
+    if (json_object->value.object.item_count * BB_JSON_MAX_LOAD_DEN >= json_object->value.object.bucket_count * BB_JSON_MAX_LOAD_NUM)
+    {
+        bb_json_object_resize(json_object, json_object->value.object.bucket_count * 2);
+    }
+    size_t index = hash_function(key, json_object->value.object.bucket_count);
+    _bb_hash_table_node_t *node = json_object->value.object.buckets[index];
 
     while (node && strcmp(node->key, key) != 0)
     {
         node = node->next;
     }
 
+    // Replace existing value
     if (node)
     {
         bb_json_destroy(node->value);
         free(node->value);
         node->value = value;
+        return;
+    }
+    // Create new node
+    node = malloc(sizeof(*node));
+
+    node->key = strdup(key);
+    node->value = value;
+
+    // Insert into bucket chain
+    node->next = json_object->value.object.buckets[index];
+    json_object->value.object.buckets[index] = node;
+
+    // Insert into ordered list
+    node->order_prev = json_object->value.object.order_tail;
+    node->order_next = NULL;
+    if (json_object->value.object.order_tail)
+    {
+        json_object->value.object.order_tail->order_next = node;
     }
     else
     {
-        node = malloc(sizeof(_bb_hash_table_node_t));
-        node->key = strdup(key);
-        node->value = value;
-        node->next = json_object->value.object.hash_table[index];
-        node->order_prev = json_object->value.object.order_tail;
-        node->order_next = NULL;
-        json_object->value.object.hash_table[index] = node;
-        if (json_object->size == 0)
-        {
-            json_object->value.object.order_head = node;
-        }
-        else
-        {
-            json_object->value.object.order_tail->order_next = node;
-        }
-        json_object->value.object.order_tail = node;
-        json_object->size++;
+        json_object->value.object.order_head = node;
     }
+    json_object->value.object.order_tail = node;
+    json_object->value.object.item_count++;
+    json_object->size++;
 }
 
 bb_json_node_t *bb_json_object_get_value(bb_json_node_t *json_object, const char *key)
 {
     BB_ASSERT(json_object->type == BB_JSON_OBJECT, "Invalid JSON type.");
-    int index = hash_function(key);
-    _bb_hash_table_node_t *node = json_object->value.object.hash_table[index];
+    if (!json_object || !key) return NULL;
+    size_t index = hash_function(key, json_object->value.object.bucket_count);
+    _bb_hash_table_node_t *node = json_object->value.object.buckets[index];
     while (node && strcmp(node->key, key) != 0)
         node = node->next;
-    if (node)
-        return node->value;
-    return NULL;
+    return node ? node->value : NULL;
 }
 
 void bb_json_object_remove_key(bb_json_node_t *obj, const char *key_to_remove)
@@ -233,40 +287,51 @@ void bb_json_object_remove_key(bb_json_node_t *obj, const char *key_to_remove)
     BB_ASSERT(obj->type == BB_JSON_OBJECT, "Invalid JSON type.");
     if (!obj || !key_to_remove)
         return;
-    
-    int index = hash_function(key_to_remove);
-    _bb_hash_table_node_t *node = obj->value.object.hash_table[index];
-    _bb_hash_table_node_t *par = NULL;
+    size_t index = hash_function(key_to_remove, obj->value.object.bucket_count);
+    _bb_hash_table_node_t *node = obj->value.object.buckets[index];
+
+    _bb_hash_table_node_t *prev = NULL;
     while (node && strcmp(node->key, key_to_remove) != 0)
     {
-        par = node;
+        prev = node;
         node = node->next;
     }
     if (!node) return;
 
-    if (par)
+    // Remove from bucket chain
+    if (prev)
     {
-        par->next = node->next;
+        prev->next = node->next;
     }
     else
     {
-        obj->value.object.hash_table[index] = node->next;
+        obj->value.object.buckets[index] = node->next;
     }
 
-    if (obj->value.object.order_head == node)
+    // Remove from ordered list
+    if (node->order_prev)
+    {
+        node->order_prev->order_next = node->order_next;
+    }
+    else
+    {
         obj->value.object.order_head = node->order_next;
-    if (obj->value.object.order_tail == node)
-        obj->value.object.order_tail = node->order_prev;
+    }
 
     if (node->order_next)
+    {
         node->order_next->order_prev = node->order_prev;
-    if (node->order_prev)
-        node->order_prev->order_next = node->order_next;
+    }
+    else
+    {
+        obj->value.object.order_tail = node->order_prev;
+    }
 
     free(node->key);
     bb_json_destroy(node->value);
     free(node->value);
     free(node);
+    obj->value.object.item_count--;
     obj->size--;
 }
 
