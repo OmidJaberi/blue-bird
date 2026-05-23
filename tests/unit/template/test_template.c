@@ -23,12 +23,7 @@ static void test_plain_text_render(void)
 
     bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
 
-    char *result =
-        bb_template_render(
-            tpl,
-            ctx,
-            &err
-        );
+    char *result = bb_template_render(tpl, ctx, &err);
 
     assert(result != NULL);
     assert(strcmp(result, "Hello World") == 0);
@@ -38,7 +33,6 @@ static void test_plain_text_render(void)
     bb_json_destroy(ctx);
     bb_template_destroy(tpl);
 }
-
 
 static void test_simple_variable_render(void)
 {
@@ -58,12 +52,7 @@ static void test_simple_variable_render(void)
         KEY("name", TEXT("Blue"))
     );
 
-    char *result =
-        bb_template_render(
-            tpl,
-            ctx,
-            &err
-        );
+    char *result = bb_template_render(tpl, ctx, &err);
 
     assert(result != NULL);
     assert(strcmp(result, "Hello Blue") == 0);
@@ -73,7 +62,6 @@ static void test_simple_variable_render(void)
     bb_json_destroy(ctx);
     bb_template_destroy(tpl);
 }
-
 
 static void test_nested_variable_render(void)
 {
@@ -97,12 +85,7 @@ static void test_nested_variable_render(void)
         KEY("user", user)
     );
 
-    char *result =
-        bb_template_render(
-            tpl,
-            ctx,
-            &err
-        );
+    char *result = bb_template_render(tpl, ctx, &err);
 
     assert(result != NULL);
     assert(strcmp(result, "User: BlueBird") == 0);
@@ -112,7 +95,6 @@ static void test_nested_variable_render(void)
     bb_json_destroy(ctx);
     bb_template_destroy(tpl);
 }
-
 
 static void test_missing_variable_render(void)
 {
@@ -130,12 +112,7 @@ static void test_missing_variable_render(void)
 
     bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
 
-    char *result =
-        bb_template_render(
-            tpl,
-            ctx,
-            &err
-        );
+    char *result = bb_template_render(tpl, ctx, &err);
 
     assert(result != NULL);
 
@@ -150,7 +127,6 @@ static void test_missing_variable_render(void)
     bb_json_destroy(ctx);
     bb_template_destroy(tpl);
 }
-
 
 static void test_numeric_render(void)
 {
@@ -170,12 +146,7 @@ static void test_numeric_render(void)
         KEY("port", INT(8080))
     );
 
-    char *result =
-        bb_template_render(
-            tpl,
-            ctx,
-            &err
-        );
+    char *result = bb_template_render(tpl, ctx, &err);
 
     assert(result != NULL);
 
@@ -190,7 +161,6 @@ static void test_numeric_render(void)
     bb_json_destroy(ctx);
     bb_template_destroy(tpl);
 }
-
 
 static void test_boolean_render(void)
 {
@@ -210,12 +180,7 @@ static void test_boolean_render(void)
         KEY("enabled", BOOL(1))
     );
 
-    char *result =
-        bb_template_render(
-            tpl,
-            ctx,
-            &err
-        );
+    char *result = bb_template_render(tpl, ctx, &err);
 
     assert(result != NULL);
 
@@ -226,7 +191,6 @@ static void test_boolean_render(void)
     bb_json_destroy(ctx);
     bb_template_destroy(tpl);
 }
-
 
 static void test_invalid_template_parse(void)
 {
@@ -242,7 +206,6 @@ static void test_invalid_template_parse(void)
 
     assert(tpl == NULL);
 }
-
 
 static void test_escaped_delimiter(void)
 {
@@ -260,12 +223,7 @@ static void test_escaped_delimiter(void)
 
     bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
 
-    char *result =
-        bb_template_render(
-            tpl,
-            ctx,
-            &err
-        );
+    char *result = bb_template_render(tpl, ctx, &err);
 
     assert(result != NULL);
 
@@ -281,6 +239,269 @@ static void test_escaped_delimiter(void)
     bb_template_destroy(tpl);
 }
 
+static void test_section_render(void)
+{
+    printf("\tTesting section rendering...\n");
+
+    bb_error_t err;
+
+    bb_template_t *tpl =
+        bb_template_parse(
+            "{{#items}}- {{name}}\n{{/items}}",
+            &err
+        );
+
+    assert(tpl != NULL);
+
+    bb_json_t *items = bb_json_new(BB_JSON_ARRAY);
+
+    bb_json_array_push(
+        items,
+        OBJ(
+            KEY("name", TEXT("Alpha"))
+        )
+    );
+
+    bb_json_array_push(
+        items,
+        OBJ(
+            KEY("name", TEXT("Beta"))
+        )
+    );
+
+    bb_json_t *ctx = OBJ(
+        KEY("items", items)
+    );
+
+    char *result = bb_template_render(tpl, ctx, &err);
+
+    assert(result != NULL);
+
+    assert(strcmp(result, "- Alpha\n- Beta\n") == 0);
+
+    free(result);
+
+    bb_json_destroy(ctx);
+    bb_template_destroy(tpl);
+}
+
+static void test_nested_sections(void)
+{
+    printf("\tTesting nested sections...\n");
+
+    bb_error_t err;
+
+    bb_template_t *tpl =
+        bb_template_parse(
+            "{{#users}}"
+            "User: {{name}}\n"
+            "{{#posts}}"
+            "* {{title}}\n"
+            "{{/posts}}"
+            "{{/users}}",
+            &err
+        );
+
+    assert(tpl != NULL);
+
+    bb_json_t *posts = bb_json_new(BB_JSON_ARRAY);
+
+    bb_json_array_push(
+        posts,
+        OBJ(
+            KEY("title", TEXT("Post A"))
+        )
+    );
+
+    bb_json_array_push(
+        posts,
+        OBJ(
+            KEY("title", TEXT("Post B"))
+        )
+    );
+
+    bb_json_t *users = bb_json_new(BB_JSON_ARRAY);
+
+    bb_json_array_push(
+        users,
+        OBJ(
+            KEY("name", TEXT("Blue")),
+            KEY("posts", posts)
+        )
+    );
+
+    bb_json_t *ctx = OBJ(
+        KEY("users", users)
+    );
+
+    char *result = bb_template_render(tpl, ctx, &err);
+
+    assert(result != NULL);
+
+    assert(
+        strcmp(
+            result,
+            "User: Blue\n"
+            "* Post A\n"
+            "* Post B\n"
+        ) == 0
+    );
+
+    free(result);
+
+    bb_json_destroy(ctx);
+    bb_template_destroy(tpl);
+}
+
+static void test_conditional_truthy(void)
+{
+    printf("\tTesting truthy conditional...\n");
+
+    bb_error_t err;
+
+    bb_template_t *tpl =
+        bb_template_parse(
+            "{{?logged_in}}Welcome{{/logged_in}}",
+            &err
+        );
+
+    assert(tpl != NULL);
+
+    bb_json_t *ctx = OBJ(
+        KEY("logged_in", BOOL(1))
+    );
+
+    char *result = bb_template_render(tpl, ctx, &err);
+
+    assert(result != NULL);
+
+    assert(strcmp(result, "Welcome") == 0);
+
+    free(result);
+
+    bb_json_destroy(ctx);
+    bb_template_destroy(tpl);
+}
+
+static void test_conditional_falsy(void)
+{
+    printf("\tTesting falsy conditional...\n");
+
+    bb_error_t err;
+
+    bb_template_t *tpl =
+        bb_template_parse(
+            "{{?logged_in}}Welcome{{/logged_in}}",
+            &err
+        );
+
+    assert(tpl != NULL);
+
+    bb_json_t *ctx = OBJ(
+        KEY("logged_in", BOOL(0))
+    );
+
+    char *result = bb_template_render(tpl, ctx, &err);
+
+    assert(result != NULL);
+
+    assert(strcmp(result, "") == 0);
+
+    free(result);
+
+    bb_json_destroy(ctx);
+    bb_template_destroy(tpl);
+}
+
+static void test_comment_ignored(void)
+{
+    printf("\tTesting comment ignoring...\n");
+
+    bb_error_t err;
+
+    bb_template_t *tpl =
+        bb_template_parse(
+            "Hello {{! comment }}World",
+            &err
+        );
+
+    assert(tpl != NULL);
+
+    bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
+
+    char *result = bb_template_render(tpl, ctx, &err);
+
+    assert(result != NULL);
+
+    assert(strcmp(result, "Hello World") == 0);
+
+    free(result);
+
+    bb_json_destroy(ctx);
+    bb_template_destroy(tpl);
+}
+
+static void test_parent_context_lookup(void)
+{
+    printf("\tTesting parent context lookup...\n");
+
+    bb_error_t err;
+
+    bb_template_t *tpl =
+        bb_template_parse(
+            "{{#users}}"
+            "{{name}} @ {{site}}\n"
+            "{{/users}}",
+            &err
+        );
+
+    assert(tpl != NULL);
+
+    bb_json_t *users = bb_json_new(BB_JSON_ARRAY);
+
+    bb_json_array_push(
+        users,
+        OBJ(
+            KEY("name", TEXT("Blue"))
+        )
+    );
+
+    bb_json_t *ctx = OBJ(
+        KEY("site", TEXT("BlueBird")),
+        KEY("users", users)
+    );
+
+    char *result = bb_template_render(tpl, ctx, &err);
+
+    assert(result != NULL);
+
+    assert(
+        strcmp(
+            result,
+            "Blue @ BlueBird\n"
+        ) == 0
+    );
+
+    free(result);
+
+    bb_json_destroy(ctx);
+    bb_template_destroy(tpl);
+}
+
+static void test_mismatched_closing_tag(void)
+{
+    printf("\tTesting mismatched closing tags...\n");
+
+    bb_error_t err;
+
+    bb_template_t *tpl =
+        bb_template_parse(
+            "{{#users}}{{/posts}}",
+            &err
+        );
+
+    assert(tpl == NULL);
+}
 
 int main(void)
 {
@@ -293,6 +514,13 @@ int main(void)
     test_boolean_render();
     test_invalid_template_parse();
     test_escaped_delimiter();
+    test_section_render();
+    test_nested_sections();
+    test_conditional_truthy();
+    test_conditional_falsy();
+    test_comment_ignored();
+    test_parent_context_lookup();
+    test_mismatched_closing_tag();
     printf("All template tests passed.\n");
     return 0;
 }
