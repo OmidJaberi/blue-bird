@@ -141,10 +141,8 @@ bb_error_t add_task(bb_request_t *req, bb_response_t *res)
 
     if (rc == 0)
     {
-        char buff[256];
-        snprintf(buff, 256, "id: %s", t.id);
-        bb_response_set_body(res, buff);
-        bb_response_set_status(res, 200);
+        bb_response_set_status(res, 302);
+        bb_response_set_header(res, "Location", "/");
         return BB_SUCCESS();
     }
 
@@ -160,7 +158,8 @@ bb_error_t remove_task(bb_request_t *req, bb_response_t *res)
 
     if (rc == 0)
     {
-        bb_response_set_status(res, 200);
+        bb_response_set_status(res, 302);
+        bb_response_set_header(res, "Location", "/");
         return BB_SUCCESS();
     }
 
@@ -188,7 +187,8 @@ bb_error_t mark_done(bb_request_t *req, bb_response_t *res)
         return BB_ERROR(BB_ERR_INTERNAL, "Update failed");
     }
 
-    bb_response_set_status(res, 200);
+    bb_response_set_status(res, 302);
+    bb_response_set_header(res, "Location", "/");
     return BB_SUCCESS();
 }
 
