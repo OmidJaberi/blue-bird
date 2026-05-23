@@ -5,7 +5,7 @@
 #include "blue-bird/template/template.h"
 
 struct bb_template {
-    bb_template_ast_t ast;
+    bb_template_node_list_t nodes;
 };
 
 #endif

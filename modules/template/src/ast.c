@@ -26,33 +26,85 @@ bb_template_node_t *bb_template_node_create(bb_template_node_type_t type, const 
     return node;
 }
 
-void bb_template_ast_append(bb_template_ast_t *ast, bb_template_node_t *node)
+void bb_template_node_append_child(bb_template_node_t *parent, bb_template_node_t *child)
 {
-    if (!ast->head)
+    if (!parent || !child)
     {
-        ast->head = node;
-        ast->tail = node;
         return;
     }
 
-    ast->tail->next = node;
-    ast->tail = node;
+    // First child.
+    if (!parent->children)
+    {
+        parent->children = child;
+        return;
+    }
+
+    // Append to sibling chain.
+    bb_template_node_t *current = parent->children;
+    while (current->next)
+    {
+        current = current->next;
+    }
+    current->next = child;
 }
 
-void bb_template_ast_destroy(bb_template_ast_t *ast)
-{
-    bb_template_node_t *node = ast->head;
 
+void bb_template_node_list_append(bb_template_node_list_t *list, bb_template_node_t *node)
+{
+    if (!list || !node)
+    {
+        return;
+    }
+
+    if (!list->head)
+    {
+        list->head = node;
+        list->tail = node;
+        return;
+    }
+
+    list->tail->next = node;
+    list->tail = node;
+}
+
+void bb_template_node_destroy(bb_template_node_t *node)
+{
+    if (!node)
+    {
+        return;
+    }
+
+    // Destroy children recursively.
+    bb_template_node_t *child = node->children;
+
+    while (child)
+    {
+        bb_template_node_t *next = child->next;
+        bb_template_node_destroy(child);
+        child = next;
+    }
+
+    free(node->value);
+    free(node);
+}
+
+
+void bb_template_node_list_destroy(bb_template_node_list_t *list)
+{
+    if (!list)
+    {
+        return;
+    }
+
+    bb_template_node_t *node = list->head;
     while (node)
     {
         bb_template_node_t *next = node->next;
-
-        free(node->value);
-        free(node);
-
+        bb_template_node_destroy(node);
         node = next;
     }
 
-    ast->head = NULL;
-    ast->tail = NULL;
+    list->head = NULL;
+    list->tail = NULL;
 }

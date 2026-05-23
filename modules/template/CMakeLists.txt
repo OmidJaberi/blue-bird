@@ -2,6 +2,7 @@ add_library(bluebird_template
     src/ast.c
     src/parser.c
     src/renderer.c
+    src/string_builder.c
     src/template.c
 )
 

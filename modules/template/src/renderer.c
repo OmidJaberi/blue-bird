@@ -1,152 +1,184 @@
-#include "template_internal.h"
+#include "renderer.h"
+#include "render_context.h"
+#include "string_builder.h"
 
-#include <stdio.h>
+#include "blue-bird/utils/json.h"
+
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
-    char *data;
-    size_t length;
-    size_t capacity;
-} bb_string_builder_t;
-
-static int bb_sb_init(bb_string_builder_t *sb)
-{
-    sb->capacity = 256;
-    sb->length = 0;
-
-    sb->data = malloc(sb->capacity);
-
-    if (!sb->data) {
-        return -1;
-    }
-
-    sb->data[0] = '\0';
-
-    return 0;
-}
-
-static int bb_sb_append(bb_string_builder_t *sb, const char *text)
-{
-    size_t len = strlen(text);
-
-    while (sb->length + len + 1 > sb->capacity)
-    {
-        sb->capacity *= 2;
-
-        char *tmp = realloc(sb->data, sb->capacity);
-
-        if (!tmp)
-        {
-            return -1;
-        }
-
-        sb->data = tmp;
-    }
-
-    memcpy(sb->data + sb->length, text, len + 1);
-    sb->length += len;
-    return 0;
-}
-
-static bb_json_t *bb_template_lookup(bb_json_t *ctx, const char *path)
+static bb_json_t *bb_template_lookup(bb_render_context_t *ctx, const char *path)
 {
     char *copy = strdup(path);
-
     if (!copy)
     {
         return NULL;
     }
-
-    char *token = strtok(copy, ".");
-
-    bb_json_t *current = ctx;
-
-    while (token && current)
+    bb_json_t *result = NULL;
+    bb_render_context_t *current_ctx = ctx;
+    while (current_ctx && !result)
     {
-        current = bb_json_object_get_value(current, token);
-        token = strtok(NULL, ".");
+        bb_json_t *current = current_ctx->current;
+        char *token = strtok(copy, ".");
+        while (token && current)
+        {
+            current = bb_json_object_get_value(current, token);
+            token = strtok(NULL, ".");
+        }
+        if (current)
+        {
+            result = current;
+            break;
+        }
+        /*
+         * Restart tokenization
+         * for parent context.
+         */
+        strcpy(copy, path);
+        current_ctx = current_ctx->parent;
     }
-
     free(copy);
-    return current;
+    return result;
 }
 
-static char *bb_json_to_string(bb_json_t *json)
+static int bb_template_is_truthy(bb_json_t *value)
 {
-    char *buf = NULL;
-    int size = 0;
-
-    if (json == NULL)
-        return NULL;
-
-    if (json->type == BB_JSON_TEXT)
+    if (!value)
     {
-        buf = malloc(json->size + 1);
-        if (buf == NULL)
-            return NULL;
-
-        memcpy(buf, json->value.text_val, json->size);
-        buf[json->size] = '\0';
+        return 0;
     }
-    else
+    switch (value->type)
     {
-        bb_json_serialize(json, &buf, &size);
+        case BB_JSON_NULL:
+            return 0;
+        case BB_JSON_BOOL:
+            return bb_json_get_value_bool(value);
+        case BB_JSON_INT:
+            return bb_json_get_value_integer(value) != 0;
+        case BB_JSON_REAL:
+            return bb_json_get_value_real(value) != 0.0;
+        case BB_JSON_TEXT:
+        {
+            const char *s = bb_json_get_value_text(value);
+            return s && s[0] != '\0';
+        }
+        case BB_JSON_ARRAY:
+            return value->size > 0;
+        case BB_JSON_OBJECT:
+            return 1;
+        default:
+            return 0;
     }
-
-    return buf;
 }
 
-char *bb_template_render(const bb_template_t *tpl, bb_json_t *context, bb_error_t *err)
+static int bb_template_render_value(bb_string_builder_t *sb, bb_json_t *value)
 {
-    (void) err;
-
-    bb_string_builder_t sb;
-
-    if (bb_sb_init(&sb) != 0)
+    if (!value)
     {
-        return NULL;
+        return 0;
     }
 
-    bb_template_node_t *node = tpl->ast.head;
+    // Strings render raw.
+    if (value->type == BB_JSON_TEXT)
+    {
+        return bb_string_builder_append(sb, bb_json_get_value_text(value));
+    }
 
+    // Everything else:
+    char *tmp;
+    int size;
+    bb_json_serialize(value, &tmp, &size);
+    if (!tmp)
+    {
+        return -1;
+    }
+
+    int rc = bb_string_builder_append(sb, tmp);
+    free(tmp);
+    return rc;
+}
+
+
+static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_t *ctx, bb_string_builder_t *sb)
+{
     while (node)
     {
-        if (node->type == BB_TEMPLATE_NODE_TEXT)
+        switch (node->type)
         {
-            if (bb_sb_append(&sb, node->value) != 0)
+            case BB_TEMPLATE_NODE_TEXT:
             {
-                free(sb.data);
-                return NULL;
+                if (bb_string_builder_append(sb, node->value) != 0)
+                {
+                    return -1;
+                }
+                break;
             }
-        }
-        else if (node->type == BB_TEMPLATE_NODE_VARIABLE)
-        {
-            bb_json_t *value = bb_template_lookup(context, node->value);
-
-            if (value)
+            case BB_TEMPLATE_NODE_VARIABLE:
             {
-                char *tmp = bb_json_to_string(value);
-
-                if (!tmp)
+                bb_json_t *value = bb_template_lookup(ctx, node->value);
+                if (bb_template_render_value(sb, value) != 0)
                 {
-                    free(sb.data);
-                    return NULL;
+                    return -1;
                 }
-
-                if (bb_sb_append(&sb, tmp) != 0)
-                {
-                    free(tmp);
-                    free(sb.data);
-                    return NULL;
-                }
-
-                free(tmp);
+                break;
             }
+            case BB_TEMPLATE_NODE_SECTION:
+            {
+                bb_json_t *value = bb_template_lookup(ctx, node->value);
+                if (value && value->type == BB_JSON_ARRAY)
+                {
+                    size_t count = value->size;
+                    for (size_t i = 0; i < count; i++)
+                    {
+                        bb_json_t *item = bb_json_array_get_index(value, i);
+                        bb_render_context_t child_ctx = {
+                            .current = item,
+                            .parent = ctx
+                        };
+                        if (bb_template_render_nodes(node->children, &child_ctx, sb) != 0)
+                        {
+                            return -1;
+                        }
+                    }
+                }
+                break;
+            }
+            case BB_TEMPLATE_NODE_CONDITIONAL:
+            {
+                bb_json_t *value = bb_template_lookup(ctx, node->value);
+                if (bb_template_is_truthy(value))
+                {
+                    if (bb_template_render_nodes(node->children, ctx, sb) != 0)
+                    {
+                        return -1;
+                    }
+                }
+                break;
+            }
+            case BB_TEMPLATE_NODE_COMMENT:
+                break;
         }
-
         node = node->next;
     }
+    return 0;
+}
 
+char *bb_template_render_internal(const bb_template_t *tpl, bb_json_t *context, bb_error_t *err)
+{
+    (void) err;
+    bb_string_builder_t sb;
+    if (bb_string_builder_init(&sb) != 0)
+    {
+        return NULL;
+    }
+    bb_render_context_t root_ctx = {
+        .current = context,
+        .parent = NULL
+    };
+    if (bb_template_render_nodes(tpl->nodes.head, &root_ctx, &sb) != 0)
+    {
+        bb_string_builder_destroy(&sb);
+        return NULL;
+    }
     return sb.data;
 }
