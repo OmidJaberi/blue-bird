@@ -171,6 +171,22 @@ static int bb_parser_parse_nodes(bb_template_parser_t *p, bb_template_node_list_
     size_t text_start = p->pos;
     while (p->pos < p->len)
     {
+        // Escaped opening delimiter.
+        if (bb_parser_starts_with(p, "\\{{"))
+        {
+            if (bb_parser_append_text(list, p->src + text_start, p->pos - text_start) != 0)
+            {
+                return -1;
+            }
+            // Emit literal {{
+            if (bb_parser_append_text(list, "{{", 2) != 0)
+            {
+                return -1;
+            }
+            p->pos += 3;
+            text_start = p->pos;
+            continue;
+        }
         // Closing section.
         if (bb_parser_starts_with(p, "{{/"))
         {
