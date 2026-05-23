@@ -190,6 +190,11 @@ static int bb_parser_parse_nodes(bb_template_parser_t *p, bb_template_node_list_
         // Closing section.
         if (bb_parser_starts_with(p, "{{/"))
         {
+            // Flush pending text BEFORE consuming closing tag.
+            if (bb_parser_append_text(list, p->src + text_start, p->pos - text_start) != 0)
+            {
+                return -1;
+            }
             p->pos += 3;
             char *name = bb_parser_read_until(p, "}}");
             if (!name)
