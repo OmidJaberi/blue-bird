@@ -16,4 +16,5 @@ target_link_libraries(example_todo
         bluebird_web
         bluebird_persist
         bluebird_log
+        bluebird_template
 )

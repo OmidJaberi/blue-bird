@@ -3,6 +3,7 @@
 
 #include <blue-bird/web/http.h>
 
+bb_error_t root(bb_request_t *req, bb_response_t *res);
 bb_error_t add_task(bb_request_t *req, bb_response_t *res);
 bb_error_t remove_task(bb_request_t *req, bb_response_t *res);
 bb_error_t get_task(bb_request_t *req, bb_response_t *res);
