@@ -22,6 +22,8 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - key-value persistence
 - schema-driven object-model persistence
 - repositories
+- Templating
+- Async Runtime
 - logging
 - UUID and time utilities
 - testing infrastructure
@@ -76,6 +78,8 @@ blue-bird/
 ├── modules/
 │   ├── web/        # HTTP server/client, routing, middleware
 │   ├── persist/    # Key-value + object-model persistence
+│   ├── template/   # Lightweight templating system
+│   ├── runtime/    # Async event-driven execution system
 │   ├── utils/      # JSON, UUID, time, encoding, config
 │   ├── log/        # Logging infrastructure
 │   └── error/      # Error handling primitives
