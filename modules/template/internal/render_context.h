@@ -4,7 +4,7 @@
 #include <blue-bird/utils/json.h>
 
 typedef struct bb_render_context {
-    bb_json_t *current;
+    bb_json_t current;
     struct bb_render_context *parent;
 } bb_render_context_t;
 

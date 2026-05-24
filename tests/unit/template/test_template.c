@@ -21,7 +21,7 @@ static void test_plain_text_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
+    bb_json_t ctx = bb_json_create(BB_JSON_OBJECT);
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -48,7 +48,7 @@ static void test_simple_variable_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("name", TEXT("Blue"))
     );
 
@@ -77,11 +77,11 @@ static void test_nested_variable_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *user = OBJ(
+    bb_json_t user = OBJ(
         KEY("name", TEXT("BlueBird"))
     );
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("user", user)
     );
 
@@ -110,7 +110,7 @@ static void test_missing_variable_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
+    bb_json_t ctx = bb_json_create(BB_JSON_OBJECT);
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -142,7 +142,7 @@ static void test_numeric_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("port", INT(8080))
     );
 
@@ -176,7 +176,7 @@ static void test_boolean_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("enabled", BOOL(1))
     );
 
@@ -221,7 +221,7 @@ static void test_escaped_delimiter(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
+    bb_json_t ctx = bb_json_create(BB_JSON_OBJECT);
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -253,7 +253,7 @@ static void test_section_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *items = bb_json_new(BB_JSON_ARRAY);
+    bb_json_t items = bb_json_create(BB_JSON_ARRAY);
 
     bb_json_array_push(
         items,
@@ -269,7 +269,7 @@ static void test_section_render(void)
         )
     );
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("items", items)
     );
 
@@ -304,7 +304,7 @@ static void test_nested_sections(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *posts = bb_json_new(BB_JSON_ARRAY);
+    bb_json_t posts = bb_json_create(BB_JSON_ARRAY);
 
     bb_json_array_push(
         posts,
@@ -320,7 +320,7 @@ static void test_nested_sections(void)
         )
     );
 
-    bb_json_t *users = bb_json_new(BB_JSON_ARRAY);
+    bb_json_t users = bb_json_create(BB_JSON_ARRAY);
 
     bb_json_array_push(
         users,
@@ -330,7 +330,7 @@ static void test_nested_sections(void)
         )
     );
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("users", users)
     );
 
@@ -367,7 +367,7 @@ static void test_conditional_truthy(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("logged_in", BOOL(1))
     );
 
@@ -397,7 +397,7 @@ static void test_conditional_falsy(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("logged_in", BOOL(0))
     );
 
@@ -427,7 +427,7 @@ static void test_comment_ignored(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_new(BB_JSON_OBJECT);
+    bb_json_t ctx = bb_json_create(BB_JSON_OBJECT);
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -457,7 +457,7 @@ static void test_parent_context_lookup(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *users = bb_json_new(BB_JSON_ARRAY);
+    bb_json_t users = bb_json_create(BB_JSON_ARRAY);
 
     bb_json_array_push(
         users,
@@ -466,7 +466,7 @@ static void test_parent_context_lookup(void)
         )
     );
 
-    bb_json_t *ctx = OBJ(
+    bb_json_t ctx = OBJ(
         KEY("site", TEXT("BlueBird")),
         KEY("users", users)
     );

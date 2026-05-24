@@ -7,18 +7,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-static bb_json_t *bb_template_lookup(bb_render_context_t *ctx, const char *path)
+static bb_json_t bb_template_lookup(bb_render_context_t *ctx, const char *path)
 {
     char *copy = strdup(path);
     if (!copy)
     {
         return NULL;
     }
-    bb_json_t *result = NULL;
+    bb_json_t result = NULL;
     bb_render_context_t *current_ctx = ctx;
     while (current_ctx && !result)
     {
-        bb_json_t *current = current_ctx->current;
+        bb_json_t current = current_ctx->current;
         char *token = strtok(copy, ".");
         while (token && current)
         {
@@ -41,13 +41,13 @@ static bb_json_t *bb_template_lookup(bb_render_context_t *ctx, const char *path)
     return result;
 }
 
-static int bb_template_is_truthy(bb_json_t *value)
+static int bb_template_is_truthy(bb_json_t value)
 {
     if (!value)
     {
         return 0;
     }
-    switch (value->type)
+    switch (bb_json_get_type(value))
     {
         case BB_JSON_NULL:
             return 0;
@@ -63,7 +63,7 @@ static int bb_template_is_truthy(bb_json_t *value)
             return s && s[0] != '\0';
         }
         case BB_JSON_ARRAY:
-            return value->size > 0;
+            return bb_json_get_size(value) > 0;
         case BB_JSON_OBJECT:
             return 1;
         default:
@@ -71,7 +71,7 @@ static int bb_template_is_truthy(bb_json_t *value)
     }
 }
 
-static int bb_template_render_value(bb_string_builder_t *sb, bb_json_t *value)
+static int bb_template_render_value(bb_string_builder_t *sb, bb_json_t value)
 {
     if (!value)
     {
@@ -79,7 +79,7 @@ static int bb_template_render_value(bb_string_builder_t *sb, bb_json_t *value)
     }
 
     // Strings render raw.
-    if (value->type == BB_JSON_TEXT)
+    if (bb_json_get_type(value) == BB_JSON_TEXT)
     {
         return bb_string_builder_append(sb, bb_json_get_value_text(value));
     }
@@ -115,7 +115,7 @@ static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_
             }
             case BB_TEMPLATE_NODE_VARIABLE:
             {
-                bb_json_t *value = bb_template_lookup(ctx, node->value);
+                bb_json_t value = bb_template_lookup(ctx, node->value);
                 if (bb_template_render_value(sb, value) != 0)
                 {
                     return -1;
@@ -124,13 +124,13 @@ static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_
             }
             case BB_TEMPLATE_NODE_SECTION:
             {
-                bb_json_t *value = bb_template_lookup(ctx, node->value);
-                if (value && value->type == BB_JSON_ARRAY)
+                bb_json_t value = bb_template_lookup(ctx, node->value);
+                if (value && bb_json_get_type(value) == BB_JSON_ARRAY)
                 {
-                    size_t count = value->size;
+                    size_t count = bb_json_get_size(value);
                     for (size_t i = 0; i < count; i++)
                     {
-                        bb_json_t *item = bb_json_array_get_index(value, i);
+                        bb_json_t item = bb_json_array_get_index(value, i);
                         bb_render_context_t child_ctx = {
                             .current = item,
                             .parent = ctx
@@ -145,7 +145,7 @@ static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_
             }
             case BB_TEMPLATE_NODE_CONDITIONAL:
             {
-                bb_json_t *value = bb_template_lookup(ctx, node->value);
+                bb_json_t value = bb_template_lookup(ctx, node->value);
                 if (bb_template_is_truthy(value))
                 {
                     if (bb_template_render_nodes(node->children, ctx, sb) != 0)
@@ -163,7 +163,7 @@ static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_
     return 0;
 }
 
-char *bb_template_render_internal(const bb_template_t *tpl, bb_json_t *context, bb_error_t *err)
+char *bb_template_render_internal(const bb_template_t *tpl, bb_json_t context, bb_error_t *err)
 {
     (void) err;
     bb_string_builder_t sb;

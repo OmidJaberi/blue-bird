@@ -41,7 +41,7 @@ static void test_entity_to_json(void)
 
     strcpy(u.name, "Alice");
 
-    bb_json_t *obj = bb_entity_to_json(&schema, &u);
+    bb_json_t obj = bb_entity_to_json(&schema, &u);
 
     assert(obj);
 
@@ -61,7 +61,6 @@ static void test_entity_to_json(void)
     );
 
     bb_json_destroy(obj);
-    free(obj);
 }
 
 static void test_json_to_entity(void)
@@ -97,7 +96,7 @@ static void test_json_to_entity(void)
         .primary_key_index = 0
     };
 
-    bb_json_t *obj = bb_json_new(BB_JSON_OBJECT);
+    bb_json_t obj = bb_json_create(BB_JSON_OBJECT);
 
     bb_json_object_set_value(obj, "id", bb_json_new_int(42));
     bb_json_object_set_value(obj,"name", bb_json_new_text("Bob"));
@@ -117,7 +116,6 @@ static void test_json_to_entity(void)
     assert(strcmp(u.name, "Bob") == 0);
 
     bb_json_destroy(obj);
-    free(obj);
 }
 
 static void test_json_to_entity_invalid_type(void)
@@ -145,7 +143,7 @@ static void test_json_to_entity_invalid_type(void)
         .primary_key_index = 0
     };
 
-    bb_json_t *obj = bb_json_new(BB_JSON_OBJECT);
+    bb_json_t obj = bb_json_create(BB_JSON_OBJECT);
 
     /* WRONG TYPE: TEXT instead of INT */
     bb_json_object_set_value(obj, "id", bb_json_new_text("oops"));
@@ -161,7 +159,6 @@ static void test_json_to_entity_invalid_type(void)
     );
 
     bb_json_destroy(obj);
-    free(obj);
 }
 int main(void)
 {
