@@ -31,7 +31,7 @@ int rc = bb_json_parse(&json, "{ \"name\": \"Bob\" }");
 Example:
 
 ```c
-bb_json_t *obj = BB_JSON(
+bb_json_t obj = BB_JSON(
     OBJ(
         KEY("name", TEXT("Bob")),
         KEY("age", INT(24))
