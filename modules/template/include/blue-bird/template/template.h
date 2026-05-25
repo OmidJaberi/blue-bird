@@ -12,7 +12,7 @@ extern "C" {
 typedef struct bb_template bb_template_t;
 
 bb_template_t *bb_template_parse(const char *source, bb_error_t *err);
-char *bb_template_render(const bb_template_t *tpl, bb_json_t context, bb_error_t *err);
+char *bb_template_render(const bb_template_t *tpl, bb_json_t *context, bb_error_t *err);
 void bb_template_destroy(bb_template_t *tpl);
 
 
