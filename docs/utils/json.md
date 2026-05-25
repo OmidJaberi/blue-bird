@@ -20,7 +20,7 @@ The JSON module provides parsing, serialization, and JSON object utilities.
 Example:
 
 ```c
-bb_json_t json;
+bb_json_t *json;
 int rc = bb_json_parse(&json, "{ \"name\": \"Bob\" }");
 ```
 
@@ -31,7 +31,7 @@ int rc = bb_json_parse(&json, "{ \"name\": \"Bob\" }");
 Example:
 
 ```c
-bb_json_t obj = BB_JSON(
+bb_json_t *obj = BB_JSON(
     OBJ(
         KEY("name", TEXT("Bob")),
         KEY("age", INT(24))

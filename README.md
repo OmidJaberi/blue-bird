@@ -156,7 +156,7 @@ int main(void)
 # Example: JSON DSL
 
 ```c
-bb_json_t obj = BB_JSON(
+bb_json_t *obj = BB_JSON(
     OBJ(
         KEY("name", TEXT("Bob")),
         KEY("age", INT(24)),

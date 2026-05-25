@@ -8,7 +8,7 @@
 
 struct bb_persist_kv_handle_t {
     char *jsonpath;
-    bb_json_t json;
+    bb_json_t *json;
 };
 
 static bb_persist_kv_handle_t *json_open(const char *uri)
@@ -19,7 +19,7 @@ static bb_persist_kv_handle_t *json_open(const char *uri)
     if (!h) return NULL;
 
     h->jsonpath = strdup(uri);
-    h->json = bb_json_create(BB_JSON_OBJECT);
+    h->json = bb_json_new_object();
 
     return h;
 }
@@ -39,7 +39,7 @@ static int json_save(bb_persist_kv_handle_t *h, const char *key,
     if (!h || !key || !data) return 1;
 
     bb_json_load(&h->json, h->jsonpath);
-    bb_json_t value = bb_json_create(BB_JSON_TEXT);
+    bb_json_t *value = bb_json_create(BB_JSON_TEXT);
     bb_json_set_value_text(value, data);
     bb_json_object_set_value(h->json, key, value); // non str data?
     bb_json_dump(h->json, h->jsonpath);
@@ -55,7 +55,7 @@ static int json_load(bb_persist_kv_handle_t *h, const char *key,
     if (!h || !key || !buf) return 1;
 
     bb_json_load(&h->json, h->jsonpath);
-    bb_json_t val_json = bb_json_object_get_value(h->json, key);
+    bb_json_t *val_json = bb_json_object_get_value(h->json, key);
     if (val_json)
     {
         char *val = bb_json_get_value_text(val_json);

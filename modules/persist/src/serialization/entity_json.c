@@ -2,12 +2,12 @@
 
 #include <string.h>
 
-bb_json_t bb_entity_to_json(bb_schema_t *schema, void *entity)
+bb_json_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
 {
     if (!schema || !entity)
         return NULL;
 
-    bb_json_t obj = bb_json_create(BB_JSON_OBJECT);
+    bb_json_t *obj = bb_json_new_object();
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
@@ -15,7 +15,7 @@ bb_json_t bb_entity_to_json(bb_schema_t *schema, void *entity)
 
         void *field_ptr = (char *)entity + f->offset;
 
-        bb_json_t val = NULL;
+        bb_json_t *val = NULL;
 
         switch (f->type)
         {
@@ -55,7 +55,7 @@ bb_json_t bb_entity_to_json(bb_schema_t *schema, void *entity)
     return obj;
 }
 
-int bb_json_to_entity(bb_schema_t *schema, bb_json_t json, void *out)
+int bb_json_to_entity(bb_schema_t *schema, bb_json_t *json, void *out)
 {
     if (!schema || !json || !out)
         return -1;
@@ -69,7 +69,7 @@ int bb_json_to_entity(bb_schema_t *schema, bb_json_t json, void *out)
     {
         bb_field_t *f = &schema->fields[i];
 
-        bb_json_t val = bb_json_object_get_value(json, f->name);
+        bb_json_t *val = bb_json_object_get_value(json, f->name);
 
         if (!val)
             continue;

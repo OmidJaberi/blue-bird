@@ -15,7 +15,7 @@ bb_template_t *bb_template_parse(const char *source, bb_error_t *err)
     return bb_template_parse_internal(source, err);
 }
 
-char *bb_template_render(const bb_template_t *tpl, bb_json_t context, bb_error_t *err)
+char *bb_template_render(const bb_template_t *tpl, bb_json_t *context, bb_error_t *err)
 {
     if (!tpl || !context)
     {

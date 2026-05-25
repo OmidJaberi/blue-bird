@@ -20,105 +20,92 @@ typedef enum {
     BB_JSON_NOT_INITIALIZED
 } bb_json_node_type_t;
 
-typedef struct BBJsonNode bb_json_node_t;
-typedef bb_json_node_t* bb_json_t;
+typedef struct BBJsonNode bb_json_t;
 
-bb_json_node_t *bb_json_create(bb_json_node_type_t type);
-void bb_json_destroy(bb_json_node_t *json);
-size_t bb_json_get_size(bb_json_node_t *json);
-bb_json_node_type_t bb_json_get_type(bb_json_node_t *json);
+bb_json_t *bb_json_create(bb_json_node_type_t type);
+void bb_json_destroy(bb_json_t *json);
+size_t bb_json_get_size(bb_json_t *json);
+bb_json_node_type_t bb_json_get_type(bb_json_t *json);
 
 // JSON Primitives
-void bb_json_set_value_bool(bb_json_node_t *json, bool value);
-void bb_json_set_value_integer(bb_json_node_t *json, int value);
-void bb_json_set_value_real(bb_json_node_t *json, float value);
-void bb_json_set_value_text(bb_json_node_t *json, const char *value);
+void bb_json_set_value_bool(bb_json_t *json, bool value);
+void bb_json_set_value_integer(bb_json_t *json, int value);
+void bb_json_set_value_real(bb_json_t *json, float value);
+void bb_json_set_value_text(bb_json_t *json, const char *value);
 
-bool bb_json_get_value_bool(bb_json_node_t *json);
-int bb_json_get_value_integer(bb_json_node_t *json);
-float bb_json_get_value_real(bb_json_node_t *json);
-char *bb_json_get_value_text(bb_json_node_t *json);
+bool bb_json_get_value_bool(bb_json_t *json);
+int bb_json_get_value_integer(bb_json_t *json);
+float bb_json_get_value_real(bb_json_t *json);
+char *bb_json_get_value_text(bb_json_t *json);
 
 // JSON Array
-void bb_json_array_push(bb_json_node_t *json_array, bb_json_node_t *element);
-bb_json_node_t *bb_json_array_get_index(bb_json_node_t *json_array, unsigned int index);
-void bb_json_array_remove_at_index(bb_json_node_t *json_array, unsigned int index);
+void bb_json_array_push(bb_json_t *json_array, bb_json_t *element);
+bb_json_t *bb_json_array_get_index(bb_json_t *json_array, unsigned int index);
+void bb_json_array_remove_at_index(bb_json_t *json_array, unsigned int index);
 
 // JSON Object
-void bb_json_object_set_value(bb_json_node_t *json_object, const char *key, bb_json_node_t *value);
-bb_json_node_t *bb_json_object_get_value(bb_json_node_t *json_object, const char *key);
-void bb_json_object_remove_key(bb_json_node_t *obj, const char *key);
+void bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t *value);
+bb_json_t *bb_json_object_get_value(bb_json_t *json_object, const char *key);
+void bb_json_object_remove_key(bb_json_t *obj, const char *key);
 
 // Serializer
-int bb_json_serialize(bb_json_node_t *json, char **buffer, int *size);
-int bb_json_serialize_indented(bb_json_node_t *json, char **buffer, int *size);
+int bb_json_serialize(bb_json_t *json, char **buffer, int *size);
+int bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size);
 
 // Parser
-int bb_json_parse(bb_json_node_t **json, char *buffer);
+int bb_json_parse(bb_json_t **json, char *buffer);
 
 // Compare
-int bb_json_compare(bb_json_node_t *json_a, bb_json_node_t *json_b); // 0 for equal, -1 for not equal
+int bb_json_compare(bb_json_t *json_a, bb_json_t *json_b); // 0 for equal, -1 for not equal
 
 // File
-int bb_json_load(bb_json_node_t **json, const char *path);
-int bb_json_dump(bb_json_node_t *json, const char *path);
+int bb_json_load(bb_json_t **json, const char *path);
+int bb_json_dump(bb_json_t *json, const char *path);
 
-static inline bb_json_node_t *bb_json_new_null(void)
+static inline bb_json_t *bb_json_new_null(void)
 {
     return bb_json_create(BB_JSON_NULL);
 }
 
-static inline bb_json_node_t *bb_json_new_bool(bool v)
+static inline bb_json_t *bb_json_new_bool(bool v)
 {
-    bb_json_node_t *n = bb_json_create(BB_JSON_BOOL);
+    bb_json_t *n = bb_json_create(BB_JSON_BOOL);
     bb_json_set_value_bool(n, v);
     return n;
 }
 
-static inline bb_json_node_t *bb_json_new_int(int v)
+static inline bb_json_t *bb_json_new_int(int v)
 {
-    bb_json_node_t *n = bb_json_create(BB_JSON_INT);
+    bb_json_t *n = bb_json_create(BB_JSON_INT);
     bb_json_set_value_integer(n, v);
     return n;
 }
 
-static inline bb_json_node_t *bb_json_new_real(float v)
+static inline bb_json_t *bb_json_new_real(float v)
 {
-    bb_json_node_t *n = bb_json_create(BB_JSON_REAL);
+    bb_json_t *n = bb_json_create(BB_JSON_REAL);
     bb_json_set_value_real(n, v);
     return n;
 }
 
-static inline bb_json_node_t *bb_json_new_text(const char *v)
+static inline bb_json_t *bb_json_new_text(const char *v)
 {
-    bb_json_node_t *n = bb_json_create(BB_JSON_TEXT);
+    bb_json_t *n = bb_json_create(BB_JSON_TEXT);
     bb_json_set_value_text(n, v);
     return n;
 }
 
-// Macros
-#define BB_JSON_NULL_NODE()      ((bb_json_node_t){ .type = BB_JSON_NULL })
-#define BB_JSON_BOOL(v)          ((bb_json_node_t){ .type = BB_JSON_BOOL, .value.bool_val = (v) })
-#define BB_JSON_INT(v)           ((bb_json_node_t){ .type = BB_JSON_INT,  .value.int_val  = (v) })
-#define BB_JSON_REAL(v)          ((bb_json_node_t){ .type = BB_JSON_REAL, .value.real_val = (v) })
-#define BB_JSON_TEXT(v)          ((bb_json_node_t){ .type = BB_JSON_TEXT, .value.text_val = (char *)(v) })
+static inline bb_json_t *bb_json_new_array(void)
+{
+    bb_json_t *n = bb_json_create(BB_JSON_ARRAY);
+    return n;
+}
 
-
-#define BB_JSON_NEW(type) \
-    ({ bb_json_node_t *_n = bb_json_create((type)); _n; })
-
-#define BB_JSON_NEW_INT(v)   ({ bb_json_node_t *_n = BB_JSON_NEW(BB_JSON_INT);  bb_json_set_value_integer(_n, (v)); _n; })
-#define BB_JSON_NEW_BOOL(v)  ({ bb_json_node_t *_n = BB_JSON_NEW(BB_JSON_BOOL); bb_json_set_value_bool(_n, (v)); _n; })
-#define BB_JSON_NEW_REAL(v)  ({ bb_json_node_t *_n = BB_JSON_NEW(BB_JSON_REAL); bb_json_set_value_real(_n, (v)); _n; })
-#define BB_JSON_NEW_TEXT(v)  ({ bb_json_node_t *_n = BB_JSON_NEW(BB_JSON_TEXT); bb_json_set_value_text(_n, (v)); _n; })
-
-
-#define BB_JSON_OBJECT_BEGIN(name) \
-    bb_json_node_t *name = BB_JSON_NEW(BB_JSON_OBJECT)
-
-#define BB_JSON_OBJECT_FIELD(obj, key, value) \
-    bb_json_object_set_value((obj), (key), (value))
-
+static inline bb_json_t *bb_json_new_object(void)
+{
+    bb_json_t *n = bb_json_create(BB_JSON_OBJECT);
+    return n;
+}
 
 // DSL
 #define BB_JSON(v) (v)
@@ -132,8 +119,8 @@ static inline bb_json_node_t *bb_json_new_text(const char *v)
 
 #define ARR(...)                                                        \
 ({                                                                      \
-    bb_json_node_t *_arr = bb_json_create(BB_JSON_ARRAY);               \
-    bb_json_node_t *_items[] = { __VA_ARGS__ };                         \
+    bb_json_t *_arr = bb_json_create(BB_JSON_ARRAY);                    \
+    bb_json_t *_items[] = { __VA_ARGS__ };                              \
     int _n = sizeof(_items) / sizeof(_items[0]);                        \
     for (int _i = 0; _i < _n; _i++)                                     \
         bb_json_array_push(_arr, _items[_i]);                           \
@@ -143,13 +130,13 @@ static inline bb_json_node_t *bb_json_new_text(const char *v)
 
 typedef struct {
     const char *key;
-    bb_json_node_t *value;
+    bb_json_t *value;
 } json_kv_t;
 
 #define KEY(k, v) ((json_kv_t){ (k), (v) })
 #define OBJ(...)                                                        \
 ({                                                                      \
-    bb_json_node_t *_obj = bb_json_create(BB_JSON_OBJECT);              \
+    bb_json_t *_obj = bb_json_create(BB_JSON_OBJECT);                   \
     json_kv_t _kvs[] = { __VA_ARGS__ };                                 \
     int _n = sizeof(_kvs) / sizeof(_kvs[0]);                            \
     for (int _i = 0; _i < _n; _i++)                                     \
