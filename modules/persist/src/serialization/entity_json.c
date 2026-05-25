@@ -7,7 +7,7 @@ bb_json_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
     if (!schema || !entity)
         return NULL;
 
-    bb_json_t *obj = bb_json_create(BB_JSON_OBJECT);
+    bb_json_t *obj = bb_json_new_object();
 
     for (size_t i = 0; i < schema->field_count; i++)
     {

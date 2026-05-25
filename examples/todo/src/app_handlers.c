@@ -75,7 +75,7 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
     }
 
     // Build template context.
-    bb_json_t *task_array = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *task_array = bb_json_new_array();
 
     for (size_t i = 0; i < count; i++)
     {
@@ -228,7 +228,7 @@ bb_error_t list_tasks(bb_request_t *req, bb_response_t *res)
 
     bb_repo_find_all(&global_task_repo.base, (void**)&tasks, &count);
 
-    bb_json_t *task_list = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *task_list = bb_json_new_array();
     for (unsigned long i = 0; i < count; i++)
     {
         bb_json_t *task = BB_JSON(

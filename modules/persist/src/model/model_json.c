@@ -15,13 +15,13 @@ typedef struct {
 
 static bb_json_t *load_root(const char *path)
 {
-    bb_json_t *root = bb_json_create(BB_JSON_OBJECT);
+    bb_json_t *root = bb_json_new_object();
 
     if (bb_json_load(&root, path) != 0)
     {
         // file might not exist -> start fresh
         bb_json_destroy(root);
-        root = bb_json_create(BB_JSON_OBJECT);
+        root = bb_json_new_object();
     }
 
     return root;
@@ -40,7 +40,7 @@ static bb_json_t *get_table(bb_json_t *root, const char *name)
 
     if (!table)
     {
-        table = bb_json_create(BB_JSON_ARRAY);
+        table = bb_json_new_array();
         bb_json_object_set_value(root, name, table);
     }
 
@@ -220,7 +220,7 @@ static int json_find_all(bb_model_handle_t *handle, bb_schema_t *schema, void **
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
-    bb_json_t *root = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *root = bb_json_new_array();
 
     /* load file */
     if (bb_json_load(&root, h->path) != 0)

@@ -95,6 +95,18 @@ static inline bb_json_t *bb_json_new_text(const char *v)
     return n;
 }
 
+static inline bb_json_t *bb_json_new_array(void)
+{
+    bb_json_t *n = bb_json_create(BB_JSON_ARRAY);
+    return n;
+}
+
+static inline bb_json_t *bb_json_new_object(void)
+{
+    bb_json_t *n = bb_json_create(BB_JSON_OBJECT);
+    return n;
+}
+
 // DSL
 #define BB_JSON(v) (v)
 
@@ -107,8 +119,8 @@ static inline bb_json_t *bb_json_new_text(const char *v)
 
 #define ARR(...)                                                        \
 ({                                                                      \
-    bb_json_t *_arr = bb_json_create(BB_JSON_ARRAY);               \
-    bb_json_t *_items[] = { __VA_ARGS__ };                         \
+    bb_json_t *_arr = bb_json_create(BB_JSON_ARRAY);                    \
+    bb_json_t *_items[] = { __VA_ARGS__ };                              \
     int _n = sizeof(_items) / sizeof(_items[0]);                        \
     for (int _i = 0; _i < _n; _i++)                                     \
         bb_json_array_push(_arr, _items[_i]);                           \
@@ -124,7 +136,7 @@ typedef struct {
 #define KEY(k, v) ((json_kv_t){ (k), (v) })
 #define OBJ(...)                                                        \
 ({                                                                      \
-    bb_json_t *_obj = bb_json_create(BB_JSON_OBJECT);              \
+    bb_json_t *_obj = bb_json_create(BB_JSON_OBJECT);                   \
     json_kv_t _kvs[] = { __VA_ARGS__ };                                 \
     int _n = sizeof(_kvs) / sizeof(_kvs[0]);                            \
     for (int _i = 0; _i < _n; _i++)                                     \

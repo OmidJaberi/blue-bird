@@ -21,7 +21,7 @@ static void test_plain_text_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_create(BB_JSON_OBJECT);
+    bb_json_t *ctx = bb_json_new_object();
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -110,7 +110,7 @@ static void test_missing_variable_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_create(BB_JSON_OBJECT);
+    bb_json_t *ctx = bb_json_new_object();
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -221,7 +221,7 @@ static void test_escaped_delimiter(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_create(BB_JSON_OBJECT);
+    bb_json_t *ctx = bb_json_new_object();
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -253,7 +253,7 @@ static void test_section_render(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *items = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *items = bb_json_new_array();
 
     bb_json_array_push(
         items,
@@ -304,7 +304,7 @@ static void test_nested_sections(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *posts = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *posts = bb_json_new_array();
 
     bb_json_array_push(
         posts,
@@ -320,7 +320,7 @@ static void test_nested_sections(void)
         )
     );
 
-    bb_json_t *users = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *users = bb_json_new_array();
 
     bb_json_array_push(
         users,
@@ -427,7 +427,7 @@ static void test_comment_ignored(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *ctx = bb_json_create(BB_JSON_OBJECT);
+    bb_json_t *ctx = bb_json_new_object();
 
     char *result = bb_template_render(tpl, ctx, &err);
 
@@ -457,7 +457,7 @@ static void test_parent_context_lookup(void)
 
     assert(tpl != NULL);
 
-    bb_json_t *users = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *users = bb_json_new_array();
 
     bb_json_array_push(
         users,

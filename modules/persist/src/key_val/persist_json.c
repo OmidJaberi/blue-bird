@@ -19,7 +19,7 @@ static bb_persist_kv_handle_t *json_open(const char *uri)
     if (!h) return NULL;
 
     h->jsonpath = strdup(uri);
-    h->json = bb_json_create(BB_JSON_OBJECT);
+    h->json = bb_json_new_object();
 
     return h;
 }
