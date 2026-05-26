@@ -41,6 +41,7 @@ typedef struct bb_connection {
 
 bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd);
 void bb_connection_destroy(bb_connection_t *connection);
+ssize_t bb_connection_read(bb_connection_t *connection);
 
 
 #ifdef __cplusplus

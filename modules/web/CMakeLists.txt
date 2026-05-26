@@ -4,7 +4,7 @@ add_library(bluebird_web
     src/router.c
     src/middleware.c
     src/connection.c
-    src/http.c
+    src/parser.c
 
     src/http/message.c
     src/http/request.c

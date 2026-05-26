@@ -1,5 +1,7 @@
 #include "blue-bird/web/client.h"
 #include "blue-bird/web/http.h"
+#include "blue-bird/web/connection.h"
+#include "blue-bird/web/http/parser.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -102,16 +104,38 @@ bb_error_t bb_client_receive(bb_client_t *client, bb_response_t *res)
     if (client->sock_fd < 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
+    bb_connection_t *connection = bb_connection_create(NULL, client->sock_fd);
+    if (!connection)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
+
+    while (!bb_http_request_complete(connection->buffer, connection->buffer_length))
+    {
+        ssize_t n = bb_connection_read(connection);
+
+        if (n < 0)
+        {
+            bb_connection_destroy(connection);
+
+            return BB_ERROR(BB_ERR_IO, "Read failed");
+        }
+
+        if (n == 0)
+            break;
+    }
+
     bb_response_init(res);
 
-    char *buffer;
-    bb_http_read_message(client->sock_fd, &buffer);
-
-    /* Delegate parsing */
-    if (bb_response_parse(buffer, res) != 0)
+    if (bb_response_parse(connection->buffer, res) != 0)
+    {
+        bb_connection_destroy(connection);
         return BB_ERROR(BB_ERR_UNKNOWN, "Failed to parse response");
+    }
 
-    free(buffer);
+    // Prevent double-close
+    connection->client_fd = -1;
+    bb_connection_destroy(connection);
     return BB_SUCCESS();
 }
 

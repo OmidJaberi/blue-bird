@@ -3,6 +3,7 @@
 #include "blue-bird/web/router.h"
 #include "blue-bird/web/middleware.h"
 #include "blue-bird/web/connection.h"
+#include "blue-bird/web/http/parser.h"
 
 #include "blue-bird/runtime/event.h"
 
@@ -146,10 +147,18 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
 
     bb_server_t *server = connection->server;
 
-    if (bb_http_read_message(connection->client_fd, &connection->buffer) <= 0)
+    if (bb_connection_read(connection) < 0)
     {
         bb_connection_destroy(connection);
         free(data);
+        return;
+    }
+
+    if (!bb_http_request_complete(connection->buffer, connection->buffer_length))
+    {
+        /*
+        * Wait for more bytes
+        */
         return;
     }
 

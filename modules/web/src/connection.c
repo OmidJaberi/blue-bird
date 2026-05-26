@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <string.h>
 
 #include "blue-bird/web/connection.h"
 
@@ -56,4 +58,59 @@ void bb_connection_destroy(bb_connection_t *connection)
     bb_response_destroy(&connection->response);
 
     free(connection);
+}
+
+ssize_t bb_connection_read(bb_connection_t *connection)
+{
+    if (!connection)
+    {
+        return -1;
+    }
+
+    ssize_t total = 0;
+
+    while (1)
+    {
+        // Ensure space
+        if (connection->buffer_length == connection->buffer_capacity)
+        {
+            size_t new_capacity = connection->buffer_capacity * 2;
+            char *tmp = realloc(connection->buffer, new_capacity);
+            if (!tmp)
+            {
+                return -1;
+            }
+            connection->buffer = tmp;
+            connection->buffer_capacity = new_capacity;
+        }
+
+        ssize_t n =
+            read(
+                connection->client_fd,
+                connection->buffer +
+                connection->buffer_length,
+                connection->buffer_capacity -
+                connection->buffer_length
+            );
+
+        if (n > 0)
+        {
+            connection->buffer_length += n;
+            total += n;
+            continue;
+        }
+
+        if (n == 0)
+        {
+            // Peer closed connection
+            return total;
+        }
+
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+            break;
+        }
+        return -1;
+    }
+    return total;
 }
