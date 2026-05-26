@@ -3,6 +3,8 @@
 
 #include "blue-bird/web/connection.h"
 
+#define BB_CONNECTION_INITIAL_BUFFER_SIZE 4096
+
 bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd)
 {
     bb_connection_t *connection = malloc(sizeof(bb_connection_t));
@@ -14,8 +16,23 @@ bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd)
 
     connection->client_fd = client_fd;
     connection->server = server;
-    connection->buffer = NULL;
+    connection->state = BB_CONNECTION_READING;
+
+    // Read buffer
+    connection->buffer = malloc(BB_CONNECTION_INITIAL_BUFFER_SIZE);
+    if (!connection->buffer)
+    {
+        free(connection);
+        return NULL;
+    }
+
     connection->buffer_length = 0;
+    connection->buffer_capacity = BB_CONNECTION_INITIAL_BUFFER_SIZE;
+
+    // Write buffer
+    connection->write_buffer = NULL;
+    connection->write_length = 0;
+    connection->write_offset = 0;
 
     bb_request_init_with_type(&connection->request, BB_SERVER_REQUEST);
 
@@ -33,6 +50,7 @@ void bb_connection_destroy(bb_connection_t *connection)
 
     close(connection->client_fd);
     free(connection->buffer);
+    free(connection->write_buffer);
 
     bb_request_destroy(&connection->request);
     bb_response_destroy(&connection->response);
