@@ -132,6 +132,33 @@ void client_request(bb_request_t *req, bb_response_t *res)
     bb_client_close(&client);
 }
 
+void *concurrent_client(void *arg)
+{
+    (void)arg;
+
+    for (int i = 0; i < 100; i++)
+    {
+        bb_request_t req;
+        bb_response_t res;
+
+        bb_request_init(&req);
+        bb_response_init(&res);
+
+        bb_request_set_method(&req, "GET");
+        bb_request_set_url(&req, "/");
+        bb_request_set_body(&req, "");
+
+        client_request(&req, &res);
+
+        assert(res.status_code == 200);
+
+        bb_request_destroy(&req);
+        bb_response_destroy(&res);
+    }
+
+    return NULL;
+}
+
 void test_root_req(void)
 {
     printf("Testing root path...\n");
@@ -770,6 +797,23 @@ void test_invalid_url_chars(void)
     bb_response_destroy(&res);
 }
 
+void test_concurrent_clients(void)
+{
+    printf("Testing concurrent clients...\n");
+
+    pthread_t threads[16];
+
+    for (int i = 0; i < 16; i++)
+    {
+        pthread_create(&threads[i], NULL, concurrent_client, NULL);
+    }
+
+    for (int i = 0; i < 16; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+}
+
 int main(void)
 {
     pthread_t thread_id;
@@ -804,6 +848,7 @@ int main(void)
     test_invalid_method();
     test_trailing_slash();
     test_invalid_url_chars();
+    test_concurrent_clients();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
