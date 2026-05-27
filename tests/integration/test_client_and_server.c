@@ -79,6 +79,21 @@ bb_error_t request_body_handler(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+bb_error_t large_response_handler(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    const size_t size = 1024 * 1024; // 1 MB
+    char *body = malloc(size + 1);
+    for (size_t i = 0; i < size; i++)
+    {
+        body[i] = 'A';
+    }
+    body[size] = '\0';
+    bb_response_set_body(res, body);
+    free(body);
+    return BB_SUCCESS();
+}
+
 void *server(void* arg)
 {
     (void) arg;
@@ -91,6 +106,7 @@ void *server(void* arg)
     bb_server_add_route(&server, "GET", "/q_param", request_query_param_handler);
     bb_server_add_route(&server, "GET", "/q_param/multi", request_multi_query_param_handler);
     bb_server_add_route(&server, "GET", "/body", request_body_handler);
+    bb_server_add_route(&server, "GET", "/large_response", large_response_handler);
     bb_server_start(&server);
 
     return NULL;
@@ -555,7 +571,7 @@ void test_req_large_body(void)
 
     /* ---- build request ---- */
     char *url = "/body";
-    const int size = 1e5;
+    const int size = 1024 * 1024; // 1 MB
     char *body = malloc(size + 100);
     for (int i = 0; i < size; i++)
     {
@@ -577,6 +593,29 @@ void test_req_large_body(void)
 
     free(body);
     free(expected_res);
+    bb_request_destroy(&req);
+    bb_response_destroy(&res);
+}
+
+void test_large_response(void)
+{
+    printf("Testing large async response...\n");
+
+    bb_request_t req;
+    bb_response_t res;
+
+    bb_request_init(&req);
+    bb_response_init(&res);
+
+    bb_request_set_method(&req, "GET");
+    bb_request_set_url(&req, "/large_response");
+    bb_request_set_body(&req, "");
+
+    client_request(&req, &res);
+
+    assert(res.status_code == 200);
+    assert(strlen(res.msg.body) == 1024 * 1024);
+
     bb_request_destroy(&req);
     bb_response_destroy(&res);
 }
@@ -757,6 +796,7 @@ int main(void)
     test_invalid_query_format();
     test_req_body();
     test_req_large_body();
+    test_large_response();
     test_empty_body_req();
     test_encoded_body_req();
     test_encoded_path_segment();
