@@ -8,7 +8,7 @@ void test_message_basic(void)
 {
     bb_http_message_t msg;
     char *buffer;
-    int size;
+    size_t size;
 
     bb_message_init(&msg);
     bb_message_set_start_line(&msg, "HTTP/1.1 200 OK");
@@ -30,7 +30,7 @@ void test_message_multiple_headers(void)
 {
     bb_http_message_t msg;
     char *buffer;
-    int size;
+    size_t size;
 
     bb_message_init(&msg);
     bb_message_set_start_line(&msg, "HTTP/1.1 201 Created");
@@ -54,7 +54,7 @@ void test_message_large_body(void)
 {
     bb_http_message_t msg;
     char *buffer;
-    int size;
+    size_t size;
 
     size_t large_size = 50 * 1000 + 1;
     char *large_body = malloc(large_size); // 50 KB

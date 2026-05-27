@@ -30,7 +30,7 @@ void bb_message_set_body(bb_http_message_t *msg, const char *body);
 
 int bb_message_parse(const char *raw, bb_http_message_t *msg);
 
-int bb_message_serialize(bb_http_message_t *msg, char **buffer, int *buffer_size);
+int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_size);
 
 void bb_message_destroy(bb_http_message_t *msg);
 

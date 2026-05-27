@@ -179,7 +179,7 @@ int bb_message_parse(const char *raw, bb_http_message_t *msg)
     return parse_body(msg, raw);
 }
 
-int bb_message_serialize(bb_http_message_t *msg, char **buffer, int *buffer_size)
+int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_size)
 {
     if (buffer)
     {

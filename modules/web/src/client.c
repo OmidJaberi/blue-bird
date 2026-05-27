@@ -87,7 +87,7 @@ bb_error_t bb_client_send(bb_client_t *client, bb_request_t *req)
 
     // Temporary:
     char *message;
-    int size;
+    size_t size;
     bb_message_set_start_line(&BB_REQUEST_GET_MESSAGE(*req), start_line);
     bb_message_serialize(&BB_REQUEST_GET_MESSAGE(*req), &message, &size);
     send_all(client->sock_fd, message, size);

@@ -8,7 +8,7 @@ void test_response_basic(void)
 {
     bb_server_response_t res;
     char *buffer;
-    int size;
+    size_t size;
 
     bb_server_response_init(&res);
     bb_server_response_set_status(&res, 200);
@@ -30,7 +30,7 @@ void test_response_multiple_headers(void)
 {
     bb_server_response_t res;
     char *buffer;
-    int size;
+    size_t size;
 
     bb_server_response_init(&res);
     bb_server_response_set_status(&res, 201);
@@ -54,7 +54,7 @@ void test_response_empty_body(void)
 {
     bb_server_response_t res;
     char *buffer;
-    int size;
+    size_t size;
 
     bb_server_response_init(&res);
     bb_server_response_set_status(&res, 204);
@@ -72,7 +72,7 @@ void test_response_large_body(void)
 {
     bb_server_response_t res;
     char *buffer;
-    int size;
+    size_t size;
 
     size_t large_size = 50 * 1000 + 1;
     char *large_body = malloc(large_size); // 50 KB

@@ -57,7 +57,7 @@ void bb_server_response_set_body(bb_server_response_t *res, char *body)
     bb_message_set_body(&res->msg, body);
 }
 
-int bb_server_response_serialize(bb_server_response_t *res, char **buffer, int *buffer_size)
+int bb_server_response_serialize(bb_server_response_t *res, char **buffer, size_t *buffer_size)
 {
     char start_line_buff[128];
     snprintf(start_line_buff, 128,
