@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "blue-bird/web/connection.h"
 
@@ -113,4 +114,28 @@ ssize_t bb_connection_read(bb_connection_t *connection)
         return -1;
     }
     return total;
+}
+
+ssize_t bb_connection_write(bb_connection_t *connection)
+{
+    while (connection->write_offset < connection->write_length)
+    {
+        ssize_t n = send(
+            connection->client_fd,
+            connection->write_buffer + connection->write_offset,
+            connection->write_length - connection->write_offset,
+            0
+        );
+        if (n > 0)
+        {
+            connection->write_offset += n;
+            continue;
+        }
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        {
+            return 0;
+        }
+        return -1;
+    }
+    return 1;
 }

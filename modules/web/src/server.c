@@ -137,6 +137,58 @@ static bb_error_t _run_request_pipeline(bb_server_t *server, bb_request_t *req, 
     return bb_middleware_list_run(server->post_middleware_list, req, res);
 }
 
+static void _bb_client_write_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_client_task_data_t *data = userdata;
+
+    bb_connection_t *connection = data->connection;
+
+    ssize_t rc = bb_connection_write(connection);
+
+    // Fatal socket error
+    if (rc < 0)
+    {
+        bb_connection_destroy(connection);
+        free(data);
+        return;
+    }
+
+    /*
+     * Partial write:
+     * wait for next writable event
+     */
+    if (connection->write_offset < connection->write_length)
+    {
+        bb_task_t *write_task = bb_task_create(_bb_client_write_task, data);
+
+        if (!write_task)
+        {
+            bb_connection_destroy(connection);
+            free(data);
+            return;
+        }
+
+        bb_runtime_watch_fd(
+            connection->server->runtime,
+            connection->client_fd,
+            BB_EVENT_WRITE,
+            BB_WATCH_ONESHOT,
+            write_task
+        );
+
+        return;
+    }
+
+    /*
+     * Response fully written
+     */
+    bb_connection_destroy(connection);
+
+    free(data);
+}
+
 static void _bb_client_read_task(bb_task_t *task, void *userdata)
 {
     (void)task;
@@ -154,14 +206,33 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
         return;
     }
 
+    /*
+     * Request incomplete:
+     * re-arm READ watcher
+     */
     if (!bb_http_request_complete(connection->buffer, connection->buffer_length))
     {
-        /*
-        * Wait for more bytes
-        */
+        bb_task_t *read_task = bb_task_create(_bb_client_read_task, data);
+
+        if (!read_task)
+        {
+            bb_connection_destroy(connection);
+            free(data);
+            return;
+        }
+
+        bb_runtime_watch_fd(
+            server->runtime,
+            connection->client_fd,
+            BB_EVENT_READ,
+            BB_WATCH_ONESHOT,
+            read_task
+        );
+
         return;
     }
 
+    // Parse request
     if (bb_request_parse(connection->buffer, &connection->request) != 0)
     {
         default_400(&connection->request, &connection->response);
@@ -171,11 +242,34 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
         _run_request_pipeline(server, &connection->request, &connection->response);
     }
 
-    bb_response_send(connection->client_fd, &connection->response);
+    // Serialize response
+    bb_response_serialize(
+        &connection->response,
+        &connection->write_buffer,
+        &connection->write_length
+    );
 
-    bb_connection_destroy(connection);
+    connection->write_offset = 0;
 
-    free(data);
+    connection->state = BB_CONNECTION_WRITING;
+
+    // Register WRITE watcher
+    bb_task_t *write_task = bb_task_create(_bb_client_write_task, data);
+
+    if (!write_task)
+    {
+        bb_connection_destroy(connection);
+        free(data);
+        return;
+    }
+
+    bb_runtime_watch_fd(
+        server->runtime,
+        connection->client_fd,
+        BB_EVENT_WRITE,
+        BB_WATCH_ONESHOT,
+        write_task
+    );
 }
 
 static void _bb_accept_task(bb_task_t *task, void *userdata)
