@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
@@ -814,6 +815,43 @@ void test_concurrent_clients(void)
     }
 }
 
+void test_partial_request(void)
+{
+    printf("Testing partial request reads...\n");
+
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in addr;
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(8080);
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+
+    send(fd, "GET / HTTP/1.1\r\n", 17, 0);
+
+    usleep(10000);
+
+    send(fd, "Host: localhost\r\n", 17, 0);
+
+    usleep(10000);
+
+    send(fd, "\r\n", 2, 0);
+
+    char buffer[4096];
+
+    ssize_t n = recv(fd, buffer, sizeof(buffer) - 1, 0);
+
+    assert(n > 0);
+
+    buffer[n] = '\0';
+
+    assert(strstr(buffer, "Hello, Blue-Bird :)") != NULL);
+
+    close(fd);
+}
+
 int main(void)
 {
     pthread_t thread_id;
@@ -849,6 +887,7 @@ int main(void)
     test_trailing_slash();
     test_invalid_url_chars();
     test_concurrent_clients();
+    test_partial_request();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
