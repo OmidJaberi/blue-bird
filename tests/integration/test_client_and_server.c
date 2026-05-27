@@ -852,6 +852,31 @@ void test_partial_request(void)
     close(fd);
 }
 
+void test_many_requests(void)
+{
+    printf("Testing many sequential requests...\n");
+
+    for (int i = 0; i < 5000; i++)
+    {
+        bb_request_t req;
+        bb_response_t res;
+
+        bb_request_init(&req);
+        bb_response_init(&res);
+
+        bb_request_set_method(&req, "GET");
+        bb_request_set_url(&req, "/");
+        bb_request_set_body(&req, "");
+
+        client_request(&req, &res);
+
+        assert(res.status_code == 200);
+
+        bb_request_destroy(&req);
+        bb_response_destroy(&res);
+    }
+}
+
 int main(void)
 {
     pthread_t thread_id;
@@ -888,6 +913,7 @@ int main(void)
     test_invalid_url_chars();
     test_concurrent_clients();
     test_partial_request();
+    test_many_requests();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
