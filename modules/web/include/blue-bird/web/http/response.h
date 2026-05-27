@@ -18,9 +18,7 @@ void bb_response_set_header(bb_response_t *res, const char *name, const char *va
 
 void bb_response_set_body(bb_response_t *res, char *body);
 
-int bb_response_serialize(bb_response_t *res, char **buffer, int *size);
-
-int bb_response_send(int sock_fd, bb_response_t *res);
+int bb_response_serialize(bb_response_t *res, char **buffer, size_t *size);
 
 // Client:
 

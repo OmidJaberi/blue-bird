@@ -21,8 +21,6 @@ void bb_server_response_set_header(bb_server_response_t *res, const char *name, 
 
 void bb_server_response_set_body(bb_server_response_t *res, char *body);
 
-int bb_server_response_serialize(bb_server_response_t *res, char **buffer, int *buffer_size);
-
-int bb_server_response_send(int sock_fd, bb_server_response_t *res);
+int bb_server_response_serialize(bb_server_response_t *res, char **buffer, size_t *buffer_size);
 
 #endif //BB_SERVER_RESPONSE_H

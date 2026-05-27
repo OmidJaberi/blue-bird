@@ -66,15 +66,3 @@ int bb_server_response_serialize(bb_server_response_t *res, char **buffer, int *
     bb_message_set_start_line(&res->msg, start_line_buff);
     return bb_message_serialize(&res->msg, buffer, buffer_size);
 }
-
-int bb_server_response_send(int sock_fd, bb_server_response_t *res)
-{
-    char *outbuf;
-    int size;
-    int len = bb_server_response_serialize(res, &outbuf, &size);
-
-    int written = write(sock_fd, outbuf, len);
-
-    free(outbuf);
-    return written >= 0 ? 0 : -1;
-}
