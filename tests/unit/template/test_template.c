@@ -11,19 +11,19 @@ static void test_plain_text_render(void)
 {
     printf("\tTesting plain text rendering...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "Hello World",
-            &err
-        );
+    bb_template_parse(
+        "Hello World",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
     assert(strcmp(result, "Hello World") == 0);
@@ -38,13 +38,12 @@ static void test_simple_variable_render(void)
 {
     printf("\tTesting simple variable rendering...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "Hello {{name}}",
-            &err
-        );
+    bb_template_parse(
+        "Hello {{name}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -52,7 +51,8 @@ static void test_simple_variable_render(void)
         KEY("name", TEXT("Blue"))
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
     assert(strcmp(result, "Hello Blue") == 0);
@@ -67,13 +67,12 @@ static void test_nested_variable_render(void)
 {
     printf("\tTesting nested variable rendering...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "User: {{user.name}}",
-            &err
-        );
+    bb_template_parse(
+        "User: {{user.name}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -85,7 +84,8 @@ static void test_nested_variable_render(void)
         KEY("user", user)
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
     assert(strcmp(result, "User: BlueBird") == 0);
@@ -100,19 +100,19 @@ static void test_missing_variable_render(void)
 {
     printf("\tTesting missing variable rendering...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "Hello {{missing}}",
-            &err
-        );
+    bb_template_parse(
+        "Hello {{missing}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -132,13 +132,12 @@ static void test_numeric_render(void)
 {
     printf("\tTesting numeric rendering...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "Port={{port}}",
-            &err
-        );
+    bb_template_parse(
+        "Port={{port}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -146,7 +145,8 @@ static void test_numeric_render(void)
         KEY("port", INT(8080))
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -166,13 +166,12 @@ static void test_boolean_render(void)
 {
     printf("\tTesting boolean rendering...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "Enabled={{enabled}}",
-            &err
-        );
+    bb_template_parse(
+        "Enabled={{enabled}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -180,7 +179,8 @@ static void test_boolean_render(void)
         KEY("enabled", BOOL(1))
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -196,13 +196,12 @@ static void test_invalid_template_parse(void)
 {
     printf("\tTesting invalid template parsing...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "Hello {{name",
-            &err
-        );
+    bb_template_parse(
+        "Hello {{name",
+        &tpl
+    );
 
     assert(tpl == NULL);
 }
@@ -211,19 +210,19 @@ static void test_escaped_delimiter(void)
 {
     printf("\tTesting escaped delimiters...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "\\{{literal}}",
-            &err
-        );
+    bb_template_parse(
+        "\\{{literal}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -243,13 +242,12 @@ static void test_section_render(void)
 {
     printf("\tTesting section rendering...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "{{#items}}- {{name}}\n{{/items}}",
-            &err
-        );
+    bb_template_parse(
+        "{{#items}}- {{name}}\n{{/items}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -273,7 +271,8 @@ static void test_section_render(void)
         KEY("items", items)
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -289,18 +288,17 @@ static void test_nested_sections(void)
 {
     printf("\tTesting nested sections...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "{{#users}}"
-            "User: {{name}}\n"
-            "{{#posts}}"
-            "* {{title}}\n"
-            "{{/posts}}"
-            "{{/users}}",
-            &err
-        );
+    bb_template_parse(
+        "{{#users}}"
+        "User: {{name}}\n"
+        "{{#posts}}"
+        "* {{title}}\n"
+        "{{/posts}}"
+        "{{/users}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -334,7 +332,8 @@ static void test_nested_sections(void)
         KEY("users", users)
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -357,13 +356,12 @@ static void test_conditional_truthy(void)
 {
     printf("\tTesting truthy conditional...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "{{?logged_in}}Welcome{{/logged_in}}",
-            &err
-        );
+    bb_template_parse(
+        "{{?logged_in}}Welcome{{/logged_in}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -371,7 +369,8 @@ static void test_conditional_truthy(void)
         KEY("logged_in", BOOL(1))
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -387,13 +386,12 @@ static void test_conditional_falsy(void)
 {
     printf("\tTesting falsy conditional...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "{{?logged_in}}Welcome{{/logged_in}}",
-            &err
-        );
+    bb_template_parse(
+        "{{?logged_in}}Welcome{{/logged_in}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -401,7 +399,8 @@ static void test_conditional_falsy(void)
         KEY("logged_in", BOOL(0))
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -417,19 +416,19 @@ static void test_comment_ignored(void)
 {
     printf("\tTesting comment ignoring...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "Hello {{! comment }}World",
-            &err
-        );
+    bb_template_parse(
+        "Hello {{! comment }}World",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -445,15 +444,14 @@ static void test_parent_context_lookup(void)
 {
     printf("\tTesting parent context lookup...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "{{#users}}"
-            "{{name}} @ {{site}}\n"
-            "{{/users}}",
-            &err
-        );
+    bb_template_parse(
+        "{{#users}}"
+        "{{name}} @ {{site}}\n"
+        "{{/users}}",
+        &tpl
+    );
 
     assert(tpl != NULL);
 
@@ -471,7 +469,8 @@ static void test_parent_context_lookup(void)
         KEY("users", users)
     );
 
-    char *result = bb_template_render(tpl, ctx, &err);
+    char *result;
+    bb_template_render(tpl, ctx, &result);
 
     assert(result != NULL);
 
@@ -492,13 +491,12 @@ static void test_mismatched_closing_tag(void)
 {
     printf("\tTesting mismatched closing tags...\n");
 
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
-        bb_template_parse(
-            "{{#users}}{{/posts}}",
-            &err
-        );
+    bb_template_parse(
+        "{{#users}}{{/posts}}",
+        &tpl
+    );
 
     assert(tpl == NULL);
 }

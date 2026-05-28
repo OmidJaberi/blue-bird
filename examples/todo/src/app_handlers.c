@@ -95,8 +95,9 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
         );
 
     // Parse template.
-    bb_error_t err;
-    bb_template_t *tpl = bb_template_parse(html_template, &err);
+    bb_template_t *tpl;
+    bb_error_t err = bb_template_parse(html_template, &tpl);
+    (void) err;
 
     if (!tpl)
     {
@@ -107,7 +108,8 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
     }
 
     // Render template.
-    char *html = bb_template_render(tpl, ctx, &err);
+    char *html;
+    err = bb_template_render(tpl, ctx, &html);
     if (!html)
     {
         bb_template_destroy(tpl);

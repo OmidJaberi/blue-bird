@@ -170,23 +170,24 @@ The renderer walks the AST recursively and produces the final rendered output.
 
 int main(void)
 {
-    bb_error_t err;
+    bb_template_t *tpl;
 
-    bb_template_t *tpl =
+    bb_error_t err =
         bb_template_parse(
             "Hello {{name}}",
-            &err
+            &tpl
         );
 
     bb_json_t ctx = OBJ(
         KEY("name", TEXT("Blue-Bird"))
     );
 
-    char *result =
+    char *result;
+    err =
         bb_template_render(
             tpl,
             ctx,
-            &err
+            &result
         );
 
     printf("%s\n", result);
@@ -462,15 +463,16 @@ bb_error_t
 Example:
 
 ```c
-bb_error_t err;
+bb_template_t *tpl;
 
-bb_template_t *tpl =
+bb_error_t err =
     bb_template_parse(
         source,
-        &err
+        &tpl
     );
 
-if (!tpl) {
+if (BB_FAILED(err))
+{
     /* handle error */
 }
 ```

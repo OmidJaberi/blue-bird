@@ -6,22 +6,24 @@
 
 #include <stdlib.h>
 
-bb_template_t *bb_template_parse(const char *source, bb_error_t *err)
+bb_error_t bb_template_parse(const char *source, bb_template_t **tpl)
 {
     if (!source)
     {
-        return NULL;
+        return BB_ERROR(BB_ERR_NULL, "Empty source.");
     }
-    return bb_template_parse_internal(source, err);
+    *tpl = bb_template_parse_internal(source, NULL); // temporary, without error
+    return BB_SUCCESS();
 }
 
-char *bb_template_render(const bb_template_t *tpl, bb_json_t *context, bb_error_t *err)
+bb_error_t bb_template_render(const bb_template_t *tpl, bb_json_t *context, char **buf)
 {
     if (!tpl || !context)
     {
-        return NULL;
+        return BB_ERROR(BB_ERR_NULL, "Empty template, or context.");
     }
-    return bb_template_render_internal(tpl, context, err);
+    *buf = bb_template_render_internal(tpl, context, NULL); // temporary, without error
+    return BB_SUCCESS();
 }
 
 void bb_template_destroy(bb_template_t *tpl)
