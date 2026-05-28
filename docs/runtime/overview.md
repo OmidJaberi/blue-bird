@@ -272,10 +272,7 @@ This model is similar conceptually to:
 #include <blue-bird/runtime/runtime.h>
 #include <blue-bird/runtime/task.h>
 
-static void hello_task(
-    bb_task_t *task,
-    void *userdata
-)
+static void hello_task(bb_task_t *task, void *userdata)
 {
     (void) task;
     (void) userdata;
@@ -285,27 +282,15 @@ static void hello_task(
 
 int main(void)
 {
-    bb_runtime_t *runtime =
-        bb_runtime_create();
+    bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_task_t *task =
-        bb_task_create(
-            hello_task,
-            NULL
-        );
+    bb_task_t *task = bb_task_create(hello_task, NULL);
 
-    bb_runtime_schedule_task(
-        runtime,
-        task
-    );
+    bb_runtime_schedule_task(runtime, task);
 
-    bb_runtime_run(
-        runtime
-    );
+    bb_runtime_run(runtime);
 
-    bb_runtime_destroy(
-        runtime
-    );
+    bb_runtime_destroy(runtime);
 
     return 0;
 }
@@ -320,10 +305,7 @@ int main(void)
 
 #include <blue-bird/runtime/runtime.h>
 
-static void tick(
-    bb_task_t *task,
-    void *userdata
-)
+static void tick(bb_task_t *task, void *userdata)
 {
     (void) task;
     (void) userdata;
@@ -333,19 +315,11 @@ static void tick(
 
 int main(void)
 {
-    bb_runtime_t *runtime =
-        bb_runtime_create();
+    bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_runtime_set_interval(
-        runtime,
-        1000,
-        tick,
-        NULL
-    );
+    bb_runtime_set_interval(runtime, 1000, tick);
 
-    bb_runtime_run(
-        runtime
-    );
+    bb_runtime_run(runtime);
 
     return 0;
 }

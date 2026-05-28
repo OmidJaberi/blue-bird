@@ -34,6 +34,16 @@ Blue-Bird is designed for developers who want lower-level control and transparen
 
 # Features
 
+## Async Runtime
+
+- cooperative task scheduling
+- event loop execution
+- file descriptor readiness watching
+- timer scheduling
+- one-shot timeouts and periodic intervals
+- one-shot and persistent event watchers
+- nonblocking transport integration
+
 ## Web Framework
 
 - HTTP server
@@ -42,6 +52,7 @@ Blue-Bird is designed for developers who want lower-level control and transparen
 - Routing system
 - Middleware pipeline
 - Modular handler architecture
+- Async Request handling
 
 ## Persistence
 
@@ -51,6 +62,15 @@ Blue-Bird is designed for developers who want lower-level control and transparen
 - File backend
 - JSON backend
 - SQLite backend
+
+## Templating
+
+- variable interpolation
+- nested lookup
+- sections (loops)
+- conditionals
+- comments
+- escaped delimiters
 
 ## Utilities
 
@@ -188,8 +208,10 @@ Blue-Bird is currently under active development.
 
 The framework already includes:
 
+- Async Runtime
 - working HTTP infrastructure
 - persistence systems
+- templating
 - JSON utilities
 - repository abstractions
 - examples and tests
@@ -205,7 +227,6 @@ Contributions, issue reports, ideas, and discussions are welcome.
 Areas of interest include:
 
 - routing improvements
-- async/event-loop support
 - WebSockets
 - authentication/session middleware
 - additional persistence backends
