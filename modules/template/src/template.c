@@ -12,8 +12,7 @@ bb_error_t bb_template_parse(const char *source, bb_template_t **tpl)
     {
         return BB_ERROR(BB_ERR_NULL, "Empty source.");
     }
-    *tpl = bb_template_parse_internal(source, NULL); // temporary, without error
-    return BB_SUCCESS();
+    return bb_template_parse_internal(source, tpl);
 }
 
 bb_error_t bb_template_render(const bb_template_t *tpl, bb_json_t *context, char **buf)
@@ -22,8 +21,7 @@ bb_error_t bb_template_render(const bb_template_t *tpl, bb_json_t *context, char
     {
         return BB_ERROR(BB_ERR_NULL, "Empty template, or context.");
     }
-    *buf = bb_template_render_internal(tpl, context, NULL); // temporary, without error
-    return BB_SUCCESS();
+    return bb_template_render_internal(tpl, context, buf);
 }
 
 void bb_template_destroy(bb_template_t *tpl)

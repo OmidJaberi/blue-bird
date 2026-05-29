@@ -5,8 +5,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-
 
 typedef struct {
     const char *src;
@@ -279,23 +277,23 @@ static int bb_parser_parse_nodes(bb_template_parser_t *p, bb_template_node_list_
     return 0;
 }
 
-bb_template_t *bb_template_parse_internal(const char *source, bb_error_t *err)
+bb_error_t bb_template_parse_internal(const char *source, bb_template_t **tpl)
 {
-    (void) err;
-    bb_template_t *tpl = calloc(1, sizeof(bb_template_t));
-    if (!tpl)
+    *tpl = calloc(1, sizeof(bb_template_t));
+    if (!*tpl)
     {
-        return NULL;
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate template");
     }
     bb_template_parser_t parser = {
         .src = source,
         .pos = 0,
         .len = strlen(source)
     };
-    if (bb_parser_parse_nodes(&parser, &tpl->nodes, NULL) != 0)
+    if (bb_parser_parse_nodes(&parser, &(*tpl)->nodes, NULL) != 0)
     {
-        bb_template_destroy(tpl);
-        return NULL;
+        bb_template_destroy(*tpl);
+        *tpl = NULL;
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to parse");
     }
-    return tpl;
+    return BB_SUCCESS();
 }

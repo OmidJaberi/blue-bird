@@ -5,6 +5,6 @@
 
 #include <blue-bird/error/error.h>
 
-bb_template_t *bb_template_parse_internal(const char *source, bb_error_t *err);
+bb_error_t bb_template_parse_internal(const char *source, bb_template_t **tpl);
 
 #endif

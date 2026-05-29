@@ -163,13 +163,12 @@ static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_
     return 0;
 }
 
-char *bb_template_render_internal(const bb_template_t *tpl, bb_json_t *context, bb_error_t *err)
+bb_error_t bb_template_render_internal(const bb_template_t *tpl, bb_json_t *context, char **buf)
 {
-    (void) err;
     bb_string_builder_t sb;
     if (bb_string_builder_init(&sb) != 0)
     {
-        return NULL;
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to create string builder");
     }
     bb_render_context_t root_ctx = {
         .current = context,
@@ -178,7 +177,8 @@ char *bb_template_render_internal(const bb_template_t *tpl, bb_json_t *context, 
     if (bb_template_render_nodes(tpl->nodes.head, &root_ctx, &sb) != 0)
     {
         bb_string_builder_destroy(&sb);
-        return NULL;
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to render");
     }
-    return sb.data;
+    *buf = sb.data;
+    return BB_SUCCESS();
 }
