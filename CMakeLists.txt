@@ -7,6 +7,7 @@ project(
 )
 
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -20,7 +21,9 @@ elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_compile_options(
         -Wall
         -Wextra
-        -Wpedantic
+
+        # -Wpedantic
+        # DSL intentionally uses GNU statement expressions
 
         # -Werror
     )
