@@ -49,22 +49,21 @@ void bb_template_node_append_child(bb_template_node_t *parent, bb_template_node_
     current->next = child;
 }
 
-
 void bb_template_node_list_append(bb_template_node_list_t *list, bb_template_node_t *node)
 {
     if (!list || !node)
     {
         return;
     }
+    node->next_list = NULL;
 
     if (!list->head)
     {
-        list->head = node;
-        list->tail = node;
+        list->head = list->tail = node;
         return;
     }
 
-    list->tail->next = node;
+    list->tail->next_list = node;
     list->tail = node;
 }
 
@@ -89,7 +88,6 @@ void bb_template_node_destroy(bb_template_node_t *node)
     free(node);
 }
 
-
 void bb_template_node_list_destroy(bb_template_node_list_t *list)
 {
     if (!list)
@@ -100,7 +98,7 @@ void bb_template_node_list_destroy(bb_template_node_list_t *list)
     bb_template_node_t *node = list->head;
     while (node)
     {
-        bb_template_node_t *next = node->next;
+        bb_template_node_t *next = node->next_list;
         bb_template_node_destroy(node);
         node = next;
     }

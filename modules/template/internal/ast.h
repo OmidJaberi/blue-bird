@@ -33,6 +33,11 @@ typedef struct bb_template_node {
      * Sibling node.
      */
     struct bb_template_node *next;
+
+    /*
+    * List linkage.
+    */
+    struct bb_template_node *next_list;
 } bb_template_node_t;
 
 typedef struct {
