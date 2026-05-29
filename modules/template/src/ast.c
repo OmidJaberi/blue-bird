@@ -5,7 +5,7 @@
 
 bb_template_node_t *bb_template_node_create(bb_template_node_type_t type, const char *value)
 {
-    bb_template_node_t *node = malloc(sizeof(bb_template_node_t));
+    bb_template_node_t *node = calloc(1, sizeof(*node));
 
     if (!node)
     {
@@ -13,7 +13,6 @@ bb_template_node_t *bb_template_node_create(bb_template_node_type_t type, const 
     }
 
     node->type = type;
-    node->next = NULL;
 
     node->value = strdup(value ? value : "");
 
