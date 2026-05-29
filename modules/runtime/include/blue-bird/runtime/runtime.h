@@ -7,6 +7,7 @@ extern "C" {
 
 
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "blue-bird/runtime/task.h"
 #include "blue-bird/runtime/event.h"
