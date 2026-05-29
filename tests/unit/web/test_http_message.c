@@ -68,10 +68,10 @@ void test_message_large_body(void)
     bb_message_set_header(&msg, "Content-Type", "text/plain");
     bb_message_set_body(&msg, large_body);
 
-    int len = bb_message_serialize(&msg, &buffer, &size);
+    bb_message_serialize(&msg, &buffer, &size);
 
     assert(strstr(buffer, "Content-Length: 50000") != NULL);
-    assert(buffer[len - 1] == 'A');
+    assert(buffer[size - 2] == 'A');
 
     free(buffer);
     bb_message_destroy(&msg);

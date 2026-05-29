@@ -113,7 +113,7 @@ static int parse_body(bb_http_message_t *msg, const char *raw)
 
     body_start += 4; // skip "\r\n\r\n"
     const char *content_length = bb_message_get_header(msg, "Content-Length");
-    size_t body_len = content_length ? atoi(content_length) : strlen(body_start);
+    size_t body_len = content_length ? (size_t)atoi(content_length) : strlen(body_start);
 
     if (body_len <= 0)
         return 0;
@@ -183,14 +183,17 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
 {
     if (buffer)
     {
-        *buffer_size = bb_message_serialize(msg, NULL, NULL) + 1;
+        if (bb_message_serialize(msg, NULL, buffer_size) < 0)
+        {
+            return -1;
+        }
         *buffer = malloc(*buffer_size);
         if (!*buffer)
             return -1;
     }
     else
     {
-        // Conent_Length added here:
+        // Content_Length added here:
         int body_len = msg->body ? strlen(msg->body) : 0;
         char len_buf[256];
         snprintf(len_buf, 256, "%d", body_len);
@@ -198,27 +201,28 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
     }
 
     // Start Line:
-    int written = buffer ?
-                    snprintf(*buffer, *buffer_size, "%s\r\n", msg->start_line)
+    size_t written = buffer ?
+                    (size_t)snprintf(*buffer, *buffer_size, "%s\r\n", msg->start_line)
                     : strlen(msg->start_line) + 2;
 
     // Headers:
     for (int i = 0; i < msg->header_count; i++)
         written += buffer ?
-                    snprintf(*buffer + written, *buffer_size - written, "%s: %s\r\n", msg->headers[i].name, msg->headers[i].value)
+                    (size_t)snprintf(*buffer + written, *buffer_size - written, "%s: %s\r\n", msg->headers[i].name, msg->headers[i].value)
                     : strlen(msg->headers[i].name) + strlen(msg->headers[i].value) + 4;
     if (msg->header_count > 0)
         written += buffer ?
-                    snprintf(*buffer + written, *buffer_size - written, "\r\n")
-                    : 2;
+                    (size_t)snprintf(*buffer + written, *buffer_size - written, "\r\n")
+                    : (size_t)2;
 
     // Body:
     if (msg->body)
         written += buffer ?
-                    snprintf(*buffer + written, *buffer_size - written, "%s", msg->body)
+                    (size_t)snprintf(*buffer + written, *buffer_size - written, "%s", msg->body)
                     : strlen(msg->body);
 
-    return written;
+    *buffer_size = written + 1;
+    return 0;
 }
 
 void bb_message_destroy(bb_http_message_t *msg)

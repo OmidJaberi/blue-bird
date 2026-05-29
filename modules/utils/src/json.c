@@ -516,7 +516,7 @@ static int serialize_array_json(bb_json_t *json, char *buffer, int indent, bool 
 static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool has_indent)
 {
     BB_ASSERT(json->type == BB_JSON_OBJECT, "Invalid JSON type.");
-    int len = 0;
+    size_t len = 0;
     len += buffer ? sprintf(buffer, "{") : 1;
     bool first = true;
     _bb_hash_table_node_t *node = json->value.object.order_head;
@@ -530,7 +530,7 @@ static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool
         first = false;
         for (int j = 0; has_indent && j < indent + 1; j++)
         len += buffer ? sprintf(buffer + len, "\t") : 1;
-        len += buffer ? sprintf(buffer + len, "\"%s\": ", node->key) : strlen(node->key) + 4;
+        len += buffer ? (size_t)sprintf(buffer + len, "\"%s\": ", node->key) : strlen(node->key) + 4;
         char *child_buffer = buffer ? buffer + len : NULL;
         int serialize_child = has_indent ? serialize_json_with_indent(node->value, child_buffer, indent + 1) : serialize_json_to_allocated_buffer(node->value, child_buffer);
         if (serialize_child < 0) return -1;

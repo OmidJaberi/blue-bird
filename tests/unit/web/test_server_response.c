@@ -86,10 +86,10 @@ void test_response_large_body(void)
     bb_server_response_set_header(&res, "Content-Type", "text/plain");
     bb_server_response_set_body(&res, large_body);
 
-    int len = bb_server_response_serialize(&res, &buffer, &size);
+    bb_server_response_serialize(&res, &buffer, &size);
 
     assert(strstr(buffer, "Content-Length: 50000") != NULL);
-    assert(buffer[len - 1] == 'A');
+    assert(buffer[size - 2] == 'A');
 
     free(buffer);
     bb_server_response_destroy(&res);
