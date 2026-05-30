@@ -85,7 +85,7 @@ Functions use:
 ## Examples
 
 ```c
-bb_server_init()
+bb_server_create()
 bb_server_start()
 
 bb_json_parse()
@@ -243,7 +243,7 @@ typedef struct {
     int server_fd;
 } bb_server_t;
 
-int bb_server_init(bb_server_t *server, int port);
+bb_server_t *bb_server_create(int port);
 
 typedef bb_error_t (*bb_route_handler_cb)(
     bb_request_t *,

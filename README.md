@@ -161,12 +161,11 @@ bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 
 int main(void)
 {
-    bb_server_t server;
-    bb_server_init(&server, 8080);
+    bb_server_t *server = bb_server_create(8080);
 
-    bb_server_add_route(&server, "GET", "/", root_handler);
+    bb_server_add_route(server, "GET", "/", root_handler);
     
-    bb_server_start(&server);
+    bb_server_start(server);
     return 0;
 }
 ```

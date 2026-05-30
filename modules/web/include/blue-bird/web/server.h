@@ -11,16 +11,10 @@ extern "C" {
 #include "blue-bird/web/router.h"
 #include "blue-bird/web/middleware.h"
 
-typedef struct bb_server {
-    int server_fd;
-    bb_runtime_t *runtime;
-    bb_route_list_t *route_list;
-    bb_middleware_list_t *pre_middleware_list; // Runs before the handler
-    bb_middleware_list_t *post_middleware_list; // Runs after the handler
-} bb_server_t;
+typedef struct bb_server bb_server_t;
 
-int bb_server_init_on_runtime(bb_server_t *server, bb_runtime_t *runtime, int port);
-int bb_server_init(bb_server_t *server, int port);
+bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port);
+bb_server_t *bb_server_create(int port);
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_route_handler_cb handler);
 void bb_server_use_pre_middleware(bb_server_t *server, bb_middleware_cb mw);
 void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw);

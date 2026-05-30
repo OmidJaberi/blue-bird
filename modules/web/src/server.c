@@ -16,6 +16,14 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 
+struct bb_server {
+    int server_fd;
+    bb_runtime_t *runtime;
+    bb_route_list_t *route_list;
+    bb_middleware_list_t *pre_middleware_list; // Runs before the handler
+    bb_middleware_list_t *post_middleware_list; // Runs after the handler
+};
+
 typedef struct {
     bb_server_t *server;
 } _bb_accept_task_data_t;
@@ -34,8 +42,14 @@ static int _bb_set_nonblocking(int fd)
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-int bb_server_init_on_runtime(bb_server_t *server, bb_runtime_t *runtime, int port)
+bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 {
+    bb_server_t *server = malloc(sizeof(bb_server_t));
+    if (!server)
+    {
+        return NULL;
+    }
+
     server->runtime = runtime;
 
     server->route_list = (bb_route_list_t *)malloc(sizeof(bb_route_list_t));
@@ -85,20 +99,19 @@ int bb_server_init_on_runtime(bb_server_t *server, bb_runtime_t *runtime, int po
     }
 
     BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
-    return 0;
+    return server;
 }
 
-int bb_server_init(bb_server_t *server, int port)
+bb_server_t *bb_server_create(int port)
 {
     bb_runtime_t *runtime = bb_runtime_create();
     
     if (!runtime)
     {
-        return -1;
+        return NULL;
     }
 
-    bb_server_init_on_runtime(server, runtime, port);
-    return 0;
+    return bb_server_create_on_runtime(runtime, port);
 }
 
 static bb_error_t default_400(bb_request_t *req, bb_response_t *res)

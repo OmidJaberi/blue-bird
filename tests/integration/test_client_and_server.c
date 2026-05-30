@@ -98,17 +98,16 @@ bb_error_t large_response_handler(bb_request_t *req, bb_response_t *res)
 void *server(void* arg)
 {
     (void) arg;
-    bb_server_t server;
+    bb_server_t *server = bb_server_create(8080);
 
-    bb_server_init(&server, 8080);
-    bb_server_add_route(&server, "GET", "/", root_handler);
-    bb_server_add_route(&server, "GET", "/param/:name", request_param_handler);
-    bb_server_add_route(&server, "GET", "/param/:param_1/:param_2", multi_request_param_handler);
-    bb_server_add_route(&server, "GET", "/q_param", request_query_param_handler);
-    bb_server_add_route(&server, "GET", "/q_param/multi", request_multi_query_param_handler);
-    bb_server_add_route(&server, "GET", "/body", request_body_handler);
-    bb_server_add_route(&server, "GET", "/large_response", large_response_handler);
-    bb_server_start(&server);
+    bb_server_add_route(server, "GET", "/", root_handler);
+    bb_server_add_route(server, "GET", "/param/:name", request_param_handler);
+    bb_server_add_route(server, "GET", "/param/:param_1/:param_2", multi_request_param_handler);
+    bb_server_add_route(server, "GET", "/q_param", request_query_param_handler);
+    bb_server_add_route(server, "GET", "/q_param/multi", request_multi_query_param_handler);
+    bb_server_add_route(server, "GET", "/body", request_body_handler);
+    bb_server_add_route(server, "GET", "/large_response", large_response_handler);
+    bb_server_start(server);
 
     return NULL;
 }
