@@ -14,6 +14,6 @@ static const char *error_strings[] = {
 const char *bb_strerror(bb_error_code_t code)
 {
     if (code < 0 || code >= (int)(sizeof(error_strings) / sizeof(error_strings[0])))
-        return "Invalid error code";
+        return "Error";
     return error_strings[code] ? error_strings[code] : "Unspecified error";
 }

@@ -6,7 +6,16 @@ extern "C" {
 #endif
 
 
-typedef enum {
+typedef int bb_error_code_t;
+
+typedef struct {
+    bb_error_code_t code;
+    const char *msg;
+} bb_error_t;
+
+
+// Common errors
+enum {
     BB_OK = 0,
     BB_ERR_ALLOC,
     BB_ERR_NULL,
@@ -15,12 +24,7 @@ typedef enum {
     BB_ERR_INTERNAL,
     BB_ERR_IO,
     BB_ERR_UNKNOWN
-} bb_error_code_t;
-
-typedef struct {
-    bb_error_code_t code;
-    const char *msg;
-} bb_error_t;
+};
 
 // Helper Macros
 #define BB_SUCCESS() ((bb_error_t){BB_OK, "OK"})
