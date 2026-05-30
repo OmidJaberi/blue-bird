@@ -9,7 +9,6 @@
 
 #include "blue-bird/log/log.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -252,7 +251,11 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
     }
     else
     {
-        _run_request_pipeline(server, &connection->request, &connection->response);
+        bb_error_t err = _run_request_pipeline(server, &connection->request, &connection->response);
+        if (BB_FAILED(err))
+        {
+            BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
+        }
     }
 
     // Serialize response
