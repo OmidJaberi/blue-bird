@@ -15,9 +15,9 @@ typedef struct bb_server bb_server_t;
 
 bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port);
 bb_server_t *bb_server_create(int port);
-void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_route_handler_cb handler);
-void bb_server_use_pre_middleware(bb_server_t *server, bb_middleware_cb mw);
-void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw);
+void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler);
+void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw);
+void bb_server_use_post_middleware(bb_server_t *server, bb_http_handler_cb mw);
 void bb_server_start(bb_server_t *server);
 void bb_server_destroy(bb_server_t *server);
 

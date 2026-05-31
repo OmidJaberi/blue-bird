@@ -109,14 +109,13 @@ The `_cb` suffix explicitly identifies callback function types.
 ## Examples
 
 ```c
-bb_route_handler_cb
-bb_middleware_cb
+bb_http_handler_cb
 ```
 
 ## Example Declaration
 
 ```c
-typedef bb_error_t (*bb_route_handler_cb)(
+typedef bb_error_t (*bb_http_handler_cb)(
     bb_request_t *req,
     bb_response_t *res
 );
@@ -245,7 +244,7 @@ typedef struct {
 
 bb_server_t *bb_server_create(int port);
 
-typedef bb_error_t (*bb_route_handler_cb)(
+typedef bb_error_t (*bb_http_handler_cb)(
     bb_request_t *,
     bb_response_t *
 );

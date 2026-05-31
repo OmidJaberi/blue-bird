@@ -8,17 +8,15 @@ extern "C" {
 
 #include "blue-bird/web/http.h"
 
-typedef bb_http_handler_cb bb_middleware_cb;
-
 typedef struct BBMiddlewareObject {
-    bb_middleware_cb middleware;
+    bb_http_handler_cb middleware;
     struct BBMiddlewareObject *next;
 } bb_middleware_object_t;
 
 typedef bb_middleware_object_t* bb_middleware_list_t;
 
 void bb_middleware_list_init(bb_middleware_list_t *list);
-void bb_middleware_list_append(bb_middleware_list_t *list, bb_middleware_cb mw);
+void bb_middleware_list_append(bb_middleware_list_t *list, bb_http_handler_cb mw);
 bb_error_t bb_middleware_list_run(bb_middleware_list_t *list, bb_request_t *req, bb_response_t *res);
 void bb_middleware_list_destroy(bb_middleware_list_t *list);
 

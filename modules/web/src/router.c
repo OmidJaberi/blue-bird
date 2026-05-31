@@ -11,7 +11,7 @@ struct bb_route {
     char *method;
     char path_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int segments_count;
-    bb_route_handler_cb handler;
+    bb_http_handler_cb handler;
     bb_route_t *next_route;
 } ;
 
@@ -57,7 +57,7 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
     return count;
 }
 
-bb_error_t bb_route_list_add(bb_route_list_t *route_list, const char *method, const char *path, bb_route_handler_cb handler)
+bb_error_t bb_route_list_add(bb_route_list_t *route_list, const char *method, const char *path, bb_http_handler_cb handler)
 {
     // Basic sanity checks
     BB_ASSERT(route_list != NULL, "Route list pointer is NULL");

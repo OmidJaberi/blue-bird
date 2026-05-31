@@ -7,7 +7,7 @@ void bb_middleware_list_init(bb_middleware_list_t *list)
     *list = NULL;
 }
 
-static bb_middleware_object_t *create_middleware_object(bb_middleware_cb mw)
+static bb_middleware_object_t *create_middleware_object(bb_http_handler_cb mw)
 {
     bb_middleware_object_t *mw_obj = malloc(sizeof(bb_middleware_object_t));
     if (mw_obj == NULL)
@@ -19,7 +19,7 @@ static bb_middleware_object_t *create_middleware_object(bb_middleware_cb mw)
     return mw_obj;
 }
 
-void bb_middleware_list_append(bb_middleware_list_t *list, bb_middleware_cb mw)
+void bb_middleware_list_append(bb_middleware_list_t *list, bb_http_handler_cb mw)
 {
     bb_middleware_object_t *mw_obj = create_middleware_object(mw);
     if (!*list)

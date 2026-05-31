@@ -378,17 +378,17 @@ void bb_server_destroy(bb_server_t *server)
     bb_runtime_destroy(server->runtime); // temp
 }
 
-void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_route_handler_cb handler)
+void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler)
 {
     bb_route_list_add(server->route_list, method, path, handler);
 }
 
-void bb_server_use_pre_middleware(bb_server_t *server, bb_middleware_cb mw)
+void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw)
 {
     bb_middleware_list_append(server->pre_middleware_list, mw);
 }
 
-void bb_server_use_post_middleware(bb_server_t *server, bb_middleware_cb mw)
+void bb_server_use_post_middleware(bb_server_t *server, bb_http_handler_cb mw)
 {
     bb_middleware_list_append(server->post_middleware_list, mw);
 }
