@@ -52,12 +52,8 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     server->runtime = runtime;
 
     server->route_list = bb_route_list_create();
-
-    server->pre_middleware_list = (bb_middleware_list_t *)malloc(sizeof(bb_middleware_list_t));
-    bb_middleware_list_init(server->pre_middleware_list);
-
-    server->post_middleware_list = (bb_middleware_list_t *)malloc(sizeof(bb_middleware_list_t));
-    bb_middleware_list_init(server->post_middleware_list);
+    server->pre_middleware_list = bb_middleware_list_create();
+    server->post_middleware_list = bb_middleware_list_create();
 
     struct sockaddr_in address;
     int opt = 1;
@@ -370,9 +366,7 @@ void bb_server_destroy(bb_server_t *server)
 {
     bb_route_list_destroy(server->route_list);
     bb_middleware_list_destroy(server->pre_middleware_list);
-    free(server->pre_middleware_list);
     bb_middleware_list_destroy(server->post_middleware_list);
-    free(server->post_middleware_list);
     bb_runtime_destroy(server->runtime); // temp
 }
 
