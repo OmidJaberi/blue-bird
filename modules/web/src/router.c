@@ -20,9 +20,10 @@ bb_http_handler_cb bb_route_get_handler(bb_route_t *route)
     return route->handler;
 }
 
-void bb_route_list_init(bb_route_list_t *route_list)
+bb_route_list_t *bb_route_list_create(void)
 {
-    *route_list = NULL;
+    bb_route_list_t *route_list = calloc(1, sizeof(*route_list));
+    return route_list;
 }
 
 static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN])
@@ -125,4 +126,5 @@ void bb_route_list_destroy(bb_route_list_t *route_list)
         free(current);
         current = next;
     }
+    free(route_list);
 }

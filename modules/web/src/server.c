@@ -51,8 +51,7 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 
     server->runtime = runtime;
 
-    server->route_list = (bb_route_list_t *)malloc(sizeof(bb_route_list_t));
-    bb_route_list_init(server->route_list);
+    server->route_list = bb_route_list_create();
 
     server->pre_middleware_list = (bb_middleware_list_t *)malloc(sizeof(bb_middleware_list_t));
     bb_middleware_list_init(server->pre_middleware_list);
@@ -370,7 +369,6 @@ void bb_server_start(bb_server_t *server)
 void bb_server_destroy(bb_server_t *server)
 {
     bb_route_list_destroy(server->route_list);
-    free(server->route_list);
     bb_middleware_list_destroy(server->pre_middleware_list);
     free(server->pre_middleware_list);
     bb_middleware_list_destroy(server->post_middleware_list);
