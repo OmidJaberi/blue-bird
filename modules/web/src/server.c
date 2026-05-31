@@ -140,7 +140,7 @@ static bb_error_t _run_request_pipeline(bb_server_t *server, bb_request_t *req, 
         return err;
 
     bb_route_t *route = bb_route_list_match(server->route_list, req);
-    bb_http_handler_cb handler = route ? route->handler : default_404;
+    bb_http_handler_cb handler = route ? bb_route_get_handler(route) : default_404;
 
     err = handler(req, res);
     if (BB_FAILED(err))

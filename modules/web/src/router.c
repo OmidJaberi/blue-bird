@@ -4,6 +4,22 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#define MAX_SEGMENTS 20
+#define MAX_PATH_LEN 256
+
+struct bb_route {
+    char *method;
+    char path_segments[MAX_SEGMENTS][MAX_PATH_LEN];
+    int segments_count;
+    bb_route_handler_cb handler;
+    bb_route_t *next_route;
+} ;
+
+bb_http_handler_cb bb_route_get_handler(bb_route_t *route)
+{
+    return route->handler;
+}
+
 void bb_route_list_init(bb_route_list_t *route_list)
 {
     *route_list = NULL;

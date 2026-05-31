@@ -50,7 +50,7 @@ static void _handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_r
 
     if (match)
     {
-        match->handler(req, res);
+        bb_route_get_handler(match)(req, res);
     }
     else
     {
