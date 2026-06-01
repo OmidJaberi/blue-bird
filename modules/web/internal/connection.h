@@ -36,7 +36,7 @@ typedef struct bb_connection {
     size_t write_offset;
 
     bb_request_t request;
-    bb_response_t response;
+    bb_response_t *response;
 } bb_connection_t;
 
 bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd);

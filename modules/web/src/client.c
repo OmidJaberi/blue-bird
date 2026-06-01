@@ -125,8 +125,6 @@ bb_error_t bb_client_receive(bb_client_t *client, bb_response_t *res)
             break;
     }
 
-    bb_response_init(res);
-
     if (bb_response_parse(connection->buffer, res) != 0)
     {
         bb_connection_destroy(connection);

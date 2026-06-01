@@ -45,42 +45,40 @@ void test_middleware_order(void)
 {
     printf("Testing Middleware order...\n");
     bb_middleware_list_t *mw_list = bb_middleware_list_create();
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_t req;
     call_index = 0;
 
-    bb_response_init(&res);
     bb_middleware_list_append(mw_list, mw1);
     bb_middleware_list_append(mw_list, mw2);
     bb_middleware_list_append(mw_list, mw3);
 
-    bb_error_t result = bb_middleware_list_run(mw_list, &req, &res);
+    bb_error_t result = bb_middleware_list_run(mw_list, &req, res);
     assert(!BB_FAILED(result));
     assert(call_order[0] == 1);
     assert(call_order[1] == 2);
     assert(call_order[2] == 3);
     
     bb_middleware_list_destroy(mw_list);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_middleware_stop(void)
 {
     printf("Testing Middleware stop...\n");
     bb_middleware_list_t *mw_list = bb_middleware_list_create();
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_t req;
 
-    bb_response_init(&res);
     bb_middleware_list_append(mw_list, mw_stop);
 
-    bb_error_t result = bb_middleware_list_run(mw_list, &req, &res);
+    bb_error_t result = bb_middleware_list_run(mw_list, &req, res);
     assert(BB_FAILED(result));
-    assert(res.status_code == 403);
-    assert(strcmp(res.msg.body, "Forbidden") == 0);
+    assert(bb_response_get_status(res) == 403);
+    assert(strcmp(bb_response_get_message(res)->body, "Forbidden") == 0);
     
     bb_middleware_list_destroy(mw_list);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 int main(void)

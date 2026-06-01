@@ -139,21 +139,20 @@ void *concurrent_client(void *arg)
     for (int i = 0; i < 100; i++)
     {
         bb_request_t req;
-        bb_response_t res;
+        bb_response_t *res = bb_response_create();
 
         bb_request_init(&req);
-        bb_response_init(&res);
 
         bb_request_set_method(&req, "GET");
         bb_request_set_url(&req, "/");
         bb_request_set_body(&req, "");
 
-        client_request(&req, &res);
+        client_request(&req, res);
 
-        assert(res.status_code == 200);
+        assert(bb_response_get_status(res) == 200);
 
         bb_request_destroy(&req);
-        bb_response_destroy(&res);
+        bb_response_destroy(res);
     }
 
     return NULL;
@@ -164,11 +163,10 @@ void test_root_req(void)
     printf("Testing root path...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/";
@@ -178,14 +176,14 @@ void test_root_req(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "Hello, Blue-Bird :)") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "Hello, Blue-Bird :)") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_missing_path_req(void)
@@ -193,11 +191,10 @@ void test_missing_path_req(void)
     printf("Testing missing path...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/missing_path";
@@ -207,13 +204,13 @@ void test_missing_path_req(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 404);
+    assert(bb_response_get_status(res) == 404);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_param_req(void)
@@ -221,11 +218,10 @@ void test_param_req(void)
     printf("Testing path with parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/param/my_name";
@@ -235,14 +231,14 @@ void test_param_req(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "name: my_name") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "name: my_name") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_multi_param_req(void)
@@ -250,11 +246,10 @@ void test_multi_param_req(void)
     printf("Testing path with multiple parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "param/hello/good_bye";
@@ -264,14 +259,14 @@ void test_multi_param_req(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "hello and good_bye") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "hello and good_bye") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_missing_param(void)
@@ -279,21 +274,20 @@ void test_missing_param(void)
     printf("Testing missing route parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     char *url = "/param/";
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 404);
+    assert(bb_response_get_status(res) == 404);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_max_length_param(void)
@@ -301,11 +295,10 @@ void test_max_length_param(void)
     printf("Testing path with maxium length parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *body = "";
@@ -320,16 +313,16 @@ void test_max_length_param(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
     char expected[6000];
     sprintf(expected, "name: %s", long_name);
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, expected) == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, expected) == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_over_sized_param(void)
@@ -337,11 +330,10 @@ void test_over_sized_param(void)
     printf("Testing path with over sized parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *body = "";
@@ -356,13 +348,13 @@ void test_over_sized_param(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 400);
+    assert(bb_response_get_status(res) == 400);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_query_param_req(void)
@@ -370,11 +362,10 @@ void test_query_param_req(void)
     printf("Testing path with Query parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/q_param?val=blue-bird";
@@ -384,35 +375,34 @@ void test_query_param_req(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "val: blue-bird") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "val: blue-bird") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_encoded_query_param(void)
 {
     printf("Testing encoded query parameter...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/q_param?val=blue%20bird%21");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "val: blue bird!") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "val: blue bird!") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_multi_query_param_req(void)
@@ -420,11 +410,10 @@ void test_multi_query_param_req(void)
     printf("Testing path with multiple Query parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/q_param/multi?val_2=bird&val_1=blue";
@@ -434,21 +423,22 @@ void test_multi_query_param_req(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "blue-bird") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "blue-bird") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_too_many_query_params(void)
 {
     printf("Testing too many query parameters...\n");
-    bb_request_t req; bb_response_t res;
-    bb_request_init(&req); bb_response_init(&res);
+    bb_request_t req;
+    bb_response_t *res = bb_response_create();
+    bb_request_init(&req);
 
     char big_query[2048];
     strcpy(big_query, "/q_param?");
@@ -462,11 +452,11 @@ void test_too_many_query_params(void)
     bb_request_set_url(&req, big_query);
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
-    assert(res.status_code == 400);
+    client_request(&req, res);
+    assert(bb_response_get_status(res) == 400);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_missing_query_param_req(void)
@@ -474,11 +464,10 @@ void test_missing_query_param_req(void)
     printf("Testing path with missing Query parameter...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/q_param";
@@ -488,72 +477,69 @@ void test_missing_query_param_req(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 400);
+    assert(bb_response_get_status(res) == 400);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_duplicate_query_param(void)
 {
     printf("Testing duplicate query parameter...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/q_param?val=blue&val=bird");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "val: blue") == 0); // Based on implementation, we expect first param
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "val: blue") == 0); // Based on implementation, we expect first param
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_empty_query_value(void)
 {
     printf("Testing empty query value...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/q_param?val=");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
+    assert(bb_response_get_status(res) == 200);
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_invalid_query_format(void)
 {
     printf("Testing invalid query format (no '?')...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/q_paramval=blue-bird"); // missing '?'
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
-    assert(res.status_code == 404);
+    client_request(&req, res);
+    assert(bb_response_get_status(res) == 404);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_req_body(void)
@@ -561,11 +547,10 @@ void test_req_body(void)
     printf("Testing request body...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/body";
@@ -575,14 +560,14 @@ void test_req_body(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "body: BODY_CONTENT") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "body: BODY_CONTENT") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_req_large_body(void)
@@ -590,11 +575,10 @@ void test_req_large_body(void)
     printf("Testing request with large body...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/body";
@@ -609,19 +593,19 @@ void test_req_large_body(void)
     bb_request_set_url(&req, url);
     bb_request_set_body(&req, body);
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     char *expected_res = malloc(size + 100);
     snprintf(expected_res, size + 100, "body: %s", body);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, expected_res) == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, expected_res) == 0);
 
     free(body);
     free(expected_res);
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_large_response(void)
@@ -629,43 +613,41 @@ void test_large_response(void)
     printf("Testing large async response...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/large_response");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
-    assert(strlen(res.msg.body) == 1024 * 1024);
+    assert(bb_response_get_status(res) == 200);
+    assert(strlen(bb_response_get_message(res)->body) == 1024 * 1024);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_empty_body_req(void)
 {
     printf("Testing empty body...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/body");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "body: ") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "body: ") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_encoded_body_req(void)
@@ -673,11 +655,10 @@ void test_encoded_body_req(void)
     printf("Testing encoded body...\n");
 
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
 
     /* ---- init ---- */
     bb_request_init(&req);
-    bb_response_init(&res);
 
     /* ---- build request ---- */
     char *url = "/body";
@@ -690,111 +671,110 @@ void test_encoded_body_req(void)
     /* optional but correct for encoded bodies */
     bb_request_set_header(&req, "Content-Type", "application/x-www-form-urlencoded");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
     /* ---- validate ---- */
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "body: name=blue bird&msg=hello!") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "body: name=blue bird&msg=hello!") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_encoded_path_segment(void)
 {
     printf("Testing URL encoded path segment...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/param/%62%6C%75%65"); // "blue"
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
-    assert(strcmp(res.msg.body, "name: blue") == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_message(res)->body, "name: blue") == 0);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_invalid_body_encoding(void)
 {
     printf("Testing invalid body encoding...\n");
-    bb_request_t req; bb_response_t res;
-    bb_request_init(&req); bb_response_init(&res);
+    bb_request_t req;
+    bb_response_t *res = bb_response_create();
+    bb_request_init(&req);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/body");
     bb_request_set_body(&req, "name%GGbird"); // invalid percent encoding
 
     bb_request_set_header(&req, "Content-Type", "application/x-www-form-urlencoded");
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
+    assert(bb_response_get_status(res) == 200);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_invalid_method(void)
 {
     printf("Testing unsupported HTTP method...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "POST");
     bb_request_set_url(&req, "/");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 405 || res.status_code == 404);
+    assert(bb_response_get_status(res) == 405 || bb_response_get_status(res) == 404);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_trailing_slash(void)
 {
     printf("Testing route with trailing slash...\n");
     bb_request_t req;
-    bb_response_t res;
+    bb_response_t *res = bb_response_create();
     bb_request_init(&req);
-    bb_response_init(&res);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/param/my_name/");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
+    client_request(&req, res);
 
-    assert(res.status_code == 200);
+    assert(bb_response_get_status(res) == 200);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_invalid_url_chars(void)
 {
     printf("Testing path with invalid characters...\n");
-    bb_request_t req; bb_response_t res;
-    bb_request_init(&req); bb_response_init(&res);
+    bb_request_t req;
+    bb_response_t *res = bb_response_create();
+    bb_request_init(&req);
 
     bb_request_set_method(&req, "GET");
     bb_request_set_url(&req, "/param/<script>");
     bb_request_set_body(&req, "");
 
-    client_request(&req, &res);
-    assert(res.status_code == 400);
+    client_request(&req, res);
+    assert(bb_response_get_status(res) == 400);
 
     bb_request_destroy(&req);
-    bb_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_concurrent_clients(void)
@@ -858,21 +838,20 @@ void test_many_requests(void)
     for (int i = 0; i < 5000; i++)
     {
         bb_request_t req;
-        bb_response_t res;
+        bb_response_t *res = bb_response_create();
 
         bb_request_init(&req);
-        bb_response_init(&res);
 
         bb_request_set_method(&req, "GET");
         bb_request_set_url(&req, "/");
         bb_request_set_body(&req, "");
 
-        client_request(&req, &res);
+        client_request(&req, res);
 
-        assert(res.status_code == 200);
+        assert(bb_response_get_status(res) == 200);
 
         bb_request_destroy(&req);
-        bb_response_destroy(&res);
+        bb_response_destroy(res);
     }
 }
 

@@ -39,7 +39,7 @@ bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd)
 
     bb_request_init_with_type(&connection->request, BB_SERVER_REQUEST);
 
-    bb_response_init(&connection->response);
+    connection->response = bb_response_create();
 
     return connection;
 }
@@ -56,7 +56,7 @@ void bb_connection_destroy(bb_connection_t *connection)
     free(connection->write_buffer);
 
     bb_request_destroy(&connection->request);
-    bb_response_destroy(&connection->response);
+    bb_response_destroy(connection->response);
 
     free(connection);
 }

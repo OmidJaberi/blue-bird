@@ -11,10 +11,7 @@ add_library(bluebird_web
     src/http/response.c
 
     src/http/client_request.c
-    src/http/client_response.c
-
     src/http/server_request.c
-    src/http/server_response.c
 )
 
 target_include_directories(bluebird_web

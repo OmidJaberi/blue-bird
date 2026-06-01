@@ -1,4 +1,4 @@
-#include "blue-bird/web/http/server_response.h"
+#include "blue-bird/web/http/response.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -6,16 +6,15 @@
 
 void test_response_basic(void)
 {
-    bb_server_response_t res;
+    bb_response_t *res = bb_response_create();;
     char *buffer;
     size_t size;
 
-    bb_server_response_init(&res);
-    bb_server_response_set_status(&res, 200);
-    bb_server_response_set_header(&res, "Content-Type", "text/plain");
-    bb_server_response_set_body(&res, "Hello there!");
+    bb_response_set_status(res, 200);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Hello there!");
 
-    bb_server_response_serialize(&res, &buffer, &size);
+    bb_response_serialize(res, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
     assert(strstr(buffer, "Content-Type: text/plain") != NULL);
@@ -23,22 +22,21 @@ void test_response_basic(void)
     assert(strstr(buffer, "Hello there!") != NULL);
 
     free(buffer);
-    bb_server_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_response_multiple_headers(void)
 {
-    bb_server_response_t res;
+    bb_response_t *res = bb_response_create();;
     char *buffer;
     size_t size;
 
-    bb_server_response_init(&res);
-    bb_server_response_set_status(&res, 201);
-    bb_server_response_set_header(&res, "Content-Type", "application/json");
-    bb_server_response_set_header(&res, "X-Custom", "Blue-Bird");
-    bb_server_response_set_body(&res, "{\"ok\":true}");
+    bb_response_set_status(res, 201);
+    bb_response_set_header(res, "Content-Type", "application/json");
+    bb_response_set_header(res, "X-Custom", "Blue-Bird");
+    bb_response_set_body(res, "{\"ok\":true}");
 
-    bb_server_response_serialize(&res, &buffer, &size);
+    bb_response_serialize(res, &buffer, &size);
     
     assert(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
     assert(strstr(buffer, "Content-Type: application/json") != NULL);
@@ -47,30 +45,29 @@ void test_response_multiple_headers(void)
     assert(strstr(buffer, "{\"ok\":true}") != NULL);
 
     free(buffer);
-    bb_server_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_response_empty_body(void)
 {
-    bb_server_response_t res;
+    bb_response_t *res = bb_response_create();;
     char *buffer;
     size_t size;
 
-    bb_server_response_init(&res);
-    bb_server_response_set_status(&res, 204);
+    bb_response_set_status(res, 204);
 
-    bb_server_response_serialize(&res, &buffer, &size);
+    bb_response_serialize(res, &buffer, &size);
    
     assert(strstr(buffer, "HTTP/1.1 204 No Content") != NULL);
     assert(strstr(buffer, "Content-Length: 0") != NULL);
 
     free(buffer);
-    bb_server_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 void test_response_large_body(void)
 {
-    bb_server_response_t res;
+    bb_response_t *res = bb_response_create();;
     char *buffer;
     size_t size;
 
@@ -81,18 +78,17 @@ void test_response_large_body(void)
         large_body[i] = 'A';
     large_body[large_size - 1] = '\0';
 
-    bb_server_response_init(&res);
-    bb_server_response_set_status(&res, 200);
-    bb_server_response_set_header(&res, "Content-Type", "text/plain");
-    bb_server_response_set_body(&res, large_body);
+    bb_response_set_status(res, 200);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, large_body);
 
-    bb_server_response_serialize(&res, &buffer, &size);
+    bb_response_serialize(res, &buffer, &size);
 
     assert(strstr(buffer, "Content-Length: 50000") != NULL);
     assert(buffer[size - 2] == 'A');
 
     free(buffer);
-    bb_server_response_destroy(&res);
+    bb_response_destroy(res);
 }
 
 int main(void)
