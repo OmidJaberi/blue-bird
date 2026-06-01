@@ -65,15 +65,15 @@ void test_route_match_get(void)
 
     bb_request_t req;
     memset(&req, 0, sizeof(req));
-    bb_message_init(&BB_REQUEST_GET_MESSAGE(req));
+    bb_message_init(bb_request_get_message(&req));
 
     bb_response_t *res = bb_response_create();
 
     bb_route_list_add(route_list, "GET", "/", handler_root);
     bb_route_list_add(route_list, "GET", "/hello", handler_hello_get);
 
-    strcpy(BB_REQUEST_GET_METHOD(req), "GET");
-    strcpy(BB_REQUEST_GET_PATH(req), "/hello");
+    strcpy(bb_request_get_method(&req), "GET");
+    strcpy(bb_request_get_path(&req), "/hello");
 
     _handle_request(route_list, &req, res);
     assert(strcmp(bb_response_get_message(res)->body, "Hello GET OK") == 0);
@@ -86,14 +86,14 @@ void test_route_match_post(void)
 
     bb_request_t req;
     memset(&req, 0, sizeof(req));
-    bb_message_init(&BB_REQUEST_GET_MESSAGE(req));
+    bb_message_init(bb_request_get_message(&req));
 
     bb_response_t *res = bb_response_create();
 
     bb_route_list_add(route_list, "POST", "/hello", handler_hello_post);
 
-    strcpy(BB_REQUEST_GET_METHOD(req), "POST");
-    strcpy(BB_REQUEST_GET_PATH(req), "/hello");
+    strcpy(bb_request_get_method(&req), "POST");
+    strcpy(bb_request_get_path(&req), "/hello");
 
     _handle_request(route_list, &req, res);
     assert(strcmp(bb_response_get_message(res)->body, "Hello POST OK") == 0);
@@ -106,12 +106,12 @@ void test_route_not_found(void)
 
     bb_request_t req;
     memset(&req, 0, sizeof(req));
-    bb_message_init(&BB_REQUEST_GET_MESSAGE(req));
+    bb_message_init(bb_request_get_message(&req));
 
     bb_response_t *res = bb_response_create();
 
-    strcpy(BB_REQUEST_GET_METHOD(req), "GET");
-    strcpy(BB_REQUEST_GET_PATH(req), "/doesnotexist");
+    strcpy(bb_request_get_method(&req), "GET");
+    strcpy(bb_request_get_path(&req), "/doesnotexist");
 
     _handle_request(route_list, &req, res);
     assert(strcmp(bb_response_get_message(res)->body, "Route Not Found") == 0);
@@ -124,14 +124,14 @@ void test_route_with_param(void)
 
     bb_request_t req;
     memset(&req, 0, sizeof(req));
-    bb_message_init(&BB_REQUEST_GET_MESSAGE(req));
+    bb_message_init(bb_request_get_message(&req));
 
     bb_response_t *res = bb_response_create();
 
     bb_route_list_add(route_list, "GET", "/users/:id", handler_user);
 
-    strcpy(BB_REQUEST_GET_METHOD(req), "GET");
-    strcpy(BB_REQUEST_GET_PATH(req), "/users/42");
+    strcpy(bb_request_get_method(&req), "GET");
+    strcpy(bb_request_get_path(&req), "/users/42");
 
     _handle_request(route_list, &req, res);
     assert(strcmp(bb_response_get_message(res)->body, "User ID: 42") == 0);

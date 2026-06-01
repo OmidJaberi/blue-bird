@@ -33,6 +33,18 @@ void bb_request_destroy(bb_request_t *req)
     }
 }
 
+bb_http_message_t *bb_request_get_message(bb_request_t *req)
+{
+    return (req->type == BB_CLIENT_REQUEST)
+        ? &req->inner_req.c_req.msg
+        : &req->inner_req.s_req.msg;
+}
+
+char *bb_request_get_method(bb_request_t *req)
+{
+    return req->type == BB_CLIENT_REQUEST ? req->inner_req.c_req.method : req->inner_req.s_req.method;
+}
+
 // Server:
 
 int bb_request_parse(const char *raw, bb_request_t *req)
@@ -71,6 +83,12 @@ const char *bb_request_get_header(bb_request_t *req, const char *name)
     return bb_server_request_get_header(&req->inner_req.s_req, name);
 }
 
+char *bb_request_get_path(bb_request_t *req)
+{
+    BB_ASSERT(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    return req->inner_req.s_req.path;
+}
+
 // Client:
 
 void bb_request_set_method(bb_request_t *req, const char *method)
@@ -95,4 +113,10 @@ void bb_request_set_body(bb_request_t *req, char *body)
 {
     BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     bb_client_request_set_body(&req->inner_req.c_req, body);
+}
+
+char *bb_request_get_url(bb_request_t *req)
+{
+    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    return req->inner_req.c_req.url;
 }

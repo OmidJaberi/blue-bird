@@ -132,7 +132,7 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
 
 bb_error_t add_task(bb_request_t *req, bb_response_t *res)
 {
-    bb_http_message_t *msg = &BB_REQUEST_GET_MESSAGE(*req);
+    bb_http_message_t *msg = bb_request_get_message(req);
 
     Task t = {0};
     bb_uuid_v4_string(t.id);

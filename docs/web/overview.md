@@ -198,7 +198,7 @@ bb_http_message_t
 Example:
 
 ```c
-bb_http_message_t *http_msg = &BB_REQUEST_GET_MESSAGE(*req);
+bb_http_message_t *http_msg = bb_request_get_message(req);
 ```
 
 This layer provides direct access to:

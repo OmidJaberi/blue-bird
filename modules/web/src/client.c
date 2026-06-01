@@ -78,8 +78,8 @@ bb_error_t bb_client_send(bb_client_t *client, bb_request_t *req)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
     /* ---- Build request start line ---- */
-    const char *method = BB_REQUEST_GET_METHOD(*req) ? BB_REQUEST_GET_METHOD(*req) : "GET";
-    const char *url = BB_REQUEST_GET_URL(*req) ? BB_REQUEST_GET_URL(*req) : "/";
+    const char *method = bb_request_get_method(req) ? bb_request_get_method(req) : "GET";
+    const char *url = bb_request_get_url(req) ? bb_request_get_url(req) : "/";
     
     char start_line[512];
     snprintf(start_line, sizeof(start_line),
@@ -88,8 +88,8 @@ bb_error_t bb_client_send(bb_client_t *client, bb_request_t *req)
     // Temporary:
     char *message;
     size_t size;
-    bb_message_set_start_line(&BB_REQUEST_GET_MESSAGE(*req), start_line);
-    bb_message_serialize(&BB_REQUEST_GET_MESSAGE(*req), &message, &size);
+    bb_message_set_start_line(bb_request_get_message(req), start_line);
+    bb_message_serialize(bb_request_get_message(req), &message, &size);
     send_all(client->sock_fd, message, size);
 
     free(message);

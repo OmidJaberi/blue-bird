@@ -71,7 +71,7 @@ bb_error_t request_multi_query_param_handler(bb_request_t *req, bb_response_t *r
 
 bb_error_t request_body_handler(bb_request_t *req, bb_response_t *res)
 {
-    bb_http_message_t *http_msg = &BB_REQUEST_GET_MESSAGE(*req);
+    bb_http_message_t *http_msg = bb_request_get_message(req);
     bb_response_set_header(res, "Content-Type", "text/plain");
     char *msg = malloc(http_msg->body_len + 10);
     sprintf(msg, "body: %s", http_msg->body ? http_msg->body : "");

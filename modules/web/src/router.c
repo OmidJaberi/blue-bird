@@ -96,11 +96,11 @@ static int match_segments(bb_route_t *route, char segments[][MAX_PATH_LEN], int 
 bb_route_t *bb_route_list_match(bb_route_list_t *route_list, bb_request_t *req)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
-    int req_count = split_path(BB_REQUEST_GET_PATH(*req), req_segments);
+    int req_count = split_path(bb_request_get_path(req), req_segments);
 
     for (bb_route_t *route = *route_list; route != NULL; route = route->next_route)
     {
-        if (strcmp(BB_REQUEST_GET_METHOD(*req), route->method) != 0) continue;
+        if (strcmp(bb_request_get_method(req), route->method) != 0) continue;
 
         if (match_segments(route, req_segments, req_count) == 0)
         {

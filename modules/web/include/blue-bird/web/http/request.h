@@ -23,12 +23,9 @@ void bb_request_init(bb_request_t *req); // For Client only
 
 void bb_request_destroy(bb_request_t *req);
 
-static inline bb_http_message_t *bb_request_get_message(bb_request_t *req)
-{
-    return (req->type == BB_CLIENT_REQUEST)
-        ? &req->inner_req.c_req.msg
-        : &req->inner_req.s_req.msg;
-}
+bb_http_message_t *bb_request_get_message(bb_request_t *req);
+
+char *bb_request_get_method(bb_request_t *req);
 
 // Server:
 
@@ -44,6 +41,8 @@ const char *bb_request_get_query_param(bb_request_t *req, const char *key);
 
 const char *bb_request_get_header(bb_request_t *req, const char *name);
 
+char *bb_request_get_path(bb_request_t *req);
+
 
 // Client:
 
@@ -55,15 +54,8 @@ void bb_request_set_header(bb_request_t *req, const char *name, const char *valu
 
 void bb_request_set_body(bb_request_t *req, char *body);
 
-//Helper Macros
-#define BB_REQUEST_GET_PATH(req) ((req).inner_req.s_req.path)
-#define BB_REQUEST_GET_PARAMS(req) ((req).inner_req.s_req.params)
-#define BB_REQUEST_GET_PARAM_COUNT(req) ((req).inner_req.s_req.param_count)
+char *bb_request_get_url(bb_request_t *req);
 
-#define BB_REQUEST_GET_METHOD(req) ((req).type == BB_CLIENT_REQUEST ? (req).inner_req.c_req.method : (req).inner_req.s_req.method)
-#define BB_REQUEST_GET_MESSAGE(req) (*(bb_request_get_message(&(req))))
-
-#define BB_REQUEST_GET_URL(req) ((req).inner_req.c_req.url)
-
+// bb_request_get_params and bb_request_get_param_count ?
 
 #endif //BB_REQUEST_H
