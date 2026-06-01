@@ -8,8 +8,7 @@ extern "C" {
 
 #include "blue-bird/runtime/runtime.h"
 
-#include "blue-bird/web/router.h"
-#include "blue-bird/web/middleware.h"
+#include "http.h"
 
 typedef struct bb_server bb_server_t;
 

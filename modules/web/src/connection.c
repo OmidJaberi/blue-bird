@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-#include "blue-bird/web/connection.h"
+#include "connection.h"
 
 #define BB_CONNECTION_INITIAL_BUFFER_SIZE 4096
 

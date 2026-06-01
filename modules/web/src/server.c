@@ -1,9 +1,9 @@
 #include "blue-bird/web/server.h"
 #include "blue-bird/web/http.h"
-#include "blue-bird/web/router.h"
-#include "blue-bird/web/middleware.h"
-#include "blue-bird/web/connection.h"
 #include "blue-bird/web/http/parser.h"
+#include "router.h"
+#include "middleware.h"
+#include "connection.h"
 
 #include "blue-bird/runtime/event.h"
 

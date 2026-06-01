@@ -1,5 +1,5 @@
-#include "blue-bird/web/middleware.h"
 #include "blue-bird/web/http.h"
+#include "middleware.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

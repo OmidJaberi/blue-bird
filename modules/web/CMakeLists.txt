@@ -20,6 +20,8 @@ add_library(bluebird_web
 target_include_directories(bluebird_web
     PUBLIC
         include
+    PRIVATE
+        internal
 )
 
 target_link_libraries(bluebird_web
