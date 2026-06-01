@@ -32,3 +32,7 @@ target_link_libraries(bluebird_web
 )
 
 add_library(BlueBird::web ALIAS bluebird_web)
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

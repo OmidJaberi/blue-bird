@@ -41,6 +41,12 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
     )
 endif()
 
+# Tests
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # Modules
 add_subdirectory(modules/error)
 add_subdirectory(modules/utils)
@@ -69,10 +75,4 @@ add_library(BlueBird::bluebird ALIAS bluebird)
 # Examples
 if(BUILD_EXAMPLES)
     add_subdirectory(examples)
-endif()
-
-# Tests
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
 endif()
