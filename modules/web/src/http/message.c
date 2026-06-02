@@ -61,7 +61,11 @@ const char *bb_message_get_header(bb_http_message_t *msg, const char *name)
 
 void bb_message_set_header(bb_http_message_t *msg, const char *name, const char *value)
 {
-    msg->headers = realloc(msg->headers, (msg->header_count + 1)* sizeof(*msg->headers));
+    void *tmp = realloc(msg->headers, (msg->header_count + 1)* sizeof(*msg->headers));
+    if (!tmp)
+        return;
+
+    msg->headers = tmp;
     msg->headers[msg->header_count].name = strdup(name);
     msg->headers[msg->header_count].value = strdup(value);
     msg->header_count++;
@@ -99,7 +103,7 @@ void bb_message_set_body(bb_http_message_t *msg, const char *body)
     msg->body_len = len;
 }
 
-static int parse_header(const char **raw, char **name_buf, char **value_buf)
+static int _parse_header(const char **raw, char **name_buf, char **value_buf)
 {
     const char *colon = strchr(*raw, ':');
     if (!colon) return -1;  // Malformed Header (missing ':')
@@ -125,7 +129,12 @@ static int parse_header(const char **raw, char **name_buf, char **value_buf)
     }
     // copy value
     *value_buf = malloc(value_len + 1);
-    if (!*value_buf) return -1;
+    if (!*value_buf)
+    {
+        free(*name_buf);
+        *name_buf = NULL;
+        return -1;
+    }
     strncpy(*value_buf, val_start, value_len);
     (*value_buf)[value_len] = '\0';
 
@@ -192,7 +201,7 @@ int bb_message_parse(const char *raw, bb_http_message_t *msg)
         char *name_buf = NULL;
         char *value_buf = NULL;
 
-        if (parse_header(&header_start, &name_buf, &value_buf) < 0)
+        if (_parse_header(&header_start, &name_buf, &value_buf) < 0)
         {
             if (name_buf) free(name_buf);
             if (value_buf) free(value_buf);
