@@ -1,6 +1,11 @@
 #ifndef BB_REQUEST_H
 #define BB_REQUEST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "message.h"
 
 typedef struct bb_request bb_request_t;
@@ -47,5 +52,10 @@ void bb_request_set_body(bb_request_t *req, char *body);
 char *bb_request_get_url(bb_request_t *req);
 
 // bb_request_get_params and bb_request_get_param_count ?
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_REQUEST_H

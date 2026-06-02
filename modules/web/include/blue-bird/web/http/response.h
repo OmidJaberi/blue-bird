@@ -1,6 +1,11 @@
 #ifndef BB_RESPONSE_H
 #define BB_RESPONSE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include "message.h"
 
 typedef struct bb_response bb_response_t;
@@ -29,5 +34,10 @@ static inline const char *bb_response_get_body(bb_response_t *res)
 int bb_response_serialize(bb_response_t *res, char **buffer, size_t *size);
 
 int bb_response_parse(const char *raw, bb_response_t *res);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_RESPONSE_H

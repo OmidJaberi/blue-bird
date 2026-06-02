@@ -1,6 +1,11 @@
 #ifndef BB_HTTP_MESSAGE_H
 #define BB_HTTP_MESSAGE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <stddef.h>
 
 typedef struct bb_http_message bb_http_message_t;
@@ -22,5 +27,10 @@ int bb_message_parse(const char *raw, bb_http_message_t *msg);
 int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_size);
 
 void bb_message_destroy(bb_http_message_t *msg);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //BB_HTTP_MESSAGE_H
