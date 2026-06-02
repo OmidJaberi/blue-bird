@@ -10,7 +10,7 @@ extern "C" {
 #include "blue-bird/web/http/message.h"
 
 typedef struct {
-    bb_http_message_t msg;
+    bb_http_message_t *msg;
     
     char *method;
     char *url;

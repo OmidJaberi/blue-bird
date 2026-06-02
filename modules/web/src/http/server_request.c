@@ -38,7 +38,7 @@ static int is_valid_path(const char *path)
 void bb_server_request_init(bb_server_request_t *req)
 {
     if (!req) return;
-    bb_message_init(&req->msg);
+    req->msg = bb_message_create();
 }
 
 static void parse_query_params(bb_server_request_t *req)
@@ -75,8 +75,7 @@ int bb_server_request_parse(const char *raw, bb_server_request_t *req)
 
     req->param_count = 0;
     req->query_count = 0;
-    bb_message_init(&req->msg);
-    if (bb_message_parse(raw, &req->msg) != 0)
+    if (bb_message_parse(raw, req->msg) != 0)
         return -1;
 
     // Parse method, path, version
@@ -84,7 +83,7 @@ int bb_server_request_parse(const char *raw, bb_server_request_t *req)
     char path[4096];
     char version[16];
 
-    if (sscanf(req->msg.start_line, "%7s %4095s %15s", method, path, version) != 3)
+    if (sscanf(bb_message_get_start_line(req->msg), "%7s %4095s %15s", method, path, version) != 3)
         return -1;
 
     if (strlen(path) >= 256)
@@ -109,7 +108,7 @@ int bb_server_request_parse(const char *raw, bb_server_request_t *req)
 
 void bb_server_request_destroy(bb_server_request_t *req)
 {
-    bb_message_destroy(&req->msg);
+    bb_message_destroy(req->msg);
     req->param_count = 0;
 }
 
@@ -173,5 +172,5 @@ const char *bb_server_request_get_query_param(bb_server_request_t *req, const ch
 
 const char *bb_server_request_get_header(bb_server_request_t *req, const char *name)
 {
-    return bb_message_get_header(&req->msg, name);
+    return bb_message_get_header(req->msg, name);
 }

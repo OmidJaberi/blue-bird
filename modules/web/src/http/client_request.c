@@ -8,7 +8,7 @@ void bb_client_request_init(bb_client_request_t *req)
 {
     if (!req) return;
 
-    bb_message_init(&req->msg);
+    req->msg = bb_message_create();
 
     req->method = NULL;
     req->url = NULL;
@@ -48,19 +48,19 @@ void bb_client_request_set_header(bb_client_request_t *req, const char *name, co
 {
     if (!req) return;
 
-    bb_message_set_header(&req->msg, name, value);
+    bb_message_set_header(req->msg, name, value);
 }
 
 void bb_client_request_set_body(bb_client_request_t *req, char *body)
 {
-    bb_message_set_body(&req->msg, body);
+    bb_message_set_body(req->msg, body);
 }
 
 void bb_client_request_destroy(bb_client_request_t *req)
 {
     if (!req) return;
 
-    bb_message_destroy(&req->msg);
+    bb_message_destroy(req->msg);
 
     if (req->method) {
         free(req->method);

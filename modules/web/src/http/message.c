@@ -5,13 +5,30 @@
 #include <string.h>
 #include <stdlib.h>
 
-void bb_message_init(bb_http_message_t *msg)
+typedef struct {
+    char *name;
+    char *value;
+} _bb_message_header_t;
+
+struct bb_http_message {
+    char *start_line; // Fixed size ?
+
+    _bb_message_header_t *headers;
+    int header_count;
+
+    char *body;
+    size_t body_len;
+};
+
+bb_http_message_t *bb_message_create(void)
 {
-    msg->start_line = NULL;
-    msg->headers = NULL;
-    msg->header_count = 0;
-    msg->body = NULL;
-    msg->body_len = 0;
+    bb_http_message_t *msg = calloc(1, sizeof(bb_http_message_t));
+    return msg;
+}
+
+const char *bb_message_get_start_line(bb_http_message_t *msg)
+{
+    return msg->start_line;
 }
 
 void bb_message_set_start_line(bb_http_message_t *msg, const char *start_line)
@@ -48,6 +65,16 @@ void bb_message_set_header(bb_http_message_t *msg, const char *name, const char 
     msg->headers[msg->header_count].name = strdup(name);
     msg->headers[msg->header_count].value = strdup(value);
     msg->header_count++;
+}
+
+int bb_message_get_header_count(bb_http_message_t *msg)
+{
+    return msg->header_count;
+}
+
+const char *bb_message_get_body(bb_http_message_t *msg)
+{
+    return msg->body;
 }
 
 void bb_message_set_body(bb_http_message_t *msg, const char *body)
@@ -135,11 +162,14 @@ static int parse_body(bb_http_message_t *msg, const char *raw)
     return 0;
 }
 
+int bb_message_get_body_len(bb_http_message_t *msg)
+{
+    return msg->body_len;
+}
+
 int bb_message_parse(const char *raw, bb_http_message_t *msg)
 {
     if (!raw || !msg) return -1;
-
-    bb_message_init(msg);
 
     // Parse start line
     const char *line_end = strstr(raw, "\r\n");
@@ -227,6 +257,10 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
 
 void bb_message_destroy(bb_http_message_t *msg)
 {
+    if (!msg)
+    {
+        return;
+    }
     for (int i = 0; i < msg->header_count; i++)
     {
         free(msg->headers[i].name);
@@ -250,4 +284,5 @@ void bb_message_destroy(bb_http_message_t *msg)
         free(msg->start_line);
         msg->start_line = NULL;
     }
+    free(msg);
 }

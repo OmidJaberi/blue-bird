@@ -136,7 +136,7 @@ bb_error_t add_task(bb_request_t *req, bb_response_t *res)
 
     Task t = {0};
     bb_uuid_v4_string(t.id);
-    strncpy(t.name, msg->body, sizeof(t.name));
+    strncpy(t.name, bb_message_get_body(msg), sizeof(t.name));
     strcpy(t.status, "not_done");
 
     int rc = task_insert(&global_task_repo, &t);

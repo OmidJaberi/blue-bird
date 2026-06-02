@@ -43,8 +43,8 @@ void test_parse_get_request(void)
     assert(strcmp(bb_server_request_get_header(&req, "Host"), "localhost:8080") == 0);
     assert(strcmp(bb_server_request_get_header(&req, "User-Agent"), "TestClient") == 0);
     
-    assert(req.msg.body == NULL);
-    assert(req.msg.body_len == 0);
+    assert(bb_message_get_body(req.msg) == NULL);
+    assert(bb_message_get_body_len(req.msg) == 0);
 
     bb_server_request_destroy(&req);
 }
@@ -69,9 +69,9 @@ void test_parse_post_request_with_body(void)
     assert(strcmp(bb_server_request_get_header(&req, "Content-Type"), "text/plain") == 0);
     assert(strcmp(bb_server_request_get_header(&req, "Content-Length"), "11") == 0);
 
-    assert(req.msg.body != NULL);
-    assert(strcmp(req.msg.body, "Hello World") == 0);
-    assert(req.msg.body_len == 11);
+    assert(bb_message_get_body(req.msg) != NULL);
+    assert(strcmp(bb_message_get_body(req.msg), "Hello World") == 0);
+    assert(bb_message_get_body_len(req.msg) == 11);
 
     bb_server_request_destroy(&req);
 }
@@ -90,7 +90,7 @@ void test_parse_server_request_with_no_headers(void)
     assert(strcmp(req.path, "/ping") == 0);
     assert(strcmp(req.version, "HTTP/1.0") == 0);
     
-    assert(req.msg.header_count == 0);
+    assert(bb_message_get_header_count(req.msg) == 0);
     assert(bb_server_request_get_header(&req, "Host") == NULL);
 
     bb_server_request_destroy(&req);

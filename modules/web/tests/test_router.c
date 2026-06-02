@@ -72,7 +72,7 @@ void test_route_match_get(void)
     strcpy(bb_request_get_path(req), "/hello");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_message(res)->body, "Hello GET OK") == 0);
+    assert(strcmp(bb_response_get_body(res), "Hello GET OK") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);
@@ -91,7 +91,7 @@ void test_route_match_post(void)
     strcpy(bb_request_get_path(req), "/hello");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_message(res)->body, "Hello POST OK") == 0);
+    assert(strcmp(bb_response_get_body(res), "Hello POST OK") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);
@@ -108,7 +108,7 @@ void test_route_not_found(void)
     strcpy(bb_request_get_path(req), "/doesnotexist");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_message(res)->body, "Route Not Found") == 0);
+    assert(strcmp(bb_response_get_body(res), "Route Not Found") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);
@@ -127,7 +127,7 @@ void test_route_with_param(void)
     strcpy(bb_request_get_path(req), "/users/42");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_message(res)->body, "User ID: 42") == 0);
+    assert(strcmp(bb_response_get_body(res), "User ID: 42") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);

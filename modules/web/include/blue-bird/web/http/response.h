@@ -21,6 +21,11 @@ void bb_response_set_body(bb_response_t *res, char *body);
 
 bb_http_message_t *bb_response_get_message(bb_response_t *res);
 
+static inline const char *bb_response_get_body(bb_response_t *res)
+{
+    return bb_message_get_body(bb_response_get_message(res));
+}
+
 int bb_response_serialize(bb_response_t *res, char **buffer, size_t *size);
 
 int bb_response_parse(const char *raw, bb_response_t *res);

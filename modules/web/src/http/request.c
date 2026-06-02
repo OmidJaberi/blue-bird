@@ -68,8 +68,8 @@ void bb_request_destroy(bb_request_t *req)
 bb_http_message_t *bb_request_get_message(bb_request_t *req)
 {
     return (req->type == BB_CLIENT_REQUEST)
-        ? &req->inner_req.c_req.msg
-        : &req->inner_req.s_req.msg;
+        ? req->inner_req.c_req.msg
+        : req->inner_req.s_req.msg;
 }
 
 char *bb_request_get_method(bb_request_t *req)

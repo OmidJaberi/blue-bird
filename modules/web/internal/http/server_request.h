@@ -27,7 +27,7 @@ typedef struct {
 } _bb_query_param_t;
 
 typedef struct {
-    bb_http_message_t msg;
+    bb_http_message_t *msg;
 
     char method[METHOD_SIZE];
     char path[PATH_SIZE];
