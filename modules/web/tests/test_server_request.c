@@ -6,6 +6,7 @@
 void test_request(void)
 {
     bb_server_request_t req;
+    bb_server_request_init(&req);
 
     req.method[0] = '\0';
     req.path[0] = '\0';
@@ -33,6 +34,7 @@ void test_parse_get_request(void)
         "\r\n";
     
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == 0);
 
@@ -60,6 +62,7 @@ void test_parse_post_request_with_body(void)
         "Hello World";
     
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == 0);
 
@@ -83,6 +86,7 @@ void test_parse_server_request_with_no_headers(void)
         "\r\n";
     
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == 0);
 
@@ -101,6 +105,7 @@ void test_malformed_request(void)
     const char *raw = "GET /hello\r\n\r\n";
     
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == -1);
 }
@@ -113,6 +118,7 @@ void test_request_with_invalid_header(void)
         "\r\n";
     
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == -1);
 }
@@ -125,6 +131,7 @@ void test_request_with_query_params(void)
         "\r\n";
 
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == 0);
 
@@ -147,6 +154,7 @@ void test_request_with_empty_query_value(void)
         "\r\n";
 
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == 0);
 
@@ -167,6 +175,7 @@ void test_request_with_no_query_value(void)
         "\r\n";
 
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == 0);
 
@@ -189,6 +198,7 @@ void test_request_max_query_params(void)
         "\r\n";
 
     bb_server_request_t req;
+    bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     assert(result == 0);
 
