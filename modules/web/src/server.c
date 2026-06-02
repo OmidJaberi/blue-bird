@@ -240,13 +240,13 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
     }
 
     // Parse request
-    if (bb_request_parse(connection->buffer, &connection->request) != 0)
+    if (bb_request_parse(connection->buffer, connection->request) != 0)
     {
-        default_400(&connection->request, connection->response);
+        default_400(connection->request, connection->response);
     }
     else
     {
-        bb_error_t err = _run_request_pipeline(server, &connection->request, connection->response);
+        bb_error_t err = _run_request_pipeline(server, connection->request, connection->response);
         if (BB_FAILED(err))
         {
             BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);

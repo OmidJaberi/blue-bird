@@ -7,7 +7,7 @@ extern "C" {
 
 
 #include <stddef.h>
-#include "message.h"
+#include "blue-bird/web/http/message.h"
 
 typedef struct {
     bb_http_message_t msg;

@@ -1,25 +1,15 @@
 #ifndef BB_REQUEST_H
 #define BB_REQUEST_H
 
-#include "server_request.h"
-#include "client_request.h"
+#include "message.h"
 
-typedef enum {
-    BB_SERVER_REQUEST,
-    BB_CLIENT_REQUEST
-} _bb_request_type_t;
+typedef struct bb_request bb_request_t;
 
-typedef struct {
-    _bb_request_type_t type;
-    union {
-        bb_server_request_t s_req;
-        bb_client_request_t c_req;
-    } inner_req;
-} bb_request_t;
+bb_request_t *bb_request_client_create(void);
 
-void bb_request_init_with_type(bb_request_t *req, _bb_request_type_t type);
+bb_request_t *bb_request_server_create(void);
 
-void bb_request_init(bb_request_t *req); // For Client only
+static inline bb_request_t *bb_request_create(void) { return bb_request_client_create(); } // For Client only
 
 void bb_request_destroy(bb_request_t *req);
 

@@ -35,7 +35,7 @@ typedef struct bb_connection {
     size_t write_length;
     size_t write_offset;
 
-    bb_request_t request;
+    bb_request_t *request;
     bb_response_t *response;
 } bb_connection_t;
 

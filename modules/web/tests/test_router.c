@@ -62,79 +62,75 @@ void test_route_match_get(void)
 {
     printf("Testing Router: match GET...\n");
     bb_route_list_t *route_list = bb_route_list_create();
-
-    bb_request_t req;
-    memset(&req, 0, sizeof(req));
-    bb_message_init(bb_request_get_message(&req));
-
+    bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
     bb_route_list_add(route_list, "GET", "/", handler_root);
     bb_route_list_add(route_list, "GET", "/hello", handler_hello_get);
 
-    strcpy(bb_request_get_method(&req), "GET");
-    strcpy(bb_request_get_path(&req), "/hello");
+    strcpy(bb_request_get_method(req), "GET");
+    strcpy(bb_request_get_path(req), "/hello");
 
-    _handle_request(route_list, &req, res);
+    _handle_request(route_list, req, res);
     assert(strcmp(bb_response_get_message(res)->body, "Hello GET OK") == 0);
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+    bb_response_destroy(res);
 }
 
 void test_route_match_post(void)
 {
     printf("Testing Router: match POST...\n");
     bb_route_list_t *route_list = bb_route_list_create();
-
-    bb_request_t req;
-    memset(&req, 0, sizeof(req));
-    bb_message_init(bb_request_get_message(&req));
-
+    bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
     bb_route_list_add(route_list, "POST", "/hello", handler_hello_post);
 
-    strcpy(bb_request_get_method(&req), "POST");
-    strcpy(bb_request_get_path(&req), "/hello");
+    strcpy(bb_request_get_method(req), "POST");
+    strcpy(bb_request_get_path(req), "/hello");
 
-    _handle_request(route_list, &req, res);
+    _handle_request(route_list, req, res);
     assert(strcmp(bb_response_get_message(res)->body, "Hello POST OK") == 0);
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+    bb_response_destroy(res);
 }
 
 void test_route_not_found(void)
 {
     printf("Testing Router: route not found...\n");
     bb_route_list_t *route_list = bb_route_list_create();
-
-    bb_request_t req;
-    memset(&req, 0, sizeof(req));
-    bb_message_init(bb_request_get_message(&req));
-
+    bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
-    strcpy(bb_request_get_method(&req), "GET");
-    strcpy(bb_request_get_path(&req), "/doesnotexist");
+    strcpy(bb_request_get_method(req), "GET");
+    strcpy(bb_request_get_path(req), "/doesnotexist");
 
-    _handle_request(route_list, &req, res);
+    _handle_request(route_list, req, res);
     assert(strcmp(bb_response_get_message(res)->body, "Route Not Found") == 0);
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+    bb_response_destroy(res);
 }
 
 void test_route_with_param(void)
 {
     printf("Testing Router: route with param...\n");
     bb_route_list_t *route_list = bb_route_list_create();
-
-    bb_request_t req;
-    memset(&req, 0, sizeof(req));
-    bb_message_init(bb_request_get_message(&req));
-
+    bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
     bb_route_list_add(route_list, "GET", "/users/:id", handler_user);
 
-    strcpy(bb_request_get_method(&req), "GET");
-    strcpy(bb_request_get_path(&req), "/users/42");
+    strcpy(bb_request_get_method(req), "GET");
+    strcpy(bb_request_get_path(req), "/users/42");
 
-    _handle_request(route_list, &req, res);
+    _handle_request(route_list, req, res);
     assert(strcmp(bb_response_get_message(res)->body, "User ID: 42") == 0);
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+    bb_response_destroy(res);
 }
 
 int main(void)

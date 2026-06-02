@@ -2,7 +2,7 @@
 #define BB_SERVER_REQUEST_H
 
 #include <stddef.h>
-#include "message.h"
+#include "blue-bird/web/http/message.h"
 
 #define METHOD_SIZE 8
 #define PATH_SIZE 256

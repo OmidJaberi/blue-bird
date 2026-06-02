@@ -1,8 +1,29 @@
 #include "blue-bird/web/http/request.h"
 #include "blue-bird/error/assert.h"
 
-void bb_request_init_with_type(bb_request_t *req, _bb_request_type_t type)
+#include "http/server_request.h"
+#include "http/client_request.h"
+
+typedef enum {
+    BB_SERVER_REQUEST,
+    BB_CLIENT_REQUEST
+} _bb_request_type_t;
+
+struct bb_request {
+    _bb_request_type_t type;
+    union {
+        bb_server_request_t s_req;
+        bb_client_request_t c_req;
+    } inner_req;
+};
+
+static bb_request_t *_bb_request_create_with_type(_bb_request_type_t type)
 {
+    bb_request_t *req = malloc(sizeof(bb_request_t));
+    if (!req)
+    {
+        return NULL;
+    }
     req->type = type;
     switch (type)
     {
@@ -13,15 +34,25 @@ void bb_request_init_with_type(bb_request_t *req, _bb_request_type_t type)
         bb_server_request_init(&req->inner_req.s_req);
         break;
     }
+    return req;
 }
 
-void bb_request_init(bb_request_t *req) // For Client only
+bb_request_t *bb_request_client_create(void)
 {
-    bb_request_init_with_type(req, BB_CLIENT_REQUEST);
+    return _bb_request_create_with_type(BB_CLIENT_REQUEST);
+}
+
+bb_request_t *bb_request_server_create(void)
+{
+    return _bb_request_create_with_type(BB_SERVER_REQUEST);
 }
 
 void bb_request_destroy(bb_request_t *req)
 {
+    if (!req)
+    {
+        return;
+    }
     switch (req->type)
     {
     case BB_CLIENT_REQUEST:
@@ -31,6 +62,7 @@ void bb_request_destroy(bb_request_t *req)
         bb_server_request_destroy(&req->inner_req.s_req);
         break;
     }
+    free(req);
 }
 
 bb_http_message_t *bb_request_get_message(bb_request_t *req)

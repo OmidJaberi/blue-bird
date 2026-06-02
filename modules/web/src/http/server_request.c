@@ -1,4 +1,4 @@
-#include "blue-bird/web/http/server_request.h"
+#include "http/server_request.h"
 #include "blue-bird/utils/encoding.h"
 
 #include <stdio.h>
