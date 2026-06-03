@@ -2,7 +2,6 @@
 #include "app_middleware.h"
 #include "app_repo.h"
 
-#include <blue-bird/web/http.h>
 #include <blue-bird/web/server.h>
 #include <blue-bird/log/console_logger.h>
 #include <blue-bird/persist/model/model_sqlite.h>

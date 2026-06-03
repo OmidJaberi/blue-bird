@@ -6,7 +6,8 @@ extern "C" {
 #endif
 
 
-#include "blue-bird/web/http.h"
+#include "blue-bird/web/http/request.h"
+#include "blue-bird/web/http/response.h"
 #include "blue-bird/error/error.h"
 
 typedef struct {

@@ -8,7 +8,7 @@ extern "C" {
 
 #include "blue-bird/runtime/runtime.h"
 
-#include "http.h"
+#include "http/handler.h"
 
 typedef struct bb_server bb_server_t;
 

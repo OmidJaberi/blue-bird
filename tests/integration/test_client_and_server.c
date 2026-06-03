@@ -1,6 +1,5 @@
 #include "blue-bird/web/server.h"
 #include "blue-bird/web/client.h"
-#include "blue-bird/web/http.h"
 
 #include <stdio.h>
 #include <string.h>

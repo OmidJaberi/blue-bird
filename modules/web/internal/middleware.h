@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 
-#include "blue-bird/web/http.h"
+#include "blue-bird/web/http/handler.h"
 
 typedef struct bb_middleware bb_middleware_t;
 typedef bb_middleware_t* bb_middleware_list_t;

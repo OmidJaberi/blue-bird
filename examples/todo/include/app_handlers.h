@@ -1,7 +1,7 @@
 #ifndef APP_HANDLERS_H
 #define APP_HANDLERS_H
 
-#include <blue-bird/web/http.h>
+#include <blue-bird/web/http/handler.h>
 
 bb_error_t root(bb_request_t *req, bb_response_t *res);
 bb_error_t add_task(bb_request_t *req, bb_response_t *res);

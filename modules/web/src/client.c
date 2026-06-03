@@ -1,5 +1,4 @@
 #include "blue-bird/web/client.h"
-#include "blue-bird/web/http.h"
 #include "http/parser.h"
 #include "connection.h"
 

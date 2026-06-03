@@ -1,5 +1,3 @@
-#include "blue-bird/web/http.h"
-
 #include <string.h>
 #include <stdlib.h>
 

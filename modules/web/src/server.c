@@ -1,5 +1,4 @@
 #include "blue-bird/web/server.h"
-#include "blue-bird/web/http.h"
 #include "http/parser.h"
 #include "router.h"
 #include "middleware.h"

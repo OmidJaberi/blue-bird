@@ -1,4 +1,3 @@
-#include "blue-bird/web/http.h"
 #include "middleware.h"
 #include <assert.h>
 #include <stdio.h>
