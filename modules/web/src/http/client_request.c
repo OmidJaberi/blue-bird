@@ -44,18 +44,6 @@ void bb_client_request_set_url(bb_client_request_t *req, const char *url)
     req->url = strdup(url);
 }
 
-void bb_client_request_set_header(bb_client_request_t *req, const char *name, const char *value)
-{
-    if (!req) return;
-
-    bb_message_set_header(req->msg, name, value);
-}
-
-void bb_client_request_set_body(bb_client_request_t *req, char *body)
-{
-    bb_message_set_body(req->msg, body);
-}
-
 void bb_client_request_destroy(bb_client_request_t *req)
 {
     if (!req) return;

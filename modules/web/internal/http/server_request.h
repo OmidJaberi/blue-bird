@@ -55,6 +55,4 @@ int bb_server_request_add_query_param(bb_server_request_t *req, const char *key,
 
 const char *bb_server_request_get_query_param(bb_server_request_t *req, const char *key);
 
-const char *bb_server_request_get_header(bb_server_request_t *req, const char *name);
-
 #endif //BB_SERVER_REQUEST_H

@@ -21,8 +21,6 @@ typedef struct {
 void bb_client_request_init(bb_client_request_t *req);
 void bb_client_request_set_method(bb_client_request_t *req, const char *method);
 void bb_client_request_set_url(bb_client_request_t *req, const char *url);
-void bb_client_request_set_header(bb_client_request_t *req, const char *name, const char *value);
-void bb_client_request_set_body(bb_client_request_t *req, char *body);
 void bb_client_request_destroy(bb_client_request_t *req);
 
 

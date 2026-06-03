@@ -42,8 +42,8 @@ void test_parse_get_request(void)
     assert(strcmp(req.path, "/hello") == 0);
     assert(strcmp(req.version, "HTTP/1.1") == 0);
    
-    assert(strcmp(bb_server_request_get_header(&req, "Host"), "localhost:8080") == 0);
-    assert(strcmp(bb_server_request_get_header(&req, "User-Agent"), "TestClient") == 0);
+    assert(strcmp(bb_message_get_header(req.msg, "Host"), "localhost:8080") == 0);
+    assert(strcmp(bb_message_get_header(req.msg, "User-Agent"), "TestClient") == 0);
     
     assert(bb_message_get_body(req.msg) == NULL);
     assert(bb_message_get_body_len(req.msg) == 0);
@@ -69,8 +69,8 @@ void test_parse_post_request_with_body(void)
     assert(strcmp(req.method, "POST") == 0);
     assert(strcmp(req.path, "/submit") == 0);
     
-    assert(strcmp(bb_server_request_get_header(&req, "Content-Type"), "text/plain") == 0);
-    assert(strcmp(bb_server_request_get_header(&req, "Content-Length"), "11") == 0);
+    assert(strcmp(bb_message_get_header(req.msg, "Content-Type"), "text/plain") == 0);
+    assert(strcmp(bb_message_get_header(req.msg, "Content-Length"), "11") == 0);
 
     assert(bb_message_get_body(req.msg) != NULL);
     assert(strcmp(bb_message_get_body(req.msg), "Hello World") == 0);
@@ -95,7 +95,7 @@ void test_parse_server_request_with_no_headers(void)
     assert(strcmp(req.version, "HTTP/1.0") == 0);
     
     assert(bb_message_get_header_count(req.msg) == 0);
-    assert(bb_server_request_get_header(&req, "Host") == NULL);
+    assert(bb_message_get_header(req.msg, "Host") == NULL);
 
     bb_server_request_destroy(&req);
 }

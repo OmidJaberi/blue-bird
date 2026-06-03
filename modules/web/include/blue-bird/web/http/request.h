@@ -34,8 +34,6 @@ int bb_request_add_query_param(bb_request_t *req, const char *key, const char *v
 
 const char *bb_request_get_query_param(bb_request_t *req, const char *key);
 
-const char *bb_request_get_header(bb_request_t *req, const char *name);
-
 char *bb_request_get_path(bb_request_t *req);
 
 
@@ -45,13 +43,30 @@ void bb_request_set_method(bb_request_t *req, const char *method);
 
 void bb_request_set_url(bb_request_t *req, const char *url);
 
-void bb_request_set_header(bb_request_t *req, const char *name, const char *value);
-
-void bb_request_set_body(bb_request_t *req, char *body);
-
 char *bb_request_get_url(bb_request_t *req);
 
 // bb_request_get_params and bb_request_get_param_count ?
+
+// Message Helpers:
+static inline void bb_request_set_header(bb_request_t *req, const char *name, const char *value)
+{
+    bb_message_set_header(bb_request_get_message(req), name, value);
+}
+
+static inline const char *bb_request_get_header(bb_request_t *req, const char *name)
+{
+    return bb_message_get_header(bb_request_get_message(req), name);
+}
+
+static inline void bb_request_set_body(bb_request_t *req, char *body)
+{
+    bb_message_set_body(bb_request_get_message(req), body);
+}
+
+static inline const char *bb_request_get_body(bb_request_t *req)
+{
+    return bb_message_get_body(bb_request_get_message(req));
+}
 
 
 #ifdef __cplusplus

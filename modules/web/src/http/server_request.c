@@ -169,8 +169,3 @@ const char *bb_server_request_get_query_param(bb_server_request_t *req, const ch
     }
     return NULL;
 }
-
-const char *bb_server_request_get_header(bb_server_request_t *req, const char *name)
-{
-    return bb_message_get_header(req->msg, name);
-}
