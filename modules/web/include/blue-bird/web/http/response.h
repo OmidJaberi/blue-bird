@@ -18,22 +18,32 @@ int bb_response_set_status(bb_response_t *res, int code);
 
 int bb_response_get_status(bb_response_t *res);
 
-void bb_response_set_header(bb_response_t *res, const char *name, const char *value);
+int bb_response_serialize(bb_response_t *res, char **buffer, size_t *size);
 
-const char *bb_response_get_header(bb_response_t *res, const char *name);
-
-void bb_response_set_body(bb_response_t *res, char *body);
+int bb_response_parse(const char *raw, bb_response_t *res);
 
 bb_http_message_t *bb_response_get_message(bb_response_t *res);
+
+// Message Helpers:
+static inline void bb_response_set_header(bb_response_t *res, const char *name, const char *value)
+{
+    bb_message_set_header(bb_response_get_message(res), name, value);
+}
+
+static inline const char *bb_response_get_header(bb_response_t *res, const char *name)
+{
+    return bb_message_get_header(bb_response_get_message(res), name);
+}
+
+static inline void bb_response_set_body(bb_response_t *res, char *body)
+{
+    bb_message_set_body(bb_response_get_message(res), body);
+}
 
 static inline const char *bb_response_get_body(bb_response_t *res)
 {
     return bb_message_get_body(bb_response_get_message(res));
 }
-
-int bb_response_serialize(bb_response_t *res, char **buffer, size_t *size);
-
-int bb_response_parse(const char *raw, bb_response_t *res);
 
 
 #ifdef __cplusplus
