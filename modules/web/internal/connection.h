@@ -10,6 +10,7 @@ extern "C" {
 #include "blue-bird/web/http/response.h"
 
 #include <stddef.h>
+#include <unistd.h>
 
 struct bb_server;
 
