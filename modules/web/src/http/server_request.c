@@ -169,3 +169,33 @@ const char *bb_server_request_get_query_param(bb_server_request_t *req, const ch
     }
     return NULL;
 }
+
+int bb_server_request_set_method(bb_server_request_t *req, const char *method)
+{
+    if (!req || !method) {
+        return -1;
+    }
+
+    size_t len = strlen(method);
+    if (len >= METHOD_SIZE) {
+        return -1;
+    }
+
+    memcpy(req->method, method, len + 1);
+    return 0;
+}
+
+int bb_server_request_set_path(bb_server_request_t *req, const char *path)
+{
+    if (!req || !path) {
+        return -1;
+    }
+
+    size_t len = strlen(path);
+    if (len >= PATH_SIZE) {
+        return -1;
+    }
+
+    memcpy(req->path, path, len + 1);
+    return 0;
+}

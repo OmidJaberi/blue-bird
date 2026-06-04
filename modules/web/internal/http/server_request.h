@@ -55,4 +55,8 @@ int bb_server_request_add_query_param(bb_server_request_t *req, const char *key,
 
 const char *bb_server_request_get_query_param(bb_server_request_t *req, const char *key);
 
+int bb_server_request_set_method(bb_server_request_t *req, const char *method);
+
+int bb_server_request_set_path(bb_server_request_t *req, const char *path);
+
 #endif //BB_SERVER_REQUEST_H

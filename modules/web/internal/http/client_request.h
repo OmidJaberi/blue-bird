@@ -14,8 +14,11 @@ typedef struct {
     
     char *method;
     char *url;
+
+    char *scheme;
     char *host;
     int port;
+    char *path;
 } bb_client_request_t;
 
 void bb_client_request_init(bb_client_request_t *req);
@@ -23,6 +26,11 @@ void bb_client_request_set_method(bb_client_request_t *req, const char *method);
 void bb_client_request_set_url(bb_client_request_t *req, const char *url);
 void bb_client_request_destroy(bb_client_request_t *req);
 
+const char *bb_client_request_get_url(bb_client_request_t *req);
+const char *bb_client_request_get_scheme(bb_client_request_t *req);
+const char *bb_client_request_get_host(bb_client_request_t *req);
+int bb_client_request_get_port(bb_client_request_t *req);
+const char *bb_client_request_get_path(bb_client_request_t *req);
 
 #ifdef __cplusplus
 }

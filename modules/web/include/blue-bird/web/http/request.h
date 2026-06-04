@@ -20,9 +20,14 @@ void bb_request_destroy(bb_request_t *req);
 
 bb_http_message_t *bb_request_get_message(bb_request_t *req);
 
+void bb_request_set_method(bb_request_t *req, const char *method);
+
 char *bb_request_get_method(bb_request_t *req);
 
+const char *bb_request_get_path(bb_request_t *req);
+
 // Server:
+void bb_request_set_path(bb_request_t *req, const char *path);
 
 int bb_request_parse(const char *raw, bb_request_t *req);
 
@@ -34,16 +39,18 @@ int bb_request_add_query_param(bb_request_t *req, const char *key, const char *v
 
 const char *bb_request_get_query_param(bb_request_t *req, const char *key);
 
-char *bb_request_get_path(bb_request_t *req);
-
 
 // Client:
 
-void bb_request_set_method(bb_request_t *req, const char *method);
-
 void bb_request_set_url(bb_request_t *req, const char *url);
 
-char *bb_request_get_url(bb_request_t *req);
+const char *bb_request_get_url(bb_request_t *req);
+
+const char *bb_request_get_scheme(bb_request_t *req);
+
+const char *bb_request_get_host(bb_request_t *req);
+
+int bb_request_get_port(bb_request_t *req);
 
 // bb_request_get_params and bb_request_get_param_count ?
 

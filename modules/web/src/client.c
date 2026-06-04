@@ -125,11 +125,11 @@ bb_error_t bb_client_send(bb_client_t *client)
 
     /* ---- Build request start line ---- */
     const char *method = bb_request_get_method(client->req) ? bb_request_get_method(client->req) : "GET";
-    const char *url = bb_request_get_url(client->req) ? bb_request_get_url(client->req) : "/";
+    const char *path = bb_request_get_path(client->req) ? bb_request_get_path(client->req) : "/";
     
     char start_line[512];
     snprintf(start_line, sizeof(start_line),
-             "%s %s HTTP/1.1", method, url);
+             "%s %s HTTP/1.1", method, path);
 
     // Temporary:
     char *message;

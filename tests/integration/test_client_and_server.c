@@ -122,10 +122,10 @@ void *concurrent_client(void *arg)
         bb_response_t *res = bb_client_get_response(client);
 
         bb_request_set_method(req, "GET");
-        bb_request_set_url(req, "/");
+        bb_request_set_url(req, "http://127.0.0.1:8080/");
         bb_request_set_body(req, "");
 
-        bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+        bb_error_t err = bb_client_execute(client);
         assert(err.code == 0);
 
         assert(bb_response_get_status(res) == 200);
@@ -145,14 +145,14 @@ void test_root_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/";
+    char *url = "http://127.0.0.1:8080/";
     char *body = "";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -171,14 +171,14 @@ void test_missing_path_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/missing_path";
+    char *url = "http://127.0.0.1:8080/missing_path";
     char *body = "";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -196,14 +196,14 @@ void test_param_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/param/my_name";
+    char *url = "http://127.0.0.1:8080/param/my_name";
     char *body = "";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -222,14 +222,14 @@ void test_multi_param_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "param/hello/good_bye";
+    char *url = "http://127.0.0.1:8080/param/hello/good_bye";
     char *body = "";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -247,12 +247,12 @@ void test_missing_param(void)
     bb_request_t *req = bb_client_get_request(client);
     bb_response_t *res = bb_client_get_response(client);
 
-    char *url = "/param/";
+    char *url = "http://127.0.0.1:8080/param/";
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 404);
@@ -262,7 +262,7 @@ void test_missing_param(void)
 
 void test_max_length_param(void)
 {
-    printf("Testing path with maxium length parameter...\n");
+    printf("Testing path with maximum length parameter...\n");
 
     bb_client_t *client = bb_client_create();
     bb_request_t *req = bb_client_get_request(client);
@@ -275,13 +275,13 @@ void test_max_length_param(void)
     long_name[sizeof(long_name)-1] = '\0';
 
     char url[6000];
-    sprintf(url, "/param/%s", long_name);
+    sprintf(url, "http://127.0.0.1:8080/param/%s", long_name);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -308,13 +308,13 @@ void test_over_sized_param(void)
     long_name[sizeof(long_name)-1] = '\0';
 
     char url[6000];
-    sprintf(url, "/param/%s", long_name);
+    sprintf(url, "http://127.0.0.1:8080/param/%s", long_name);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -332,14 +332,14 @@ void test_query_param_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/q_param?val=blue-bird";
+    char *url = "http://127.0.0.1:8080/q_param?val=blue-bird";
     char *body = "";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -357,10 +357,10 @@ void test_encoded_query_param(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/q_param?val=blue%20bird%21");
+    bb_request_set_url(req, "http://127.0.0.1:8080/q_param?val=blue%20bird%21");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -378,14 +378,14 @@ void test_multi_query_param_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/q_param/multi?val_2=bird&val_1=blue";
+    char *url = "http://127.0.0.1:8080/q_param/multi?val_2=bird&val_1=blue";
     char *body = "";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -403,7 +403,7 @@ void test_too_many_query_params(void)
     bb_response_t *res = bb_client_get_response(client);
 
     char big_query[2048];
-    strcpy(big_query, "/q_param?");
+    strcpy(big_query, "http://127.0.0.1:8080/q_param?");
     for (int i = 0; i < 100; i++) {
         char frag[50];
         sprintf(frag, "val%d=%d&", i, i);
@@ -414,7 +414,7 @@ void test_too_many_query_params(void)
     bb_request_set_url(req, big_query);
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
     assert(bb_response_get_status(res) == 400);
 
@@ -430,14 +430,14 @@ void test_missing_query_param_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/q_param";
+    char *url = "http://127.0.0.1:8080/q_param";
     char *body = "";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -454,10 +454,10 @@ void test_duplicate_query_param(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/q_param?val=blue&val=bird");
+    bb_request_set_url(req, "http://127.0.0.1:8080/q_param?val=blue&val=bird");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -474,10 +474,10 @@ void test_empty_query_value(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/q_param?val=");
+    bb_request_set_url(req, "http://127.0.0.1:8080/q_param?val=");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -492,10 +492,10 @@ void test_invalid_query_format(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/q_paramval=blue-bird"); // missing '?'
+    bb_request_set_url(req, "http://127.0.0.1:8080/q_paramval=blue-bird"); // missing '?'
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
     assert(bb_response_get_status(res) == 404);
 
@@ -511,14 +511,14 @@ void test_req_body(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/body";
+    char *url = "http://127.0.0.1:8080/body";
     char *body = "BODY_CONTENT";
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -537,7 +537,7 @@ void test_req_large_body(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/body";
+    char *url = "http://127.0.0.1:8080/body";
     const int size = 1024 * 1024; // 1 MB
     char *body = malloc(size + 100);
     for (int i = 0; i < size; i++)
@@ -549,7 +549,7 @@ void test_req_large_body(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     char *expected_res = malloc(size + 100);
@@ -574,10 +574,10 @@ void test_large_response(void)
 
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/large_response");
+    bb_request_set_url(req, "http://127.0.0.1:8080/large_response");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -594,10 +594,10 @@ void test_empty_body_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/body");
+    bb_request_set_url(req, "http://127.0.0.1:8080/body");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -615,7 +615,7 @@ void test_encoded_body_req(void)
     bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
-    char *url = "/body";
+    char *url = "http://127.0.0.1:8080/body";
     char *body = "name=blue%20bird&msg=hello%21";
 
     bb_request_set_method(req, "GET");
@@ -625,7 +625,7 @@ void test_encoded_body_req(void)
     /* optional but correct for encoded bodies */
     bb_request_set_header(req, "Content-Type", "application/x-www-form-urlencoded");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     /* ---- validate ---- */
@@ -643,10 +643,10 @@ void test_encoded_path_segment(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/param/%62%6C%75%65"); // "blue"
+    bb_request_set_url(req, "http://127.0.0.1:8080/param/%62%6C%75%65"); // "blue"
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -663,11 +663,11 @@ void test_invalid_body_encoding(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/body");
+    bb_request_set_url(req, "http://127.0.0.1:8080/body");
     bb_request_set_body(req, "name%GGbird"); // invalid percent encoding
 
     bb_request_set_header(req, "Content-Type", "application/x-www-form-urlencoded");
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -683,10 +683,10 @@ void test_invalid_method(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "POST");
-    bb_request_set_url(req, "/");
+    bb_request_set_url(req, "http://127.0.0.1:8080/");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 405 || bb_response_get_status(res) == 404);
@@ -702,10 +702,10 @@ void test_trailing_slash(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/param/my_name/");
+    bb_request_set_url(req, "http://127.0.0.1:8080/param/my_name/");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
@@ -721,10 +721,10 @@ void test_invalid_url_chars(void)
     bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
-    bb_request_set_url(req, "/param/<script>");
+    bb_request_set_url(req, "http://127.0.0.1:8080/param/<script>");
     bb_request_set_body(req, "");
 
-    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_execute(client);
     assert(err.code == 0);
     assert(bb_response_get_status(res) == 400);
 
@@ -796,10 +796,10 @@ void test_many_requests(void)
         bb_response_t *res = bb_client_get_response(client);
 
         bb_request_set_method(req, "GET");
-        bb_request_set_url(req, "/");
+        bb_request_set_url(req, "http://127.0.0.1:8080/");
         bb_request_set_body(req, "");
 
-        bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+        bb_error_t err = bb_client_execute(client);
         assert(err.code == 0);
 
         assert(bb_response_get_status(res) == 200);
