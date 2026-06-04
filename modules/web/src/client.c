@@ -49,6 +49,16 @@ void bb_client_destroy(bb_client_t *client)
     free(client);
 }
 
+bb_request_t *bb_client_request(bb_client_t *client)
+{
+    return client->req;
+}
+
+bb_response_t *bb_client_response(bb_client_t *client)
+{
+    return client->res;
+}
+
 bb_error_t bb_client_connect(bb_client_t *client, const char *host, int port)
 {
     if (!client || !host)
@@ -105,17 +115,17 @@ static ssize_t send_all(int fd, const void *data, size_t len)
     return sent;
 }
 
-bb_error_t bb_client_send(bb_client_t *client, bb_request_t *req)
+bb_error_t bb_client_send(bb_client_t *client)
 {
-    if (!client || !req)
+    if (!client || !client->req)
         return BB_ERROR(BB_ERR_UNKNOWN,"Invalid client or request");
 
     if (client->sock_fd < 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
     /* ---- Build request start line ---- */
-    const char *method = bb_request_get_method(req) ? bb_request_get_method(req) : "GET";
-    const char *url = bb_request_get_url(req) ? bb_request_get_url(req) : "/";
+    const char *method = bb_request_get_method(client->req) ? bb_request_get_method(client->req) : "GET";
+    const char *url = bb_request_get_url(client->req) ? bb_request_get_url(client->req) : "/";
     
     char start_line[512];
     snprintf(start_line, sizeof(start_line),
@@ -124,17 +134,17 @@ bb_error_t bb_client_send(bb_client_t *client, bb_request_t *req)
     // Temporary:
     char *message;
     size_t size;
-    bb_message_set_start_line(bb_request_get_message(req), start_line);
-    bb_message_serialize(bb_request_get_message(req), &message, &size);
+    bb_message_set_start_line(bb_request_get_message(client->req), start_line);
+    bb_message_serialize(bb_request_get_message(client->req), &message, &size);
     send_all(client->sock_fd, message, size);
 
     free(message);
     return BB_SUCCESS();
 }
 
-bb_error_t bb_client_receive(bb_client_t *client, bb_response_t *res)
+bb_error_t bb_client_receive(bb_client_t *client)
 {
-    if (!client || !res)
+    if (!client || !client->res)
         return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or response");
 
     if (client->sock_fd < 0)
@@ -161,7 +171,7 @@ bb_error_t bb_client_receive(bb_client_t *client, bb_response_t *res)
             break;
     }
 
-    if (bb_response_parse(connection->buffer, res) != 0)
+    if (bb_response_parse(connection->buffer, client->res) != 0)
     {
         bb_connection_destroy(connection);
         return BB_ERROR(BB_ERR_UNKNOWN, "Failed to parse response");
