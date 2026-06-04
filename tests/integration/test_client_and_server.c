@@ -111,24 +111,6 @@ void *server(void* arg)
     return NULL;
 }
 
-void client_request(bb_client_t *client)
-{
-    /* ---- connect ---- */
-    bb_error_t err = bb_client_connect(client, "127.0.0.1", 8080);
-    assert(err.code == 0);
-
-    /* ---- send ---- */
-    err = bb_client_send(client);
-    assert(err.code == 0);
-
-    /* ---- receive ---- */
-    err = bb_client_receive(client);
-    assert(err.code == 0);
-
-    /* ---- cleanup ---- */
-    bb_client_close(client);
-}
-
 void *concurrent_client(void *arg)
 {
     (void)arg;
@@ -143,7 +125,8 @@ void *concurrent_client(void *arg)
         bb_request_set_url(req, "/");
         bb_request_set_body(req, "");
 
-        client_request(client);
+        bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+        assert(err.code == 0);
 
         assert(bb_response_get_status(res) == 200);
 
@@ -169,7 +152,8 @@ void test_root_req(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 200);
@@ -194,7 +178,8 @@ void test_missing_path_req(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 404);
@@ -218,7 +203,8 @@ void test_param_req(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 200);
@@ -243,7 +229,8 @@ void test_multi_param_req(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 200);
@@ -265,7 +252,8 @@ void test_missing_param(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 404);
 
@@ -293,7 +281,8 @@ void test_max_length_param(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     char expected[6000];
@@ -325,7 +314,8 @@ void test_over_sized_param(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 400);
@@ -349,7 +339,8 @@ void test_query_param_req(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 200);
@@ -369,7 +360,8 @@ void test_encoded_query_param(void)
     bb_request_set_url(req, "/q_param?val=blue%20bird%21");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
     assert(strcmp(bb_response_get_body(res), "val: blue bird!") == 0);
@@ -393,7 +385,8 @@ void test_multi_query_param_req(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 200);
@@ -421,7 +414,8 @@ void test_too_many_query_params(void)
     bb_request_set_url(req, big_query);
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
     assert(bb_response_get_status(res) == 400);
 
     bb_client_destroy(client);
@@ -443,7 +437,8 @@ void test_missing_query_param_req(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 400);
@@ -462,7 +457,8 @@ void test_duplicate_query_param(void)
     bb_request_set_url(req, "/q_param?val=blue&val=bird");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
     assert(strcmp(bb_response_get_body(res), "val: blue") == 0); // Based on implementation, we expect first param
@@ -481,7 +477,8 @@ void test_empty_query_value(void)
     bb_request_set_url(req, "/q_param?val=");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
     bb_client_destroy(client);
@@ -498,7 +495,8 @@ void test_invalid_query_format(void)
     bb_request_set_url(req, "/q_paramval=blue-bird"); // missing '?'
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
     assert(bb_response_get_status(res) == 404);
 
     bb_client_destroy(client);
@@ -520,7 +518,8 @@ void test_req_body(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 200);
@@ -550,7 +549,8 @@ void test_req_large_body(void)
     bb_request_set_url(req, url);
     bb_request_set_body(req, body);
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     char *expected_res = malloc(size + 100);
     snprintf(expected_res, size + 100, "body: %s", body);
@@ -577,7 +577,8 @@ void test_large_response(void)
     bb_request_set_url(req, "/large_response");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
     assert(strlen(bb_response_get_body(res)) == 1024 * 1024);
@@ -596,7 +597,8 @@ void test_empty_body_req(void)
     bb_request_set_url(req, "/body");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
     assert(strcmp(bb_response_get_body(res), "body: ") == 0);
@@ -623,7 +625,8 @@ void test_encoded_body_req(void)
     /* optional but correct for encoded bodies */
     bb_request_set_header(req, "Content-Type", "application/x-www-form-urlencoded");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     /* ---- validate ---- */
     assert(bb_response_get_status(res) == 200);
@@ -643,7 +646,8 @@ void test_encoded_path_segment(void)
     bb_request_set_url(req, "/param/%62%6C%75%65"); // "blue"
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
     assert(strcmp(bb_response_get_body(res), "name: blue") == 0);
@@ -663,7 +667,8 @@ void test_invalid_body_encoding(void)
     bb_request_set_body(req, "name%GGbird"); // invalid percent encoding
 
     bb_request_set_header(req, "Content-Type", "application/x-www-form-urlencoded");
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
 
@@ -681,7 +686,8 @@ void test_invalid_method(void)
     bb_request_set_url(req, "/");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 405 || bb_response_get_status(res) == 404);
 
@@ -699,7 +705,8 @@ void test_trailing_slash(void)
     bb_request_set_url(req, "/param/my_name/");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
 
     assert(bb_response_get_status(res) == 200);
 
@@ -717,7 +724,8 @@ void test_invalid_url_chars(void)
     bb_request_set_url(req, "/param/<script>");
     bb_request_set_body(req, "");
 
-    client_request(client);
+    bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+    assert(err.code == 0);
     assert(bb_response_get_status(res) == 400);
 
     bb_client_destroy(client);
@@ -791,7 +799,8 @@ void test_many_requests(void)
         bb_request_set_url(req, "/");
         bb_request_set_body(req, "");
 
-        client_request(client);
+        bb_error_t err = bb_client_execute(client, "127.0.0.1", 8080);
+        assert(err.code == 0);
 
         assert(bb_response_get_status(res) == 200);
 

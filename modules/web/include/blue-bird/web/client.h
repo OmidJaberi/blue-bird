@@ -23,6 +23,27 @@ bb_error_t bb_client_send(bb_client_t *client);
 bb_error_t bb_client_receive(bb_client_t *client);
 void bb_client_close(bb_client_t *client);
 
+static inline bb_error_t bb_client_execute(bb_client_t *client, const char *host, int port)
+{
+    bb_error_t err = bb_client_connect(client, host, port);
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    err = bb_client_send(client);
+    if (BB_FAILED(err))
+    {
+        bb_client_close(client);
+        return err;
+    }
+
+    err = bb_client_receive(client);
+
+    bb_client_close(client);
+    return err;
+}
+
 
 #ifdef __cplusplus
 }
