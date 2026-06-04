@@ -49,12 +49,12 @@ void bb_client_destroy(bb_client_t *client)
     free(client);
 }
 
-bb_request_t *bb_client_request(bb_client_t *client)
+bb_request_t *bb_client_get_request(bb_client_t *client)
 {
     return client->req;
 }
 
-bb_response_t *bb_client_response(bb_client_t *client)
+bb_response_t *bb_client_get_response(bb_client_t *client)
 {
     return client->res;
 }

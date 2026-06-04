@@ -118,8 +118,8 @@ void *concurrent_client(void *arg)
     for (int i = 0; i < 100; i++)
     {
         bb_client_t *client = bb_client_create();
-        bb_request_t *req = bb_client_request(client);
-        bb_response_t *res = bb_client_response(client);
+        bb_request_t *req = bb_client_get_request(client);
+        bb_response_t *res = bb_client_get_response(client);
 
         bb_request_set_method(req, "GET");
         bb_request_set_url(req, "/");
@@ -141,8 +141,8 @@ void test_root_req(void)
     printf("Testing root path...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/";
@@ -167,8 +167,8 @@ void test_missing_path_req(void)
     printf("Testing missing path...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/missing_path";
@@ -192,8 +192,8 @@ void test_param_req(void)
     printf("Testing path with parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/param/my_name";
@@ -218,8 +218,8 @@ void test_multi_param_req(void)
     printf("Testing path with multiple parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "param/hello/good_bye";
@@ -244,8 +244,8 @@ void test_missing_param(void)
     printf("Testing missing route parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     char *url = "/param/";
     bb_request_set_method(req, "GET");
@@ -265,8 +265,8 @@ void test_max_length_param(void)
     printf("Testing path with maxium length parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *body = "";
@@ -298,8 +298,8 @@ void test_over_sized_param(void)
     printf("Testing path with over sized parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *body = "";
@@ -328,8 +328,8 @@ void test_query_param_req(void)
     printf("Testing path with Query parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/q_param?val=blue-bird";
@@ -353,8 +353,8 @@ void test_encoded_query_param(void)
 {
     printf("Testing encoded query parameter...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/q_param?val=blue%20bird%21");
@@ -374,8 +374,8 @@ void test_multi_query_param_req(void)
     printf("Testing path with multiple Query parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/q_param/multi?val_2=bird&val_1=blue";
@@ -399,8 +399,8 @@ void test_too_many_query_params(void)
 {
     printf("Testing too many query parameters...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     char big_query[2048];
     strcpy(big_query, "/q_param?");
@@ -426,8 +426,8 @@ void test_missing_query_param_req(void)
     printf("Testing path with missing Query parameter...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/q_param";
@@ -450,8 +450,8 @@ void test_duplicate_query_param(void)
 {
     printf("Testing duplicate query parameter...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/q_param?val=blue&val=bird");
@@ -470,8 +470,8 @@ void test_empty_query_value(void)
 {
     printf("Testing empty query value...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/q_param?val=");
@@ -488,8 +488,8 @@ void test_invalid_query_format(void)
 {
     printf("Testing invalid query format (no '?')...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/q_paramval=blue-bird"); // missing '?'
@@ -507,8 +507,8 @@ void test_req_body(void)
     printf("Testing request body...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/body";
@@ -533,8 +533,8 @@ void test_req_large_body(void)
     printf("Testing request with large body...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/body";
@@ -569,8 +569,8 @@ void test_large_response(void)
     printf("Testing large async response...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
 
     bb_request_set_method(req, "GET");
@@ -590,8 +590,8 @@ void test_empty_body_req(void)
 {
     printf("Testing empty body...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/body");
@@ -611,8 +611,8 @@ void test_encoded_body_req(void)
     printf("Testing encoded body...\n");
 
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     /* ---- build request ---- */
     char *url = "/body";
@@ -639,8 +639,8 @@ void test_encoded_path_segment(void)
 {
     printf("Testing URL encoded path segment...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/param/%62%6C%75%65"); // "blue"
@@ -659,8 +659,8 @@ void test_invalid_body_encoding(void)
 {
     printf("Testing invalid body encoding...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/body");
@@ -679,8 +679,8 @@ void test_invalid_method(void)
 {
     printf("Testing unsupported HTTP method...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "POST");
     bb_request_set_url(req, "/");
@@ -698,8 +698,8 @@ void test_trailing_slash(void)
 {
     printf("Testing route with trailing slash...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/param/my_name/");
@@ -717,8 +717,8 @@ void test_invalid_url_chars(void)
 {
     printf("Testing path with invalid characters...\n");
     bb_client_t *client = bb_client_create();
-    bb_request_t *req = bb_client_request(client);
-    bb_response_t *res = bb_client_response(client);
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, "/param/<script>");
@@ -792,8 +792,8 @@ void test_many_requests(void)
     for (int i = 0; i < 5000; i++)
     {
         bb_client_t *client = bb_client_create();
-        bb_request_t *req = bb_client_request(client);
-        bb_response_t *res = bb_client_response(client);
+        bb_request_t *req = bb_client_get_request(client);
+        bb_response_t *res = bb_client_get_response(client);
 
         bb_request_set_method(req, "GET");
         bb_request_set_url(req, "/");
