@@ -113,22 +113,23 @@ void *server(void* arg)
 
 void client_request(bb_request_t *req, bb_response_t *res)
 {
-    bb_client_t client;
+    bb_client_t *client = bb_client_create();
 
     /* ---- connect ---- */
-    bb_error_t err = bb_client_connect(&client, "127.0.0.1", 8080);
+    bb_error_t err = bb_client_connect(client, "127.0.0.1", 8080);
     assert(err.code == 0);
 
     /* ---- send ---- */
-    err = bb_client_send(&client, req);
+    err = bb_client_send(client, req);
     assert(err.code == 0);
 
     /* ---- receive ---- */
-    err = bb_client_receive(&client, res);
+    err = bb_client_receive(client, res);
     assert(err.code == 0);
 
     /* ---- cleanup ---- */
-    bb_client_close(&client);
+    bb_client_close(client);
+    bb_client_destroy(client);
 }
 
 void *concurrent_client(void *arg)

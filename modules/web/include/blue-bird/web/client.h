@@ -10,9 +10,10 @@ extern "C" {
 #include "blue-bird/web/http/response.h"
 #include "blue-bird/error/error.h"
 
-typedef struct {
-    int sock_fd;
-} bb_client_t;
+typedef struct bb_client bb_client_t;
+
+bb_client_t *bb_client_create(void);
+void bb_client_destroy(bb_client_t *client);
 
 bb_error_t bb_client_connect(bb_client_t *client, const char *host, int port);
 bb_error_t bb_client_send(bb_client_t *client, bb_request_t *req);

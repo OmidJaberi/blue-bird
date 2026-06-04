@@ -12,6 +12,43 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
+struct bb_client {
+    int sock_fd;
+
+    bb_request_t *req;
+    bb_response_t *res;
+};
+
+bb_client_t *bb_client_create(void)
+{
+    bb_client_t *client = malloc(sizeof(bb_client_t));
+    if (!client)
+    {
+        return NULL;
+    }
+    client->req = bb_request_create();
+    if (!client->req)
+    {
+        free(client);
+        return NULL;
+    }
+    client->res = bb_response_create();
+    if (!client->res)
+    {
+        bb_request_destroy(client->req);
+        free(client);
+        return NULL;
+    }
+    return client;
+}
+
+void bb_client_destroy(bb_client_t *client)
+{
+    if (client->req) bb_request_destroy(client->req);
+    if (client->res) bb_response_destroy(client->res);
+    free(client);
+}
+
 bb_error_t bb_client_connect(bb_client_t *client, const char *host, int port)
 {
     if (!client || !host)
