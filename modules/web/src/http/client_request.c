@@ -32,7 +32,7 @@ void bb_client_request_init(bb_client_request_t *req)
 
     req->scheme = NULL;
     req->host = NULL;
-    req->port = 80;
+    req->port = -1;
     req->path = NULL;
 }
 

@@ -19,28 +19,24 @@ bb_request_t *bb_client_get_request(bb_client_t *client);
 bb_response_t *bb_client_get_response(bb_client_t *client);
 
 
-bb_error_t bb_client_connect(bb_client_t *client, const char *host, int port);
+bb_error_t bb_client_connect(bb_client_t *client);
 bb_error_t bb_client_send(bb_client_t *client);
 bb_error_t bb_client_receive(bb_client_t *client);
 void bb_client_close(bb_client_t *client);
 
 static inline bb_error_t bb_client_execute(bb_client_t *client)
 {
-    bb_request_t *req = bb_client_get_request(client);
-    bb_error_t err = bb_client_connect(client, bb_request_get_host(req), bb_request_get_port(req));
+    bb_error_t err = bb_client_connect(client);
     if (BB_FAILED(err))
     {
         return err;
     }
 
     err = bb_client_send(client);
-    if (BB_FAILED(err))
+    if (!BB_FAILED(err))
     {
-        bb_client_close(client);
-        return err;
+        err = bb_client_receive(client);
     }
-
-    err = bb_client_receive(client);
 
     bb_client_close(client);
     return err;

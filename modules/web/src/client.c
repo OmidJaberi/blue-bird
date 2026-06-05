@@ -59,10 +59,21 @@ bb_response_t *bb_client_get_response(bb_client_t *client)
     return client->res;
 }
 
-bb_error_t bb_client_connect(bb_client_t *client, const char *host, int port)
+bb_error_t bb_client_connect(bb_client_t *client)
 {
-    if (!client || !host)
+    if (!client)
+    {
         return BB_ERROR(BB_ERR_UNKNOWN, "Invalid client or host");
+    }
+
+    bb_request_t *req = bb_client_get_request(client);
+    const char *host = bb_request_get_host(req);
+    int port = bb_request_get_port(req);
+
+    if (!host || port < 0)
+    {
+        return BB_ERROR(BB_ERR_UNKNOWN, "Invalid host or port");
+    }
 
     client->sock_fd = -1;
 
