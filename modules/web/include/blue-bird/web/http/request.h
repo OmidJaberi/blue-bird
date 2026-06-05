@@ -14,8 +14,6 @@ bb_request_t *bb_request_client_create(void);
 
 bb_request_t *bb_request_server_create(void);
 
-static inline bb_request_t *bb_request_create(void) { return bb_request_client_create(); } // For Client only
-
 void bb_request_destroy(bb_request_t *req);
 
 bb_http_message_t *bb_request_get_message(bb_request_t *req);

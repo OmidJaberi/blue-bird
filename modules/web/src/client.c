@@ -26,7 +26,7 @@ bb_client_t *bb_client_create(void)
     {
         return NULL;
     }
-    client->req = bb_request_create();
+    client->req = bb_request_client_create();
     if (!client->req)
     {
         free(client);
