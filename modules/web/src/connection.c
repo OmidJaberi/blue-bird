@@ -36,9 +36,6 @@ bb_connection_t *bb_connection_create(int client_fd)
     connection->write_length = 0;
     connection->write_offset = 0;
 
-    connection->request = bb_request_server_create();
-    connection->response = bb_response_create();
-
     return connection;
 }
 
@@ -52,9 +49,6 @@ void bb_connection_destroy(bb_connection_t *connection)
     close(connection->client_fd);
     free(connection->buffer);
     free(connection->write_buffer);
-
-    bb_request_destroy(connection->request);
-    bb_response_destroy(connection->response);
 
     free(connection);
 }

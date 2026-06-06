@@ -242,13 +242,15 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
     }
 
     // Parse request
-    if (bb_request_parse(connection->buffer, connection->request) != 0)
+    bb_request_t *req = bb_request_server_create();
+    bb_response_t *res = bb_response_create();
+    if (bb_request_parse(connection->buffer, req) != 0)
     {
-        default_400(connection->request, connection->response);
+        default_400(req, res);
     }
     else
     {
-        bb_error_t err = _run_request_pipeline(server, connection->request, connection->response);
+        bb_error_t err = _run_request_pipeline(server, req, res);
         if (BB_FAILED(err))
         {
             BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
@@ -257,10 +259,13 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
 
     // Serialize response
     bb_response_serialize(
-        connection->response,
+        res,
         &connection->write_buffer,
         &connection->write_length
     );
+
+    bb_request_destroy(req);
+    bb_response_destroy(res);
 
     connection->write_offset = 0;
 
