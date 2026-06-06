@@ -28,6 +28,8 @@ typedef struct {
 
 typedef struct {
     bb_connection_t *connection;
+
+    bb_server_t *server;
 } _bb_client_task_data_t;
 
 static int _bb_set_nonblocking(int fd)
@@ -150,6 +152,7 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
     _bb_client_task_data_t *data = userdata;
 
     bb_connection_t *connection = data->connection;
+    bb_server_t *server = data->server;
 
     ssize_t rc = bb_connection_write(connection);
 
@@ -177,7 +180,7 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
         }
 
         bb_runtime_watch_fd(
-            connection->server->runtime,
+            server->runtime,
             connection->client_fd,
             BB_EVENT_WRITE,
             BB_WATCH_ONESHOT,
@@ -203,7 +206,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
 
     bb_connection_t *connection = data->connection;
 
-    bb_server_t *server = connection->server;
+    bb_server_t *server = data->server;
 
     if (bb_connection_read(connection) < 0)
     {
@@ -309,7 +312,7 @@ static void _bb_accept_task(bb_task_t *task, void *userdata)
 
         _bb_set_nonblocking(client_fd);
 
-        bb_connection_t *connection = bb_connection_create(server, client_fd);
+        bb_connection_t *connection = bb_connection_create(client_fd);
 
         if (!connection)
         {
@@ -329,6 +332,7 @@ static void _bb_accept_task(bb_task_t *task, void *userdata)
         }
 
         client_data->connection = connection;
+        client_data->server = server;
 
         bb_task_t *client_task = bb_task_create(_bb_client_read_task, client_data);
 

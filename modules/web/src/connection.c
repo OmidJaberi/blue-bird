@@ -8,7 +8,7 @@
 
 #define BB_CONNECTION_INITIAL_BUFFER_SIZE 4096
 
-bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd)
+bb_connection_t *bb_connection_create(int client_fd)
 {
     bb_connection_t *connection = malloc(sizeof(bb_connection_t));
 
@@ -18,7 +18,6 @@ bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd)
     }
 
     connection->client_fd = client_fd;
-    connection->server = server;
     connection->state = BB_CONNECTION_READING;
 
     // Read buffer

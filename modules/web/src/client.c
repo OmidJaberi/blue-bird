@@ -161,7 +161,7 @@ bb_error_t bb_client_receive(bb_client_t *client)
     if (client->sock_fd < 0)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
-    bb_connection_t *connection = bb_connection_create(NULL, client->sock_fd);
+    bb_connection_t *connection = bb_connection_create(client->sock_fd);
     if (!connection)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");

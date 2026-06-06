@@ -12,8 +12,6 @@ extern "C" {
 #include <stddef.h>
 #include <unistd.h>
 
-struct bb_server;
-
 typedef enum {
     BB_CONNECTION_READING,
     BB_CONNECTION_WRITING,
@@ -22,7 +20,6 @@ typedef enum {
 
 typedef struct bb_connection {
     int client_fd;
-    struct bb_server *server;
 
     bb_connection_state_t state;
 
@@ -40,7 +37,7 @@ typedef struct bb_connection {
     bb_response_t *response;
 } bb_connection_t;
 
-bb_connection_t *bb_connection_create(struct bb_server *server, int client_fd);
+bb_connection_t *bb_connection_create(int client_fd);
 void bb_connection_destroy(bb_connection_t *connection);
 ssize_t bb_connection_read(bb_connection_t *connection);
 ssize_t bb_connection_write(bb_connection_t *connection);
