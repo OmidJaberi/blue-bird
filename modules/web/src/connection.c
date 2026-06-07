@@ -3,12 +3,24 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "connection.h"
 
 #define BB_CONNECTION_INITIAL_BUFFER_SIZE 4096
 
-bb_connection_t *bb_connection_create(int client_fd)
+static int _bb_set_nonblocking(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0)
+    {
+        return -1;
+    }
+    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+bb_connection_t *bb_connection_create(int fd)
 {
     bb_connection_t *connection = malloc(sizeof(bb_connection_t));
 
@@ -17,7 +29,7 @@ bb_connection_t *bb_connection_create(int client_fd)
         return NULL;
     }
 
-    connection->client_fd = client_fd;
+    connection->fd = fd;
     connection->state = BB_CONNECTION_READING;
 
     // Read buffer
@@ -46,11 +58,84 @@ void bb_connection_destroy(bb_connection_t *connection)
         return;
     }
 
-    close(connection->client_fd);
+    close(connection->fd);
     free(connection->buffer);
     free(connection->write_buffer);
 
     free(connection);
+}
+
+bb_connection_t *bb_connection_serve(int port)
+{
+    int server_fd = -1;
+    struct sockaddr_in address;
+    int opt = 1;
+
+    // Create socket
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    {
+        return NULL;
+    }
+
+    _bb_set_nonblocking(server_fd);
+
+    // Reuse port
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+    {
+        return NULL;
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(port);
+
+    // Bind
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
+    {
+        return NULL;
+    }
+
+    // Listen
+    if (listen(server_fd, 3) < 0)
+    {
+        return NULL;
+    }
+
+    bb_connection_t *connection = bb_connection_create(server_fd);
+    if (!connection)
+    {
+        close(server_fd);
+    }
+    return connection;
+}
+
+bb_connection_t *bb_connection_accept(int server_fd)
+{
+    struct sockaddr_in address;
+
+    socklen_t addrlen = sizeof(address);
+
+    int client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen);
+
+    if (client_fd < 0)
+    {
+        /*
+        * Nonblocking socket:
+        * no more pending connections.
+        */
+        return NULL;
+    }
+
+    _bb_set_nonblocking(client_fd);
+
+    bb_connection_t *connection = bb_connection_create(client_fd);
+
+    if (!connection)
+    {
+        close(client_fd);
+        return NULL;
+    }
+    return connection;
 }
 
 ssize_t bb_connection_read(bb_connection_t *connection)
@@ -79,7 +164,7 @@ ssize_t bb_connection_read(bb_connection_t *connection)
 
         ssize_t n =
             read(
-                connection->client_fd,
+                connection->fd,
                 connection->buffer +
                 connection->buffer_length,
                 connection->buffer_capacity -
@@ -113,7 +198,7 @@ ssize_t bb_connection_write(bb_connection_t *connection)
     while (connection->write_offset < connection->write_length)
     {
         ssize_t n = send(
-            connection->client_fd,
+            connection->fd,
             connection->write_buffer + connection->write_offset,
             connection->write_length - connection->write_offset,
             0

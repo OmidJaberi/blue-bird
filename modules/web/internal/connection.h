@@ -19,7 +19,7 @@ typedef enum {
 } bb_connection_state_t;
 
 typedef struct bb_connection {
-    int client_fd;
+    int fd;
 
     bb_connection_state_t state;
 
@@ -36,6 +36,9 @@ typedef struct bb_connection {
 
 bb_connection_t *bb_connection_create(int client_fd);
 void bb_connection_destroy(bb_connection_t *connection);
+
+bb_connection_t *bb_connection_serve(int port);
+bb_connection_t *bb_connection_accept(int server_fd);
 ssize_t bb_connection_read(bb_connection_t *connection);
 ssize_t bb_connection_write(bb_connection_t *connection);
 

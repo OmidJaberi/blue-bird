@@ -11,11 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
 
 struct bb_server {
-    int server_fd;
+    bb_connection_t *connection;
     bb_runtime_t *runtime;
     bb_route_list_t *route_list;
     bb_middleware_list_t *pre_middleware_list; // Runs before the handler
@@ -32,16 +30,6 @@ typedef struct {
     bb_server_t *server;
 } _bb_client_task_data_t;
 
-static int _bb_set_nonblocking(int fd)
-{
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0)
-    {
-        return -1;
-    }
-    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
-
 bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 {
     bb_server_t *server = malloc(sizeof(bb_server_t));
@@ -52,46 +40,16 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 
     server->runtime = runtime;
 
+    server->connection = bb_connection_serve(port);
+    if (!server->connection)
+    {
+        bb_server_destroy(server);
+        return NULL;
+    }
+
     server->route_list = bb_route_list_create();
     server->pre_middleware_list = bb_middleware_list_create();
     server->post_middleware_list = bb_middleware_list_create();
-
-    struct sockaddr_in address;
-    int opt = 1;
-
-    // Create socket
-    if ((server->server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
-    {
-        BB_LOG_ERROR("socket failed");
-        exit(EXIT_FAILURE);
-    }
-
-    _bb_set_nonblocking(server->server_fd);
-
-    // Reuse port
-    if (setsockopt(server->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
-    {
-        BB_LOG_ERROR("setsockopt failed");
-        exit(EXIT_FAILURE);
-    }
-
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
-
-    // Bind
-    if (bind(server->server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
-    {
-        BB_LOG_ERROR("bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // Listen
-    if (listen(server->server_fd, 3) < 0)
-    {
-        BB_LOG_ERROR("listen failed");
-        exit(EXIT_FAILURE);
-    }
 
     BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return server;
@@ -181,7 +139,7 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
 
         bb_runtime_watch_fd(
             server->runtime,
-            connection->client_fd,
+            connection->fd,
             BB_EVENT_WRITE,
             BB_WATCH_ONESHOT,
             write_task
@@ -232,7 +190,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
 
         bb_runtime_watch_fd(
             server->runtime,
-            connection->client_fd,
+            connection->fd,
             BB_EVENT_READ,
             BB_WATCH_ONESHOT,
             read_task
@@ -283,7 +241,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
 
     bb_runtime_watch_fd(
         server->runtime,
-        connection->client_fd,
+        connection->fd,
         BB_EVENT_WRITE,
         BB_WATCH_ONESHOT,
         write_task
@@ -298,33 +256,9 @@ static void _bb_accept_task(bb_task_t *task, void *userdata)
 
     bb_server_t *server = data->server;
 
-    struct sockaddr_in address;
-
-    socklen_t addrlen = sizeof(address);
-
-    while (1)
+    bb_connection_t *connection;
+    while ((connection = bb_connection_accept(server->connection->fd)))
     {
-        int client_fd = accept(server->server_fd, (struct sockaddr *)&address, &addrlen);
-
-        if (client_fd < 0)
-        {
-            /*
-             * Nonblocking socket:
-             * no more pending connections.
-             */
-            break;
-        }
-
-        _bb_set_nonblocking(client_fd);
-
-        bb_connection_t *connection = bb_connection_create(client_fd);
-
-        if (!connection)
-        {
-            close(client_fd);
-            continue;
-        }
-
         /*
          * Register client watcher
          */
@@ -347,7 +281,7 @@ static void _bb_accept_task(bb_task_t *task, void *userdata)
             free(client_data);
             continue;
         }
-        bb_runtime_watch_fd(server->runtime, client_fd, BB_EVENT_READ, BB_WATCH_ONESHOT, client_task);
+        bb_runtime_watch_fd(server->runtime, connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, client_task);
     }
 }
 
@@ -364,7 +298,7 @@ void bb_server_start(bb_server_t *server)
 
     bb_task_t *task = bb_task_create(_bb_accept_task, data);
 
-    bb_runtime_watch_fd(server->runtime, server->server_fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
+    bb_runtime_watch_fd(server->runtime, server->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
 
     BB_LOG_INFO("Blue-Bird async server started.\n");
     bb_runtime_run(server->runtime); //temp

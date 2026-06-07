@@ -169,7 +169,7 @@ bb_error_t bb_client_send(bb_client_t *client)
     size_t size;
     bb_message_set_start_line(bb_request_get_message(client->req), start_line);
     bb_message_serialize(bb_request_get_message(client->req), &message, &size);
-    if (send_all(client->connection->client_fd, message, size) < 0)
+    if (send_all(client->connection->fd, message, size) < 0)
     {
         free(message);
         return BB_ERROR(BB_ERR_IO, "Send failed");
