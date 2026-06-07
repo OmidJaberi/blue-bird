@@ -3,14 +3,7 @@
 #include "connection.h"
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
 
 struct bb_client {
     bb_connection_t *connection;
@@ -86,66 +79,19 @@ bb_error_t bb_client_connect(bb_client_t *client)
     char port_str[16];
     snprintf(port_str, sizeof(port_str), "%d", port);
 
-    struct addrinfo hints = {0};
-    struct addrinfo *res = NULL;
-
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-
-    int rc = getaddrinfo(host, port_str, &hints, &res);
-    if (rc != 0)
-        return BB_ERROR(BB_ERR_UNKNOWN, gai_strerror(rc));
-
-    int fd = -1;
-
-    for (struct addrinfo *p = res; p != NULL; p = p->ai_next)
-    {
-        fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (fd < 0)
-            continue;
-
-        if (connect(fd, p->ai_addr, p->ai_addrlen) == 0)
-        {
-            break;
-        }
-
-        close(fd);
-        fd = -1;
-    }
-
-    freeaddrinfo(res);
-
-    if (fd < 0)
-    {
-        return BB_ERROR(BB_ERR_UNKNOWN, "Failed to connect");
-    }
-
-    /* create connection object */
+    /* create connection */
     if (client->connection)
     {
         bb_connection_destroy(client->connection);
     }
 
-    client->connection = bb_connection_create(fd);
+    client->connection = bb_connection_connect(host, port_str);
     if (!client->connection)
     {
-        close(fd);
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate connection");
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to create connection");
     }
 
     return BB_SUCCESS();
-}
-
-static ssize_t send_all(int fd, const void *data, size_t len)
-{
-    size_t sent = 0;
-    while (sent < len)
-    {
-        ssize_t n = send(fd, (char*)data + sent, len - sent, 0);
-        if (n <= 0) return -1;
-        sent += n;
-    }
-    return sent;
 }
 
 bb_error_t bb_client_send(bb_client_t *client)
@@ -165,17 +111,9 @@ bb_error_t bb_client_send(bb_client_t *client)
              "%s %s HTTP/1.1", method, path);
 
     // Temporary:
-    char *message;
-    size_t size;
     bb_message_set_start_line(bb_request_get_message(client->req), start_line);
-    bb_message_serialize(bb_request_get_message(client->req), &message, &size);
-    if (send_all(client->connection->fd, message, size) < 0)
-    {
-        free(message);
-        return BB_ERROR(BB_ERR_IO, "Send failed");
-    }
-
-    free(message);
+    bb_message_serialize(bb_request_get_message(client->req), &client->connection->write_buffer, &client->connection->write_length);
+    bb_connection_write(client->connection);
     return BB_SUCCESS();
 }
 

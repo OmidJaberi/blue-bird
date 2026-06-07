@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <netdb.h>
 
 #include "connection.h"
 
@@ -134,6 +135,56 @@ bb_connection_t *bb_connection_accept(int server_fd)
     {
         close(client_fd);
         return NULL;
+    }
+    return connection;
+}
+
+bb_connection_t *bb_connection_connect(const char *host, char *port_str)
+{
+
+    struct addrinfo hints = {0};
+    struct addrinfo *res = NULL;
+
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int rc = getaddrinfo(host, port_str, &hints, &res);
+    if (rc != 0)
+    {
+        return NULL;
+        // return BB_ERROR(BB_ERR_UNKNOWN, gai_strerror(rc));
+    }
+
+    int fd = -1;
+
+    for (struct addrinfo *p = res; p != NULL; p = p->ai_next)
+    {
+        fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (fd < 0)
+            continue;
+
+        if (connect(fd, p->ai_addr, p->ai_addrlen) == 0)
+        {
+            break;
+        }
+
+        close(fd);
+        fd = -1;
+    }
+
+    freeaddrinfo(res);
+
+    if (fd < 0)
+    {
+        return NULL;
+        // return BB_ERROR(BB_ERR_UNKNOWN, "Failed to connect");
+    }
+
+    bb_connection_t *connection = bb_connection_create(fd);
+    if (!connection)
+    {
+        close(fd);
+        // return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate connection");
     }
     return connection;
 }
