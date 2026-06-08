@@ -42,21 +42,16 @@ typedef struct {
 } bb_server_request_t;
 
 void bb_server_request_init(bb_server_request_t *req);
+void bb_server_request_destroy(bb_server_request_t *req);
+void bb_server_request_reset(bb_server_request_t *req);
 
 int bb_server_request_parse(const char *raw, bb_server_request_t *req);
 
-void bb_server_request_destroy(bb_server_request_t *req);
-
 int bb_server_request_add_param(bb_server_request_t *req, const char *key, const char *value);
-
 const char *bb_server_request_get_param(bb_server_request_t *req, const char *name);
-
 int bb_server_request_add_query_param(bb_server_request_t *req, const char *key, const char *value);
-
 const char *bb_server_request_get_query_param(bb_server_request_t *req, const char *key);
-
 int bb_server_request_set_method(bb_server_request_t *req, const char *method);
-
 int bb_server_request_set_path(bb_server_request_t *req, const char *path);
 
 #endif //BB_SERVER_REQUEST_H

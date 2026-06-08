@@ -39,6 +39,30 @@ void bb_server_request_init(bb_server_request_t *req)
 {
     if (!req) return;
     req->msg = bb_message_create();
+    req->param_count = 0;
+    req->query_count = 0;
+}
+
+void bb_server_request_destroy(bb_server_request_t *req)
+{
+    if (!req) return;
+    if (req->msg)
+    {
+        bb_message_destroy(req->msg);
+    }
+    req->param_count = 0;
+    req->query_count = 0;
+}
+
+void bb_server_request_reset(bb_server_request_t *req)
+{
+    if (!req) return;
+    if (req->msg)
+    {
+        bb_message_reset(req->msg);
+    }
+    req->param_count = 0;
+    req->query_count = 0;
 }
 
 static void parse_query_params(bb_server_request_t *req)
@@ -104,12 +128,6 @@ int bb_server_request_parse(const char *raw, bb_server_request_t *req)
     parse_query_params(req);
 
     return 0;
-}
-
-void bb_server_request_destroy(bb_server_request_t *req)
-{
-    bb_message_destroy(req->msg);
-    req->param_count = 0;
 }
 
 int bb_server_request_add_param(bb_server_request_t *req, const char *key, const char *value)

@@ -26,6 +26,46 @@ bb_http_message_t *bb_message_create(void)
     return msg;
 }
 
+void bb_message_destroy(bb_http_message_t *msg)
+{
+    if (!msg)
+    {
+        return;
+    }
+    bb_message_reset(msg);
+    free(msg);
+}
+
+void bb_message_reset(bb_http_message_t *msg)
+{
+    if (!msg)
+    {
+        return;
+    }
+    for (int i = 0; i < msg->header_count; i++)
+    {
+        free(msg->headers[i].name);
+        free(msg->headers[i].value);
+    }
+    msg->header_count = 0;
+    if (msg->headers)
+    {
+        free(msg->headers);
+        msg->headers = NULL;
+    }
+    if (msg->body)
+    {
+        free(msg->body);
+        msg->body = NULL;
+        msg->body_len = 0;
+    }
+    if (msg->start_line)
+    {
+        free(msg->start_line);
+        msg->start_line = NULL;
+    }
+}
+
 const char *bb_message_get_start_line(bb_http_message_t *msg)
 {
     return msg->start_line;
@@ -262,36 +302,4 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
 
     *buffer_size = written + 1;
     return 0;
-}
-
-void bb_message_destroy(bb_http_message_t *msg)
-{
-    if (!msg)
-    {
-        return;
-    }
-    for (int i = 0; i < msg->header_count; i++)
-    {
-        free(msg->headers[i].name);
-        free(msg->headers[i].value);
-    }
-
-    if (msg->headers)
-    {
-        free(msg->headers);
-    }
-
-    if (msg->body)
-    {
-        free(msg->body);
-        msg->body = NULL;
-        msg->body_len = 0;
-    }
-
-    if (msg->start_line)
-    {
-        free(msg->start_line);
-        msg->start_line = NULL;
-    }
-    free(msg);
 }

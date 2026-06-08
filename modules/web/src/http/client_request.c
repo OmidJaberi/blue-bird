@@ -42,22 +42,50 @@ void bb_client_request_destroy(bb_client_request_t *req)
     {
         return;
     }
+    if (req->msg)
+    {
+        bb_message_destroy(req->msg);
+        req->msg = NULL;
+    }
+    bb_client_request_reset(req);
+}
 
-    bb_message_destroy(req->msg);
-
-    free(req->method);
-    free(req->url);
-
-    free(req->scheme);
-    free(req->host);
-    free(req->path);
-
-    req->method = NULL;
-    req->url = NULL;
-
-    req->scheme = NULL;
-    req->host = NULL;
-    req->path = NULL;
+void bb_client_request_reset(bb_client_request_t *req)
+{
+    if (!req)
+    {
+        return;
+    }
+    if (req->msg)
+    {
+        bb_message_reset(req->msg);
+    }
+    if (req->method)
+    {
+        free(req->method);
+        req->method = NULL;
+    }
+    if (req->url)
+    {
+        free(req->url);
+        req->url = NULL;
+    }
+    if (req->scheme)
+    {
+        free(req->scheme);
+        req->scheme = NULL;
+    }
+    if (req->host)
+    {
+        free(req->host);
+        req->host = NULL;
+    }
+    if (req->path)
+    {
+        free(req->path);
+        req->path = NULL;
+    }
+    req->port = -1;
 }
 
 void bb_client_request_set_method(bb_client_request_t *req, const char *method)

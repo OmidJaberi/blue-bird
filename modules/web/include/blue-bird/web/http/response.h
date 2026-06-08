@@ -14,6 +14,8 @@ bb_response_t *bb_response_create(void);
 
 void bb_response_destroy(bb_response_t *res);
 
+void bb_response_reset(bb_response_t *res);
+
 int bb_response_set_status(bb_response_t *res, int code);
 
 int bb_response_get_status(bb_response_t *res);

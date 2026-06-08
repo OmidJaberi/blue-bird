@@ -51,6 +51,12 @@ void bb_client_destroy(bb_client_t *client)
     free(client);
 }
 
+void bb_client_reset(bb_client_t *client)
+{
+    bb_request_reset(client->req);
+    bb_response_reset(client->res);
+}
+
 bb_request_t *bb_client_get_request(bb_client_t *client)
 {
     return client->req;

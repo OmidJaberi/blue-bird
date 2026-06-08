@@ -65,6 +65,24 @@ void bb_request_destroy(bb_request_t *req)
     free(req);
 }
 
+void bb_request_reset(bb_request_t *req)
+{
+
+    if (!req)
+    {
+        return;
+    }
+    switch (req->type)
+    {
+    case BB_CLIENT_REQUEST:
+        bb_client_request_reset(&req->inner_req.c_req);
+        break;
+    case BB_SERVER_REQUEST:
+        bb_server_request_reset(&req->inner_req.s_req);
+        break;
+    }
+}
+
 bb_http_message_t *bb_request_get_message(bb_request_t *req)
 {
     return (req->type == BB_CLIENT_REQUEST)

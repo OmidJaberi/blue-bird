@@ -808,6 +808,108 @@ void test_many_requests(void)
     }
 }
 
+void test_client_reset_reuse(void)
+{
+    printf("Testing client reset and reuse...\n");
+
+    bb_client_t *client = bb_client_create();
+
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
+
+    /* ---------- Request #1 ---------- */
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_url(req, "http://127.0.0.1:8080/");
+    bb_request_set_body(req, "");
+
+    bb_error_t err = bb_client_execute(client);
+
+    assert(err.code == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+
+    /* ---------- Reset ---------- */
+
+    bb_client_reset(client);
+
+    /* ---------- Request #2 ---------- */
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_url(req, "http://127.0.0.1:8080/param/bluebird");
+    bb_request_set_body(req, "");
+
+    err = bb_client_execute(client);
+
+    assert(err.code == 0);
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_body(res), "name: bluebird") == 0);
+
+    bb_client_destroy(client);
+}
+
+void test_client_reset_different_host(void)
+{
+    printf("Testing client reset with different URL authority...\n");
+
+    bb_client_t *client = bb_client_create();
+
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_url(req, "http://127.0.0.1:8080/");
+    bb_request_set_body(req, "");
+
+    bb_error_t err = bb_client_execute(client);
+
+    assert(err.code == 0);
+    assert(bb_response_get_status(res) == 200);
+
+    bb_client_reset(client);
+
+    /*
+     * Same server, different authority string.
+     * Exercises URL re-parsing and reconnect logic.
+     */
+    bb_request_set_method(req, "GET");
+    bb_request_set_url(req, "http://localhost:8080/");
+    bb_request_set_body(req, "");
+
+    err = bb_client_execute(client);
+
+    assert(err.code == 0);
+    assert(bb_response_get_status(res) == 200);
+
+    bb_client_destroy(client);
+}
+
+void test_client_multiple_reuse(void)
+{
+    printf("Testing repeated client reuse...\n");
+
+    bb_client_t *client = bb_client_create();
+
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
+
+    for (int i = 0; i < 1000; i++)
+    {
+        bb_client_reset(client);
+
+        bb_request_set_method(req, "GET");
+        bb_request_set_url(req, "http://127.0.0.1:8080/");
+        bb_request_set_body(req, "");
+
+        bb_error_t err = bb_client_execute(client);
+
+        assert(err.code == 0);
+        assert(bb_response_get_status(res) == 200);
+    }
+
+    bb_client_destroy(client);
+}
+
 int main(void)
 {
     pthread_t thread_id;
@@ -845,6 +947,9 @@ int main(void)
     test_concurrent_clients();
     test_partial_request();
     test_many_requests();
+    test_client_reset_reuse();
+    test_client_reset_different_host();
+    test_client_multiple_reuse();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;

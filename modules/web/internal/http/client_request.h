@@ -22,9 +22,11 @@ typedef struct {
 } bb_client_request_t;
 
 void bb_client_request_init(bb_client_request_t *req);
+void bb_client_request_destroy(bb_client_request_t *req);
+void bb_client_request_reset(bb_client_request_t *req);
+
 void bb_client_request_set_method(bb_client_request_t *req, const char *method);
 void bb_client_request_set_url(bb_client_request_t *req, const char *url);
-void bb_client_request_destroy(bb_client_request_t *req);
 
 const char *bb_client_request_get_url(bb_client_request_t *req);
 const char *bb_client_request_get_scheme(bb_client_request_t *req);

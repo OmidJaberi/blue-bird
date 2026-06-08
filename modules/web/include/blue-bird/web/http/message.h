@@ -11,6 +11,8 @@ extern "C" {
 typedef struct bb_http_message bb_http_message_t;
 
 bb_http_message_t *bb_message_create(void);
+void bb_message_destroy(bb_http_message_t *msg);
+void bb_message_reset(bb_http_message_t *msg);
 
 const char *bb_message_get_start_line(bb_http_message_t *msg);
 void bb_message_set_start_line(bb_http_message_t *msg, const char *start_line);
@@ -25,8 +27,6 @@ int bb_message_get_body_len(bb_http_message_t *msg);
 
 int bb_message_parse(const char *raw, bb_http_message_t *msg);
 int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_size);
-
-void bb_message_destroy(bb_http_message_t *msg);
 
 
 #ifdef __cplusplus

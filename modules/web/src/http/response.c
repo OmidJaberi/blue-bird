@@ -47,6 +47,21 @@ void bb_response_destroy(bb_response_t *res)
     free(res);
 }
 
+void bb_response_reset(bb_response_t *res)
+{
+    if (!res)
+        return;
+    res->status_code = 200;
+    if (!res->msg)
+    {
+        res->msg = bb_message_create();
+    }
+    else
+    {
+        bb_message_reset(res->msg);
+    }
+}
+
 int bb_response_set_status(bb_response_t *res, int code)
 {
     res->status_code = code;

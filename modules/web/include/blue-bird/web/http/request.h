@@ -16,6 +16,8 @@ bb_request_t *bb_request_server_create(void);
 
 void bb_request_destroy(bb_request_t *req);
 
+void bb_request_reset(bb_request_t *req);
+
 bb_http_message_t *bb_request_get_message(bb_request_t *req);
 
 void bb_request_set_method(bb_request_t *req, const char *method);
