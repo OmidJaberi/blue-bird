@@ -6,9 +6,6 @@ extern "C" {
 #endif
 
 
-#include "blue-bird/web/http/request.h"
-#include "blue-bird/web/http/response.h"
-
 #include <stddef.h>
 #include <unistd.h>
 
