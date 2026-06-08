@@ -139,7 +139,7 @@ bb_connection_t *bb_connection_accept(int server_fd)
     return connection;
 }
 
-bb_connection_t *bb_connection_connect(const char *host, char *port_str)
+bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
 {
 
     struct addrinfo hints = {0};
