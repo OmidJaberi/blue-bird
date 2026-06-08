@@ -52,6 +52,8 @@ const char *bb_request_get_host(bb_request_t *req);
 
 int bb_request_get_port(bb_request_t *req);
 
+int bb_request_serialize(bb_request_t *req, char **buffer, size_t *size);
+
 // bb_request_get_params and bb_request_get_param_count ?
 
 // Message Helpers:

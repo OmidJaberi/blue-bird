@@ -177,3 +177,17 @@ int bb_request_get_port(bb_request_t *req)
     BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     return bb_client_request_get_port(&req->inner_req.c_req);
 }
+
+int bb_request_serialize(bb_request_t *req, char **buffer, size_t *size)
+{
+    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    const char *method = bb_request_get_method(req) ? bb_request_get_method(req) : "GET";
+    const char *path = bb_request_get_path(req) ? bb_request_get_path(req) : "/";
+    
+    char start_line[512];
+    snprintf(start_line, sizeof(start_line), "%s %s HTTP/1.1", method, path);
+
+    // Temporary:
+    bb_message_set_start_line(bb_request_get_message(req), start_line);
+    return bb_message_serialize(req->inner_req.c_req.msg, buffer, size);
+}

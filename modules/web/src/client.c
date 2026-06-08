@@ -107,16 +107,7 @@ bb_error_t bb_client_send(bb_client_t *client)
     if (!client->connection)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
-    /* ---- Build request start line ---- */
-    const char *method = bb_request_get_method(client->req) ? bb_request_get_method(client->req) : "GET";
-    const char *path = bb_request_get_path(client->req) ? bb_request_get_path(client->req) : "/";
-    
-    char start_line[512];
-    snprintf(start_line, sizeof(start_line), "%s %s HTTP/1.1", method, path);
-
-    // Temporary:
-    bb_message_set_start_line(bb_request_get_message(client->req), start_line);
-    bb_message_serialize(bb_request_get_message(client->req), &client->connection->write_buffer, &client->connection->write_length);
+    bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
     bb_connection_write(client->connection);
     return BB_SUCCESS();
 }
