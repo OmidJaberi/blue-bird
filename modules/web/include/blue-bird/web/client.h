@@ -43,6 +43,31 @@ static inline bb_error_t bb_client_execute(bb_client_t *client)
     return err;
 }
 
+static inline bb_error_t bb_client_get(bb_client_t *client, const char *url)
+{
+    bb_request_t *req = bb_client_get_request(client);
+
+    bb_client_reset(client);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_url(req, url);
+
+    return bb_client_execute(client);
+}
+
+static inline bb_error_t bb_client_post(bb_client_t *client, const char *url, const char *body)
+{
+    bb_request_t *req = bb_client_get_request(client);
+
+    bb_client_reset(client);
+
+    bb_request_set_method(req, "POST");
+    bb_request_set_url(req, url);
+    bb_request_set_body(req, (char *)body);
+
+    return bb_client_execute(client);
+}
+
 
 #ifdef __cplusplus
 }
