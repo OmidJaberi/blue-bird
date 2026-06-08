@@ -80,17 +80,16 @@ bb_error_t bb_client_connect(bb_client_t *client)
     snprintf(port_str, sizeof(port_str), "%d", port);
 
     /* create connection */
+    bb_connection_t *new_conn = bb_connection_connect(host, port_str);
+    if (!new_conn)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to create connection");
+    }
     if (client->connection)
     {
         bb_connection_destroy(client->connection);
     }
-
-    client->connection = bb_connection_connect(host, port_str);
-    if (!client->connection)
-    {
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to create connection");
-    }
-
+    client->connection = new_conn;
     return BB_SUCCESS();
 }
 
