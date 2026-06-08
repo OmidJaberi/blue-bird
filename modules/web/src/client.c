@@ -53,6 +53,11 @@ void bb_client_destroy(bb_client_t *client)
 
 void bb_client_reset(bb_client_t *client)
 {
+    if (!client)
+    {
+        return;
+    }
+    bb_client_close(client);
     bb_request_reset(client->req);
     bb_response_reset(client->res);
 }
@@ -108,7 +113,11 @@ bb_error_t bb_client_send(bb_client_t *client)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
     bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
-    bb_connection_write(client->connection);
+    ssize_t rc = bb_connection_write(client->connection);
+    if (rc < 0)
+    {
+        return BB_ERROR(BB_ERR_IO, "Write failed");
+    }
     return BB_SUCCESS();
 }
 
