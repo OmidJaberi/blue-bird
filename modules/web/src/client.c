@@ -125,7 +125,7 @@ bb_error_t bb_client_receive(bb_client_t *client)
 
     bb_connection_t *conn = client->connection;
 
-    while (!bb_http_request_complete(conn->buffer, conn->buffer_length))
+    while (!bb_http_message_complete(conn->buffer, conn->buffer_length))
     {
         ssize_t n = bb_connection_read(conn);
 

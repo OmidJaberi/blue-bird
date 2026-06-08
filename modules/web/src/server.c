@@ -177,7 +177,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
      * Request incomplete:
      * re-arm READ watcher
      */
-    if (!bb_http_request_complete(connection->buffer, connection->buffer_length))
+    if (!bb_http_message_complete(connection->buffer, connection->buffer_length))
     {
         bb_task_t *read_task = bb_task_create(_bb_client_read_task, data);
 

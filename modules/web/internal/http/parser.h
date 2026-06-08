@@ -8,7 +8,7 @@ extern "C" {
 
 #include <stddef.h>
 
-int bb_http_request_complete(const char *buffer, size_t length);
+int bb_http_message_complete(const char *buffer, size_t length);
 
 
 #ifdef __cplusplus

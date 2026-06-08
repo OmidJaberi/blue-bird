@@ -42,7 +42,7 @@ static size_t parse_content_length(const char *buf, size_t header_len)
     return 0;
 }
 
-int bb_http_request_complete(const char *buf, size_t len)
+int bb_http_message_complete(const char *buf, size_t len)
 {
     if (len < 4)
         return 0;
