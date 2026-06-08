@@ -246,6 +246,10 @@ ssize_t bb_connection_read(bb_connection_t *connection)
 
 ssize_t bb_connection_write(bb_connection_t *connection)
 {
+    if (!connection || !connection->write_buffer)
+    {
+        return -1;
+    }
     while (connection->write_offset < connection->write_length)
     {
         ssize_t n = send(
@@ -265,5 +269,9 @@ ssize_t bb_connection_write(bb_connection_t *connection)
         }
         return -1;
     }
+    free(connection->write_buffer);
+    connection->write_buffer = NULL;
+    connection->write_length = 0;
+    connection->write_offset = 0;
     return 1;
 }

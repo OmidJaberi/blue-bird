@@ -113,7 +113,6 @@ bb_error_t bb_client_send(bb_client_t *client)
     bb_message_set_start_line(bb_request_get_message(client->req), start_line);
     bb_message_serialize(bb_request_get_message(client->req), &client->connection->write_buffer, &client->connection->write_length);
     bb_connection_write(client->connection);
-    free(client->connection->write_buffer);
     return BB_SUCCESS();
 }
 
