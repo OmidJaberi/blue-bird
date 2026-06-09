@@ -32,6 +32,11 @@ typedef struct {
 
 bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 {
+    if (!runtime)
+    {
+        return NULL;
+    }
+
     bb_server_t *server = malloc(sizeof(bb_server_t));
     if (!server)
     {
