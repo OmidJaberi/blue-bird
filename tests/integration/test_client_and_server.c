@@ -911,6 +911,73 @@ void test_client_multiple_reuse(void)
     bb_client_destroy(client);
 }
 
+static volatile int async_done = 0;
+
+static void async_get_cb(bb_client_t *client, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(err.code == 0);
+
+    bb_response_t *res = bb_client_get_response(client);
+
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+
+    async_done = 1;
+}
+
+void test_async_get(void)
+{
+    printf("Testing async GET...\n");
+
+    async_done = 0;
+
+    bb_client_t *client = bb_client_create();
+
+    bb_client_get_async(client, "http://127.0.0.1:8080/", async_get_cb, NULL);
+
+    while (!async_done)
+    {
+        bb_runtime_tick(bb_runtime_default());
+    }
+
+    bb_client_destroy(client);
+}
+
+static volatile int async_completed = 0;
+
+static void async_many_cb(bb_client_t *client, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(err.code == 0);
+
+    bb_response_t *res = bb_client_get_response(client);
+
+    assert(bb_response_get_status(res) == 200);
+    assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+
+    async_completed++;
+    bb_client_destroy(client);
+}
+
+void test_async_many_clients(void)
+{
+    printf("Testing many async clients...\n");
+    const int count = 100;
+    async_completed = 0;
+    for (int i = 0; i < count; i++)
+    {
+        bb_client_t *client = bb_client_create();
+        bb_client_get_async(client, "http://127.0.0.1:8080/", async_many_cb, NULL);
+    }
+    while (async_completed < count)
+    {
+        bb_runtime_tick(bb_runtime_default());
+    }
+}
+
 int main(void)
 {
     pthread_t thread_id;
@@ -951,6 +1018,8 @@ int main(void)
     test_client_reset_reuse();
     test_client_reset_different_host();
     test_client_multiple_reuse();
+    test_async_get();
+    // test_async_many_clients();
 
     printf("HTTP client and server integration tests passed.\n");
     return 0;
