@@ -8,6 +8,8 @@
 #define BB_RUNTIME_MAX_WATCHERS 1024
 #define BB_RUNTIME_MAX_TIMERS 1024
 
+static bb_runtime_t *g_runtime = NULL;
+
 typedef struct {
     int fd;
     int events;
@@ -41,6 +43,15 @@ static uint64_t _bb_runtime_now_ms(void)
     clock_gettime(CLOCK_MONOTONIC, &ts);
 
     return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)ts.tv_nsec / 1000000ULL;
+}
+
+bb_runtime_t *bb_runtime_default(void)
+{
+    if (!g_runtime)
+    {
+        g_runtime = bb_runtime_create();
+    }
+    return g_runtime;
 }
 
 bb_runtime_t *bb_runtime_create(void)

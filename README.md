@@ -150,6 +150,7 @@ Or run test binaries directly from the generated `build/tests/` directory.
 # Example: Minimal HTTP Server
 
 ```c
+#include <blue-bird/runtime/runtime.h>
 #include <blue-bird/web/server.h>
 
 bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
@@ -166,6 +167,7 @@ int main(void)
     bb_server_add_route(server, "GET", "/", root_handler);
     
     bb_server_start(server);
+    bb_runtime_run_default();
     return 0;
 }
 ```

@@ -55,18 +55,6 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     return server;
 }
 
-bb_server_t *bb_server_create(int port)
-{
-    bb_runtime_t *runtime = bb_runtime_create();
-    
-    if (!runtime)
-    {
-        return NULL;
-    }
-
-    return bb_server_create_on_runtime(runtime, port);
-}
-
 static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
@@ -301,7 +289,6 @@ void bb_server_start(bb_server_t *server)
     bb_runtime_watch_fd(server->runtime, server->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
 
     BB_LOG_INFO("Blue-Bird async server started.\n");
-    bb_runtime_run(server->runtime); //temp
 }
 
 void bb_server_destroy(bb_server_t *server)
@@ -309,7 +296,6 @@ void bb_server_destroy(bb_server_t *server)
     bb_route_list_destroy(server->route_list);
     bb_middleware_list_destroy(server->pre_middleware_list);
     bb_middleware_list_destroy(server->post_middleware_list);
-    bb_runtime_destroy(server->runtime); // temp
 }
 
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler)

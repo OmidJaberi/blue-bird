@@ -55,6 +55,7 @@ bb_server_t *server = bb_server_create(8080);
 bb_server_add_route(server, "GET", "/", root_handler);
 
 bb_server_start(server);
+bb_runtime_run_default();
 ```
 
 A route consists of:

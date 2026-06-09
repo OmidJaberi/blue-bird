@@ -2,6 +2,7 @@
 #include "app_middleware.h"
 #include "app_repo.h"
 
+#include <blue-bird/runtime/runtime.h>
 #include <blue-bird/web/server.h>
 #include <blue-bird/log/console_logger.h>
 #include <blue-bird/persist/model/model_sqlite.h>
@@ -35,5 +36,6 @@ int main(void)
     bb_server_add_route(server, "GET", "/list_tasks", list_tasks);
  
     bb_server_start(server);
+    bb_runtime_run_default();
     return 0;
 }

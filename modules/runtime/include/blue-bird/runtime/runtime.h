@@ -14,6 +14,8 @@ extern "C" {
 
 typedef struct bb_runtime bb_runtime_t;
 
+bb_runtime_t *bb_runtime_default(void);
+
 bb_runtime_t *bb_runtime_create(void);
 
 void bb_runtime_destroy(bb_runtime_t *runtime);
@@ -33,6 +35,11 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd);
 int bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task_t *task);
 
 int bb_runtime_set_timeout(bb_runtime_t *runtime, uint64_t timeout_ms, bb_task_t *task);
+
+static inline void bb_runtime_run_default(void)
+{
+    bb_runtime_run(bb_runtime_default());
+}
 
 
 #ifdef __cplusplus

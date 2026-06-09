@@ -108,6 +108,7 @@ void *server(void* arg)
     bb_server_add_route(server, "GET", "/large_response", large_response_handler);
     bb_server_start(server);
 
+    bb_runtime_run_default();
     return NULL;
 }
 
