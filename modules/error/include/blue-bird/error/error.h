@@ -23,6 +23,7 @@ enum {
     BB_ERR_NOT_FOUND,
     BB_ERR_INTERNAL,
     BB_ERR_IO,
+    BB_ERR_NETWORK,
     BB_ERR_UNKNOWN
 };
 
