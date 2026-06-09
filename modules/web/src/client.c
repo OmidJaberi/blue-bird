@@ -7,13 +7,27 @@
 
 struct bb_client {
     bb_connection_t *connection;
-
+    bb_runtime_t *runtime;
     bb_request_t *req;
     bb_response_t *res;
 };
 
-bb_client_t *bb_client_create(void)
+typedef struct {
+
+    bb_client_t *client;
+
+    bb_client_callback_t callback;
+
+    void *userdata;
+
+} _bb_client_task_data_t;
+
+bb_client_t *bb_client_create_on_runtime(bb_runtime_t *runtime)
 {
+    if (!runtime)
+    {
+        return NULL;
+    }
     bb_client_t *client = malloc(sizeof(bb_client_t));
     if (!client)
     {
@@ -33,6 +47,7 @@ bb_client_t *bb_client_create(void)
         return NULL;
     }
     client->connection = NULL;
+    client->runtime = runtime;
     return client;
 }
 
@@ -62,6 +77,17 @@ void bb_client_reset(bb_client_t *client)
     bb_response_reset(client->res);
 }
 
+void bb_client_close(bb_client_t *client)
+{
+    if (!client) return;
+
+    if (client->connection)
+    {
+        bb_connection_destroy(client->connection);
+        client->connection = NULL;
+    }
+}
+
 bb_request_t *bb_client_get_request(bb_client_t *client)
 {
     return client->req;
@@ -72,6 +98,7 @@ bb_response_t *bb_client_get_response(bb_client_t *client)
     return client->res;
 }
 
+// Sync Client:
 bb_error_t bb_client_connect(bb_client_t *client)
 {
     if (!client || !client->req)
@@ -94,7 +121,7 @@ bb_error_t bb_client_connect(bb_client_t *client)
     bb_connection_t *new_conn = bb_connection_connect(host, port_str);
     if (!new_conn)
     {
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to create connection");
+        return BB_ERROR(BB_ERR_NETWORK, "Failed to create connection");
     }
     if (client->connection)
     {
@@ -152,13 +179,107 @@ bb_error_t bb_client_receive(bb_client_t *client)
     return BB_SUCCESS();
 }
 
-void bb_client_close(bb_client_t *client)
-{
-    if (!client) return;
+// Async Client:
+static void _bb_client_read_task(bb_task_t *task, void *userdata);
 
-    if (client->connection)
+static void _bb_client_write_task(bb_task_t *task, void *userdata);
+
+void bb_client_execute_async(bb_client_t *client, bb_client_callback_t callback, void *userdata)
+{
+    const char *host = bb_request_get_host(client->req);
+    int port = bb_request_get_port(client->req);
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", port);
+
+    client->connection = bb_connection_connect(host, port_str);
+    if (!client->connection)
     {
-        bb_connection_destroy(client->connection);
-        client->connection = NULL;
+        callback(client, BB_ERROR(BB_ERR_NETWORK, "Connection failed"), userdata);
+        return;
     }
+
+    _bb_client_task_data_t *data = malloc(sizeof(*data));
+    if (!data)
+    {
+        callback(client, BB_ERROR(BB_ERR_ALLOC, "Allocation failed"), userdata);
+        return;
+    }
+
+    data->client = client;
+    data->callback = callback;
+    data->userdata = userdata;
+
+    bb_task_t *task = bb_task_create(_bb_client_write_task, data);
+
+    bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
+}
+
+static void _bb_client_write_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_client_task_data_t *data = userdata;
+    bb_client_t *client = data->client;
+    bb_connection_t *conn = client->connection;
+
+    if (!conn->write_buffer)
+    {
+        bb_request_serialize(client->req, &conn->write_buffer, &conn->write_length);
+        conn->write_offset = 0;
+    }
+
+    ssize_t rc = bb_connection_write(conn);
+    if (rc < 0)
+    {
+        data->callback(client, BB_ERROR(BB_ERR_IO, "Write failed"), data->userdata);
+        bb_client_close(client);
+        free(data);
+        return;
+    }
+    if (conn->write_offset < conn->write_length)
+    {
+        bb_task_t *next = bb_task_create(_bb_client_write_task, data);
+        bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, next);
+        return;
+    }
+
+    bb_task_t *read_task = bb_task_create(_bb_client_read_task, data);
+    bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read_task);
+}
+
+static void _bb_client_read_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_client_task_data_t *data = userdata;
+    bb_client_t *client = data->client;
+    bb_connection_t *conn = client->connection;
+
+    ssize_t n = bb_connection_read(conn);
+    if (n < 0)
+    {
+        data->callback(client, BB_ERROR(BB_ERR_IO, "Read failed"), data->userdata);
+        bb_client_close(client);
+        free(data);
+        return;
+    }
+
+    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    {
+        bb_task_t *next = bb_task_create(_bb_client_read_task, data);
+        bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
+        return;
+    }
+
+    if (bb_response_parse(conn->buffer, client->res) != 0)
+    {
+        data->callback(client, BB_ERROR(BB_ERR_INTERNAL, "Response parse failed"), data->userdata);
+        bb_client_close(client);
+        free(data);
+        return;
+    }
+
+    data->callback(client, BB_SUCCESS(), data->userdata);
+    bb_client_close(client);
+    free(data);
 }
