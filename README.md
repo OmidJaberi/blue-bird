@@ -18,6 +18,7 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 
 - HTTP server and client
 - routing and middleware
+- authentication and session management
 - JSON parsing and serialization
 - key-value persistence
 - schema-driven object-model persistence
@@ -72,6 +73,15 @@ Blue-Bird is designed for developers who want lower-level control and transparen
 - comments
 - escaped delimiters
 
+## Security
+
+- Password hashing and verification
+- Session management
+- Authentication helpers
+- Configurable session expiration
+- Storage-agnostic authentication APIs
+- Extensible security architecture
+
 ## Utilities
 
 - Full JSON parser and serializer
@@ -100,6 +110,7 @@ blue-bird/
 │   ├── persist/    # Key-value + object-model persistence
 │   ├── template/   # Lightweight templating system
 │   ├── runtime/    # Async event-driven execution system
+│   ├── security/   # Authentication, passwords, sessions
 │   ├── utils/      # JSON, UUID, time, encoding, config
 │   ├── log/        # Logging infrastructure
 │   └── error/      # Error handling primitives
@@ -211,6 +222,7 @@ The framework already includes:
 
 - Async Runtime
 - working HTTP infrastructure
+- authentication and session management
 - persistence systems
 - templating
 - JSON utilities
@@ -229,7 +241,7 @@ Areas of interest include:
 
 - routing improvements
 - WebSockets
-- authentication/session middleware
+- security middleware integrations
 - additional persistence backends
 - documentation and examples
 - performance benchmarking
