@@ -1,4 +1,9 @@
-add_library(bluebird_security)
+add_library(bluebird_security
+    src/auth.c
+    src/password.c
+    src/random.c
+    src/session.c
+)
 
 target_include_directories(bluebird_security
     PUBLIC

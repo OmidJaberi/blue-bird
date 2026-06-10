@@ -22,6 +22,14 @@ typedef struct
     time_t expires_at;
 } bb_session_t;
 
+enum {
+    BB_ERR_INVALID_CREDENTIALS = 1000,
+    BB_ERR_SESSION_EXPIRED,
+    BB_ERR_SESSION_NOT_FOUND,
+    BB_ERR_HASH_FAILED,
+    BB_ERR_RANDOM_FAILED
+} security_error;
+
 bb_error_t bb_session_create(const char *user_id, time_t ttl, bb_session_t *session);
 
 bb_error_t bb_session_get(const char *session_id, bb_session_t *session);
