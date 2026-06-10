@@ -16,3 +16,7 @@ target_link_libraries(bluebird_security
 )
 
 add_library(BlueBird::security ALIAS bluebird_security)
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
