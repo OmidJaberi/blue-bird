@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
+bb_runtime_t *server_runtime;
+
 bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
@@ -97,7 +99,9 @@ bb_error_t large_response_handler(bb_request_t *req, bb_response_t *res)
 void *server(void* arg)
 {
     (void) arg;
-    bb_server_t *server = bb_server_create(8080);
+    server_runtime = bb_runtime_create();
+
+    bb_server_t *server = bb_server_create_on_runtime(server_runtime, 8080);
 
     bb_server_add_route(server, "GET", "/", root_handler);
     bb_server_add_route(server, "GET", "/param/:name", request_param_handler);
@@ -108,7 +112,7 @@ void *server(void* arg)
     bb_server_add_route(server, "GET", "/large_response", large_response_handler);
     bb_server_start(server);
 
-    bb_runtime_run_default();
+    bb_runtime_run(server_runtime);
     return NULL;
 }
 
@@ -1019,8 +1023,11 @@ int main(void)
     test_client_reset_different_host();
     test_client_multiple_reuse();
     test_async_get();
-    // test_async_many_clients();
+    test_async_many_clients();
 
     printf("HTTP client and server integration tests passed.\n");
+
+    bb_runtime_destroy(server_runtime);
+    bb_runtime_destroy(bb_runtime_default());
     return 0;
 }
