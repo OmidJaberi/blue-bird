@@ -49,6 +49,15 @@ Blue-Bird is a modular backend and web framework written in C, focused on:
 
 ---
 
+# Security Module
+
+- [Security Overview](security/overview.md)
+- [Auth](security/auth.md)
+- [Passwords](security/passwords.md)
+- [Sessions](security/sessions.md)
+
+---
+
 # Log Module
 
 - [Log Overview](log/overview.md)
