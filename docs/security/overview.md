@@ -169,3 +169,4 @@ while remaining:
 - [auth.md](auth.md)
 - [passwords.md](passwords.md)
 - [sessions.md](sessions.md)
+- [usage.md](usage.md)
