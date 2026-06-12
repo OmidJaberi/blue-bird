@@ -963,7 +963,6 @@ static void async_many_cb(bb_client_t *client, bb_error_t err, void *userdata)
     assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
 
     async_completed++;
-    bb_client_destroy(client);
 }
 
 void test_async_many_clients(void)
@@ -971,14 +970,19 @@ void test_async_many_clients(void)
     printf("Testing many async clients...\n");
     const int count = 100;
     async_completed = 0;
+    bb_client_t **client_list = malloc((size_t)count);
     for (int i = 0; i < count; i++)
     {
-        bb_client_t *client = bb_client_create();
-        bb_client_get_async(client, "http://127.0.0.1:8080/", async_many_cb, NULL);
+        client_list[i] = bb_client_create();
+        bb_client_get_async(client_list[i], "http://127.0.0.1:8080/", async_many_cb, NULL);
     }
     while (async_completed < count)
     {
         bb_runtime_tick(bb_runtime_default());
+    }
+    for (int i = 0; i < count; i++)
+    {
+        bb_client_destroy(client_list[i]);
     }
 }
 
