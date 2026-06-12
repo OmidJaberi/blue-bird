@@ -765,7 +765,8 @@ void test_partial_request(void)
     addr.sin_port = htons(8080);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    assert(rc == 0);
 
     send(fd, "GET / HTTP/1.1\r\n", 17, 0);
 
