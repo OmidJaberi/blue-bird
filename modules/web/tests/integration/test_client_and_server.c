@@ -971,7 +971,7 @@ void test_async_many_clients(void)
     printf("Testing many async clients...\n");
     const int count = 100;
     async_completed = 0;
-    bb_client_t **client_list = malloc((size_t)count);
+    bb_client_t **client_list = malloc(sizeof(bb_client_t *) * (size_t)count);
     for (int i = 0; i < count; i++)
     {
         client_list[i] = bb_client_create();
