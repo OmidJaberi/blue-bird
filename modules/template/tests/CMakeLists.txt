@@ -1,10 +1,10 @@
-file(GLOB_RECURSE WEB_TEST_SOURCES
+file(GLOB_RECURSE TEMPLATE_TEST_SOURCES
     CONFIGURE_DEPENDS
     unit/*.c
     integration/*.c
 )
 
-foreach(test_file ${WEB_TEST_SOURCES})
+foreach(test_file ${TEMPLATE_TEST_SOURCES})
 
     get_filename_component(test_name
         ${test_file}
@@ -23,12 +23,12 @@ foreach(test_file ${WEB_TEST_SOURCES})
         set(test_category "integration")
     else()
         message(FATAL_ERROR
-            "Unknown web test category for ${test_file}"
+            "Unknown template test category for ${test_file}"
         )
     endif()
 
     # Unique target name
-    set(test_target "web_${test_name}")
+    set(test_target "template_${test_name}")
 
     add_executable(${test_target}
         ${test_file}
@@ -36,7 +36,8 @@ foreach(test_file ${WEB_TEST_SOURCES})
 
     target_link_libraries(${test_target}
         PRIVATE
-            bluebird_web
+            bluebird_template
+            bluebird_utils # temporary
     )
 
     # Allow access to internal headers
@@ -55,7 +56,7 @@ foreach(test_file ${WEB_TEST_SOURCES})
     )
 
     add_test(
-        NAME web.${test_name}
+        NAME template.${test_name}
         COMMAND $<TARGET_FILE:${test_target}>
     )
 

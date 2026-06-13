@@ -17,3 +17,7 @@ target_link_libraries(bluebird_utils
 )
 
 add_library(BlueBird::utils ALIAS bluebird_utils)
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

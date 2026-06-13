@@ -21,3 +21,7 @@ target_link_libraries(bluebird_template
 )
 
 add_library(BlueBird::template ALIAS bluebird_template)
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

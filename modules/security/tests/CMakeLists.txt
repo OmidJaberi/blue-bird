@@ -1,14 +1,31 @@
-file(GLOB_RECURSE WEB_TEST_SOURCES
+file(GLOB_RECURSE SECURITY_TEST_SOURCES
     CONFIGURE_DEPENDS
-    "*.c"
+    unit/*.c
+    integration/*.c
 )
 
-foreach(test_file ${WEB_TEST_SOURCES})
+foreach(test_file ${SECURITY_TEST_SOURCES})
 
     get_filename_component(test_name
         ${test_file}
         NAME_WE
     )
+
+    file(RELATIVE_PATH rel_path
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${test_file}
+    )
+
+    # Determine category from path
+    if(rel_path MATCHES "^unit/")
+        set(test_category "unit")
+    elseif(rel_path MATCHES "^integration/")
+        set(test_category "integration")
+    else()
+        message(FATAL_ERROR
+            "Unknown security test category for ${test_file}"
+        )
+    endif()
 
     # Unique target name
     set(test_target "security_${test_name}")
@@ -28,14 +45,15 @@ foreach(test_file ${WEB_TEST_SOURCES})
             ${CMAKE_CURRENT_SOURCE_DIR}/../internal
     )
 
-    # Put binaries in build/tests/security
+    # Output:
+    # build/tests/unit/
+    # build/tests/integration/
     set_target_properties(${test_target}
         PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY
-            "${CMAKE_BINARY_DIR}/tests/security"
+            "${CMAKE_BINARY_DIR}/tests/${test_category}"
     )
 
-    # Register with CTest using the actual executable path
     add_test(
         NAME security.${test_name}
         COMMAND $<TARGET_FILE:${test_target}>

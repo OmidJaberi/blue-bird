@@ -28,3 +28,7 @@ target_link_libraries(bluebird_persist
     PRIVATE
         SQLite::SQLite3
 )
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
