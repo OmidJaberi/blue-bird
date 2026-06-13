@@ -42,6 +42,8 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Tests
+include(cmake/BlueBirdTests.cmake)
+
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
