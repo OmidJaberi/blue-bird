@@ -60,6 +60,8 @@ void bb_logger_free_persist_context(bb_logger_t *logger)
 {
     if (!logger || !logger->userdata)
         return;
+
+    free(logger->userdata);
     logger->userdata = NULL;
     logger->write = NULL;
 }
