@@ -12,7 +12,6 @@ target_include_directories(bluebird_log
 target_link_libraries(bluebird_log
     PUBLIC
         bluebird_error
-    PRIVATE
         bluebird_persist
 )
 
