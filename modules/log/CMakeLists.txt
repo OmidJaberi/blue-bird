@@ -17,3 +17,7 @@ target_link_libraries(bluebird_log
 )
 
 add_library(BlueBird::log ALIAS bluebird_log)
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
