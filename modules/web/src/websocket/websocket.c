@@ -1,4 +1,5 @@
-#include "websocket.h"
+#include "blue-bird/web/websocket/websocket.h"
+#include "blue-bird/error/error.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -38,4 +39,85 @@ void bb_ws_frame_destroy(bb_ws_frame_t *frame)
     free(frame->payload);
 
     memset(frame, 0, sizeof(*frame));
+}
+
+bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame)
+{
+    if (!ws || !frame)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
+    }
+
+    bb_connection_t *conn = ws->connection;
+
+    if (conn->buffer_length < 2)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
+    }
+
+    uint8_t *buf = (uint8_t *)conn->buffer;
+
+    frame->fin = (buf[0] >> 7) & 1;
+    frame->opcode = buf[0] & 0x0F;
+
+    frame->masked = (buf[1] >> 7) & 1;
+
+    uint64_t payload_len = buf[1] & 0x7F;
+
+    size_t offset = 2;
+
+    if (payload_len == 126)
+    {
+        if (conn->buffer_length < 4)
+        {
+            return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
+        }
+
+        payload_len =
+            ((uint16_t)buf[2] << 8) |
+            ((uint16_t)buf[3]);
+
+        offset += 2;
+    }
+
+    frame->payload_length = payload_len;
+
+    if (frame->masked)
+    {
+        if (conn->buffer_length < offset + 4)
+        {
+            return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
+        }
+
+        memcpy(frame->masking_key, buf + offset, 4);
+
+        offset += 4;
+    }
+
+    if (conn->buffer_length < offset + payload_len)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
+    }
+
+    frame->payload = malloc(payload_len + 1);
+
+    if (!frame->payload)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
+
+    memcpy(frame->payload, buf + offset, payload_len);
+
+    if (frame->masked)
+    {
+        for (uint64_t i = 0; i < payload_len; ++i)
+        {
+            frame->payload[i] ^=
+                frame->masking_key[i % 4];
+        }
+    }
+
+    frame->payload[payload_len] = '\0';
+
+    return BB_SUCCESS();
 }
