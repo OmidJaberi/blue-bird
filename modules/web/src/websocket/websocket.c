@@ -121,3 +121,49 @@ bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame)
 
     return BB_SUCCESS();
 }
+
+bb_error_t bb_websocket_write_frame(bb_websocket_t *ws, const bb_ws_frame_t *frame)
+{
+    if (!ws || !frame)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
+    }
+
+    bb_connection_t *conn = ws->connection;
+
+    size_t size = 2 + (frame->payload_length >= 126 ? 2 : 0) + frame->payload_length;
+
+    char *buffer = malloc(size);
+
+    if (!buffer)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
+
+    uint8_t *out = (uint8_t *)buffer;
+
+    size_t pos = 0;
+
+    out[pos++] = 0x80 | (frame->opcode & 0x0F);
+
+    if (frame->payload_length < 126)
+    {
+        out[pos++] = frame->payload_length;
+    }
+    else
+    {
+        out[pos++] = 126;
+
+        out[pos++] = (frame->payload_length >> 8) & 0xFF;
+
+        out[pos++] = frame->payload_length & 0xFF;
+    }
+
+    memcpy(out + pos, frame->payload, frame->payload_length);
+
+    conn->write_buffer = buffer;
+    conn->write_length = size;
+    conn->write_offset = 0;
+
+    return BB_SUCCESS();
+}
