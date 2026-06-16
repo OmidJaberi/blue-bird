@@ -1,6 +1,7 @@
 #include "blue-bird/web/websocket/websocket.h"
 #include "blue-bird/error/error.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -225,4 +226,42 @@ bb_error_t bb_websocket_send_pong(bb_websocket_t *ws)
 bb_error_t bb_websocket_send_close(bb_websocket_t *ws)
 {
     return _bb_websocket_send_control(ws, BB_WS_CLOSE, NULL, 0);
+}
+
+bool bb_websocket_is_upgrade_request(bb_request_t *req)
+{
+    if (!req)
+    {
+        return false;
+    }
+
+    const char *upgrade = bb_request_get_header(req, "Upgrade");
+
+    const char *connection = bb_request_get_header(req, "Connection");
+
+    const char *key = bb_request_get_header(req, "Sec-WebSocket-Key");
+
+    const char *version = bb_request_get_header(req, "Sec-WebSocket-Version");
+
+    if (!upgrade || !connection || !key || !version)
+    {
+        return false;
+    }
+
+    if (strcasecmp(upgrade, "websocket") != 0)
+    {
+        return false;
+    }
+
+    if (strstr(connection, "Upgrade") == NULL && strstr(connection, "upgrade") == NULL)
+    {
+        return false;
+    }
+
+    if (strcmp(version, "13") != 0)
+    {
+        return false;
+    }
+
+    return true;
 }

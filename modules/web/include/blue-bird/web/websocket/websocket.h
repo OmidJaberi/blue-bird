@@ -7,9 +7,11 @@ extern "C" {
 
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "connection.h"
+#include "blue-bird/web/http/handler.h"
 #include "blue-bird/error/error.h"
 
 typedef enum {
@@ -60,6 +62,10 @@ bb_error_t bb_websocket_send_ping(bb_websocket_t *ws);
 bb_error_t bb_websocket_send_pong(bb_websocket_t *ws);
 
 bb_error_t bb_websocket_send_close(bb_websocket_t *ws);
+
+bool bb_websocket_is_upgrade_request(bb_request_t *req);
+
+bb_error_t bb_websocket_accept(bb_request_t *req, bb_response_t *res);
 
 
 #ifdef __cplusplus
