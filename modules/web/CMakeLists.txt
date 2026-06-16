@@ -12,6 +12,8 @@ add_library(bluebird_web
 
     src/http/client_request.c
     src/http/server_request.c
+
+    src/websocket/websocket.c
 )
 
 target_include_directories(bluebird_web

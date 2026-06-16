@@ -167,3 +167,62 @@ bb_error_t bb_websocket_write_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
 
     return BB_SUCCESS();
 }
+
+bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
+{
+    bb_ws_frame_t frame = {0};
+
+    frame.fin = 1;
+    frame.opcode = BB_WS_TEXT;
+
+    frame.payload = (char *)text;
+    frame.payload_length = strlen(text);
+
+    return bb_websocket_write_frame(ws, &frame);
+}
+
+bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t length)
+{
+    if (!data && length > 0)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Invalid payload");
+    }
+
+    bb_ws_frame_t frame = {0};
+
+    frame.fin = 1;
+    frame.opcode = BB_WS_BINARY;
+
+    frame.payload = (char *)data;
+    frame.payload_length = length;
+
+    return bb_websocket_write_frame(ws, &frame);
+}
+
+static bb_error_t _bb_websocket_send_control(bb_websocket_t *ws, bb_ws_opcode_t opcode, const void *payload, size_t length)
+{
+    bb_ws_frame_t frame = {0};
+
+    frame.fin = 1;
+    frame.opcode = opcode;
+
+    frame.payload = (char *)payload;
+    frame.payload_length = length;
+
+    return bb_websocket_write_frame(ws, &frame);
+}
+
+bb_error_t bb_websocket_send_ping(bb_websocket_t *ws)
+{
+    return _bb_websocket_send_control(ws, BB_WS_PING, NULL, 0);
+}
+
+bb_error_t bb_websocket_send_pong(bb_websocket_t *ws)
+{
+    return _bb_websocket_send_control(ws, BB_WS_PONG, NULL, 0);
+}
+
+bb_error_t bb_websocket_send_close(bb_websocket_t *ws)
+{
+    return _bb_websocket_send_control(ws, BB_WS_CLOSE, NULL, 0);
+}
