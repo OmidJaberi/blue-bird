@@ -1,0 +1,301 @@
+#include "blue-bird/web/websocket/websocket.h"
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static bb_connection_t *create_test_connection(void)
+{
+    bb_connection_t *conn = calloc(1, sizeof(*conn));
+
+    assert(conn);
+
+    conn->fd = -1;
+
+    return conn;
+}
+
+static void destroy_test_connection(bb_connection_t *conn)
+{
+    if (!conn)
+    {
+        return;
+    }
+
+    free(conn->buffer);
+    free(conn->write_buffer);
+    free(conn);
+}
+
+void test_websocket_create_destroy(void)
+{
+    printf("\tTesting websocket create/destroy...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    assert(ws != NULL);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_send_text_frame(void)
+{
+    printf("\tTesting text frame serialization...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    bb_error_t err = bb_websocket_send_text(ws, "hello");
+
+    assert(err.code == BB_OK);
+
+    assert(conn->write_buffer != NULL);
+
+    unsigned char *buf = (unsigned char *)conn->write_buffer;
+
+    assert(buf[0] == 0x81);
+
+    assert(buf[1] == 5);
+
+    assert(memcmp(buf + 2, "hello", 5) == 0);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_send_binary_frame(void)
+{
+    printf("\tTesting binary frame serialization...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    unsigned char payload[] =
+    {
+        0x01,
+        0x02,
+        0x03,
+        0x04
+    };
+
+    bb_error_t err = bb_websocket_send_binary(ws, payload, sizeof(payload));
+
+    assert(err.code == BB_OK);
+
+    unsigned char *buf = (unsigned char *)conn->write_buffer;
+
+    assert(buf[0] == 0x82);
+
+    assert(buf[1] == 4);
+
+    assert(memcmp(buf + 2, payload, 4) == 0);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_send_ping(void)
+{
+    printf("\tTesting ping frame...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    bb_error_t err = bb_websocket_send_ping(ws);
+
+    assert(err.code == BB_OK);
+
+    unsigned char *buf = (unsigned char *)conn->write_buffer;
+
+    assert(buf[0] == 0x89);
+
+    assert(buf[1] == 0);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_send_pong(void)
+{
+    printf("\tTesting pong frame...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    bb_error_t err = bb_websocket_send_pong(ws);
+
+    assert(err.code == BB_OK);
+
+    unsigned char *buf = (unsigned char *)conn->write_buffer;
+
+    assert(buf[0] == 0x8A);
+
+    assert(buf[1] == 0);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_send_close(void)
+{
+    printf("\tTesting close frame...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    bb_error_t err = bb_websocket_send_close(ws);
+
+    assert(err.code == BB_OK);
+
+    unsigned char *buf = (unsigned char *)conn->write_buffer;
+
+    assert(buf[0] == 0x88);
+
+    assert(buf[1] == 0);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_parse_unmasked_text_frame(void)
+{
+    printf("\tTesting frame parsing...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    conn->buffer = malloc(7);
+
+    memcpy(conn->buffer, "\x81\x05hello", 7);
+
+    conn->buffer_length = 7;
+    conn->buffer_capacity = 7;
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    bb_ws_frame_t frame = {0};
+
+    bb_error_t err = bb_websocket_read_frame(ws, &frame);
+
+    assert(err.code == BB_OK);
+
+    assert(frame.fin == 1);
+
+    assert(frame.opcode == BB_WS_TEXT);
+
+    assert(frame.payload_length == 5);
+
+    assert(strcmp(frame.payload, "hello") == 0);
+
+    bb_ws_frame_destroy(&frame);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_parse_masked_text_frame(void)
+{
+    printf("\tTesting masked frame parsing...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    unsigned char frame_bytes[] =
+    {
+        0x81,
+        0x85,
+
+        0x37,
+        0xFA,
+        0x21,
+        0x3D,
+
+        0x7F,
+        0x9F,
+        0x4D,
+        0x51,
+        0x58
+    };
+
+    conn->buffer = malloc(sizeof(frame_bytes));
+
+    memcpy(conn->buffer, frame_bytes, sizeof(frame_bytes));
+
+    conn->buffer_length = sizeof(frame_bytes);
+
+    conn->buffer_capacity = sizeof(frame_bytes);
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    bb_ws_frame_t frame = {0};
+
+    bb_error_t err = bb_websocket_read_frame(ws, &frame);
+
+    assert(err.code == BB_OK);
+
+    assert(frame.opcode == BB_WS_TEXT);
+
+    assert(strcmp(frame.payload, "Hello") == 0);
+
+    bb_ws_frame_destroy(&frame);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
+void test_invalid_arguments(void)
+{
+    printf("\tTesting invalid arguments...\n");
+
+    bb_error_t err;
+
+    err = bb_websocket_send_text(NULL, "hello");
+
+    assert(err.code != BB_OK);
+
+    err = bb_websocket_send_binary(NULL, "abc", 3);
+
+    assert(err.code != BB_OK);
+}
+
+int main(void)
+{
+    printf("Running WebSocket tests...\n");
+
+    test_websocket_create_destroy();
+
+    test_send_text_frame();
+
+    test_send_binary_frame();
+
+    test_send_ping();
+
+    test_send_pong();
+
+    test_send_close();
+
+    test_parse_unmasked_text_frame();
+
+    test_parse_masked_text_frame();
+
+    test_invalid_arguments();
+
+    printf("All tests passed.\n");
+
+    return 0;
+}
