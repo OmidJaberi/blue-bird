@@ -273,6 +273,19 @@ void test_invalid_arguments(void)
     assert(err.code != BB_OK);
 }
 
+void test_websocket_accept_key(void)
+{
+    printf("\tTesting websocket accept key...\n");
+
+    char *accept = bb_websocket_accept_key("dGhlIHNhbXBsZSBub25jZQ==");
+
+    assert(accept != NULL);
+
+    assert(strcmp(accept, "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=") == 0);
+
+    free(accept);
+}
+
 int main(void)
 {
     printf("Running WebSocket tests...\n");
@@ -294,6 +307,8 @@ int main(void)
     test_parse_masked_text_frame();
 
     test_invalid_arguments();
+
+    test_websocket_accept_key();
 
     printf("All tests passed.\n");
 
