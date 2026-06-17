@@ -65,6 +65,8 @@ bb_error_t bb_websocket_send_close(bb_websocket_t *ws);
 
 bool bb_websocket_is_upgrade_request(bb_request_t *req);
 
+char *bb_websocket_accept_key(const char *client_key);
+
 bb_error_t bb_websocket_accept(bb_request_t *req, bb_response_t *res);
 
 
