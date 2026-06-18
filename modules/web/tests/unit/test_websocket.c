@@ -286,6 +286,60 @@ void test_websocket_accept_key(void)
     free(accept);
 }
 
+void test_parse_multiple_frames(void)
+{
+    printf("\tTesting multiple frames...\n");
+
+    bb_connection_t *conn = create_test_connection();
+
+    unsigned char frames[] =
+    {
+        0x81, 0x05,
+        'h','e','l','l','o',
+
+        0x81, 0x05,
+        'w','o','r','l','d'
+    };
+
+    conn->buffer = malloc(sizeof(frames));
+
+    memcpy(conn->buffer, frames, sizeof(frames));
+
+    conn->buffer_length = sizeof(frames);
+
+    conn->buffer_capacity = sizeof(frames);
+
+    bb_websocket_t *ws = bb_websocket_create(conn);
+
+    bb_ws_frame_t frame1 = {0};
+
+    bb_error_t err = bb_websocket_read_frame(ws, &frame1);
+
+    assert(err.code == BB_OK);
+
+    assert(strcmp(frame1.payload, "hello") == 0);
+
+    bb_ws_frame_destroy(&frame1);
+
+    assert(conn->buffer_length == 7);
+
+    bb_ws_frame_t frame2 = {0};
+
+    err = bb_websocket_read_frame(ws, &frame2);
+
+    assert(err.code == BB_OK);
+
+    assert(strcmp(frame2.payload, "world") == 0);
+
+    bb_ws_frame_destroy(&frame2);
+
+    assert(conn->buffer_length == 0);
+
+    bb_websocket_destroy(ws);
+
+    destroy_test_connection(conn);
+}
+
 int main(void)
 {
     printf("Running WebSocket tests...\n");
@@ -309,6 +363,8 @@ int main(void)
     test_invalid_arguments();
 
     test_websocket_accept_key();
+
+    test_parse_multiple_frames();
 
     printf("All tests passed.\n");
 
