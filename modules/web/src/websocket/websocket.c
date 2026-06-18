@@ -122,6 +122,20 @@ bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame)
 
     frame->payload[payload_len] = '\0';
 
+    /*
+     * Consume frame bytes from connection buffer.
+     */
+    size_t consumed = offset + payload_len;
+
+    size_t remaining = conn->buffer_length - consumed;
+
+    if (remaining > 0)
+    {
+        memmove(conn->buffer, conn->buffer + consumed, remaining);
+    }
+
+    conn->buffer_length = remaining;
+
     return BB_SUCCESS();
 }
 
