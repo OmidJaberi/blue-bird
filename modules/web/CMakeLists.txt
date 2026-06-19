@@ -15,6 +15,7 @@ add_library(bluebird_web
 
     src/websocket/websocket.c
     src/websocket/message.c
+    src/websocket/context.c
 )
 
 target_include_directories(bluebird_web
