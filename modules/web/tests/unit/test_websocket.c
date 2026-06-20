@@ -1,4 +1,5 @@
 #include "blue-bird/web/websocket/websocket.h"
+#include "websocket/websocket_internal.h"
 
 #include <assert.h>
 #include <stdio.h>

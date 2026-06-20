@@ -4,6 +4,8 @@
 #include "blue-bird/web/websocket/context.h"
 #include "blue-bird/web/websocket/websocket.h"
 
+#include "websocket_internal.h"
+
 struct bb_ws_context {
     bb_websocket_t *websocket;
 };

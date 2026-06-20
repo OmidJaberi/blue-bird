@@ -1,6 +1,6 @@
 #include "blue-bird/web/websocket/context.h"
 
-#include "websocket/context.h"
+#include "websocket/context_internal.h"
 
 #include <string.h>
 
