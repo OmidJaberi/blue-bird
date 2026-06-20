@@ -14,6 +14,11 @@ extern "C" {
 #include "blue-bird/web/http/handler.h"
 #include "blue-bird/error/error.h"
 
+#include "message.h"
+#include "context.h"
+
+typedef bb_error_t (*bb_ws_handler_cb)(bb_ws_context_t *ctx, const bb_ws_message_t *message);
+
 typedef enum {
     BB_WS_CONTINUATION = 0x0,
     BB_WS_TEXT         = 0x1,
