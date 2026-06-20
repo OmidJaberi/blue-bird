@@ -31,18 +31,6 @@ void bb_websocket_destroy(bb_websocket_t *ws)
     free(ws);
 }
 
-void bb_ws_frame_destroy(bb_ws_frame_t *frame)
-{
-    if (!frame)
-    {
-        return;
-    }
-
-    free(frame->payload);
-
-    memset(frame, 0, sizeof(*frame));
-}
-
 bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame)
 {
     if (!ws || !frame)

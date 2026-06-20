@@ -5,15 +5,6 @@
 #include "websocket/frame.h"
 #include "blue-bird/error/error.h"
 
-typedef enum {
-    BB_WS_CONTINUATION = 0x0,
-    BB_WS_TEXT         = 0x1,
-    BB_WS_BINARY       = 0x2,
-    BB_WS_CLOSE        = 0x8,
-    BB_WS_PING         = 0x9,
-    BB_WS_PONG         = 0xA
-} bb_ws_opcode_t;
-
 typedef struct bb_websocket {
     bb_connection_t *connection;
 } bb_websocket_t;
