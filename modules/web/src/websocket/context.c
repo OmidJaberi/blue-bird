@@ -4,6 +4,31 @@
 
 #include <string.h>
 
+bb_ws_context_t *bb_ws_context_create(bb_websocket_t *websocket)
+{
+    if (!websocket)
+    {
+        return NULL;
+    }
+
+    bb_ws_context_t *ctx =
+        malloc(sizeof(*ctx));
+
+    if (!ctx)
+    {
+        return NULL;
+    }
+
+    ctx->websocket = websocket;
+
+    return ctx;
+}
+
+void bb_ws_context_destroy(bb_ws_context_t *ctx)
+{
+    free(ctx);
+}
+
 bb_error_t bb_ws_send_text(bb_ws_context_t *ctx, const char *text)
 {
     if (!ctx || !text)
