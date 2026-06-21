@@ -5,6 +5,10 @@
 
 bb_error_t bb_ws_frame_to_message(const bb_ws_frame_t *frame, bb_ws_message_t *message)
 {
+    if (!frame || !message)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
+    }
     switch (frame->opcode)
     {
         case BB_WS_TEXT:
