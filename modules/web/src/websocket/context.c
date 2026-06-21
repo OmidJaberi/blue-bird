@@ -2,7 +2,7 @@
 
 #include "websocket/context_internal.h"
 
-#include <string.h>
+#include <stdlib.h>
 
 bb_ws_context_t *bb_ws_context_create(bb_websocket_t *websocket)
 {
@@ -20,6 +20,7 @@ bb_ws_context_t *bb_ws_context_create(bb_websocket_t *websocket)
     }
 
     ctx->websocket = websocket;
+    ctx->userdata = NULL;
 
     return ctx;
 }
@@ -65,20 +66,20 @@ bb_error_t bb_ws_close(bb_ws_context_t *ctx)
 
 void *bb_ws_userdata(bb_ws_context_t *ctx)
 {
-    if (!ctx || !ctx->websocket)
+    if (!ctx)
     {
         return NULL;
     }
 
-    return ctx->websocket->connection->userdata;
+    return ctx->userdata;
 }
 
 void bb_ws_set_userdata(bb_ws_context_t *ctx, void *userdata)
 {
-    if (!ctx || !ctx->websocket)
+    if (!ctx)
     {
         return;
     }
 
-    ctx->websocket->connection->userdata =userdata;
+    ctx->userdata = userdata;
 }

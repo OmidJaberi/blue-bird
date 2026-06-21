@@ -6,6 +6,7 @@
 
 struct bb_ws_context {
     bb_websocket_t *websocket;
+    void *userdata;
 };
 
 bb_ws_context_t *bb_ws_context_create(bb_websocket_t *websocket);
