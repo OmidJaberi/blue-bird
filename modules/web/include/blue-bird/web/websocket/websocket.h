@@ -13,7 +13,6 @@ extern "C" {
 #include "blue-bird/web/http/handler.h"
 #include "blue-bird/error/error.h"
 
-#include "connection.h"
 #include "message.h"
 #include "context.h"
 
