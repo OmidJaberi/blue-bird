@@ -39,6 +39,14 @@ bb_error_t handler_user(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+static bb_error_t websocket_handler(bb_ws_context_t *ctx, const bb_ws_message_t *message)
+{
+    (void) ctx;
+    (void) message;
+
+    return BB_SUCCESS();
+}
+
 //handle_request
 static void _handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_response_t *res)
 {
@@ -46,7 +54,10 @@ static void _handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_r
 
     if (match)
     {
-        bb_route_get_http_handler(match)(req, res);
+        if (bb_route_get_type(match) == BB_ROUTE_HTTP)
+        {
+            bb_route_get_http_handler(match)(req, res);
+        }
     }
     else
     {
@@ -133,12 +144,86 @@ void test_route_with_param(void)
     bb_response_destroy(res);
 }
 
+void test_http_route_type(void)
+{
+    printf("Testing Router: HTTP route type...\n");
+
+    bb_route_list_t *route_list = bb_route_list_create();
+
+    bb_request_t *req = bb_request_server_create();
+
+    bb_route_list_add_http(route_list, "GET", "/hello", handler_hello_get);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_path(req, "/hello");
+
+    bb_route_t *route = bb_route_list_match(route_list, req);
+
+    assert(route != NULL);
+
+    assert(bb_route_get_type(route) == BB_ROUTE_HTTP);
+
+    assert(bb_route_get_http_handler(route) == handler_hello_get);
+
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+}
+
+void test_websocket_route_type(void)
+{
+    printf("Testing Router: WebSocket route type...\n");
+
+    bb_route_list_t *route_list = bb_route_list_create();
+
+    bb_request_t *req = bb_request_server_create();
+
+    bb_route_list_add_websocket(route_list, "/chat", websocket_handler);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_path(req, "/chat");
+
+    bb_route_t *route = bb_route_list_match(route_list, req);
+
+    assert(route != NULL);
+
+    assert(bb_route_get_type(route) == BB_ROUTE_WEBSOCKET);
+
+    assert(bb_route_get_websocket_handler(route) == websocket_handler);
+
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+}
+
+void test_websocket_route_only_matches_get(void)
+{
+    printf("Testing Router: websocket GET only...\n");
+
+    bb_route_list_t *route_list = bb_route_list_create();
+
+    bb_request_t *req = bb_request_server_create();
+
+    bb_route_list_add_websocket(route_list, "/chat", websocket_handler);
+
+    bb_request_set_method(req, "POST");
+    bb_request_set_path(req, "/chat");
+
+    bb_route_t *route = bb_route_list_match(route_list, req);
+
+    assert(route == NULL);
+
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+}
+
 int main(void)
 {
     test_route_match_get();
     test_route_match_post();
     test_route_not_found();
     test_route_with_param();
+    test_http_route_type();
+    test_websocket_route_type();
+    test_websocket_route_only_matches_get();
     printf("All Router tests passed.\n");
     return 0;
 }
