@@ -34,7 +34,7 @@ struct BBJsonNode {
             _bb_hash_table_node_t *order_head;
             _bb_hash_table_node_t *order_tail;
         } object;
-    } value;
+    };
 };
 
 bb_json_t *bb_json_create(bb_json_node_type_t type)
@@ -50,22 +50,22 @@ bb_json_t *bb_json_create(bb_json_node_type_t type)
     {
         case BB_JSON_OBJECT:
         {
-            json->value.object.bucket_count = BB_JSON_INITIAL_BUCKET_COUNT;
-            json->value.object.item_count = 0;
-            json->value.object.buckets = calloc(json->value.object.bucket_count, sizeof(*json->value.object.buckets));
-            json->value.object.order_head = NULL;
-            json->value.object.order_tail = NULL;
+            json->object.bucket_count = BB_JSON_INITIAL_BUCKET_COUNT;
+            json->object.item_count = 0;
+            json->object.buckets = calloc(json->object.bucket_count, sizeof(*json->object.buckets));
+            json->object.order_head = NULL;
+            json->object.order_tail = NULL;
             break;
         }
         case BB_JSON_ARRAY:
         {
-            json->value.dynamic_array.alloc_size = 0;
-            json->value.dynamic_array.array = NULL;
+            json->dynamic_array.alloc_size = 0;
+            json->dynamic_array.array = NULL;
             break;
         }
         case BB_JSON_TEXT:
         {
-            json->value.text_val = NULL;
+            json->text_val = NULL;
             break;
         }
         default:
@@ -84,10 +84,10 @@ void bb_json_destroy(bb_json_t *json)
     {
         case BB_JSON_TEXT:
         {
-            if (json->value.text_val)
+            if (json->text_val)
             {
-                free(json->value.text_val);
-                json->value.text_val = NULL;
+                free(json->text_val);
+                json->text_val = NULL;
             }
             break;
         }
@@ -95,19 +95,19 @@ void bb_json_destroy(bb_json_t *json)
         {
             for (size_t i = 0; i < json->size; i++)
             {
-                if (json->value.dynamic_array.array[i])
+                if (json->dynamic_array.array[i])
                 {
-                    bb_json_destroy(json->value.dynamic_array.array[i]);
+                    bb_json_destroy(json->dynamic_array.array[i]);
                 }
             }
-            if (json->value.dynamic_array.array)
-                free(json->value.dynamic_array.array);
-            json->value.dynamic_array.array = NULL;
+            if (json->dynamic_array.array)
+                free(json->dynamic_array.array);
+            json->dynamic_array.array = NULL;
             break;
         }
         case BB_JSON_OBJECT:
         {
-            _bb_hash_table_node_t *node = json->value.object.order_head;
+            _bb_hash_table_node_t *node = json->object.order_head;
             while (node)
             {
                 _bb_hash_table_node_t *next = node->order_next;
@@ -116,12 +116,12 @@ void bb_json_destroy(bb_json_t *json)
                 free(node);
                 node = next;
             }
-            free(json->value.object.buckets);
-            json->value.object.buckets = NULL;
-            json->value.object.bucket_count = 0;
-            json->value.object.item_count = 0;
-            json->value.object.order_head = NULL;
-            json->value.object.order_tail = NULL;
+            free(json->object.buckets);
+            json->object.buckets = NULL;
+            json->object.bucket_count = 0;
+            json->object.item_count = 0;
+            json->object.order_head = NULL;
+            json->object.order_tail = NULL;
             break;
         }
         default:
@@ -151,78 +151,78 @@ bb_json_node_type_t bb_json_get_type(bb_json_t *json)
 void bb_json_set_value_bool(bb_json_t *json, bool value)
 {
     BB_ASSERT(json->type == BB_JSON_BOOL, "Invalid JSON type.");
-    json->value.bool_val = value;
+    json->bool_val = value;
 }
 
 void bb_json_set_value_integer(bb_json_t *json, int value)
 {
     BB_ASSERT(json->type == BB_JSON_INT, "Invalid JSON type.");
-    json->value.int_val = value;
+    json->int_val = value;
 }
 
 void bb_json_set_value_real(bb_json_t *json, float value)
 {
     BB_ASSERT(json->type == BB_JSON_REAL, "Invalid JSON type.");
-    json->value.real_val = value;
+    json->real_val = value;
 }
 
 void bb_json_set_value_text(bb_json_t *json, const char *value)
 {
     BB_ASSERT(json->type == BB_JSON_TEXT, "Invalid JSON type.");
-    if (json->value.text_val)
+    if (json->text_val)
     {
-        free(json->value.text_val);
-        json->value.text_val = NULL;
+        free(json->text_val);
+        json->text_val = NULL;
         json->size = 0;
     }
     if (!value)
         return;
     size_t len = strlen(value);
-    json->value.text_val = (char *)malloc(len + 1);
-    if (!json->value.text_val) return; // malloc failed
-    memcpy(json->value.text_val, value, len);
-    json->value.text_val[len] = '\0';
+    json->text_val = (char *)malloc(len + 1);
+    if (!json->text_val) return; // malloc failed
+    memcpy(json->text_val, value, len);
+    json->text_val[len] = '\0';
     json->size = len;
 }
 
 bool bb_json_get_value_bool(bb_json_t *json)
 {
     BB_ASSERT(json->type == BB_JSON_BOOL, "Invalid JSON type.");
-    return json->value.bool_val;
+    return json->bool_val;
 }
 
 int bb_json_get_value_integer(bb_json_t *json)
 {
     BB_ASSERT(json->type == BB_JSON_INT, "Invalid JSON type.");
-    return json->value.int_val;
+    return json->int_val;
 }
 
 float bb_json_get_value_real(bb_json_t *json)
 {
     BB_ASSERT(json->type == BB_JSON_REAL, "Invalid JSON type.");
-    return json->value.real_val;
+    return json->real_val;
 }
 
 char *bb_json_get_value_text(bb_json_t *json)
 {
     BB_ASSERT(json->type == BB_JSON_TEXT, "Invalid JSON type.");
-    return json->value.text_val;
+    return json->text_val;
 }
 
 void bb_json_array_push(bb_json_t *json_array, bb_json_t *element)
 {
     BB_ASSERT(json_array->type == BB_JSON_ARRAY, "Invalid JSON type.");
-    if (json_array->value.dynamic_array.alloc_size == 0)
+    if (json_array->dynamic_array.alloc_size == 0)
     {
-        json_array->value.dynamic_array.alloc_size = 1;
-        json_array->value.dynamic_array.array = (bb_json_t **)malloc(json_array->value.dynamic_array.alloc_size * sizeof(*json_array->value.dynamic_array.array));
+        json_array->dynamic_array.alloc_size = 1;
+        json_array->dynamic_array.array = (bb_json_t **)malloc(json_array->dynamic_array.alloc_size * sizeof(*json_array->dynamic_array.array));
     }
-    else if (json_array->value.dynamic_array.alloc_size == json_array->size)
+    else if (json_array->dynamic_array.alloc_size == json_array->size)
     {
-        json_array->value.dynamic_array.alloc_size *= 2;
-        json_array->value.dynamic_array.array = realloc(json_array->value.dynamic_array.array, json_array->value.dynamic_array.alloc_size * sizeof(*json_array->value.dynamic_array.array));
+        json_array->dynamic_array.alloc_size *= 2;
+        json_array->dynamic_array.array = realloc(json_array->dynamic_array.array, json_array->dynamic_array.alloc_size * sizeof(*json_array->dynamic_array.array));
     }
-    json_array->value.dynamic_array.array[json_array->size] = element;
+    json_array->dynamic_array.array[json_array->size] = element;
     json_array->size++;
 }
 
@@ -230,16 +230,16 @@ bb_json_t *bb_json_array_get_index(bb_json_t *json_array, unsigned int index)
 {
     BB_ASSERT(json_array->type == BB_JSON_ARRAY, "Invalid JSON type.");
     BB_ASSERT(json_array->size > index, "Index larger than array size");
-    return json_array->value.dynamic_array.array[index];
+    return json_array->dynamic_array.array[index];
 }
 
 void bb_json_array_remove_at_index(bb_json_t *json_array, unsigned int index)
 {
     BB_ASSERT(json_array->type == BB_JSON_ARRAY, "Invalid JSON type.");
     BB_ASSERT(json_array->size > index, "Index larger than array size");
-    bb_json_destroy(json_array->value.dynamic_array.array[index]);
+    bb_json_destroy(json_array->dynamic_array.array[index]);
     for (unsigned int i = index; i < json_array->size; i++)
-        json_array->value.dynamic_array.array[i] = (i + 1 < json_array->value.dynamic_array.alloc_size ? json_array->value.dynamic_array.array[i + 1] : NULL);
+        json_array->dynamic_array.array[i] = (i + 1 < json_array->dynamic_array.alloc_size ? json_array->dynamic_array.array[i + 1] : NULL);
     json_array->size--;
 }
 
@@ -260,9 +260,9 @@ static size_t hash_function(const char *str, size_t bucket_count)
 static void bb_json_object_resize(bb_json_t *json_object, size_t new_bucket_count)
 {
     _bb_hash_table_node_t **new_buckets = calloc(new_bucket_count, sizeof(*new_buckets));
-    for (size_t i = 0; i < json_object->value.object.bucket_count; i++)
+    for (size_t i = 0; i < json_object->object.bucket_count; i++)
     {
-        _bb_hash_table_node_t *node = json_object->value.object.buckets[i];
+        _bb_hash_table_node_t *node = json_object->object.buckets[i];
         while (node)
         {
             _bb_hash_table_node_t *next = node->next;
@@ -272,9 +272,9 @@ static void bb_json_object_resize(bb_json_t *json_object, size_t new_bucket_coun
             node = next;
         }
     }
-    free(json_object->value.object.buckets);
-    json_object->value.object.buckets = new_buckets;
-    json_object->value.object.bucket_count = new_bucket_count;
+    free(json_object->object.buckets);
+    json_object->object.buckets = new_buckets;
+    json_object->object.bucket_count = new_bucket_count;
 }
 
 void bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t *value)
@@ -283,12 +283,12 @@ void bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t
     if (!json_object || !value || !key) return;
 
     // Resize if load factor > 0.75
-    if (json_object->value.object.item_count * BB_JSON_MAX_LOAD_DEN >= json_object->value.object.bucket_count * BB_JSON_MAX_LOAD_NUM)
+    if (json_object->object.item_count * BB_JSON_MAX_LOAD_DEN >= json_object->object.bucket_count * BB_JSON_MAX_LOAD_NUM)
     {
-        bb_json_object_resize(json_object, json_object->value.object.bucket_count * 2);
+        bb_json_object_resize(json_object, json_object->object.bucket_count * 2);
     }
-    size_t index = hash_function(key, json_object->value.object.bucket_count);
-    _bb_hash_table_node_t *node = json_object->value.object.buckets[index];
+    size_t index = hash_function(key, json_object->object.bucket_count);
+    _bb_hash_table_node_t *node = json_object->object.buckets[index];
 
     while (node && strcmp(node->key, key) != 0)
     {
@@ -309,22 +309,22 @@ void bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t
     node->value = value;
 
     // Insert into bucket chain
-    node->next = json_object->value.object.buckets[index];
-    json_object->value.object.buckets[index] = node;
+    node->next = json_object->object.buckets[index];
+    json_object->object.buckets[index] = node;
 
     // Insert into ordered list
-    node->order_prev = json_object->value.object.order_tail;
+    node->order_prev = json_object->object.order_tail;
     node->order_next = NULL;
-    if (json_object->value.object.order_tail)
+    if (json_object->object.order_tail)
     {
-        json_object->value.object.order_tail->order_next = node;
+        json_object->object.order_tail->order_next = node;
     }
     else
     {
-        json_object->value.object.order_head = node;
+        json_object->object.order_head = node;
     }
-    json_object->value.object.order_tail = node;
-    json_object->value.object.item_count++;
+    json_object->object.order_tail = node;
+    json_object->object.item_count++;
     json_object->size++;
 }
 
@@ -332,8 +332,8 @@ bb_json_t *bb_json_object_get_value(bb_json_t *json_object, const char *key)
 {
     BB_ASSERT(json_object->type == BB_JSON_OBJECT, "Invalid JSON type.");
     if (!json_object || !key) return NULL;
-    size_t index = hash_function(key, json_object->value.object.bucket_count);
-    _bb_hash_table_node_t *node = json_object->value.object.buckets[index];
+    size_t index = hash_function(key, json_object->object.bucket_count);
+    _bb_hash_table_node_t *node = json_object->object.buckets[index];
     while (node && strcmp(node->key, key) != 0)
         node = node->next;
     return node ? node->value : NULL;
@@ -344,8 +344,8 @@ void bb_json_object_remove_key(bb_json_t *obj, const char *key_to_remove)
     BB_ASSERT(obj->type == BB_JSON_OBJECT, "Invalid JSON type.");
     if (!obj || !key_to_remove)
         return;
-    size_t index = hash_function(key_to_remove, obj->value.object.bucket_count);
-    _bb_hash_table_node_t *node = obj->value.object.buckets[index];
+    size_t index = hash_function(key_to_remove, obj->object.bucket_count);
+    _bb_hash_table_node_t *node = obj->object.buckets[index];
 
     _bb_hash_table_node_t *prev = NULL;
     while (node && strcmp(node->key, key_to_remove) != 0)
@@ -362,7 +362,7 @@ void bb_json_object_remove_key(bb_json_t *obj, const char *key_to_remove)
     }
     else
     {
-        obj->value.object.buckets[index] = node->next;
+        obj->object.buckets[index] = node->next;
     }
 
     // Remove from ordered list
@@ -372,7 +372,7 @@ void bb_json_object_remove_key(bb_json_t *obj, const char *key_to_remove)
     }
     else
     {
-        obj->value.object.order_head = node->order_next;
+        obj->object.order_head = node->order_next;
     }
 
     if (node->order_next)
@@ -381,13 +381,13 @@ void bb_json_object_remove_key(bb_json_t *obj, const char *key_to_remove)
     }
     else
     {
-        obj->value.object.order_tail = node->order_prev;
+        obj->object.order_tail = node->order_prev;
     }
 
     free(node->key);
     bb_json_destroy(node->value);
     free(node);
-    obj->value.object.item_count--;
+    obj->object.item_count--;
     obj->size--;
 }
 
@@ -405,9 +405,9 @@ static int serialize_null_json(bb_json_t *json, char *buffer)
 static int serialize_bool_json(bb_json_t *json, char *buffer)
 {
     BB_ASSERT(json->type == BB_JSON_BOOL, "Invalid JSON type.");
-    int size = json->value.bool_val ? 4 : 5;
+    int size = json->bool_val ? 4 : 5;
     if (buffer)
-        memcpy(buffer, json->value.bool_val ? "true\0" : "false\0", (size + 1) * sizeof(char));
+        memcpy(buffer, json->bool_val ? "true\0" : "false\0", (size + 1) * sizeof(char));
     return size;
 }
 
@@ -416,8 +416,8 @@ static int serialize_int_json(bb_json_t *json, char *buffer)
     BB_ASSERT(json->type == BB_JSON_INT, "Invalid JSON type.");
     // Unsafe
     if (buffer)
-        return sprintf(buffer, "%d", json->value.int_val);
-    int val = json->value.int_val, len = 0;
+        return sprintf(buffer, "%d", json->int_val);
+    int val = json->int_val, len = 0;
     while (val > 0)
     {
         val /= 10;
@@ -431,7 +431,7 @@ static int serialize_real_json(bb_json_t *json, char *buffer)
     BB_ASSERT(json->type == BB_JSON_REAL, "Invalid JSON type.");
     // Unsafe
     char s[128];
-    int index = sprintf(s, "%f", json->value.real_val) - 1;
+    int index = sprintf(s, "%f", json->real_val) - 1;
     while (s[index] == '0')
     {
         s[index] = '\0';
@@ -455,7 +455,7 @@ static int serialize_text_json(bb_json_t *json, char *buffer)
 
     for (unsigned int i = 0; i < json->size; i++)
     {
-        char c = json->value.text_val[i];
+        char c = json->text_val[i];
         switch (c)
         {
             case '\\': index += sprintf(s + index, "\\\\"); break;
@@ -500,7 +500,7 @@ static int serialize_array_json(bb_json_t *json, char *buffer, int indent, bool 
         for (int j = 0; has_indent && j < indent + 1; j++)
             len += buffer ? sprintf(buffer + len, "\t") : 1;
         char *child_buffer = buffer ? buffer + len : NULL;
-        int serialize_child = has_indent ? serialize_json_with_indent(json->value.dynamic_array.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->value.dynamic_array.array[i], child_buffer);
+        int serialize_child = has_indent ? serialize_json_with_indent(json->dynamic_array.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->dynamic_array.array[i], child_buffer);
         if (serialize_child < 0) return -1;
         len += serialize_child;
         len += buffer ? sprintf(buffer + len, (i + 1) < json->size ? ", " : "") : ((i + 1) < json->size ? 2 : 0);
@@ -519,7 +519,7 @@ static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool
     size_t len = 0;
     len += buffer ? sprintf(buffer, "{") : 1;
     bool first = true;
-    _bb_hash_table_node_t *node = json->value.object.order_head;
+    _bb_hash_table_node_t *node = json->object.order_head;
     while (node != NULL)
     {
         if (!first)
@@ -647,7 +647,7 @@ static int parse_json_str_true(bb_json_t **json, char *buffer)
     if (!is_substr(buffer, "true"))
         return -1;
     (*json)->type = BB_JSON_BOOL;
-    (*json)->value.bool_val = true;
+    (*json)->bool_val = true;
     return 4;
 }
 
@@ -657,7 +657,7 @@ static int parse_json_str_false(bb_json_t **json, char *buffer)
     if (!is_substr(buffer, "false"))
         return -1;
     (*json)->type = BB_JSON_BOOL;
-    (*json)->value.bool_val = false;
+    (*json)->bool_val = false;
     return 5;
 }
 
@@ -675,9 +675,9 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
     memcpy(num_buff, buffer, index);
     num_buff[index] = '\0';
     if ((*json)->type == BB_JSON_INT)
-        (*json)->value.int_val = atoi(num_buff);
+        (*json)->int_val = atoi(num_buff);
     else
-        (*json)->value.real_val = atof(num_buff);
+        (*json)->real_val = atof(num_buff);
     return index;
 }
 
@@ -747,7 +747,7 @@ static int parse_json_str_text(bb_json_t **json, char *buffer)
     if (buffer[i] != '"') { free(out); return -1; }
 
     out[j] = '\0';
-    (*json)->value.text_val = out;
+    (*json)->text_val = out;
     (*json)->size = j;
 
     return i + 1; // number of characters consumed including quotes
@@ -893,28 +893,28 @@ static int compare_json_bool(bb_json_t *json_a, bb_json_t *json_b)
 {
     BB_ASSERT(json_a->type == BB_JSON_BOOL, "Invalid JSON type.");
     BB_ASSERT(json_b->type == BB_JSON_BOOL, "Invalid JSON type.");
-    return json_a->value.bool_val == json_b->value.bool_val ? 0 : 1;
+    return json_a->bool_val == json_b->bool_val ? 0 : 1;
 }
 
 static int compare_json_int(bb_json_t *json_a, bb_json_t *json_b)
 {
     BB_ASSERT(json_a->type == BB_JSON_INT, "Invalid JSON type.");
     BB_ASSERT(json_b->type == BB_JSON_INT, "Invalid JSON type.");
-    return json_a->value.int_val == json_b->value.int_val ? 0 : 1;
+    return json_a->int_val == json_b->int_val ? 0 : 1;
 }
 
 static int compare_json_real(bb_json_t *json_a, bb_json_t *json_b)
 {
     BB_ASSERT(json_a->type == BB_JSON_REAL, "Invalid JSON type.");
     BB_ASSERT(json_b->type == BB_JSON_REAL, "Invalid JSON type.");
-    return json_a->value.real_val == json_b->value.real_val ? 0 : 1;
+    return json_a->real_val == json_b->real_val ? 0 : 1;
 }
 
 static int compare_json_text(bb_json_t *json_a, bb_json_t *json_b)
 {
     BB_ASSERT(json_a->type == BB_JSON_TEXT, "Invalid JSON type.");
     BB_ASSERT(json_b->type == BB_JSON_TEXT, "Invalid JSON type.");
-    return strcmp(json_a->value.text_val, json_b->value.text_val) == 0 ? 0 : 1;
+    return strcmp(json_a->text_val, json_b->text_val) == 0 ? 0 : 1;
 }
 
 static int compare_json_array(bb_json_t *json_a, bb_json_t *json_b)
@@ -927,7 +927,7 @@ static int compare_json_array(bb_json_t *json_a, bb_json_t *json_b)
     }
     for (unsigned int i = 0; i < json_a->size; i++)
     {
-        if (bb_json_compare(json_a->value.dynamic_array.array[i], json_b->value.dynamic_array.array[i]) != 0)
+        if (bb_json_compare(json_a->dynamic_array.array[i], json_b->dynamic_array.array[i]) != 0)
         {
             return -1;
         }
@@ -943,7 +943,7 @@ static int compare_json_object(bb_json_t *json_a, bb_json_t *json_b)
     {
         return -1;
     }
-    for (_bb_hash_table_node_t *node = json_a->value.object.order_head; node != NULL; node = node->order_next)
+    for (_bb_hash_table_node_t *node = json_a->object.order_head; node != NULL; node = node->order_next)
     {
         bb_json_t *value_in_b = bb_json_object_get_value(json_b, node->key);
         if (bb_json_compare(node->value, value_in_b) != 0)
