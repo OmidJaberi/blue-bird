@@ -87,7 +87,7 @@ static bb_error_t _run_request_pipeline(bb_server_t *server, bb_request_t *req, 
         return err;
 
     bb_route_t *route = bb_route_list_match(server->route_list, req);
-    bb_http_handler_cb handler = route ? bb_route_get_handler(route) : default_404;
+    bb_http_handler_cb handler = route ? bb_route_get_http_handler(route) : default_404;
 
     err = handler(req, res);
     if (BB_FAILED(err))
@@ -305,7 +305,7 @@ void bb_server_destroy(bb_server_t *server)
 
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler)
 {
-    bb_route_list_add(server->route_list, method, path, handler);
+    bb_route_list_add_http(server->route_list, method, path, handler);
 }
 
 void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw)

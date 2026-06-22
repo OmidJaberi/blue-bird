@@ -46,7 +46,7 @@ static void _handle_request(bb_route_list_t *route_list, bb_request_t *req, bb_r
 
     if (match)
     {
-        bb_route_get_handler(match)(req, res);
+        bb_route_get_http_handler(match)(req, res);
     }
     else
     {
@@ -65,8 +65,8 @@ void test_route_match_get(void)
     bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
-    bb_route_list_add(route_list, "GET", "/", handler_root);
-    bb_route_list_add(route_list, "GET", "/hello", handler_hello_get);
+    bb_route_list_add_http(route_list, "GET", "/", handler_root);
+    bb_route_list_add_http(route_list, "GET", "/hello", handler_hello_get);
 
     bb_request_set_method(req, "GET");
     bb_request_set_path(req, "/hello");
@@ -85,7 +85,7 @@ void test_route_match_post(void)
     bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
-    bb_route_list_add(route_list, "POST", "/hello", handler_hello_post);
+    bb_route_list_add_http(route_list, "POST", "/hello", handler_hello_post);
 
     bb_request_set_method(req, "POST");
     bb_request_set_path(req, "/hello");
@@ -121,7 +121,7 @@ void test_route_with_param(void)
     bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
-    bb_route_list_add(route_list, "GET", "/users/:id", handler_user);
+    bb_route_list_add_http(route_list, "GET", "/users/:id", handler_user);
 
     bb_request_set_method(req, "GET");
     bb_request_set_path(req, "/users/42");
