@@ -3,9 +3,11 @@
 #include "router.h"
 #include "middleware.h"
 #include "connection.h"
+#include "websocket/context_internal.h"
+#include "websocket/websocket_internal.h"
+#include "websocket/session.h"
 
 #include "blue-bird/runtime/event.h"
-
 #include "blue-bird/log/log.h"
 
 #include <stdlib.h>
@@ -26,8 +28,8 @@ typedef struct {
 
 typedef struct {
     bb_connection_t *connection;
-
     bb_server_t *server;
+    bb_ws_session_t *ws_session;
 } _bb_client_task_data_t;
 
 bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
@@ -37,7 +39,7 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
         return NULL;
     }
 
-    bb_server_t *server = malloc(sizeof(bb_server_t));
+    bb_server_t *server = calloc(1, sizeof(*server));
     if (!server)
     {
         return NULL;
@@ -78,22 +80,107 @@ static bb_error_t default_404(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
-static bb_error_t _run_request_pipeline(bb_server_t *server, bb_request_t *req, bb_response_t *res)
+static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_request_t *req, bb_response_t *res)
 {
     bb_error_t err;
 
     err = bb_middleware_list_run(server->pre_middleware_list, req, res);
-    if (BB_FAILED(err))
-        return err;
 
-    bb_route_t *route = bb_route_list_match(server->route_list, req);
-    bb_http_handler_cb handler = route ? bb_route_get_http_handler(route) : default_404;
-
-    err = handler(req, res);
     if (BB_FAILED(err))
+    {
         return err;
+    }
+
+    err = bb_route_get_http_handler(route)(req, res);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
 
     return bb_middleware_list_run(server->post_middleware_list, req, res);
+}
+
+static bb_error_t _run_websocket_route(bb_route_t *route, _bb_client_task_data_t *client, bb_request_t *req, bb_response_t *res)
+{
+    bb_error_t err = bb_websocket_accept(req, res);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    client->ws_session = bb_ws_session_create(client->connection, bb_route_get_websocket_handler(route));
+
+    if (!client->ws_session)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to create websocket session");
+    }
+
+    /*
+    * Session now owns the connection.
+    */
+    client->connection = NULL;
+
+    return BB_SUCCESS();
+}
+
+static bb_error_t _run_request_pipeline(bb_server_t *server, _bb_client_task_data_t *client, bb_request_t *req, bb_response_t *res)
+{
+    bb_route_t *route = bb_route_list_match(server->route_list, req);
+
+    if (!route)
+    {
+        return default_404(req, res);
+    }
+
+    switch (bb_route_get_type(route))
+    {
+        case BB_ROUTE_HTTP:
+            return _run_http_route(server, route, req, res);
+        case BB_ROUTE_WEBSOCKET:
+            return _run_websocket_route(route, client, req, res);
+        default:
+            return BB_ERROR(BB_ERR_INTERNAL, "Unknown route type");
+    }
+}
+
+static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_client_task_data_t *data = userdata;
+    bb_ws_session_t *session = data->ws_session;
+    if (bb_connection_read(session->connection) < 0)
+    {
+        goto cleanup;
+    }
+
+    bb_ws_frame_t frame = {0};
+    bb_error_t err = bb_websocket_read_frame(session->websocket, &frame);
+    if (BB_FAILED(err))
+    {
+        goto cleanup;
+    }
+
+    bb_ws_message_t msg;
+    err = bb_ws_frame_to_message(&frame, &msg);
+    if (BB_FAILED(err))
+    {
+        bb_ws_frame_destroy(&frame);
+        goto cleanup;
+    }
+    session->handler(&session->context, &msg);
+    bb_ws_frame_destroy(&frame);
+
+// rearm:
+    bb_task_t *next = bb_task_create(_bb_websocket_read_task, data);
+    bb_runtime_watch_fd(data->server->runtime, session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
+    return;
+
+cleanup:
+    bb_ws_session_destroy(session);
+    free(data);
 }
 
 static void _bb_client_write_task(bb_task_t *task, void *userdata)
@@ -144,6 +231,18 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
     /*
      * Response fully written
      */
+    if (data->ws_session)
+    {
+        bb_task_t *task = bb_task_create(_bb_websocket_read_task, data);
+        if (!task)
+        {
+            bb_ws_session_destroy(data->ws_session);
+            free(data);
+            return;
+        }
+        bb_runtime_watch_fd(server->runtime, data->ws_session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
+        return;
+    }
     bb_connection_destroy(connection);
 
     free(data);
@@ -201,7 +300,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
     }
     else
     {
-        bb_error_t err = _run_request_pipeline(server, req, res);
+        bb_error_t err = _run_request_pipeline(server, data, req, res);
         if (BB_FAILED(err))
         {
             BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
@@ -265,6 +364,7 @@ static void _bb_accept_task(bb_task_t *task, void *userdata)
 
         client_data->connection = connection;
         client_data->server = server;
+        client_data->ws_session = NULL;
 
         bb_task_t *client_task = bb_task_create(_bb_client_read_task, client_data);
 
@@ -298,14 +398,31 @@ void bb_server_start(bb_server_t *server)
 
 void bb_server_destroy(bb_server_t *server)
 {
+    if (!server)
+    {
+        return;
+    }
+
+    if (server->connection)
+    {
+        bb_connection_destroy(server->connection);
+    }
+
     bb_route_list_destroy(server->route_list);
     bb_middleware_list_destroy(server->pre_middleware_list);
     bb_middleware_list_destroy(server->post_middleware_list);
+
+    free(server);
 }
 
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler)
 {
     bb_route_list_add_http(server->route_list, method, path, handler);
+}
+
+void bb_server_add_websocket(bb_server_t *server, const char *path, bb_ws_handler_cb handler)
+{
+    bb_route_list_add_websocket(server->route_list, path, handler);
 }
 
 void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw)
