@@ -106,6 +106,7 @@ static bb_error_t _run_websocket_route(bb_route_t *route, _bb_client_task_data_t
     BB_LOG_INFO("Starting websocket upgrade\n");
 
     bb_error_t err = bb_websocket_accept(req, res);
+    client->connection->buffer_length = 0; // Temporary Buffer reset
 
     if (BB_FAILED(err))
     {
@@ -168,6 +169,22 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
 
     bb_ws_frame_t frame = {0};
     bb_error_t err = bb_websocket_read_frame(session->websocket, &frame);
+
+    /*
+     * "Incomplete frame" is NOT a failure, just wait for more data.
+     */
+    if (err.code == BB_ERR_INTERNAL) // Need better error name
+    {
+        bb_task_t *next = bb_task_create(_bb_websocket_read_task, data);
+        if (!next)
+        {
+            goto cleanup;
+        }
+
+        bb_runtime_watch_fd(data->server->runtime, session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
+        return;
+    }
+
     if (BB_FAILED(err))
     {
         goto cleanup;
@@ -183,9 +200,15 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
     session->handler(&session->context, &msg);
     bb_ws_frame_destroy(&frame);
 
-// rearm:
-    bb_task_t *next = bb_task_create(_bb_websocket_read_task, data);
-    bb_runtime_watch_fd(data->server->runtime, session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
+rearm:
+    {
+        bb_task_t *next = bb_task_create(_bb_websocket_read_task, data);
+        if (!next)
+        {
+            goto cleanup;
+        }
+        bb_runtime_watch_fd(data->server->runtime, session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
+    }
     return;
 
 cleanup:
