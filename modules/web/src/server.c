@@ -120,7 +120,7 @@ static bb_error_t _run_websocket_route(bb_route_t *route, _bb_client_task_data_t
     /*
     * Session now owns the connection.
     */
-    client->connection = NULL;
+    // client->connection = NULL;
 
     return BB_SUCCESS();
 }
@@ -233,6 +233,10 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
      */
     if (data->ws_session)
     {
+        /*
+        * Now websocket session owns the connection.
+        */
+        data->connection = NULL;
         bb_task_t *task = bb_task_create(_bb_websocket_read_task, data);
         if (!task)
         {
