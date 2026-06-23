@@ -103,12 +103,17 @@ static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_req
 
 static bb_error_t _run_websocket_route(bb_route_t *route, _bb_client_task_data_t *client, bb_request_t *req, bb_response_t *res)
 {
+    BB_LOG_INFO("Starting websocket upgrade\n");
+
     bb_error_t err = bb_websocket_accept(req, res);
 
     if (BB_FAILED(err))
     {
+        BB_LOG_ERROR("Upgrade failed: %s\n", err.msg);
         return err;
     }
+
+    BB_LOG_INFO("Upgrade accepted\n");
 
     client->ws_session = bb_ws_session_create(client->connection, bb_route_get_websocket_handler(route));
 
@@ -127,12 +132,17 @@ static bb_error_t _run_websocket_route(bb_route_t *route, _bb_client_task_data_t
 
 static bb_error_t _run_request_pipeline(bb_server_t *server, _bb_client_task_data_t *client, bb_request_t *req, bb_response_t *res)
 {
+    BB_LOG_INFO("Looking for route\n");
     bb_route_t *route = bb_route_list_match(server->route_list, req);
+
 
     if (!route)
     {
+        BB_LOG_INFO("Route not found\n");
         return default_404(req, res);
     }
+
+    BB_LOG_INFO("Route found\n");
 
     switch (bb_route_get_type(route))
     {
@@ -264,10 +274,12 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
 
     if (bb_connection_read(connection) < 0)
     {
+        BB_LOG_INFO("read failed\n");
         bb_connection_destroy(connection);
         free(data);
         return;
     }
+    BB_LOG_INFO("buffer:\n%.*s\n", (int)connection->buffer_length, connection->buffer);
 
     /*
      * Request incomplete:
@@ -294,8 +306,10 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
 
         return;
     }
+    BB_LOG_INFO("HTTP message complete\n");
 
     // Parse request
+    BB_LOG_INFO("Parsing request\n");
     bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
     if (bb_request_parse(connection->buffer, req) != 0)
@@ -310,6 +324,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
             BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
         }
     }
+    BB_LOG_INFO("Method=%s Path=%s\n", bb_request_get_method(req), bb_request_get_path(req));
 
     // Serialize response
     bb_response_serialize(
