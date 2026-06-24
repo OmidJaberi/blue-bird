@@ -219,7 +219,7 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
 
     bb_ws_frame_destroy(&frame);
 
-rearm:
+// rearm:
     {
         bb_task_t *next = bb_task_create(_bb_websocket_read_task, data);
         if (!next)
