@@ -156,6 +156,8 @@ static bb_error_t _run_request_pipeline(bb_server_t *server, _bb_client_task_dat
     }
 }
 
+static void _bb_client_write_task(bb_task_t *task, void *userdata);
+
 static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
 {
     (void)task;
@@ -198,6 +200,23 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
         goto cleanup;
     }
     session->handler(&session->context, &msg);
+
+    if (session->connection->write_buffer)
+    {
+        bb_task_t *write_task = bb_task_create(_bb_client_write_task, data);
+
+        if (!write_task)
+        {
+            bb_ws_frame_destroy(&frame);
+            goto cleanup;
+        }
+
+        bb_runtime_watch_fd(data->server->runtime, session->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, write_task);
+
+        bb_ws_frame_destroy(&frame);
+        return;
+    }
+
     bb_ws_frame_destroy(&frame);
 
 rearm:
