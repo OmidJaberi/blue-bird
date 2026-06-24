@@ -266,6 +266,11 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
 
     needed += strlen(msg->start_line) + 2; // \r\n
 
+    // Content_Length added here:
+    char len_buf[256];
+    snprintf(len_buf, 256, "%d", body_len);
+    bb_message_set_header(msg, "Content-Length", len_buf);
+
     for (int i = 0; i < msg->header_count; i++)
     {
         needed += strlen(msg->headers[i].name) + strlen(msg->headers[i].value) + 4; // ": \r\n"
