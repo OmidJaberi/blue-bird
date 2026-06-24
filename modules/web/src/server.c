@@ -222,7 +222,7 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
 
     _bb_client_task_data_t *data = userdata;
 
-    bb_connection_t *connection = data->connection;
+    bb_connection_t *connection = data->connection ? data->connection : data->ws_session->connection;
     bb_server_t *server = data->server;
 
     ssize_t rc = bb_connection_write(connection);
