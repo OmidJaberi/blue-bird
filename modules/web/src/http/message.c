@@ -260,46 +260,68 @@ int bb_message_parse(const char *raw, bb_http_message_t *msg)
 
 int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_size)
 {
-    if (buffer)
-    {
-        if (bb_message_serialize(msg, NULL, buffer_size) < 0)
-        {
-            return -1;
-        }
-        *buffer = malloc(*buffer_size);
-        if (!*buffer)
-            return -1;
-    }
-    else
-    {
-        // Content_Length added here:
-        int body_len = msg->body ? strlen(msg->body) : 0;
-        char len_buf[256];
-        snprintf(len_buf, 256, "%d", body_len);
-        bb_message_set_header(msg, "Content-Length", len_buf);
-    }
+    size_t needed = 0;
 
-    // Start Line:
-    size_t written = buffer ?
-                    (size_t)snprintf(*buffer, *buffer_size, "%s\r\n", msg->start_line)
-                    : strlen(msg->start_line) + 2;
+    int body_len = msg->body ? (int)strlen(msg->body) : 0;
 
-    // Headers:
+    needed += strlen(msg->start_line) + 2; // \r\n
+
     for (int i = 0; i < msg->header_count; i++)
-        written += buffer ?
-                    (size_t)snprintf(*buffer + written, *buffer_size - written, "%s: %s\r\n", msg->headers[i].name, msg->headers[i].value)
-                    : strlen(msg->headers[i].name) + strlen(msg->headers[i].value) + 4;
-    if (msg->header_count > 0)
-        written += buffer ?
-                    (size_t)snprintf(*buffer + written, *buffer_size - written, "\r\n")
-                    : (size_t)2;
+    {
+        needed += strlen(msg->headers[i].name) + strlen(msg->headers[i].value) + 4; // ": \r\n"
+    }
 
-    // Body:
-    if (msg->body)
-        written += buffer ?
-                    (size_t)snprintf(*buffer + written, *buffer_size - written, "%s", msg->body)
-                    : strlen(msg->body);
+    needed += 2; // final \r\n
+    needed += body_len;
 
-    *buffer_size = written + 1;
+    if (!buffer)
+    {
+        *buffer_size = needed;
+        return 0;
+    }
+
+    *buffer = malloc(needed);
+    if (!*buffer)
+        return -1;
+
+    char *p = *buffer;
+
+    // start line
+    size_t n = strlen(msg->start_line);
+    memcpy(p, msg->start_line, n);
+    p += n;
+    *p++ = '\r';
+    *p++ = '\n';
+
+    // headers
+    for (int i = 0; i < msg->header_count; i++)
+    {
+        n = strlen(msg->headers[i].name);
+        memcpy(p, msg->headers[i].name, n);
+        p += n;
+
+        *p++ = ':';
+        *p++ = ' ';
+
+        n = strlen(msg->headers[i].value);
+        memcpy(p, msg->headers[i].value, n);
+        p += n;
+
+        *p++ = '\r';
+        *p++ = '\n';
+    }
+
+    // final CRLF (THIS is what Node was complaining about)
+    *p++ = '\r';
+    *p++ = '\n';
+
+    // body
+    if (body_len > 0)
+    {
+        memcpy(p, msg->body, body_len);
+        p += body_len;
+    }
+
+    *buffer_size = (size_t)(p - *buffer);
     return 0;
 }
