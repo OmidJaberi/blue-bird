@@ -126,7 +126,7 @@ bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame)
     return BB_SUCCESS();
 }
 
-bb_error_t bb_websocket_write_frame(bb_websocket_t *ws, const bb_ws_frame_t *frame)
+bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *frame)
 {
     if (!ws || !frame)
     {
@@ -182,7 +182,7 @@ bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
     frame.payload = (char *)text;
     frame.payload_length = strlen(text);
 
-    return bb_websocket_write_frame(ws, &frame);
+    return bb_websocket_queue_frame(ws, &frame);
 }
 
 bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t length)
@@ -200,7 +200,7 @@ bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t
     frame.payload = (char *)data;
     frame.payload_length = length;
 
-    return bb_websocket_write_frame(ws, &frame);
+    return bb_websocket_queue_frame(ws, &frame);
 }
 
 static bb_error_t _bb_websocket_send_control(bb_websocket_t *ws, bb_ws_opcode_t opcode, const void *payload, size_t length)
@@ -213,7 +213,7 @@ static bb_error_t _bb_websocket_send_control(bb_websocket_t *ws, bb_ws_opcode_t 
     frame.payload = (char *)payload;
     frame.payload_length = length;
 
-    return bb_websocket_write_frame(ws, &frame);
+    return bb_websocket_queue_frame(ws, &frame);
 }
 
 bb_error_t bb_websocket_send_ping(bb_websocket_t *ws)

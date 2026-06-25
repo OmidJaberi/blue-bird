@@ -16,7 +16,7 @@ void bb_websocket_destroy(bb_websocket_t *ws);
 // Frame operations
 bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame);
 
-bb_error_t bb_websocket_write_frame(bb_websocket_t *ws, const bb_ws_frame_t *frame);
+bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *frame);
 
 void bb_ws_frame_destroy(bb_ws_frame_t *frame);
 
