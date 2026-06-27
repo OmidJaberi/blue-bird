@@ -1,19 +1,12 @@
 #include "blue-bird/log/log.h"
 #include "websocket/context_internal.h"
 #include "websocket/websocket_internal.h"
-#include "websocket/session.h"
 #include "http/parser.h"
 
 #include "connection.h"
 #include "async_connection.h"
 #include "server_internal.h"
-
-typedef struct {
-    bb_server_t *server;
-    bb_connection_t *connection;
-    bb_runtime_t *runtime;
-    bb_ws_session_t *ws_session;
-} _bb_client_task_data_t;
+#include "client_internal.h"
 
 static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
 {
@@ -24,53 +17,86 @@ static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
-static void _bb_client_read_task(bb_task_t *task, void *userdata);
 static void _bb_websocket_read_task(bb_task_t *task, void *userdata);
+static void _bb_client_read_task(bb_task_t *task, void *userdata);
 
-void bb_accept_task(bb_task_t *task, void *userdata)
-{
-    (void)task;
-
-    _bb_accept_task_data_t *data = userdata;
-
-    bb_connection_t *connection;
-    while ((connection = bb_connection_accept(data->connection->fd)))
-    {
-        /*
-         * Register client watcher
-         */
-        _bb_client_task_data_t *client_data = malloc(sizeof(*client_data));
-
-        if (!client_data)
-        {
-            bb_connection_destroy(connection);
-            continue;
-        }
-
-        client_data->server = data->server;
-        client_data->connection = connection;
-        client_data->runtime = data->runtime;
-        client_data->ws_session = NULL;
-
-        bb_task_t *client_task = bb_task_create(_bb_client_read_task, client_data);
-
-        if (!client_task)
-        {
-            bb_connection_destroy(connection);
-            free(client_data);
-            continue;
-        }
-        bb_runtime_watch_fd(data->runtime, connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, client_task);
-    }
-}
-
-static void _bb_client_write_task(bb_task_t *task, void *userdata)
+void bb_client_write_task(bb_task_t *task, void *userdata)
 {
     (void)task;
 
     _bb_client_task_data_t *data = userdata;
+    bb_client_t *client = data->client;
+    bb_connection_t *conn = client->connection;
 
-    bb_connection_t *connection = data->connection ? data->connection : data->ws_session->connection;
+    if (!conn->write_buffer)
+    {
+        bb_request_serialize(client->req, &conn->write_buffer, &conn->write_length);
+        conn->write_offset = 0;
+    }
+
+    ssize_t rc = bb_connection_write(conn);
+    if (rc < 0)
+    {
+        // data->callback(client, BB_ERROR(BB_ERR_IO, "Write failed"), data->userdata);
+        bb_client_close(client);
+        free(data);
+        return;
+    }
+    if (conn->write_offset < conn->write_length)
+    {
+        bb_task_t *next = bb_task_create(bb_client_write_task, data);
+        bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, next);
+        return;
+    }
+
+    bb_task_t *read_task = bb_task_create(_bb_client_read_task, data);
+    bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read_task);
+}
+
+static void _bb_client_read_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_client_task_data_t *data = userdata;
+    bb_client_t *client = data->client;
+    bb_connection_t *conn = client->connection;
+
+    ssize_t n = bb_connection_read(conn);
+    if (n < 0)
+    {
+        data->callback(client, BB_ERROR(BB_ERR_IO, "Read failed"), data->userdata);
+        bb_client_close(client);
+        free(data);
+        return;
+    }
+
+    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    {
+        bb_task_t *next = bb_task_create(_bb_client_read_task, data);
+        bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
+        return;
+    }
+
+    if (bb_response_parse(conn->buffer, client->res) != 0)
+    {
+        data->callback(client, BB_ERROR(BB_ERR_INTERNAL, "Response parse failed"), data->userdata);
+        bb_client_close(client);
+        free(data);
+        return;
+    }
+
+    data->callback(client, BB_SUCCESS(), data->userdata);
+    bb_client_close(client);
+    free(data);
+}
+
+static void _bb_server_write_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_server_task_data_t *data = userdata;
+
+    bb_connection_t *connection = data->connection;
 
     ssize_t rc = bb_connection_write(connection);
 
@@ -88,7 +114,7 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
      */
     if (connection->write_offset < connection->write_length)
     {
-        bb_task_t *write_task = bb_task_create(_bb_client_write_task, data);
+        bb_task_t *write_task = bb_task_create(_bb_server_write_task, data);
 
         if (!write_task)
         {
@@ -132,11 +158,11 @@ static void _bb_client_write_task(bb_task_t *task, void *userdata)
     free(data);
 }
 
-static void _bb_client_read_task(bb_task_t *task, void *userdata)
+static void _bb_http_read_task(bb_task_t *task, void *userdata)
 {
     (void)task;
 
-    _bb_client_task_data_t *data = userdata;
+    bb_server_task_data_t *data = userdata;
 
     bb_connection_t *connection = data->connection;
 
@@ -155,7 +181,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
      */
     if (!bb_http_message_complete(connection->buffer, connection->buffer_length))
     {
-        bb_task_t *read_task = bb_task_create(_bb_client_read_task, data);
+        bb_task_t *read_task = bb_task_create(_bb_http_read_task, data);
 
         if (!read_task)
         {
@@ -209,7 +235,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
     connection->state = BB_CONNECTION_WRITING;
 
     // Register WRITE watcher
-    bb_task_t *write_task = bb_task_create(_bb_client_write_task, data);
+    bb_task_t *write_task = bb_task_create(_bb_server_write_task, data);
 
     if (!write_task)
     {
@@ -231,7 +257,7 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
 {
     (void)task;
 
-    _bb_client_task_data_t *data = userdata;
+    bb_server_task_data_t *data = userdata;
     bb_ws_session_t *session = data->ws_session;
     if (bb_connection_read(session->connection) < 0)
     {
@@ -272,7 +298,11 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
 
     if (session->connection->write_buffer)
     {
-        bb_task_t *write_task = bb_task_create(_bb_client_write_task, data);
+        if (!data->connection)
+        {
+            data->connection = data->ws_session->connection;
+        }
+        bb_task_t *write_task = bb_task_create(_bb_server_write_task, data);
 
         if (!write_task)
         {
@@ -302,4 +332,41 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
 cleanup:
     bb_ws_session_destroy(session);
     free(data);
+}
+
+void bb_accept_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_server_task_data_t *data = userdata;
+
+    bb_connection_t *connection;
+    while ((connection = bb_connection_accept(data->connection->fd)))
+    {
+        /*
+         * Register client watcher
+         */
+        bb_server_task_data_t *client_data = malloc(sizeof(*client_data));
+
+        if (!client_data)
+        {
+            bb_connection_destroy(connection);
+            continue;
+        }
+
+        client_data->server = data->server;
+        client_data->connection = connection;
+        client_data->runtime = data->runtime;
+        client_data->ws_session = NULL;
+
+        bb_task_t *client_task = bb_task_create(_bb_http_read_task, client_data);
+
+        if (!client_task)
+        {
+            bb_connection_destroy(connection);
+            free(client_data);
+            continue;
+        }
+        bb_runtime_watch_fd(data->runtime, connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, client_task);
+    }
 }

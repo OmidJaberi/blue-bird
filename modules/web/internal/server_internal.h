@@ -3,6 +3,16 @@
 
 #include "blue-bird/web/server.h"
 #include "websocket/session.h"
+#include "router.h"
+#include "middleware.h"
+
+struct bb_server {
+    bb_connection_t *connection;
+    bb_runtime_t *runtime;
+    bb_route_list_t *route_list;
+    bb_middleware_list_t *pre_middleware_list; // Runs before the handler
+    bb_middleware_list_t *post_middleware_list; // Runs after the handler
+};
 
 bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_ws_session_t **session, bb_request_t *req, bb_response_t *res);
 

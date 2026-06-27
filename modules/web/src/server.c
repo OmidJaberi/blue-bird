@@ -1,9 +1,6 @@
 #include "blue-bird/web/server.h"
-#include "router.h"
-#include "middleware.h"
 #include "connection.h"
 #include "async_connection.h"
-#include "websocket/session.h"
 #include "server_internal.h"
 
 #include "blue-bird/runtime/event.h"
@@ -12,14 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-struct bb_server {
-    bb_connection_t *connection;
-    bb_runtime_t *runtime;
-    bb_route_list_t *route_list;
-    bb_middleware_list_t *pre_middleware_list; // Runs before the handler
-    bb_middleware_list_t *post_middleware_list; // Runs after the handler
-};
 
 static bb_error_t default_404(bb_request_t *req, bb_response_t *res)
 {
@@ -62,7 +51,7 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 
 void bb_server_start(bb_server_t *server)
 {
-    _bb_accept_task_data_t *data = malloc(sizeof(*data));
+    bb_server_task_data_t *data = malloc(sizeof(*data));
 
     if (!data)
     {
