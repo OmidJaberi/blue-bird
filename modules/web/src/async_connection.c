@@ -186,7 +186,7 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
     }
     else
     {
-        bb_error_t err = bb_server_run_request_pipeline(data->server, &(data->ws_session), req, res);
+        bb_error_t err = bb_server_run_request_pipeline(data->server, data->connection, &(data->ws_session), req, res);
         if (BB_FAILED(err))
         {
             BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);

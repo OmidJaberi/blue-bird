@@ -120,14 +120,12 @@ static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_req
     return bb_middleware_list_run(server->post_middleware_list, req, res);
 }
 
-static bb_error_t _run_websocket_route(bb_route_t *route, bb_ws_session_t **session, bb_request_t *req, bb_response_t *res)
+static bb_error_t _run_websocket_route(bb_route_t *route, bb_connection_t *conn, bb_ws_session_t **session, bb_request_t *req, bb_response_t *res)
 {
     BB_LOG_INFO("Starting websocket upgrade\n");
 
     bb_error_t err = bb_websocket_accept(req, res);
-    printf("1\n");
-    (*session)->connection->buffer_length = 0; // Temporary Buffer reset
-    printf("2\n");
+    conn->buffer_length = 0; // Temporary Buffer reset
 
     if (BB_FAILED(err))
     {
@@ -137,7 +135,7 @@ static bb_error_t _run_websocket_route(bb_route_t *route, bb_ws_session_t **sess
 
     BB_LOG_INFO("Upgrade accepted\n");
 
-    *session = bb_ws_session_create((*session)->connection, bb_route_get_websocket_handler(route));
+    *session = bb_ws_session_create(conn, bb_route_get_websocket_handler(route));
 
     if (!(*session))
     {
@@ -147,7 +145,7 @@ static bb_error_t _run_websocket_route(bb_route_t *route, bb_ws_session_t **sess
     return BB_SUCCESS();
 }
 
-bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_ws_session_t **session, bb_request_t *req, bb_response_t *res)
+bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_ws_session_t **session, bb_request_t *req, bb_response_t *res)
 {
     BB_LOG_INFO("Looking for route\n");
     bb_route_t *route = bb_route_list_match(server->route_list, req);
@@ -166,7 +164,7 @@ bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_ws_session_t *
         case BB_ROUTE_HTTP:
             return _run_http_route(server, route, req, res);
         case BB_ROUTE_WEBSOCKET:
-            return _run_websocket_route(route, session, req, res);
+            return _run_websocket_route(route, conn, session, req, res);
         default:
             return BB_ERROR(BB_ERR_INTERNAL, "Unknown route type");
     }
