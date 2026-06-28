@@ -68,8 +68,6 @@ static void client_after_write(bb_task_t *task, void *userdata)
     (void) task;
     _bb_client_task_data_t *data = userdata;
     _bb_client_create_read_task(data);
-    // bb_task_t *read = bb_task_create(_bb_client_read_task, client);
-    // bb_runtime_watch_fd(client->client->runtime, client->client->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read);
 }
 
 static void client_error(bb_task_t *task, void *userdata)
@@ -246,89 +244,86 @@ static void _bb_client_create_read_task(_bb_client_task_data_t *data)
     bb_runtime_watch_fd(read_data->runtime, read_data->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read);
 }
 
-static void _bb_http_read_task(bb_task_t *task, void *userdata)
+static bool http_complete(void *userdata)
 {
-    (void)task;
+    bb_server_task_data_t *data = userdata;
+
+    return bb_http_message_complete(data->connection->buffer, data->connection->buffer_length);
+}
+
+static void http_read_error(bb_error_t err, void *userdata)
+{
+    (void)err;
 
     bb_server_task_data_t *data = userdata;
 
+    BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
+
+    bb_connection_destroy(data->connection);
+    free(data);
+}
+
+static bb_error_t http_process(void *userdata)
+{
+    bb_server_task_data_t *data = userdata;
     bb_connection_t *connection = data->connection;
 
-    if (bb_connection_read(connection) < 0)
-    {
-        BB_LOG_INFO("read failed\n");
-        bb_connection_destroy(connection);
-        free(data);
-        return;
-    }
-    BB_LOG_INFO("buffer:\n%.*s\n", (int)connection->buffer_length, connection->buffer);
-
-    /*
-     * Request incomplete:
-     * re-arm READ watcher
-     */
-    if (!bb_http_message_complete(connection->buffer, connection->buffer_length))
-    {
-        bb_task_t *read_task = bb_task_create(_bb_http_read_task, data);
-
-        if (!read_task)
-        {
-            bb_connection_destroy(connection);
-            free(data);
-            return;
-        }
-
-        bb_runtime_watch_fd(
-            data->runtime,
-            connection->fd,
-            BB_EVENT_READ,
-            BB_WATCH_ONESHOT,
-            read_task
-        );
-
-        return;
-    }
-    BB_LOG_INFO("HTTP message complete\n");
-
-    // Parse request
-    BB_LOG_INFO("Parsing request\n");
     bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
+
     if (bb_request_parse(connection->buffer, req) != 0)
     {
         default_400(req, res);
     }
     else
     {
-        bb_error_t err = bb_server_run_request_pipeline(data->server, data->connection, &(data->ws_session), req, res);
+        bb_error_t err = bb_server_run_request_pipeline(data->server, connection, &data->ws_session, req, res);
+
         if (BB_FAILED(err))
         {
-            BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
+            bb_request_destroy(req);
+            bb_response_destroy(res);
+            return err;
         }
     }
-    BB_LOG_INFO("Method=%s Path=%s\n", bb_request_get_method(req), bb_request_get_path(req));
 
-    // Serialize response
-    bb_response_serialize(
-        res,
-        &connection->write_buffer,
-        &connection->write_length
-    );
+    bb_response_serialize(res, &connection->write_buffer, &connection->write_length);
 
     bb_request_destroy(req);
     bb_response_destroy(res);
 
     connection->write_offset = 0;
-
     connection->state = BB_CONNECTION_WRITING;
 
-    // Register WRITE watcher
-    if (_bb_server_create_write_task(data) != 0)
+    return _bb_server_create_write_task(data) ? BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") : BB_SUCCESS();
+}
+
+static int _bb_http_create_read_task(bb_server_t *server, bb_connection_t *connection, bb_runtime_t *runtime)
+{
+    bb_server_task_data_t *data = malloc(sizeof(*data));
+    if (!data) return 1;
+
+    data->server = server;
+    data->connection = connection;
+    data->runtime = runtime;
+    data->ws_session = NULL;
+
+    bb_read_task_data_t *read_data = malloc(sizeof(*read_data));
+    if (!read_data)
     {
-        bb_connection_destroy(connection);
         free(data);
-        return;
+        return 1;
     }
+    read_data->connection = connection;
+    read_data->runtime = runtime;
+    read_data->userdata = data;
+    read_data->complete = http_complete;
+    read_data->error = http_read_error;
+    read_data->process = http_process;
+    bb_task_t *read = bb_task_create(bb_read_task, read_data);
+    bb_runtime_watch_fd(read_data->runtime, read_data->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read);
+
+    return 0;
 }
 
 static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
@@ -418,30 +413,9 @@ void bb_accept_task(bb_task_t *task, void *userdata)
     bb_connection_t *connection;
     while ((connection = bb_connection_accept(data->connection->fd)))
     {
-        /*
-         * Register client watcher
-         */
-        bb_server_task_data_t *client_data = malloc(sizeof(*client_data));
-
-        if (!client_data)
+        if (_bb_http_create_read_task(data->server, connection, data->runtime) != 0)
         {
             bb_connection_destroy(connection);
-            continue;
         }
-
-        client_data->server = data->server;
-        client_data->connection = connection;
-        client_data->runtime = data->runtime;
-        client_data->ws_session = NULL;
-
-        bb_task_t *client_task = bb_task_create(_bb_http_read_task, client_data);
-
-        if (!client_task)
-        {
-            bb_connection_destroy(connection);
-            free(client_data);
-            continue;
-        }
-        bb_runtime_watch_fd(data->runtime, connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, client_task);
     }
 }
