@@ -19,47 +19,90 @@ static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
-static void _bb_websocket_read_task(bb_task_t *task, void *userdata);
-static void _bb_client_read_task(bb_task_t *task, void *userdata);
+typedef void (*bb_async_callback_t)(bb_task_t *, void *);
 
-void bb_client_write_task(bb_task_t *task, void *userdata)
+typedef struct {
+    bb_connection_t *connection;
+    bb_runtime_t *runtime;
+
+    bb_async_callback_t success;
+    bb_async_callback_t failure;
+
+    void *userdata;
+} bb_write_task_data_t;
+
+static void bb_write_task(bb_task_t *task, void *userdata)
 {
     (void)task;
 
-    _bb_client_task_data_t *data = userdata;
-    bb_client_t *client = data->client;
-    bb_connection_t *conn = client->connection;
-
-    if (!conn->write_buffer)
+    bb_write_task_data_t *data = userdata;
+    bb_connection_t *conn = data->connection;
+    if (bb_connection_write(conn) < 0)
     {
-        bb_request_serialize(client->req, &conn->write_buffer, &conn->write_length);
-        conn->write_offset = 0;
-    }
+        if (data->failure)
+            data->failure(task, data->userdata);
 
-    ssize_t rc = bb_connection_write(conn);
-    if (rc < 0)
-    {
-        // data->callback(client, BB_ERROR(BB_ERR_IO, "Write failed"), data->userdata);
-        bb_client_close(client);
         free(data);
         return;
     }
+
     if (conn->write_offset < conn->write_length)
     {
-        bb_task_t *next = bb_task_create(bb_client_write_task, data);
-        bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, next);
+        bb_task_t *next = bb_task_create(bb_write_task, data);
+        bb_runtime_watch_fd(data->runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, next);
         return;
     }
 
-    bb_task_t *read_task = bb_task_create(_bb_client_read_task, data);
-    bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read_task);
+    if (data->success)
+        data->success(task, data->userdata);
+
+    free(data);
+}
+
+static void _bb_websocket_read_task(bb_task_t *task, void *userdata);
+static void _bb_client_read_task(bb_task_t *task, void *userdata);
+
+static void client_after_write(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    _bb_client_task_data_t *client = userdata;
+    bb_task_t *read = bb_task_create(_bb_client_read_task, client);
+    bb_runtime_watch_fd(client->client->runtime, client->client->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read);
+}
+
+static void client_error(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    _bb_client_task_data_t *data = userdata;
+    data->callback(data->client, BB_ERROR(BB_ERR_IO, "Write failed"), data->userdata);
+    bb_client_close(data->client);
+    free(data);
 }
 
 void bb_client_create_write_task(_bb_client_task_data_t *client_data)
 {
+    bb_write_task_data_t *write = malloc(sizeof(*write));
     bb_client_t *client = client_data->client;
-    bb_task_t *task = bb_task_create(bb_client_write_task, client_data);
 
+    if (!client->connection->write_buffer)
+    {
+        bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
+        client->connection->write_offset = 0;
+    }
+
+    write->connection = client->connection;
+    write->runtime = client->runtime;
+    write->success = client_after_write;
+    write->failure = client_error;
+    write->userdata = client_data;
+
+    if (!client->connection->write_buffer)
+    {
+        bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
+        client->connection->write_offset = 0;
+    }
+
+    bb_task_t *task = bb_task_create(bb_write_task, write);
     bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
 }
 
