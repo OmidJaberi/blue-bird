@@ -8,6 +8,8 @@
 #include "server_internal.h"
 #include "client_internal.h"
 
+#include <stdio.h>
+
 static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
@@ -51,6 +53,14 @@ void bb_client_write_task(bb_task_t *task, void *userdata)
 
     bb_task_t *read_task = bb_task_create(_bb_client_read_task, data);
     bb_runtime_watch_fd(client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read_task);
+}
+
+void bb_client_create_write_task(_bb_client_task_data_t *client_data)
+{
+    bb_client_t *client = client_data->client;
+    bb_task_t *task = bb_task_create(bb_client_write_task, client_data);
+
+    bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
 }
 
 static void _bb_client_read_task(bb_task_t *task, void *userdata)

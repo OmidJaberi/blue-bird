@@ -190,7 +190,5 @@ void bb_client_execute_async(bb_client_t *client, bb_client_callback_t callback,
     data->callback = callback;
     data->userdata = userdata;
 
-    bb_task_t *task = bb_task_create(bb_client_write_task, data);
-
-    bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
+    bb_client_create_write_task(data);
 }

@@ -21,6 +21,6 @@ typedef struct {
 } _bb_client_task_data_t;
 
 void bb_accept_task(bb_task_t *task, void *userdata);
-void bb_client_write_task(bb_task_t *task, void *userdata);
+void bb_client_create_write_task(_bb_client_task_data_t *client_data);
 
 #endif // BB_ASYNC_CONNECTION_H
