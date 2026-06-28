@@ -96,12 +96,6 @@ void bb_client_create_write_task(_bb_client_task_data_t *client_data)
     write->failure = client_error;
     write->userdata = client_data;
 
-    if (!client->connection->write_buffer)
-    {
-        bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
-        client->connection->write_offset = 0;
-    }
-
     bb_task_t *task = bb_task_create(bb_write_task, write);
     bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
 }
@@ -143,53 +137,10 @@ static void _bb_client_read_task(bb_task_t *task, void *userdata)
     free(data);
 }
 
-static void _bb_server_write_task(bb_task_t *task, void *userdata)
+static void server_after_write(bb_task_t *task, void *userdata)
 {
-    (void)task;
-
+    (void) task;
     bb_server_task_data_t *data = userdata;
-
-    bb_connection_t *connection = data->connection;
-
-    ssize_t rc = bb_connection_write(connection);
-
-    // Fatal socket error
-    if (rc < 0)
-    {
-        bb_connection_destroy(connection);
-        free(data);
-        return;
-    }
-
-    /*
-     * Partial write:
-     * wait for next writable event
-     */
-    if (connection->write_offset < connection->write_length)
-    {
-        bb_task_t *write_task = bb_task_create(_bb_server_write_task, data);
-
-        if (!write_task)
-        {
-            bb_connection_destroy(connection);
-            free(data);
-            return;
-        }
-
-        bb_runtime_watch_fd(
-            data->runtime,
-            connection->fd,
-            BB_EVENT_WRITE,
-            BB_WATCH_ONESHOT,
-            write_task
-        );
-
-        return;
-    }
-
-    /*
-     * Response fully written
-     */
     if (data->ws_session)
     {
         /*
@@ -206,9 +157,34 @@ static void _bb_server_write_task(bb_task_t *task, void *userdata)
         bb_runtime_watch_fd(data->runtime, data->ws_session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
         return;
     }
-    bb_connection_destroy(connection);
+    bb_connection_destroy(data->connection);
 
     free(data);
+}
+
+static void server_error(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    bb_server_task_data_t *data = userdata;
+    bb_connection_destroy(data->connection);
+    free(data);
+}
+
+static int _bb_server_create_write_task(bb_server_task_data_t *data)
+{
+    bb_write_task_data_t *write = malloc(sizeof(*write));
+
+    write->connection = data->connection;
+    write->runtime = data->runtime;
+    write->success = server_after_write;
+    write->failure = server_error;
+    write->userdata = data;
+
+    bb_task_t *task = bb_task_create(bb_write_task, write);
+    if (!task)
+        return -1;
+    bb_runtime_watch_fd(data->runtime, data->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
+    return 0;
 }
 
 static void _bb_http_read_task(bb_task_t *task, void *userdata)
@@ -288,22 +264,12 @@ static void _bb_http_read_task(bb_task_t *task, void *userdata)
     connection->state = BB_CONNECTION_WRITING;
 
     // Register WRITE watcher
-    bb_task_t *write_task = bb_task_create(_bb_server_write_task, data);
-
-    if (!write_task)
+    if (_bb_server_create_write_task(data) != 0)
     {
         bb_connection_destroy(connection);
         free(data);
         return;
     }
-
-    bb_runtime_watch_fd(
-        data->runtime,
-        connection->fd,
-        BB_EVENT_WRITE,
-        BB_WATCH_ONESHOT,
-        write_task
-    );
 }
 
 static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
@@ -355,15 +321,11 @@ static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
         {
             data->connection = data->ws_session->connection;
         }
-        bb_task_t *write_task = bb_task_create(_bb_server_write_task, data);
-
-        if (!write_task)
+        if (_bb_server_create_write_task(data) != 0)
         {
             bb_ws_frame_destroy(&frame);
             goto cleanup;
         }
-
-        bb_runtime_watch_fd(data->runtime, session->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, write_task);
 
         bb_ws_frame_destroy(&frame);
         return;
