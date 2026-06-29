@@ -51,21 +51,7 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 
 void bb_server_start(bb_server_t *server)
 {
-    bb_server_task_data_t *data = malloc(sizeof(*data));
-
-    if (!data)
-    {
-        return;
-    }
-
-    data->server = server;
-    data->runtime = server->runtime;
-    data->connection = server->connection;
-
-    bb_task_t *task = bb_task_create(bb_accept_task, data);
-
-    bb_runtime_watch_fd(server->runtime, server->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
-
+    bb_server_create_accept_task(server);
     BB_LOG_INFO("Blue-Bird async server started.\n");
 }
 

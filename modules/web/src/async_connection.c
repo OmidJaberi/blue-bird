@@ -10,6 +10,19 @@
 
 #include <stdio.h>
 
+typedef struct {
+    bb_server_t *server;
+    bb_connection_t *connection;
+    bb_runtime_t *runtime;
+    bb_ws_session_t *ws_session;
+} bb_server_task_data_t;
+
+typedef struct {
+    bb_client_t *client;
+    bb_client_callback_t callback;
+    void *userdata;
+} _bb_client_task_data_t;
+
 static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
@@ -79,10 +92,24 @@ static void _client_write_error(bb_task_t *task, void *userdata)
     free(data);
 }
 
-void bb_client_create_write_task(_bb_client_task_data_t *client_data)
+bb_error_t bb_client_create_write_task(bb_client_t *client, bb_client_callback_t callback, void *userdata)
 {
+    _bb_client_task_data_t *data = malloc(sizeof(*data));
+    if (!data)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
+
+    data->client = client;
+    data->callback = callback;
+    data->userdata = userdata;
+
     _bb_write_task_data_t *write = malloc(sizeof(*write));
-    bb_client_t *client = client_data->client;
+    if (!write)
+    {
+        free(data);
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
 
     if (!client->connection->write_buffer)
     {
@@ -94,10 +121,11 @@ void bb_client_create_write_task(_bb_client_task_data_t *client_data)
     write->runtime = client->runtime;
     write->success = _client_after_write;
     write->failure = _client_write_error;
-    write->userdata = client_data;
+    write->userdata = data;
 
     bb_task_t *task = bb_task_create(_bb_write_task, write);
     bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
+    return BB_SUCCESS();
 }
 
 static void _server_after_write(bb_task_t *task, void *userdata)
@@ -463,4 +491,23 @@ void bb_accept_task(bb_task_t *task, void *userdata)
             bb_connection_destroy(connection);
         }
     }
+}
+
+bb_error_t bb_server_create_accept_task(bb_server_t *server)
+{
+    bb_server_task_data_t *data = malloc(sizeof(*data));
+
+    if (!data)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to create task.");
+    }
+
+    data->server = server;
+    data->runtime = server->runtime;
+    data->connection = server->connection;
+
+    bb_task_t *task = bb_task_create(bb_accept_task, data);
+
+    bb_runtime_watch_fd(server->runtime, server->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
+    return BB_SUCCESS();
 }

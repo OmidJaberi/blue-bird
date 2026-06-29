@@ -179,16 +179,10 @@ void bb_client_execute_async(bb_client_t *client, bb_client_callback_t callback,
         return;
     }
 
-    _bb_client_task_data_t *data = malloc(sizeof(*data));
-    if (!data)
+    bb_error_t err = bb_client_create_write_task(client, callback, userdata);
+    if (BB_FAILED(err))
     {
-        callback(client, BB_ERROR(BB_ERR_ALLOC, "Allocation failed"), userdata);
+        callback(client, err, userdata);
         return;
     }
-
-    data->client = client;
-    data->callback = callback;
-    data->userdata = userdata;
-
-    bb_client_create_write_task(data);
 }
