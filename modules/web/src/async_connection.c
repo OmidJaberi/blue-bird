@@ -60,7 +60,7 @@ static void bb_write_task(bb_task_t *task, void *userdata)
     free(data);
 }
 
-static void _bb_websocket_read_task(bb_task_t *task, void *userdata);
+static int _bb_websocket_create_read_task(bb_server_task_data_t *data);
 static int _bb_client_create_read_task(_bb_client_task_data_t *data);
 
 static void client_after_write(bb_task_t *task, void *userdata)
@@ -110,14 +110,12 @@ static void server_after_write(bb_task_t *task, void *userdata)
         * Now websocket session owns the connection.
         */
         data->connection = NULL;
-        bb_task_t *task = bb_task_create(_bb_websocket_read_task, data);
-        if (!task)
+        int rc = _bb_websocket_create_read_task(data);
+        if (rc != 0)
         {
             bb_ws_session_destroy(data->ws_session);
             free(data);
-            return;
         }
-        bb_runtime_watch_fd(data->runtime, data->ws_session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
         return;
     }
     bb_connection_destroy(data->connection);
@@ -362,81 +360,92 @@ static int _bb_http_create_read_task(bb_server_t *server, bb_connection_t *conne
     return 0;
 }
 
-static void _bb_websocket_read_task(bb_task_t *task, void *userdata)
+static void websocket_error(bb_error_t err, void *userdata)
 {
-    (void)task;
+    (void)err;
+    bb_server_task_data_t *data = userdata;
+    bb_ws_session_destroy(data->ws_session);
+    free(data);
+}
 
+static bb_read_status_t websocket_step(void *userdata)
+{
     bb_server_task_data_t *data = userdata;
     bb_ws_session_t *session = data->ws_session;
-    if (bb_connection_read(session->connection) < 0)
-    {
-        goto cleanup;
-    }
 
     bb_ws_frame_t frame = {0};
+
     bb_error_t err = bb_websocket_read_frame(session->websocket, &frame);
 
-    /*
-     * "Incomplete frame" is NOT a failure, just wait for more data.
-     */
-    if (err.code == BB_ERR_INTERNAL) // Need better error name
+    if (err.code == BB_ERR_INTERNAL)
     {
-        bb_task_t *next = bb_task_create(_bb_websocket_read_task, data);
-        if (!next)
-        {
-            goto cleanup;
-        }
-
-        bb_runtime_watch_fd(data->runtime, session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
-        return;
+        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
     }
 
     if (BB_FAILED(err))
     {
-        goto cleanup;
+        return (bb_read_status_t){ BB_READ_ERROR, err };
     }
 
     bb_ws_message_t msg;
+
     err = bb_ws_frame_to_message(&frame, &msg);
+
     if (BB_FAILED(err))
     {
         bb_ws_frame_destroy(&frame);
-        goto cleanup;
+        return (bb_read_status_t){ BB_READ_ERROR, err };
     }
+
     session->handler(&session->context, &msg);
+
+    bb_ws_frame_destroy(&frame);
 
     if (session->connection->write_buffer)
     {
         if (!data->connection)
-        {
-            data->connection = data->ws_session->connection;
-        }
-        if (_bb_server_create_write_task(data) != 0)
-        {
-            bb_ws_frame_destroy(&frame);
-            goto cleanup;
-        }
+            data->connection = session->connection;
 
-        bb_ws_frame_destroy(&frame);
-        return;
+        if (_bb_server_create_write_task(data))
+        {
+            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
+        }
     }
-
-    bb_ws_frame_destroy(&frame);
-
-// rearm:
+    else
     {
-        bb_task_t *next = bb_task_create(_bb_websocket_read_task, data);
-        if (!next)
+        if (_bb_websocket_create_read_task(data) != 0)
         {
-            goto cleanup;
+            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule read task.") };
         }
-        bb_runtime_watch_fd(data->runtime, session->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
     }
-    return;
 
-cleanup:
-    bb_ws_session_destroy(session);
-    free(data);
+    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
+}
+
+static int _bb_websocket_create_read_task(bb_server_task_data_t *data)
+{
+    bb_read_task_data_t *read = malloc(sizeof(*read));
+
+    if (!read)
+    {
+        return 1;
+    }
+
+    read->connection = data->ws_session->connection;
+    read->runtime    = data->runtime;
+    read->userdata   = data;
+
+    read->step  = websocket_step;
+    read->error = websocket_error;
+
+    bb_task_t *task = bb_task_create(bb_read_task, read);
+    if (!task)
+    {
+        return 1;
+    }
+
+    bb_runtime_watch_fd(read->runtime, read->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
+    return 0;
 }
 
 // Accept:
