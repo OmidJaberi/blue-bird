@@ -33,8 +33,6 @@ typedef struct {
 
 static void _bb_ws_connect_task(bb_task_t *task, void *userdata);
 
-static void _bb_ws_handshake_read_task(bb_task_t *task, void *userdata);
-
 static void _bb_ws_read_task(bb_task_t *task, void *userdata);
 
 bb_ws_client_t *bb_ws_client_create_on_runtime(bb_runtime_t *runtime)
@@ -208,6 +206,56 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
     bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
 }
 
+#include "async_connection.h"
+
+static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
+{
+    printf("1\n");
+    _bb_ws_client_task_data_t *data = userdata;
+    bb_connection_t *conn = data->client->connection;
+
+    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    {
+        return (bb_read_status_t){
+            .result = BB_READ_MORE,
+        };
+    }
+
+    data->client->websocket = bb_websocket_create(conn);
+
+    data->connect_cb(data->client, BB_SUCCESS(), data->connect_userdata);
+
+    bb_task_t *read_task = bb_task_create(_bb_ws_read_task, data->client);
+
+    bb_runtime_watch_fd(data->client->runtime, conn->fd, BB_EVENT_READ,
+                        BB_WATCH_ONESHOT, read_task);
+
+    free(data->host);
+    free(data->path);
+    free(data);
+
+    return (bb_read_status_t){
+        .result = BB_READ_DONE,
+    };
+}
+
+static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
+{
+    printf("2\n");
+    (void)err;
+
+    _bb_ws_client_task_data_t *data = userdata;
+
+    data->connect_cb(
+        data->client,
+        BB_ERROR(BB_ERR_NETWORK, "Handshake failed"),
+        data->connect_userdata);
+
+    free(data->host);
+    free(data->path);
+    free(data);
+}
+
 static void _bb_ws_connect_task(bb_task_t *task, void *userdata)
 {
     (void)task;
@@ -244,54 +292,7 @@ static void _bb_ws_connect_task(bb_task_t *task, void *userdata)
 
     bb_connection_write(conn);
 
-    bb_task_t *next = bb_task_create(_bb_ws_handshake_read_task, data);
-
-    bb_runtime_watch_fd(data->client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
-}
-
-static void _bb_ws_handshake_read_task(bb_task_t *task, void *userdata)
-{
-    (void)task;
-
-    _bb_ws_client_task_data_t *data = userdata;
-
-    bb_connection_t *conn = data->client->connection;
-
-    if (bb_connection_read(conn) < 0)
-    {
-        goto fail;
-    }
-
-    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
-    {
-        bb_task_t *next = bb_task_create(_bb_ws_handshake_read_task, data);
-
-        bb_runtime_watch_fd(data->client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, next);
-
-        return;
-    }
-
-    data->client->websocket = bb_websocket_create(conn);
-
-    data->connect_cb(data->client, BB_SUCCESS(), data->connect_userdata);
-
-    bb_task_t *read_task = bb_task_create(_bb_ws_read_task, data->client);
-
-    bb_runtime_watch_fd(data->client->runtime, conn->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, read_task);
-
-    free(data->host);
-    free(data->path);
-    free(data);
-
-    return;
-
-fail:
-
-    data->connect_cb(data->client, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
-
-    free(data->host);
-    free(data->path);
-    free(data);
+    bb_connection_task_create_read(data->client->runtime, data->client->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
 }
 
 static void _bb_ws_read_task(bb_task_t *task, void *userdata)
