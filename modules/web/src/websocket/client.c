@@ -2,6 +2,7 @@
 
 #include "connection.h"
 #include "http/parser.h"
+#include "async_connection.h"
 #include "websocket/websocket_internal.h"
 
 #include "blue-bird/runtime/event.h"
@@ -30,8 +31,6 @@ typedef struct {
     char *path;
     int port;
 } _bb_ws_client_task_data_t;
-
-static void _bb_ws_connect_task(bb_task_t *task, void *userdata);
 
 static void _bb_ws_read_task(bb_task_t *task, void *userdata);
 
@@ -164,6 +163,31 @@ static int _parse_ws_url(const char *url, char **host, int *port, char **path)
     return 0;
 }
 
+static bb_read_status_t _bb_ws_handshake_read_step(void *userdata);
+static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata);
+
+static void _bb_ws_handshake_write_done(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_ws_client_task_data_t *data = userdata;
+
+    bb_connection_task_create_read(data->client->runtime, data->client->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
+}
+
+static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    _bb_ws_client_task_data_t *data = userdata;
+
+    data->connect_cb(data->client, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
+
+    free(data->host);
+    free(data->path);
+    free(data);
+}
+
 void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_connect_cb callback, void *userdata)
 {
     char *host = NULL;
@@ -201,12 +225,33 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
     data->path = path;
     data->port = port;
 
-    bb_task_t *task = bb_task_create(_bb_ws_connect_task, data);
+    const char *key = "dGhlIHNhbXBsZSBub25jZQ==";
 
-    bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
+    char request[1024];
+
+    snprintf(
+        request,
+        sizeof(request),
+        "GET %s HTTP/1.1\r\n"
+        "Host: %s:%d\r\n"
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        "Sec-WebSocket-Key: %s\r\n"
+        "Sec-WebSocket-Version: 13\r\n"
+        "\r\n",
+        data->path,
+        data->host,
+        data->port,
+        key);
+
+    bb_connection_t *conn = client->connection;
+
+    conn->write_buffer = strdup(request);
+    conn->write_length = strlen(request);
+    conn->write_offset = 0;
+
+    bb_connection_task_create_write(client->runtime, conn, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
 }
-
-#include "async_connection.h"
 
 static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 {
@@ -254,45 +299,6 @@ static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
     free(data->host);
     free(data->path);
     free(data);
-}
-
-static void _bb_ws_connect_task(bb_task_t *task, void *userdata)
-{
-    (void)task;
-
-    _bb_ws_client_task_data_t *data = userdata;
-
-    bb_connection_t *conn = data->client->connection;
-
-    const char *key = "dGhlIHNhbXBsZSBub25jZQ==";
-
-    char request[1024];
-
-    snprintf(
-        request,
-        sizeof(request),
-        "GET %s HTTP/1.1\r\n"
-        "Host: %s:%d\r\n"
-        "Upgrade: websocket\r\n"
-        "Connection: Upgrade\r\n"
-        "Sec-WebSocket-Key: %s\r\n"
-        "Sec-WebSocket-Version: 13\r\n"
-        "\r\n",
-        data->path,
-        data->host,
-        data->port,
-        key
-    );
-
-    conn->write_buffer = strdup(request);
-
-    conn->write_length = strlen(request);
-
-    conn->write_offset = 0;
-
-    bb_connection_write(conn);
-
-    bb_connection_task_create_read(data->client->runtime, data->client->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
 }
 
 static void _bb_ws_read_task(bb_task_t *task, void *userdata)
