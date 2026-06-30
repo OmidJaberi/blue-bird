@@ -139,9 +139,8 @@ bb_connection_t *bb_connection_accept(int server_fd)
     return connection;
 }
 
-bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
+int _connect(const char *host, const char *port_str)
 {
-
     struct addrinfo hints = {0};
     struct addrinfo *res = NULL;
 
@@ -151,8 +150,7 @@ bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
     int rc = getaddrinfo(host, port_str, &hints, &res);
     if (rc != 0)
     {
-        return NULL;
-        // return BB_ERROR(BB_ERR_UNKNOWN, gai_strerror(rc));
+        return -1;
     }
 
     int fd = -1;
@@ -174,17 +172,41 @@ bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
 
     freeaddrinfo(res);
 
+    return fd;
+}
+
+bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
+{
+    int fd = _connect(host, port_str);
+
     if (fd < 0)
     {
         return NULL;
-        // return BB_ERROR(BB_ERR_UNKNOWN, "Failed to connect");
     }
 
     bb_connection_t *connection = bb_connection_create(fd);
     if (!connection)
     {
         close(fd);
-        // return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate connection");
+    }
+    return connection;
+}
+
+bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char *port_str)
+{
+    int fd = _connect(host, port_str);
+
+    if (fd < 0)
+    {
+        return NULL;
+    }
+
+    _bb_set_nonblocking(fd);
+
+    bb_connection_t *connection = bb_connection_create(fd);
+    if (!connection)
+    {
+        close(fd);
     }
     return connection;
 }
