@@ -39,7 +39,7 @@ void test_context_create_destroy(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     assert(ws != NULL);
 
@@ -60,7 +60,7 @@ void test_context_userdata(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_context_t *ctx = bb_ws_context_create(ws);
 
@@ -83,7 +83,7 @@ void test_send_text(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_context_t *ctx = bb_ws_context_create(ws);
 
@@ -114,7 +114,7 @@ void test_send_binary(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_context_t *ctx = bb_ws_context_create(ws);
 
@@ -151,7 +151,7 @@ void test_close(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_context_t *ctx = bb_ws_context_create(ws);
 

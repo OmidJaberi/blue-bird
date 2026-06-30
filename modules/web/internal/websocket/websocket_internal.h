@@ -5,12 +5,18 @@
 #include "websocket/frame.h"
 #include "blue-bird/error/error.h"
 
+typedef enum {
+    BB_WEBSOCKET_SERVER,
+    BB_WEBSOCKET_CLIENT
+} bb_websocket_mode_t;
+
 typedef struct bb_websocket {
     bb_connection_t *connection;
+    bb_websocket_mode_t mode;
 } bb_websocket_t;
 
 // Lifecycle
-bb_websocket_t *bb_websocket_create(bb_connection_t *connection);
+bb_websocket_t *bb_websocket_create(bb_connection_t *connection, bb_websocket_mode_t mode);
 void bb_websocket_destroy(bb_websocket_t *ws);
 
 // Frame operations

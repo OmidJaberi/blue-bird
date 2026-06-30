@@ -7,7 +7,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-bb_websocket_t *bb_websocket_create(bb_connection_t *connection)
+bb_websocket_t *bb_websocket_create(bb_connection_t *connection, bb_websocket_mode_t mode)
 {
     if (!connection)
     {
@@ -22,6 +22,7 @@ bb_websocket_t *bb_websocket_create(bb_connection_t *connection)
     }
 
     ws->connection = connection;
+    ws->mode = mode;
 
     return ws;
 }
@@ -135,38 +136,67 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
 
     bb_connection_t *conn = ws->connection;
 
-    size_t size = 2 + (frame->payload_length >= 126 ? 2 : 0) + frame->payload_length;
+    const int masked = (ws->mode == BB_WEBSOCKET_CLIENT);
 
-    char *buffer = malloc(size);
+    size_t ext_len = (frame->payload_length < 126) ? 0 : 2;
+    size_t size = 2 + ext_len + (masked ? 4 : 0) + frame->payload_length;
+
+    uint8_t *buffer = malloc(size);
 
     if (!buffer)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
     }
 
-    uint8_t *out = (uint8_t *)buffer;
-
+    uint8_t *out = buffer;
     size_t pos = 0;
 
+    /* FIN + opcode */
     out[pos++] = 0x80 | (frame->opcode & 0x0F);
 
+    /* Length + MASK bit */
     if (frame->payload_length < 126)
     {
-        out[pos++] = frame->payload_length;
+        out[pos++] =
+            (masked ? 0x80 : 0x00) |
+            (uint8_t)frame->payload_length;
     }
     else
     {
-        out[pos++] = 126;
-
-        out[pos++] = (frame->payload_length >> 8) & 0xFF;
-
-        out[pos++] = frame->payload_length & 0xFF;
+        out[pos++] = (masked ? 0x80 : 0x00) | 126;
+        out[pos++] = (frame->payload_length >> 8) & 0xff;
+        out[pos++] = frame->payload_length & 0xff;
     }
 
-    memcpy(out + pos, frame->payload, frame->payload_length);
+    if (masked)
+    {
+        uint8_t mask[4];
 
-    conn->write_buffer = buffer;
-    conn->write_length = size;
+        mask[0] = rand() & 0xff;
+        mask[1] = rand() & 0xff;
+        mask[2] = rand() & 0xff;
+        mask[3] = rand() & 0xff;
+
+        memcpy(out + pos, mask, 4);
+        pos += 4;
+
+        for (size_t i = 0; i < frame->payload_length; i++)
+        {
+            out[pos + i] =
+                ((const uint8_t *)frame->payload)[i] ^
+                mask[i & 3];
+        }
+
+        pos += frame->payload_length;
+    }
+    else
+    {
+        memcpy(out + pos, frame->payload, frame->payload_length);
+        pos += frame->payload_length;
+    }
+
+    conn->write_buffer = (char *)buffer;
+    conn->write_length = pos;
     conn->write_offset = 0;
 
     return BB_SUCCESS();

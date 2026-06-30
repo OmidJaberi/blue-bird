@@ -13,7 +13,7 @@ bb_ws_session_t *bb_ws_session_create(bb_connection_t *connection, bb_ws_handler
 
     session->connection = connection;
 
-    session->websocket = bb_websocket_create(connection);
+    session->websocket = bb_websocket_create(connection, BB_WEBSOCKET_SERVER);
 
     if (!session->websocket)
     {

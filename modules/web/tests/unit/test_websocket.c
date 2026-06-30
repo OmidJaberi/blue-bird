@@ -35,7 +35,7 @@ void test_websocket_create_destroy(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     assert(ws != NULL);
 
@@ -50,7 +50,7 @@ void test_send_text_frame(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_send_text(ws, "hello");
 
@@ -77,7 +77,7 @@ void test_send_binary_frame(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     unsigned char payload[] =
     {
@@ -110,7 +110,7 @@ void test_send_ping(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_send_ping(ws);
 
@@ -133,7 +133,7 @@ void test_send_pong(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_send_pong(ws);
 
@@ -156,7 +156,7 @@ void test_send_close(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_send_close(ws);
 
@@ -186,7 +186,7 @@ void test_parse_unmasked_text_frame(void)
     conn->buffer_length = 7;
     conn->buffer_capacity = 7;
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -240,7 +240,7 @@ void test_parse_masked_text_frame(void)
 
     conn->buffer_capacity = sizeof(frame_bytes);
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -310,7 +310,7 @@ void test_parse_multiple_frames(void)
 
     conn->buffer_capacity = sizeof(frames);
 
-    bb_websocket_t *ws = bb_websocket_create(conn);
+    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame1 = {0};
 

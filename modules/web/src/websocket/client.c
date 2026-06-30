@@ -266,7 +266,7 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
         };
     }
 
-    data->client->websocket = bb_websocket_create(conn);
+    data->client->websocket = bb_websocket_create(conn, BB_WEBSOCKET_CLIENT);
 
     data->connect_cb(data->client, BB_SUCCESS(), data->connect_userdata);
 
