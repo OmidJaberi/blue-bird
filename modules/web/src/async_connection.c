@@ -17,12 +17,6 @@ typedef struct {
     bb_ws_session_t *ws_session;
 } bb_server_task_data_t;
 
-typedef struct {
-    bb_client_t *client;
-    bb_client_callback_t callback;
-    void *userdata;
-} _bb_client_task_data_t;
-
 static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
@@ -33,8 +27,6 @@ static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
 }
 
 // Write:
-typedef void (*bb_async_callback_t)(bb_task_t *, void *);
-
 typedef struct {
     bb_connection_t *connection;
     bb_runtime_t *runtime;
@@ -73,60 +65,24 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     free(data);
 }
 
-static int _websocket_create_read_task(bb_server_task_data_t *data);
-static int _client_create_read_task(_bb_client_task_data_t *data);
-
-static void _client_after_write(bb_task_t *task, void *userdata)
+bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_t *conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
 {
-    (void) task;
-    _bb_client_task_data_t *data = userdata;
-    _client_create_read_task(data);
-}
+    _bb_write_task_data_t *data = malloc(sizeof(*data));
 
-static void _client_write_error(bb_task_t *task, void *userdata)
-{
-    (void) task;
-    _bb_client_task_data_t *data = userdata;
-    data->callback(data->client, BB_ERROR(BB_ERR_IO, "Write failed"), data->userdata);
-    bb_client_close(data->client);
-    free(data);
-}
-
-bb_error_t bb_client_create_write_task(bb_client_t *client, bb_client_callback_t callback, void *userdata)
-{
-    _bb_client_task_data_t *data = malloc(sizeof(*data));
-    if (!data)
-    {
-        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
-    }
-
-    data->client = client;
-    data->callback = callback;
+    data->connection = conn;
+    data->runtime = runtime;
+    data->success = success;
+    data->failure = failure;
     data->userdata = userdata;
 
-    _bb_write_task_data_t *write = malloc(sizeof(*write));
-    if (!write)
-    {
-        free(data);
-        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
-    }
-
-    if (!client->connection->write_buffer)
-    {
-        bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
-        client->connection->write_offset = 0;
-    }
-
-    write->connection = client->connection;
-    write->runtime = client->runtime;
-    write->success = _client_after_write;
-    write->failure = _client_write_error;
-    write->userdata = data;
-
-    bb_task_t *task = bb_task_create(_bb_write_task, write);
-    bb_runtime_watch_fd(client->runtime, client->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
+    bb_task_t *task = bb_task_create(_bb_write_task, data);
+    if (!task)
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate task data.");
+    bb_runtime_watch_fd(runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
     return BB_SUCCESS();
 }
+
+static int _websocket_create_read_task(bb_server_task_data_t *data);
 
 static void _server_after_write(bb_task_t *task, void *userdata)
 {
@@ -161,36 +117,12 @@ static void _server_write_error(bb_task_t *task, void *userdata)
 
 static int _server_create_write_task(bb_server_task_data_t *data)
 {
-    _bb_write_task_data_t *write = malloc(sizeof(*write));
-
-    write->connection = data->connection;
-    write->runtime = data->runtime;
-    write->success = _server_after_write;
-    write->failure = _server_write_error;
-    write->userdata = data;
-
-    bb_task_t *task = bb_task_create(_bb_write_task, write);
-    if (!task)
+    if (BB_FAILED(bb_connection_task_create_write(data->runtime, data->connection, _server_after_write, _server_write_error, data)))
         return -1;
-    bb_runtime_watch_fd(data->runtime, data->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
     return 0;
 }
 
 // Read:
-typedef enum {
-    BB_READ_MORE,
-    BB_READ_DONE,
-    BB_READ_ERROR,
-} bb_read_result_t;
-
-typedef struct {
-    bb_read_result_t result;
-    bb_error_t err;
-} bb_read_status_t;
-
-typedef bb_read_status_t (*bb_read_step_fn)(void *userdata);
-typedef void (*bb_read_error_fn)(bb_error_t err, void *userdata);
-
 typedef struct {
     bb_connection_t *connection;
     bb_runtime_t *runtime;
@@ -236,64 +168,30 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
     }
 }
 
-static void _client_read_error(bb_error_t err, void *userdata)
-{
-    _bb_client_task_data_t *data = userdata;
-
-    data->callback(data->client, err, data->userdata);
-
-    bb_client_close(data->client);
-    free(data);
-}
-
-static bb_read_status_t _client_read_step(void *userdata)
-{
-    _bb_client_task_data_t *data = userdata;
-
-    bb_client_t *client = data->client;
-    bb_connection_t *conn = client->connection;
-
-    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
-    {
-        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
-    }
-
-    if (bb_response_parse(conn->buffer, client->res))
-    {
-        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Response parse failed") };
-    }
-
-    data->callback(client, BB_SUCCESS(), data->userdata);
-    bb_client_close(client);
-    free(data);
-
-    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
-}
-
-static int _client_create_read_task(_bb_client_task_data_t *client)
+bb_error_t bb_connection_task_create_read(bb_runtime_t *runtime, bb_connection_t *connection, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata)
 {
     bb_read_task_data_t *read = malloc(sizeof(*read));
 
     if (!read)
-        return 1;
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate task data.");
 
-    read->connection = client->client->connection;
-    read->runtime    = client->client->runtime;
-    read->userdata   = client;
+    read->connection = connection;
+    read->runtime    = runtime;
+    read->userdata   = userdata;
 
-    read->step  = _client_read_step;
-    read->error = _client_read_error;
+    read->step  = read_step;
+    read->error = read_error;
 
     bb_task_t *task = bb_task_create(_bb_read_task, read);
 
     if (!task)
     {
         free(read);
-        return 1;
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate task.");
     }
 
     bb_runtime_watch_fd(read->runtime, read->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
-    return 0;
+    return BB_SUCCESS();
 }
 
 static void _server_read_error(bb_error_t err, void *userdata)
@@ -364,27 +262,8 @@ static int _server_create_read_task(bb_server_t *server, bb_connection_t *connec
     data->runtime = runtime;
     data->ws_session = NULL;
 
-    bb_read_task_data_t *read = malloc(sizeof(*read));
-
-    if (!read)
+    if (BB_FAILED(bb_connection_task_create_read(runtime, connection, _server_read_step, _server_read_error, data)))
         return 1;
-
-    read->connection = connection;
-    read->runtime    = runtime;
-    read->userdata   = data;
-
-    read->step  = _server_read_step;
-    read->error = _server_read_error;
-
-    bb_task_t *task = bb_task_create(_bb_read_task, read);
-
-    if (!task)
-    {
-        free(read);
-        return 1;
-    }
-
-    bb_runtime_watch_fd(read->runtime, read->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
     return 0;
 }
 

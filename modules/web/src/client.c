@@ -7,6 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct {
+    bb_client_t *client;
+    bb_client_callback_t callback;
+    void *userdata;
+} _bb_client_task_data_t;
+
 bb_client_t *bb_client_create_on_runtime(bb_runtime_t *runtime)
 {
     if (!runtime)
@@ -165,6 +171,77 @@ bb_error_t bb_client_receive(bb_client_t *client)
 }
 
 // Async Client:
+static void _client_read_error(bb_error_t err, void *userdata)
+{
+    _bb_client_task_data_t *data = userdata;
+
+    data->callback(data->client, err, data->userdata);
+
+    bb_client_close(data->client);
+    free(data);
+}
+
+static bb_read_status_t _client_read_step(void *userdata)
+{
+    _bb_client_task_data_t *data = userdata;
+
+    bb_client_t *client = data->client;
+    bb_connection_t *conn = client->connection;
+
+    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    {
+        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
+    }
+
+    if (bb_response_parse(conn->buffer, client->res))
+    {
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Response parse failed") };
+    }
+
+    data->callback(client, BB_SUCCESS(), data->userdata);
+    bb_client_close(client);
+    free(data);
+
+    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
+}
+
+static void _client_after_write(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    _bb_client_task_data_t *data = userdata;
+    bb_connection_task_create_read(data->client->runtime, data->client->connection, _client_read_step, _client_read_error, data);
+}
+
+static void _client_write_error(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    _bb_client_task_data_t *data = userdata;
+    data->callback(data->client, BB_ERROR(BB_ERR_IO, "Write failed"), data->userdata);
+    bb_client_close(data->client);
+    free(data);
+}
+
+bb_error_t _client_create_write_task(bb_client_t *client, bb_client_callback_t callback, void *userdata)
+{
+    _bb_client_task_data_t *data = malloc(sizeof(*data));
+    if (!data)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
+
+    data->client = client;
+    data->callback = callback;
+    data->userdata = userdata;
+
+    if (!client->connection->write_buffer)
+    {
+        bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
+        client->connection->write_offset = 0;
+    }
+
+    return bb_connection_task_create_write(client->runtime, client->connection, _client_after_write, _client_write_error, data);
+}
+
 void bb_client_execute_async(bb_client_t *client, bb_client_callback_t callback, void *userdata)
 {
     const char *host = bb_request_get_host(client->req);
@@ -179,7 +256,7 @@ void bb_client_execute_async(bb_client_t *client, bb_client_callback_t callback,
         return;
     }
 
-    bb_error_t err = bb_client_create_write_task(client, callback, userdata);
+    bb_error_t err = _client_create_write_task(client, callback, userdata);
     if (BB_FAILED(err))
     {
         callback(client, err, userdata);
