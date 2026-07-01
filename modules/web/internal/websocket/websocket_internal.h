@@ -2,10 +2,13 @@
 #define BB_INTERNAL_WEBSOCKET_H
 
 #include "blue-bird/web/websocket/websocket.h"
-#include "connection/connection.h"
 #include "websocket/frame.h"
+#include "blue-bird/web/http/handler.h"
+#include "connection/connection.h"
 #include "blue-bird/error/error.h"
 #include "blue-bird/runtime/runtime.h"
+
+#include <stdbool.h>
 
 typedef enum {
     BB_WEBSOCKET_SERVER,
@@ -16,6 +19,10 @@ typedef struct bb_websocket {
     bb_connection_t *connection;
     bb_websocket_mode_t mode;
 } bb_websocket_t;
+
+// Accept
+char *bb_websocket_accept_key(const char *client_key);
+bb_error_t bb_websocket_accept(bb_request_t *req, bb_response_t *res);
 
 // Lifecycle
 bb_websocket_t *bb_websocket_create(bb_connection_t *connection, bb_websocket_mode_t mode);
