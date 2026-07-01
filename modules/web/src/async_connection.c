@@ -355,6 +355,24 @@ static int _websocket_create_read_task(bb_server_task_data_t *data)
     return 0;
 }
 
+bb_error_t bb_connection_task_create_ws_read(bb_runtime_t *runtime, bb_connection_t *connection, bb_ws_handler_cb handler)
+{
+    bb_server_task_data_t *data = malloc(sizeof(*data));
+    if (!data)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
+    }
+    data->server = NULL;
+    data->runtime = runtime;
+    data->connection = connection;
+    data->ws_session = bb_ws_session_create(connection, handler);
+    if (!data->ws_session || _websocket_create_read_task(data) != 0)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
+    }
+    return BB_SUCCESS();
+}
+
 // Accept:
 void bb_accept_task(bb_task_t *task, void *userdata)
 {
