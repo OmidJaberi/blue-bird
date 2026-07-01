@@ -269,7 +269,7 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 
     data->connect_cb(data->client, BB_SUCCESS(), data->connect_userdata);
 
-    bb_connection_task_create_ws_read(data->client->runtime, data->client->connection, data->client->message_cb);
+    bb_websocket_create_read_task(data->client->runtime, data->client->connection, data->client->message_cb);
 
     free(data->host);
     free(data->path);

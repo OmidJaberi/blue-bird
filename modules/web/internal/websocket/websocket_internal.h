@@ -1,9 +1,11 @@
 #ifndef BB_INTERNAL_WEBSOCKET_H
 #define BB_INTERNAL_WEBSOCKET_H
 
+#include "blue-bird/web/websocket/websocket.h"
 #include "connection.h"
 #include "websocket/frame.h"
 #include "blue-bird/error/error.h"
+#include "blue-bird/runtime/runtime.h"
 
 typedef enum {
     BB_WEBSOCKET_SERVER,
@@ -36,5 +38,9 @@ bb_error_t bb_websocket_send_ping(bb_websocket_t *ws);
 bb_error_t bb_websocket_send_pong(bb_websocket_t *ws);
 
 bb_error_t bb_websocket_send_close(bb_websocket_t *ws);
+
+// Async Task
+bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t *connection, bb_ws_handler_cb handler);
+
 
 #endif

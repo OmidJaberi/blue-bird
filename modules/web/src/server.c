@@ -78,7 +78,7 @@ static void _server_after_write(bb_task_t *task, void *userdata)
         * Now websocket session owns the connection.
         */
         data->connection = NULL;
-        bb_error_t err = bb_connection_task_create_ws_read(data->runtime, data->ws_session->connection, data->ws_session->handler);
+        bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws_session->connection, data->ws_session->handler);
         if (BB_FAILED(err))
         {
             bb_ws_session_destroy(data->ws_session);
