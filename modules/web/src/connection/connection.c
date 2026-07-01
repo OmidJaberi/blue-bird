@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 
-#include "connection.h"
+#include "connection/connection.h"
 
 #define BB_CONNECTION_INITIAL_BUFFER_SIZE 4096
 

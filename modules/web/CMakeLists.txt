@@ -3,9 +3,10 @@ add_library(bluebird_web
     src/server.c
     src/router.c
     src/middleware.c
-    src/connection.c
-    src/async_connection.c
     src/parser.c
+
+    src/connection/connection.c
+    src/connection/async_tasks.c
 
     src/http/message.c
     src/http/request.c

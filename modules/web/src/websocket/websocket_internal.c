@@ -3,7 +3,7 @@
 
 #include "blue-bird/error/error.h"
 
-#include "async_connection.h"
+#include "connection/async_tasks.h"
 
 #include <stdio.h>
 #include <stdlib.h>

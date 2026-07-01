@@ -4,7 +4,7 @@
 #include "blue-bird/runtime/runtime.h"
 
 #include "blue-bird/web/http/handler.h"
-#include "connection.h"
+#include "connection/connection.h"
 
 struct bb_client {
     bb_connection_t *connection;

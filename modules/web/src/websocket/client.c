@@ -1,8 +1,8 @@
 #include "blue-bird/web/websocket/client.h"
 
-#include "connection.h"
+#include "connection/connection.h"
+#include "connection/async_tasks.h"
 #include "http/parser.h"
-#include "async_connection.h"
 #include "websocket/websocket_internal.h"
 
 #include "blue-bird/runtime/event.h"

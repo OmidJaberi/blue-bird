@@ -4,7 +4,7 @@
 #include "blue-bird/web/websocket/websocket.h"
 #include "context_internal.h"
 
-#include "connection.h"
+#include "connection/connection.h"
 #include "websocket_internal.h"
 
 typedef struct bb_ws_session {

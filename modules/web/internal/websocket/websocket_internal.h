@@ -2,7 +2,7 @@
 #define BB_INTERNAL_WEBSOCKET_H
 
 #include "blue-bird/web/websocket/websocket.h"
-#include "connection.h"
+#include "connection/connection.h"
 #include "websocket/frame.h"
 #include "blue-bird/error/error.h"
 #include "blue-bird/runtime/runtime.h"

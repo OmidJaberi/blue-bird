@@ -1,5 +1,5 @@
-#ifndef BB_ASYNC_CONNECTION_H
-#define BB_ASYNC_CONNECTION_H
+#ifndef BB_CONNECTION_ASYNC_TASKS_H
+#define BB_CONNECTION_ASYNC_TASKS_H
 
 #include "blue-bird/runtime/runtime.h"
 #include "blue-bird/error/error.h"
@@ -26,4 +26,4 @@ typedef void (*bb_read_error_fn)(bb_error_t err, void *userdata);
 bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_t *conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata);
 bb_error_t bb_connection_task_create_read(bb_runtime_t *runtime, bb_connection_t *connection, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata);
 
-#endif // BB_ASYNC_CONNECTION_H
+#endif // BB_CONNECTION_ASYNC_TASKS_H

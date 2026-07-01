@@ -1,7 +1,7 @@
 #include "blue-bird/web/client.h"
 #include "http/parser.h"
-#include "connection.h"
-#include "async_connection.h"
+#include "connection/connection.h"
+#include "connection/async_tasks.h"
 #include "client_internal.h"
 
 #include <stdio.h>
