@@ -8,12 +8,20 @@ extern "C" {
 
 #include <stddef.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 typedef enum {
     BB_CONNECTION_READING,
     BB_CONNECTION_WRITING,
     BB_CONNECTION_CLOSED
 } bb_connection_state_t;
+
+typedef struct write_buffer {
+    char *write_buffer;
+    size_t write_length;
+    size_t write_offset;
+    struct write_buffer *next;
+} write_buffer_t;
 
 typedef struct bb_connection {
     int fd;
@@ -26,15 +34,16 @@ typedef struct bb_connection {
     size_t buffer_capacity;
 
     // Write buffer
-    char *write_buffer;
-    size_t write_length;
-    size_t write_offset;
+    write_buffer_t *write_data;
+    bool write_pending;
 
     void *userdata;
 } bb_connection_t;
 
 bb_connection_t *bb_connection_create(int client_fd);
 void bb_connection_destroy(bb_connection_t *connection);
+
+int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t length);
 
 bb_connection_t *bb_connection_serve(int port);
 bb_connection_t *bb_connection_accept(int server_fd);

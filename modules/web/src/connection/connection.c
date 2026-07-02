@@ -45,9 +45,8 @@ bb_connection_t *bb_connection_create(int fd)
     connection->buffer_capacity = BB_CONNECTION_INITIAL_BUFFER_SIZE;
 
     // Write buffer
-    connection->write_buffer = NULL;
-    connection->write_length = 0;
-    connection->write_offset = 0;
+    connection->write_data = NULL;
+    connection->write_pending = false;
 
     return connection;
 }
@@ -61,9 +60,36 @@ void bb_connection_destroy(bb_connection_t *connection)
 
     close(connection->fd);
     free(connection->buffer);
-    free(connection->write_buffer);
+
+    while (connection->write_data)
+    {
+        write_buffer_t *next = connection->write_data->next;
+        free(connection->write_data);
+        connection->write_data = next;
+    }
 
     free(connection);
+}
+
+int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t length)
+{
+    if (length == 0)
+        return 0;
+
+    write_buffer_t **write_data = &(connection->write_data);
+    while (*write_data)
+    {
+        write_data = &((*write_data)->next);
+    }
+    *write_data = calloc(1, sizeof(write_buffer_t));
+    if (!*write_data)
+        return 1; // handle allocation failure appropriately
+    
+    (*write_data)->write_buffer = buffer;
+    (*write_data)->write_length = length;
+    (*write_data)->write_offset = 0;
+
+    return 0;
 }
 
 bb_connection_t *bb_connection_serve(int port)
@@ -268,32 +294,40 @@ ssize_t bb_connection_read(bb_connection_t *connection)
 
 ssize_t bb_connection_write(bb_connection_t *connection)
 {
-    if (!connection || !connection->write_buffer)
+    if (!connection)
     {
         return -1;
     }
-    while (connection->write_offset < connection->write_length)
+
+    while (connection->write_data != NULL)
     {
-        ssize_t n = send(
-            connection->fd,
-            connection->write_buffer + connection->write_offset,
-            connection->write_length - connection->write_offset,
-            0
-        );
-        if (n > 0)
+        while (connection->write_data->write_offset < connection->write_data->write_length)
         {
-            connection->write_offset += n;
-            continue;
+            ssize_t n = send(
+                connection->fd,
+                connection->write_data->write_buffer + connection->write_data->write_offset,
+                connection->write_data->write_length - connection->write_data->write_offset,
+                0
+            );
+            if (n > 0)
+            {
+                connection->write_data->write_offset += n;
+                continue;
+            }
+            if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+            {
+                return 0;
+            }
+            return -1;
         }
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-        {
-            return 0;
-        }
-        return -1;
+        free(connection->write_data->write_buffer);
+        connection->write_data->write_buffer = NULL;
+        connection->write_data->write_length = 0;
+        connection->write_data->write_offset = 0;
+
+        write_buffer_t *next = connection->write_data->next;
+        free(connection->write_data);
+        connection->write_data = next;
     }
-    free(connection->write_buffer);
-    connection->write_buffer = NULL;
-    connection->write_length = 0;
-    connection->write_offset = 0;
     return 1;
 }

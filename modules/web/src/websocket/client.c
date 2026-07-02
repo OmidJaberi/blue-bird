@@ -244,9 +244,7 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
 
     bb_connection_t *conn = client->connection;
 
-    conn->write_buffer = strdup(request);
-    conn->write_length = strlen(request);
-    conn->write_offset = 0;
+    bb_connection_buffer_add(conn, strdup(request), strlen(request));
 
     bb_connection_task_create_write(client->runtime, conn, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
 }

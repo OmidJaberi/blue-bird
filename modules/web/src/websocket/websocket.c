@@ -309,9 +309,11 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
         pos += frame->payload_length;
     }
 
-    conn->write_buffer = (char *)buffer;
-    conn->write_length = pos;
-    conn->write_offset = 0;
+    int rc = bb_connection_buffer_add(conn, (char *)buffer, pos);
+    if (rc != 0)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed.");
+    }
 
     return BB_SUCCESS();
 }
@@ -441,7 +443,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     bb_ws_frame_destroy(&frame);
 
-    if (session->connection->write_buffer)
+    if (session->connection->write_data && session->connection->write_data->write_buffer)
     {
         if (BB_FAILED(bb_connection_task_create_write(data->runtime, session->connection, _websocket_after_write, _websocket_write_error, data)))
         {

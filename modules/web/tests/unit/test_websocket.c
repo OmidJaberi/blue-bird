@@ -17,18 +17,6 @@ static bb_connection_t *create_test_connection(void)
     return conn;
 }
 
-static void destroy_test_connection(bb_connection_t *conn)
-{
-    if (!conn)
-    {
-        return;
-    }
-
-    free(conn->buffer);
-    free(conn->write_buffer);
-    free(conn);
-}
-
 void test_websocket_create_destroy(void)
 {
     printf("\tTesting websocket create/destroy...\n");
@@ -41,7 +29,7 @@ void test_websocket_create_destroy(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_send_text_frame(void)
@@ -56,9 +44,9 @@ void test_send_text_frame(void)
 
     assert(err.code == BB_OK);
 
-    assert(conn->write_buffer != NULL);
+    assert(conn->write_data != NULL);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x81);
 
@@ -68,7 +56,7 @@ void test_send_text_frame(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_send_binary_frame(void)
@@ -91,7 +79,7 @@ void test_send_binary_frame(void)
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x82);
 
@@ -101,7 +89,7 @@ void test_send_binary_frame(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_send_ping(void)
@@ -116,7 +104,7 @@ void test_send_ping(void)
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x89);
 
@@ -124,7 +112,7 @@ void test_send_ping(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_send_pong(void)
@@ -139,7 +127,7 @@ void test_send_pong(void)
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x8A);
 
@@ -147,7 +135,7 @@ void test_send_pong(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_send_close(void)
@@ -162,7 +150,7 @@ void test_send_close(void)
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x88);
 
@@ -170,7 +158,7 @@ void test_send_close(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_parse_unmasked_text_frame(void)
@@ -206,7 +194,7 @@ void test_parse_unmasked_text_frame(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_parse_masked_text_frame(void)
@@ -256,7 +244,7 @@ void test_parse_masked_text_frame(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_invalid_arguments(void)
@@ -338,7 +326,7 @@ void test_parse_multiple_frames(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 int main(void)

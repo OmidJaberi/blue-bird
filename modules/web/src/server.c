@@ -147,12 +147,14 @@ static bb_read_status_t _server_read_step(void *userdata)
         }
     }
 
-    bb_response_serialize(res, &connection->write_buffer, &connection->write_length);
+    char *buffer;
+    size_t length;
+    bb_response_serialize(res, &buffer, &length);
+    bb_connection_buffer_add(connection, buffer, length);
 
     bb_request_destroy(req);
     bb_response_destroy(res);
 
-    connection->write_offset = 0;
     connection->state = BB_CONNECTION_WRITING;
 
     if (_server_create_write_task(data))

@@ -130,7 +130,10 @@ bb_error_t bb_client_send(bb_client_t *client)
     if (!client->connection)
         return BB_ERROR(BB_ERR_UNKNOWN, "Client not connected");
 
-    bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
+    char *buffer;
+    size_t length;
+    bb_request_serialize(client->req, &buffer, &length);
+    bb_connection_buffer_add(client->connection, buffer, length);
     ssize_t rc = bb_connection_write(client->connection);
     if (rc < 0)
     {
@@ -233,11 +236,10 @@ bb_error_t _client_create_write_task(bb_client_t *client, bb_client_callback_t c
     data->callback = callback;
     data->userdata = userdata;
 
-    if (!client->connection->write_buffer)
-    {
-        bb_request_serialize(client->req, &client->connection->write_buffer, &client->connection->write_length);
-        client->connection->write_offset = 0;
-    }
+    char *buffer;
+    size_t length;
+    bb_request_serialize(client->req, &buffer, &length);
+    bb_connection_buffer_add(client->connection, buffer, length);
 
     return bb_connection_task_create_write(client->runtime, client->connection, _client_after_write, _client_write_error, data);
 }

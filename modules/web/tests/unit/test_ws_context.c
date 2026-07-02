@@ -19,20 +19,6 @@ static bb_connection_t *create_test_connection(void)
     return conn;
 }
 
-static void destroy_test_connection(bb_connection_t *conn)
-{
-    if (!conn)
-    {
-        return;
-    }
-
-    free(conn->buffer);
-
-    free(conn->write_buffer);
-
-    free(conn);
-}
-
 void test_context_create_destroy(void)
 {
     printf("\tTesting context create/destroy...\n");
@@ -51,7 +37,7 @@ void test_context_create_destroy(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_context_userdata(void)
@@ -74,7 +60,7 @@ void test_context_userdata(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_send_text(void)
@@ -91,9 +77,9 @@ void test_send_text(void)
 
     assert(err.code == BB_OK);
 
-    assert(conn->write_buffer != NULL);
+    assert(conn->write_data != NULL);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x81);
 
@@ -105,7 +91,7 @@ void test_send_text(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_send_binary(void)
@@ -130,7 +116,7 @@ void test_send_binary(void)
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x82);
 
@@ -142,7 +128,7 @@ void test_send_binary(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 void test_close(void)
@@ -159,7 +145,7 @@ void test_close(void)
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_buffer;
+    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
 
     assert(buf[0] == 0x88);
 
@@ -169,7 +155,7 @@ void test_close(void)
 
     bb_websocket_destroy(ws);
 
-    destroy_test_connection(conn);
+    bb_connection_destroy(conn);
 }
 
 int main(void)

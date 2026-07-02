@@ -32,6 +32,7 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     bb_connection_t *conn = data->connection;
     if (bb_connection_write(conn) < 0)
     {
+        conn->write_pending = false;
         if (data->failure)
             data->failure(task, data->userdata);
 
@@ -39,13 +40,14 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
         return;
     }
 
-    if (conn->write_offset < conn->write_length)
+    if (conn->write_data)
     {
         bb_task_t *next = bb_task_create(_bb_write_task, data);
         bb_runtime_watch_fd(data->runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, next);
         return;
     }
 
+    conn->write_pending = false;
     if (data->success)
         data->success(task, data->userdata);
 
@@ -54,7 +56,13 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
 
 bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_t *conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
 {
+    if (conn->write_pending)
+        return BB_SUCCESS();
+
     _bb_write_task_data_t *data = malloc(sizeof(*data));
+
+    if (!data)
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed.");
 
     data->connection = conn;
     data->runtime = runtime;
@@ -65,6 +73,7 @@ bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_
     bb_task_t *task = bb_task_create(_bb_write_task, data);
     if (!task)
         return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate task data.");
+    conn->write_pending = true;
     bb_runtime_watch_fd(runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
     return BB_SUCCESS();
 }
