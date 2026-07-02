@@ -33,7 +33,7 @@ static void *server_thread(void *arg)
 
     bb_server_t *server = bb_server_create_on_runtime(runtime, TEST_PORT);
 
-    bb_server_add_websocket(server, "/ws", echo_handler);
+    bb_server_add_websocket(server, "/echo", echo_handler);
 
     bb_server_start(server);
 
@@ -49,10 +49,14 @@ static void *server_thread(void *arg)
 }
 
 /* ============================================================
- * Client callbacks
+ * Tests
  * ============================================================ */
 
-static void connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
+ // Echo test
+
+static volatile int echo_finished = 0;
+
+static void _echo_connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
@@ -63,7 +67,7 @@ static void connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
     assert(!BB_FAILED(err));
 }
 
-bb_error_t message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+bb_error_t _echo_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
 {
     (void) ctx;
 
@@ -71,41 +75,31 @@ bb_error_t message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
     assert(msg->length == 5);
     assert(memcmp(msg->data, "hello", 5) == 0);
 
-    finished = 1;
+    echo_finished = 1;
     return BB_SUCCESS();
 }
-
-/* ============================================================
- * Tests
- * ============================================================ */
 
 static void websocket_echo_test(void)
 {
     printf("\tTesting WebSocket echo...\n");
 
-    finished = 0;
-
-    pthread_t thread;
-
-    assert(pthread_create(&thread, NULL, server_thread, NULL) == 0);
+    echo_finished = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
 
     bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
 
-    bb_ws_client_set_message_callback(client, message_cb, NULL);
+    bb_ws_client_set_message_callback(client, _echo_message_cb, NULL);
 
-    bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/ws", connect_cb, NULL);
+    bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _echo_connect_cb, NULL);
 
-    while (!finished)
+    while (!echo_finished)
     {
         bb_runtime_tick(runtime);
     }
 
     bb_ws_client_destroy(client);
     bb_runtime_destroy(runtime);
-
-    pthread_join(thread, NULL);
 }
 
 /* ============================================================
@@ -114,12 +108,18 @@ static void websocket_echo_test(void)
 
 int main(void)
 {
+    pthread_t thread;
+
+    assert(pthread_create(&thread, NULL, server_thread, NULL) == 0);
+
     printf("Testing websocket client/server integration:\n");
 
     websocket_echo_test();
 
+    finished = 1;
     printf("All websocket integration tests passed.\n");
 
+    pthread_join(thread, NULL);
     return 0;
 }
 
