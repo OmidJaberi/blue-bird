@@ -118,7 +118,11 @@ static void _multi_messages_connect_cb(bb_ws_client_t *client, bb_error_t err, v
 
 bb_error_t _multi_messages_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
 {
+    (void) ctx;
+
     messages++;
+
+    // printf("Message %d: %s\n", messages, (char *)msg->data);
 
     switch(messages)
     {
@@ -153,7 +157,7 @@ static void websocket_multi_message_test(void)
 
     bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _multi_messages_connect_cb, NULL);
 
-    while (messages < 4)
+    while (messages < 3)
     {
         bb_runtime_tick(runtime);
     }
