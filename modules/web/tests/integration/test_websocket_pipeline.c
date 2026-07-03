@@ -166,6 +166,64 @@ static void websocket_multi_message_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Large Message test
+
+#define LARGE_MESSAGE_SIZE 8192
+
+static volatile int large_finished = 0;
+
+static char large_message[LARGE_MESSAGE_SIZE + 1];
+
+static void _large_connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(!BB_FAILED(err));
+
+    bb_error_t send_err = bb_ws_client_send_text(client, large_message);
+
+    assert(!BB_FAILED(send_err));
+}
+
+bb_error_t _large_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+{
+    (void)ctx;
+
+    assert(msg->type == BB_WS_MESSAGE_TEXT);
+    assert(msg->length == LARGE_MESSAGE_SIZE);
+    assert(memcmp(msg->data, large_message, LARGE_MESSAGE_SIZE) == 0);
+
+    large_finished = 1;
+
+    return BB_SUCCESS();
+}
+
+static void websocket_large_message_test(void)
+{
+    printf("\tTesting WebSocket Large Message...\n");
+
+    large_finished = 0;
+
+    memset(large_message, 'A', LARGE_MESSAGE_SIZE);
+    large_message[LARGE_MESSAGE_SIZE] = '\0';
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+
+    bb_ws_client_set_message_callback(client, _large_message_cb, NULL);
+
+    bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _large_connect_cb, NULL);
+
+    while (!large_finished)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    bb_ws_client_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -180,6 +238,7 @@ int main(void)
 
     websocket_echo_test();
     websocket_multi_message_test();
+    websocket_large_message_test();
 
     finished = 1;
     printf("All websocket integration tests passed.\n");
