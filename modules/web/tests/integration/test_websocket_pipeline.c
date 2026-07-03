@@ -21,6 +21,10 @@ static bb_error_t echo_handler(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
     {
         return bb_ws_send_text(ctx, msg->data);
     }
+    if (msg->type == BB_WS_MESSAGE_BINARY)
+    {
+        return bb_ws_send_binary(ctx, msg->data, msg->length);
+    }
 
     return BB_SUCCESS();
 }
@@ -223,6 +227,74 @@ static void websocket_large_message_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Binary Message test
+
+#define BINARY_MESSAGE_SIZE 7
+
+static volatile int binary_finished = 0;
+
+static uint8_t binary_message[BINARY_MESSAGE_SIZE] = {
+    0x00,
+    0x01,
+    0x02,
+    0x03,
+    0xFF,
+    0x7A,
+    0x10
+};
+
+static void _binary_connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(!BB_FAILED(err));
+
+    bb_error_t send_err = bb_ws_client_send_binary(client, binary_message, BINARY_MESSAGE_SIZE);
+
+    assert(!BB_FAILED(send_err));
+}
+
+bb_error_t _binary_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+{
+    (void)ctx;
+
+    assert(msg->type == BB_WS_MESSAGE_BINARY);
+    assert(msg->length == BINARY_MESSAGE_SIZE);
+    assert(memcmp(msg->data, binary_message, BINARY_MESSAGE_SIZE) == 0);
+
+    binary_finished = 1;
+
+    return BB_SUCCESS();
+}
+
+static void websocket_binary_message_test(void)
+{
+    printf("\tTesting WebSocket Binary Message...\n");
+
+    binary_finished = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+
+    bb_ws_client_set_message_callback(client, _binary_message_cb, NULL);
+
+    bb_ws_client_connect_async(
+        client,
+        "ws://127.0.0.1:8080/echo",
+        _binary_connect_cb,
+        NULL
+    );
+
+    while (!binary_finished)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    bb_ws_client_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -238,6 +310,7 @@ int main(void)
     websocket_echo_test();
     websocket_multi_message_test();
     websocket_large_message_test();
+    websocket_binary_message_test();
 
     finished = 1;
     printf("All websocket integration tests passed.\n");

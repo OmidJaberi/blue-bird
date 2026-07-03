@@ -315,3 +315,25 @@ bb_error_t bb_ws_client_send_text(bb_ws_client_t *client, const char *text)
 
     return BB_SUCCESS();
 }
+
+bb_error_t bb_ws_client_send_binary(bb_ws_client_t *client, const void *data, size_t length)
+{
+    if (!client || !client->websocket)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Client not connected");
+    }
+
+    bb_error_t err = bb_websocket_send_binary(client->websocket, data, length);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    if (bb_connection_write(client->connection) < 0)
+    {
+        return BB_ERROR(BB_ERR_IO, "Write failed");
+    }
+
+    return BB_SUCCESS();
+}
