@@ -84,10 +84,17 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
     bb_read_task_data_t *data = userdata;
 
-    if (bb_connection_read(data->connection) < 0)
+    int n = bb_connection_read(data->connection);
+    if (n < 0)
     {
         if (data->error)
             data->error(BB_ERROR(BB_ERR_IO, "Read failed"), data->userdata);
+        free(data);
+        return;
+    }
+    if (n == 0 && data->connection->buffer_length == 0)
+    {
+        // closed
         free(data);
         return;
     }
