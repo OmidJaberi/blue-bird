@@ -136,7 +136,6 @@ bb_error_t _multi_messages_message_cb(bb_ws_context_t *ctx, const bb_ws_message_
 
         case 3:
             assert(strcmp(msg->data, "three") == 0);
-            finished = 1;
             break;
     }
 
