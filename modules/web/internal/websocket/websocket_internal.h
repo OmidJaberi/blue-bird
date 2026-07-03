@@ -29,7 +29,7 @@ bb_websocket_t *bb_websocket_create(bb_connection_t *connection, bb_websocket_mo
 void bb_websocket_destroy(bb_websocket_t *ws);
 
 // Frame operations
-bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame);
+bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame);
 
 bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *frame);
 

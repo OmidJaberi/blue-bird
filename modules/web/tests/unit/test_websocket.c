@@ -178,7 +178,7 @@ void test_parse_unmasked_text_frame(void)
 
     bb_ws_frame_t frame = {0};
 
-    bb_error_t err = bb_websocket_read_frame(ws, &frame);
+    bb_error_t err = bb_websocket_read_frames(ws, &frame);
 
     assert(err.code == BB_OK);
 
@@ -232,7 +232,7 @@ void test_parse_masked_text_frame(void)
 
     bb_ws_frame_t frame = {0};
 
-    bb_error_t err = bb_websocket_read_frame(ws, &frame);
+    bb_error_t err = bb_websocket_read_frames(ws, &frame);
 
     assert(err.code == BB_OK);
 
@@ -295,37 +295,27 @@ void test_parse_multiple_frames(void)
     memcpy(conn->buffer, frames, sizeof(frames));
 
     conn->buffer_length = sizeof(frames);
-
     conn->buffer_capacity = sizeof(frames);
 
     bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
-    bb_ws_frame_t frame1 = {0};
+    bb_ws_frame_t frame = {0};
 
-    bb_error_t err = bb_websocket_read_frame(ws, &frame1);
-
-    assert(err.code == BB_OK);
-
-    assert(strcmp(frame1.payload, "hello") == 0);
-
-    bb_ws_frame_destroy(&frame1);
-
-    assert(conn->buffer_length == 7);
-
-    bb_ws_frame_t frame2 = {0};
-
-    err = bb_websocket_read_frame(ws, &frame2);
+    bb_error_t err = bb_websocket_read_frames(ws, &frame);
 
     assert(err.code == BB_OK);
 
-    assert(strcmp(frame2.payload, "world") == 0);
+    assert(strcmp(frame.payload, "hello") == 0);
+    assert(frame.next != NULL);
 
-    bb_ws_frame_destroy(&frame2);
+    assert(strcmp(frame.next->payload, "world") == 0);
+    assert(frame.next->next == NULL);
 
     assert(conn->buffer_length == 0);
 
-    bb_websocket_destroy(ws);
+    bb_ws_frame_destroy(&frame);
 
+    bb_websocket_destroy(ws);
     bb_connection_destroy(conn);
 }
 

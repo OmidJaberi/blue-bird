@@ -15,7 +15,7 @@ typedef enum {
     BB_WS_PONG         = 0xA
 } bb_ws_opcode_t;
 
-typedef struct {
+typedef struct bb_ws_frame {
     uint8_t fin;
     uint8_t opcode;
 
@@ -26,6 +26,8 @@ typedef struct {
     uint8_t masking_key[4];
 
     char *payload;
+
+    struct bb_ws_frame *next;
 } bb_ws_frame_t;
 
 bb_error_t bb_ws_frame_to_message(const bb_ws_frame_t *frame, bb_ws_message_t *message);

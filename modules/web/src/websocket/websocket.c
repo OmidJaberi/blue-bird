@@ -146,7 +146,7 @@ void bb_websocket_destroy(bb_websocket_t *ws)
     free(ws);
 }
 
-bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame)
+bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
 {
     if (!ws || !frame)
     {
@@ -155,85 +155,134 @@ bb_error_t bb_websocket_read_frame(bb_websocket_t *ws, bb_ws_frame_t *frame)
 
     bb_connection_t *conn = ws->connection;
 
-    if (conn->buffer_length < 2)
+    frame->next = NULL;
+
+    bb_ws_frame_t *current = frame;
+    size_t consumed_total = 0;
+
+    while (1)
+    {
+        size_t available = conn->buffer_length - consumed_total;
+
+        if (available < 2)
+        {
+            break;
+        }
+
+        uint8_t *buf = (uint8_t *)conn->buffer + consumed_total;
+
+        current->fin = (buf[0] >> 7) & 1;
+        current->opcode = buf[0] & 0x0F;
+
+        current->masked = (buf[1] >> 7) & 1;
+
+        uint64_t payload_len = buf[1] & 0x7F;
+        size_t offset = 2;
+
+        if (payload_len == 126)
+        {
+            if (available < 4)
+            {
+                break;
+            }
+
+            payload_len =
+                ((uint16_t)buf[2] << 8) |
+                ((uint16_t)buf[3]);
+
+            offset += 2;
+        }
+        else if (payload_len == 127)
+        {
+            if (available < 10)
+            {
+                break;
+            }
+
+            payload_len =
+                ((uint64_t)buf[2] << 56) |
+                ((uint64_t)buf[3] << 48) |
+                ((uint64_t)buf[4] << 40) |
+                ((uint64_t)buf[5] << 32) |
+                ((uint64_t)buf[6] << 24) |
+                ((uint64_t)buf[7] << 16) |
+                ((uint64_t)buf[8] << 8)  |
+                ((uint64_t)buf[9]);
+
+            offset += 8;
+        }
+
+        current->payload_length = payload_len;
+
+        if (current->masked)
+        {
+            if (available < offset + 4)
+            {
+                break;
+            }
+
+            memcpy(current->masking_key, buf + offset, 4);
+            offset += 4;
+        }
+
+        if (available < offset + payload_len)
+        {
+            break;
+        }
+
+        current->payload = malloc(payload_len + 1);
+
+        if (!current->payload)
+        {
+            bb_ws_frame_destroy(frame);
+
+            return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+        }
+
+        memcpy(current->payload, buf + offset, payload_len);
+
+        if (current->masked)
+        {
+            for (uint64_t i = 0; i < payload_len; ++i)
+            {
+                current->payload[i] ^= current->masking_key[i % 4];
+            }
+        }
+
+        current->payload[payload_len] = '\0';
+        current->next = NULL;
+
+        consumed_total += offset + payload_len;
+
+        available = conn->buffer_length - consumed_total;
+
+        if (available < 2)
+        {
+            break;
+        }
+
+        current->next = calloc(1, sizeof(bb_ws_frame_t));
+
+        if (!current->next)
+        {
+            bb_ws_frame_destroy(frame);
+
+            return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+        }
+
+        current = current->next;
+    }
+
+    if (consumed_total == 0)
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
     }
 
-    uint8_t *buf = (uint8_t *)conn->buffer;
-
-    frame->fin = (buf[0] >> 7) & 1;
-    frame->opcode = buf[0] & 0x0F;
-
-    frame->masked = (buf[1] >> 7) & 1;
-
-    uint64_t payload_len = buf[1] & 0x7F;
-
-    size_t offset = 2;
-
-    if (payload_len == 126)
-    {
-        if (conn->buffer_length < 4)
-        {
-            return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
-        }
-
-        payload_len =
-            ((uint16_t)buf[2] << 8) |
-            ((uint16_t)buf[3]);
-
-        offset += 2;
-    }
-
-    frame->payload_length = payload_len;
-
-    if (frame->masked)
-    {
-        if (conn->buffer_length < offset + 4)
-        {
-            return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
-        }
-
-        memcpy(frame->masking_key, buf + offset, 4);
-
-        offset += 4;
-    }
-
-    if (conn->buffer_length < offset + payload_len)
-    {
-        return BB_ERROR(BB_ERR_INTERNAL, "Incomplete frame");
-    }
-
-    frame->payload = malloc(payload_len + 1);
-
-    if (!frame->payload)
-    {
-        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
-    }
-
-    memcpy(frame->payload, buf + offset, payload_len);
-
-    if (frame->masked)
-    {
-        for (uint64_t i = 0; i < payload_len; ++i)
-        {
-            frame->payload[i] ^=
-                frame->masking_key[i % 4];
-        }
-    }
-
-    frame->payload[payload_len] = '\0';
-
-    /*
-     * Consume frame bytes from connection buffer.
-     */
-    size_t consumed = offset + payload_len;
-
-    size_t remaining = conn->buffer_length - consumed;
+    size_t remaining = conn->buffer_length - consumed_total;
 
     if (remaining > 0)
     {
-        memmove(conn->buffer, conn->buffer + consumed, remaining);
+        memmove(conn->buffer, conn->buffer + consumed_total, remaining);
     }
 
     conn->buffer_length = remaining;
@@ -417,7 +466,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     bb_ws_frame_t frame = {0};
 
-    bb_error_t err = bb_websocket_read_frame(session->websocket, &frame);
+    bb_error_t err = bb_websocket_read_frames(session->websocket, &frame);
 
     if (err.code == BB_ERR_INTERNAL)
     {
@@ -429,17 +478,20 @@ static bb_read_status_t _websocket_read_step(void *userdata)
         return (bb_read_status_t){ BB_READ_ERROR, err };
     }
 
-    bb_ws_message_t msg;
-
-    err = bb_ws_frame_to_message(&frame, &msg);
-
-    if (BB_FAILED(err))
+    for (bb_ws_frame_t *current = &frame; current; current = current->next)
     {
-        bb_ws_frame_destroy(&frame);
-        return (bb_read_status_t){ BB_READ_ERROR, err };
-    }
+        bb_ws_message_t msg;
 
-    session->handler(&session->context, &msg);
+        err = bb_ws_frame_to_message(current, &msg);
+
+        if (BB_FAILED(err))
+        {
+            bb_ws_frame_destroy(&frame);
+            return (bb_read_status_t){ BB_READ_ERROR, err };
+        }
+
+        session->handler(&session->context, &msg);
+    }
 
     bb_ws_frame_destroy(&frame);
 
