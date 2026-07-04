@@ -37,7 +37,7 @@ bb_error_t bb_ws_send_text(bb_ws_context_t *ctx, const char *text)
         return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
     }
 
-    return bb_websocket_send_text(ctx->websocket, text);
+    return bb_websocket_queue_text(ctx->websocket, text);
 }
 
 bb_error_t bb_ws_send_binary(bb_ws_context_t *ctx, const void *data, size_t length)
@@ -47,11 +47,7 @@ bb_error_t bb_ws_send_binary(bb_ws_context_t *ctx, const void *data, size_t leng
         return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
     }
 
-    return bb_websocket_send_binary(
-        ctx->websocket,
-        data,
-        length
-    );
+    return bb_websocket_queue_binary(ctx->websocket, data, length);
 }
 
 bb_error_t bb_ws_close(bb_ws_context_t *ctx)
