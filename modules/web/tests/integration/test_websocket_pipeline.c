@@ -295,6 +295,64 @@ static void websocket_binary_message_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Sequential Connections test
+
+#define SEQUENTIAL_CONNECTIONS 100
+
+static volatile int sequential_finished = 0;
+
+static void _sequential_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(!BB_FAILED(err));
+
+    err = bb_websocket_send_text(ws, "ping");
+
+    assert(!BB_FAILED(err));
+}
+
+bb_error_t _sequential_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+{
+    (void)ctx;
+
+    assert(msg->type == BB_WS_MESSAGE_TEXT);
+    assert(msg->length == 4);
+    assert(memcmp(msg->data, "ping", 4) == 0);
+
+    sequential_finished = 1;
+
+    return BB_SUCCESS();
+}
+
+static void websocket_sequential_connections_test(void)
+{
+    printf("\tTesting WebSocket Sequential Connections...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    for (int i = 0; i < SEQUENTIAL_CONNECTIONS; i++)
+    {
+        sequential_finished = 0;
+
+        bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+
+        bb_ws_client_set_message_callback(client, _sequential_message_cb, NULL);
+
+        bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _sequential_connect_cb, NULL);
+
+        while (!sequential_finished)
+        {
+            bb_runtime_tick(runtime);
+        }
+
+        bb_ws_client_close(client);
+        bb_ws_client_destroy(client);
+    }
+
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -311,6 +369,7 @@ int main(void)
     websocket_multi_message_test();
     websocket_large_message_test();
     websocket_binary_message_test();
+    websocket_sequential_connections_test();
 
     finished = 1;
     printf("All websocket integration tests passed.\n");
