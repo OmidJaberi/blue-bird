@@ -61,7 +61,7 @@ bb_error_t bb_ws_close(bb_ws_context_t *ctx)
         return BB_ERROR(BB_ERR_INTERNAL, "Invalid context");
     }
 
-    return bb_websocket_send_close(ctx->websocket);
+    return bb_websocket_queue_close(ctx->websocket);
 }
 
 void *bb_ws_userdata(bb_ws_context_t *ctx)

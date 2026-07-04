@@ -36,15 +36,15 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
 void bb_ws_frame_destroy(bb_ws_frame_t *frame);
 
 // Convenience helpers
-bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text);
+bb_error_t bb_websocket_queue_text(bb_websocket_t *ws, const char *text);
 
-bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t length);
+bb_error_t bb_websocket_queue_binary(bb_websocket_t *ws, const void *data, size_t length);
 
-bb_error_t bb_websocket_send_ping(bb_websocket_t *ws);
+bb_error_t bb_websocket_queue_ping(bb_websocket_t *ws);
 
-bb_error_t bb_websocket_send_pong(bb_websocket_t *ws);
+bb_error_t bb_websocket_queue_pong(bb_websocket_t *ws);
 
-bb_error_t bb_websocket_send_close(bb_websocket_t *ws);
+bb_error_t bb_websocket_queue_close(bb_websocket_t *ws);
 
 // Async Task
 bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t *connection, bb_ws_handler_cb handler);

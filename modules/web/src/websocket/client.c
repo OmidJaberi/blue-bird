@@ -161,8 +161,47 @@ static int _parse_ws_url(const char *url, char **host, int *port, char **path)
     return 0;
 }
 
-static bb_read_status_t _bb_ws_handshake_read_step(void *userdata);
-static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata);
+static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
+{
+    _bb_ws_client_task_data_t *data = userdata;
+    bb_connection_t *conn = data->client->connection;
+
+    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    {
+        return (bb_read_status_t){
+            .result = BB_READ_MORE,
+        };
+    }
+
+    conn->buffer_length = 0;
+
+    data->client->websocket = bb_websocket_create(conn, BB_WEBSOCKET_CLIENT);
+
+    data->connect_cb(data->client->websocket, BB_SUCCESS(), data->connect_userdata);
+
+    bb_websocket_create_read_task(data->client->runtime, data->client->connection, data->client->message_cb);
+
+    free(data->host);
+    free(data->path);
+    free(data);
+
+    return (bb_read_status_t){
+        .result = BB_READ_DONE,
+    };
+}
+
+static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
+{
+    (void)err;
+
+    _bb_ws_client_task_data_t *data = userdata;
+
+    data->connect_cb(data->client->websocket, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
+
+    free(data->host);
+    free(data->path);
+    free(data);
+}
 
 static void _bb_ws_handshake_write_done(bb_task_t *task, void *userdata)
 {
@@ -179,7 +218,7 @@ static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    data->connect_cb(data->client, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
+    data->connect_cb(data->client->websocket, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
 
     free(data->host);
     free(data->path);
@@ -194,7 +233,7 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
 
     if (_parse_ws_url(url, &host, &port, &path) < 0)
     {
-        callback(client, BB_ERROR(BB_ERR_BAD_REQUEST, "Invalid websocket URL"), userdata);
+        callback(client->websocket, BB_ERROR(BB_ERR_BAD_REQUEST, "Invalid websocket URL"), userdata);
         return;
     }
 
@@ -206,7 +245,7 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
 
     if (!client->connection)
     {
-        callback(client, BB_ERROR(BB_ERR_NETWORK, "Connection failed"), userdata);
+        callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Connection failed"), userdata);
 
         free(host);
         free(path);
@@ -247,93 +286,4 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
     bb_connection_buffer_add(conn, strdup(request), strlen(request));
 
     bb_connection_task_create_write(client->runtime, conn, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
-}
-
-static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
-{
-    _bb_ws_client_task_data_t *data = userdata;
-    bb_connection_t *conn = data->client->connection;
-
-    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
-    {
-        return (bb_read_status_t){
-            .result = BB_READ_MORE,
-        };
-    }
-
-    conn->buffer_length = 0;
-
-    data->client->websocket = bb_websocket_create(conn, BB_WEBSOCKET_CLIENT);
-
-    data->connect_cb(data->client, BB_SUCCESS(), data->connect_userdata);
-
-    bb_websocket_create_read_task(data->client->runtime, data->client->connection, data->client->message_cb);
-
-    free(data->host);
-    free(data->path);
-    free(data);
-
-    return (bb_read_status_t){
-        .result = BB_READ_DONE,
-    };
-}
-
-static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
-{
-    (void)err;
-
-    _bb_ws_client_task_data_t *data = userdata;
-
-    data->connect_cb(
-        data->client,
-        BB_ERROR(BB_ERR_NETWORK, "Handshake failed"),
-        data->connect_userdata);
-
-    free(data->host);
-    free(data->path);
-    free(data);
-}
-
-bb_error_t bb_ws_client_send_text(bb_ws_client_t *client, const char *text)
-{
-    if (!client || !client->websocket)
-    {
-        return BB_ERROR(BB_ERR_INTERNAL, "Client not connected");
-    }
-
-    bb_error_t err = bb_websocket_send_text(client->websocket, text);
-
-    if (BB_FAILED(err))
-    {
-        return err;
-    }
-
-    if (bb_connection_write(client->connection) < 0)
-    {
-        return BB_ERROR(BB_ERR_IO, "Write failed");
-    }
-
-    return BB_SUCCESS();
-}
-
-bb_error_t bb_ws_client_send_binary(bb_ws_client_t *client, const void *data, size_t length)
-{
-    if (!client || !client->websocket)
-    {
-        return BB_ERROR(BB_ERR_INTERNAL, "Client not connected");
-    }
-
-    bb_error_t err = bb_websocket_send_binary(client->websocket, data, length);
-
-    if (BB_FAILED(err))
-    {
-        return err;
-    }
-
-    if (bb_connection_write(client->connection) < 0)
-    {
-        return BB_ERROR(BB_ERR_IO, "Write failed");
-    }
-
-    return BB_SUCCESS();
 }

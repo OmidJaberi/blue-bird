@@ -60,13 +60,13 @@ static void *server_thread(void *arg)
 
 static volatile int echo_finished = 0;
 
-static void _echo_connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
+static void _echo_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
     assert(!BB_FAILED(err));
 
-    err = bb_ws_client_send_text(client, "hello");
+    err = bb_websocket_send_text(ws, "hello");
 
     assert(!BB_FAILED(err));
 }
@@ -110,14 +110,14 @@ static void websocket_echo_test(void)
 
 static volatile int messages = 0;
 
-static void _multi_messages_connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
+static void _multi_messages_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
     (void) err;
     (void) userdata;
 
-    bb_ws_client_send_text(client, "one");
-    bb_ws_client_send_text(client, "two");
-    bb_ws_client_send_text(client, "three");
+    bb_websocket_send_text(ws, "one");
+    bb_websocket_send_text(ws, "two");
+    bb_websocket_send_text(ws, "three");
 }
 
 bb_error_t _multi_messages_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
@@ -177,13 +177,13 @@ static volatile int large_finished = 0;
 
 static char large_message[LARGE_MESSAGE_SIZE + 1];
 
-static void _large_connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
+static void _large_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
     assert(!BB_FAILED(err));
 
-    bb_error_t send_err = bb_ws_client_send_text(client, large_message);
+    bb_error_t send_err = bb_websocket_send_text(ws, large_message);
 
     assert(!BB_FAILED(send_err));
 }
@@ -243,13 +243,13 @@ static uint8_t binary_message[BINARY_MESSAGE_SIZE] = {
     0x10
 };
 
-static void _binary_connect_cb(bb_ws_client_t *client, bb_error_t err, void *userdata)
+static void _binary_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
     assert(!BB_FAILED(err));
 
-    bb_error_t send_err = bb_ws_client_send_binary(client, binary_message, BINARY_MESSAGE_SIZE);
+    bb_error_t send_err = bb_websocket_send_binary(ws, binary_message, BINARY_MESSAGE_SIZE);
 
     assert(!BB_FAILED(send_err));
 }

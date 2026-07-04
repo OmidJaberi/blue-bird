@@ -367,7 +367,7 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
     return BB_SUCCESS();
 }
 
-bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
+bb_error_t bb_websocket_queue_text(bb_websocket_t *ws, const char *text)
 {
     bb_ws_frame_t frame = {0};
 
@@ -380,7 +380,7 @@ bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
     return bb_websocket_queue_frame(ws, &frame);
 }
 
-bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t length)
+bb_error_t bb_websocket_queue_binary(bb_websocket_t *ws, const void *data, size_t length)
 {
     if (!data && length > 0)
     {
@@ -398,7 +398,7 @@ bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t
     return bb_websocket_queue_frame(ws, &frame);
 }
 
-static bb_error_t _bb_websocket_send_control(bb_websocket_t *ws, bb_ws_opcode_t opcode, const void *payload, size_t length)
+static bb_error_t _bb_websocket_queue_control(bb_websocket_t *ws, bb_ws_opcode_t opcode, const void *payload, size_t length)
 {
     bb_ws_frame_t frame = {0};
 
@@ -411,19 +411,19 @@ static bb_error_t _bb_websocket_send_control(bb_websocket_t *ws, bb_ws_opcode_t 
     return bb_websocket_queue_frame(ws, &frame);
 }
 
-bb_error_t bb_websocket_send_ping(bb_websocket_t *ws)
+bb_error_t bb_websocket_queue_ping(bb_websocket_t *ws)
 {
-    return _bb_websocket_send_control(ws, BB_WS_PING, NULL, 0);
+    return _bb_websocket_queue_control(ws, BB_WS_PING, NULL, 0);
 }
 
-bb_error_t bb_websocket_send_pong(bb_websocket_t *ws)
+bb_error_t bb_websocket_queue_pong(bb_websocket_t *ws)
 {
-    return _bb_websocket_send_control(ws, BB_WS_PONG, NULL, 0);
+    return _bb_websocket_queue_control(ws, BB_WS_PONG, NULL, 0);
 }
 
-bb_error_t bb_websocket_send_close(bb_websocket_t *ws)
+bb_error_t bb_websocket_queue_close(bb_websocket_t *ws)
 {
-    return _bb_websocket_send_control(ws, BB_WS_CLOSE, NULL, 0);
+    return _bb_websocket_queue_control(ws, BB_WS_CLOSE, NULL, 0);
 }
 
 typedef struct {
@@ -535,4 +535,48 @@ bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t 
         free(data);
     }
     return err;
+}
+
+bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
+{
+    if (!ws)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
+    }
+
+    bb_error_t err = bb_websocket_queue_text(ws, text);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    if (bb_connection_write(ws->connection) < 0)
+    {
+        return BB_ERROR(BB_ERR_IO, "Write failed");
+    }
+
+    return BB_SUCCESS();
+}
+
+bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t length)
+{
+    if (!ws)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
+    }
+
+    bb_error_t err = bb_websocket_queue_binary(ws, data, length);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    if (bb_connection_write(ws->connection) < 0)
+    {
+        return BB_ERROR(BB_ERR_IO, "Write failed");
+    }
+
+    return BB_SUCCESS();
 }

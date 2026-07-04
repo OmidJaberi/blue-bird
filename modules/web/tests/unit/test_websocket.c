@@ -32,7 +32,7 @@ void test_websocket_create_destroy(void)
     bb_connection_destroy(conn);
 }
 
-void test_send_text_frame(void)
+void test_queue_text_frame(void)
 {
     printf("\tTesting text frame serialization...\n");
 
@@ -40,7 +40,7 @@ void test_send_text_frame(void)
 
     bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
-    bb_error_t err = bb_websocket_send_text(ws, "hello");
+    bb_error_t err = bb_websocket_queue_text(ws, "hello");
 
     assert(err.code == BB_OK);
 
@@ -59,7 +59,7 @@ void test_send_text_frame(void)
     bb_connection_destroy(conn);
 }
 
-void test_send_binary_frame(void)
+void test_queue_binary_frame(void)
 {
     printf("\tTesting binary frame serialization...\n");
 
@@ -75,7 +75,7 @@ void test_send_binary_frame(void)
         0x04
     };
 
-    bb_error_t err = bb_websocket_send_binary(ws, payload, sizeof(payload));
+    bb_error_t err = bb_websocket_queue_binary(ws, payload, sizeof(payload));
 
     assert(err.code == BB_OK);
 
@@ -92,7 +92,7 @@ void test_send_binary_frame(void)
     bb_connection_destroy(conn);
 }
 
-void test_send_ping(void)
+void test_queue_ping(void)
 {
     printf("\tTesting ping frame...\n");
 
@@ -100,7 +100,7 @@ void test_send_ping(void)
 
     bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
-    bb_error_t err = bb_websocket_send_ping(ws);
+    bb_error_t err = bb_websocket_queue_ping(ws);
 
     assert(err.code == BB_OK);
 
@@ -115,7 +115,7 @@ void test_send_ping(void)
     bb_connection_destroy(conn);
 }
 
-void test_send_pong(void)
+void test_queue_pong(void)
 {
     printf("\tTesting pong frame...\n");
 
@@ -123,7 +123,7 @@ void test_send_pong(void)
 
     bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
-    bb_error_t err = bb_websocket_send_pong(ws);
+    bb_error_t err = bb_websocket_queue_pong(ws);
 
     assert(err.code == BB_OK);
 
@@ -138,7 +138,7 @@ void test_send_pong(void)
     bb_connection_destroy(conn);
 }
 
-void test_send_close(void)
+void test_queue_close(void)
 {
     printf("\tTesting close frame...\n");
 
@@ -146,7 +146,7 @@ void test_send_close(void)
 
     bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
 
-    bb_error_t err = bb_websocket_send_close(ws);
+    bb_error_t err = bb_websocket_queue_close(ws);
 
     assert(err.code == BB_OK);
 
@@ -253,11 +253,11 @@ void test_invalid_arguments(void)
 
     bb_error_t err;
 
-    err = bb_websocket_send_text(NULL, "hello");
+    err = bb_websocket_queue_text(NULL, "hello");
 
     assert(err.code != BB_OK);
 
-    err = bb_websocket_send_binary(NULL, "abc", 3);
+    err = bb_websocket_queue_binary(NULL, "abc", 3);
 
     assert(err.code != BB_OK);
 }
@@ -325,15 +325,15 @@ int main(void)
 
     test_websocket_create_destroy();
 
-    test_send_text_frame();
+    test_queue_text_frame();
 
-    test_send_binary_frame();
+    test_queue_binary_frame();
 
-    test_send_ping();
+    test_queue_ping();
 
-    test_send_pong();
+    test_queue_pong();
 
-    test_send_close();
+    test_queue_close();
 
     test_parse_unmasked_text_frame();
 
