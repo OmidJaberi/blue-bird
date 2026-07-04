@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 struct bb_ws_client {
     bb_runtime_t *runtime;
@@ -96,64 +97,134 @@ void bb_ws_client_set_message_callback(bb_ws_client_t *client, bb_ws_handler_cb 
 
 static int _parse_ws_url(const char *url, char **host, int *port, char **path)
 {
-    if (!url)
-    {
+    if (!url || !host || !port || !path)
         return -1;
+
+    *host = NULL;
+    *path = NULL;
+    *port = 0;
+
+    const char *scheme = strstr(url, "://");
+    const char *authority = scheme ? scheme + 3 : url;
+
+    int default_port = 80;
+
+    if (scheme)
+    {
+        size_t scheme_len = (size_t)(scheme - url);
+
+        if (scheme_len == 3 && strncmp(url, "wss", 3) == 0)
+            default_port = 443;
+        else if (scheme_len != 2 || strncmp(url, "ws", 2) != 0)
+            return -1;
     }
 
-    const char *authority = strstr(url, "://");
-
-    authority = authority ? authority + 3 : url;
-
+    /* Find beginning of path */
     const char *slash = strchr(authority, '/');
 
-    if (!slash)
+    if (slash)
+    {
+        *path = strdup(slash);
+    }
+    else
     {
         slash = authority + strlen(authority);
         *path = strdup("/");
     }
+
+    if (!*path)
+        return -1;
+
+    const char *host_begin;
+    const char *host_end;
+    const char *port_begin = NULL;
+
+    if (*authority == '[')
+    {
+        /* IPv6 */
+        const char *rb = memchr(authority, ']', (size_t)(slash - authority));
+        if (!rb)
+            goto error;
+
+        host_begin = authority + 1;
+        host_end = rb;
+
+        if (rb + 1 < slash)
+        {
+            if (rb[1] != ':')
+                goto error;
+
+            port_begin = rb + 2;
+        }
+    }
     else
     {
-        *path = strdup(slash);
-    }
+        host_begin = authority;
 
-    const char *colon = NULL;
+        const char *colon = memchr(authority, ':', (size_t)(slash - authority));
 
-    for (const char *p = authority; p < slash; p++)
-    {
-        if (*p == ':')
+        if (colon)
         {
-            colon = p;
-            break;
+            host_end = colon;
+            port_begin = colon + 1;
+        }
+        else
+        {
+            host_end = slash;
         }
     }
 
-    if (colon)
+    if (host_end <= host_begin)
+        goto error;
+
+    size_t host_len = (size_t)(host_end - host_begin);
+
+    *host = malloc(host_len + 1);
+
+    if (!*host)
+        goto error;
+
+    memcpy(*host, host_begin, host_len);
+    (*host)[host_len] = '\0';
+
+    if (port_begin)
     {
-        size_t len = colon - authority;
+        size_t port_len = (size_t)(slash - port_begin);
 
-        *host = malloc(len + 1);
+        if (port_len == 0 || port_len > 5)
+            goto error;
 
-        memcpy(*host, authority, len);
+        char port_buf[6];
 
-        (*host)[len] = 0;
+        memcpy(port_buf, port_begin, port_len);
+        port_buf[port_len] = '\0';
 
-        *port = atoi(colon + 1);
+        char *endptr;
+
+        errno = 0;
+        long p = strtol(port_buf, &endptr, 10);
+
+        if (errno || *endptr != '\0' || p < 1 || p > 65535)
+            goto error;
+
+        *port = (int)p;
     }
     else
     {
-        size_t len = slash - authority;
-
-        *host = malloc(len + 1);
-
-        memcpy(*host, authority, len);
-
-        (*host)[len] = 0;
-
-        *port = 80;
+        *port = default_port;
     }
 
     return 0;
+
+error:
+    free(*host);
+    free(*path);
+
+    *host = NULL;
+    *path = NULL;
+    *port = 0;
+
+    return -1;
 }
 
 static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
