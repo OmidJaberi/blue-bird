@@ -18,7 +18,11 @@ static int _bb_set_nonblocking(int fd)
     {
         return -1;
     }
-    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    {
+        return -1;
+    }
+    return 0;
 }
 
 bb_connection_t *bb_connection_create(int fd)
@@ -104,7 +108,10 @@ bb_connection_t *bb_connection_serve(int port)
         return NULL;
     }
 
-    _bb_set_nonblocking(server_fd);
+    if (_bb_set_nonblocking(server_fd) != 0)
+    {
+        return NULL;
+    }
 
     // Reuse port
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
@@ -153,7 +160,10 @@ bb_connection_t *bb_connection_accept(int server_fd)
         return NULL;
     }
 
-    _bb_set_nonblocking(client_fd);
+    if (_bb_set_nonblocking(client_fd) != 0)
+    {
+        return NULL;
+    }
 
     bb_connection_t *connection = bb_connection_create(client_fd);
 
@@ -227,7 +237,10 @@ bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char 
         return NULL;
     }
 
-    _bb_set_nonblocking(fd);
+    if (_bb_set_nonblocking(fd) != 0)
+    {
+        return NULL;
+    }
 
     bb_connection_t *connection = bb_connection_create(fd);
     if (!connection)
