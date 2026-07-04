@@ -23,8 +23,6 @@ bb_ws_session_t *bb_ws_session_create(bb_connection_t *connection, bb_ws_handler
 
     session->handler = handler;
 
-    session->context.websocket = session->websocket;
-
     return session;
 }
 

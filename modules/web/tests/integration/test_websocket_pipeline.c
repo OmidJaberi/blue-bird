@@ -15,15 +15,15 @@ static volatile int finished = 0;
  * Server
  * ============================================================ */
 
-static bb_error_t echo_handler(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+static bb_error_t echo_handler(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     if (msg->type == BB_WS_MESSAGE_TEXT)
     {
-        return bb_ws_send_text(ctx, msg->data);
+        return bb_websocket_send_text(ws, msg->data);
     }
     if (msg->type == BB_WS_MESSAGE_BINARY)
     {
-        return bb_ws_send_binary(ctx, msg->data, msg->length);
+        return bb_websocket_send_binary(ws, msg->data, msg->length);
     }
 
     return BB_SUCCESS();
@@ -71,9 +71,9 @@ static void _echo_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
     assert(!BB_FAILED(err));
 }
 
-bb_error_t _echo_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+bb_error_t _echo_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
-    (void) ctx;
+    (void) ws;
 
     assert(msg->type == BB_WS_MESSAGE_TEXT);
     assert(msg->length == 5);
@@ -120,9 +120,9 @@ static void _multi_messages_connect_cb(bb_websocket_t *ws, bb_error_t err, void 
     bb_websocket_send_text(ws, "three");
 }
 
-bb_error_t _multi_messages_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+bb_error_t _multi_messages_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
-    (void) ctx;
+    (void) ws;
 
     messages++;
 
@@ -188,9 +188,9 @@ static void _large_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata
     assert(!BB_FAILED(send_err));
 }
 
-bb_error_t _large_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+bb_error_t _large_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
-    (void)ctx;
+    (void)ws;
 
     assert(msg->type == BB_WS_MESSAGE_TEXT);
     assert(msg->length == LARGE_MESSAGE_SIZE);
@@ -254,9 +254,9 @@ static void _binary_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdat
     assert(!BB_FAILED(send_err));
 }
 
-bb_error_t _binary_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+bb_error_t _binary_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
-    (void)ctx;
+    (void)ws;
 
     assert(msg->type == BB_WS_MESSAGE_BINARY);
     assert(msg->length == BINARY_MESSAGE_SIZE);
@@ -312,9 +312,9 @@ static void _sequential_connect_cb(bb_websocket_t *ws, bb_error_t err, void *use
     assert(!BB_FAILED(err));
 }
 
-bb_error_t _sequential_message_cb(bb_ws_context_t *ctx, const bb_ws_message_t *msg)
+bb_error_t _sequential_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
-    (void)ctx;
+    (void)ws;
 
     assert(msg->type == BB_WS_MESSAGE_TEXT);
     assert(msg->length == 4);

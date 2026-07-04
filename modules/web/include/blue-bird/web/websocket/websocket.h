@@ -9,11 +9,10 @@ extern "C" {
 #include "blue-bird/error/error.h"
 
 #include "message.h"
-#include "context.h"
 
 typedef struct bb_websocket bb_websocket_t;
 
-typedef bb_error_t (*bb_ws_handler_cb)(bb_ws_context_t *ctx, const bb_ws_message_t *message);
+typedef bb_error_t (*bb_ws_handler_cb)(bb_websocket_t *ws, const bb_ws_message_t *message);
 
 bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text);
 

@@ -490,7 +490,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
             return (bb_read_status_t){ BB_READ_ERROR, err };
         }
 
-        session->handler(&session->context, &msg);
+        session->handler(session->websocket, &msg);
     }
 
     bb_ws_frame_destroy(&frame);

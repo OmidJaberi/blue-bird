@@ -39,9 +39,9 @@ bb_error_t handler_user(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
-static bb_error_t websocket_handler(bb_ws_context_t *ctx, const bb_ws_message_t *message)
+static bb_error_t websocket_handler(bb_websocket_t *ws, const bb_ws_message_t *message)
 {
-    (void) ctx;
+    (void) ws;
     (void) message;
 
     return BB_SUCCESS();
