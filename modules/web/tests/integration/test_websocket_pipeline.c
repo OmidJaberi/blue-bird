@@ -353,6 +353,81 @@ static void websocket_sequential_connections_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Multiple Clients test
+
+#define CLIENT_COUNT 5
+
+static volatile int clients_finished = 0;
+
+static const char *client_messages[CLIENT_COUNT] = {
+    "client0",
+    "client1",
+    "client2",
+    "client3",
+    "client4"
+};
+
+static void _clients_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    assert(!BB_FAILED(err));
+
+    const char *text = userdata;
+
+    err = bb_websocket_send_text(ws, text);
+
+    assert(!BB_FAILED(err));
+}
+
+bb_error_t _clients_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
+{
+    (void)ws;
+
+    for (int i = 0; i < CLIENT_COUNT; i++)
+    {
+        if (strcmp(msg->data, client_messages[i]) == 0)
+        {
+            clients_finished++;
+            return BB_SUCCESS();
+        }
+    }
+
+    assert(0 && "Unexpected message");
+
+    return BB_SUCCESS();
+}
+
+static void websocket_multiple_clients_test(void)
+{
+    printf("\tTesting WebSocket Multiple Clients...\n");
+
+    clients_finished = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_ws_client_t *clients[CLIENT_COUNT];
+
+    for (int i = 0; i < CLIENT_COUNT; i++)
+    {
+        clients[i] = bb_ws_client_create_on_runtime(runtime);
+
+        bb_ws_client_set_message_callback(clients[i], _clients_message_cb, NULL);
+
+        bb_ws_client_connect_async(clients[i], "ws://127.0.0.1:8080/echo", _clients_connect_cb, (void *)client_messages[i]);
+    }
+
+    while (clients_finished < CLIENT_COUNT)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    for (int i = 0; i < CLIENT_COUNT; i++)
+    {
+        bb_ws_client_destroy(clients[i]);
+    }
+
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -370,6 +445,7 @@ int main(void)
     websocket_large_message_test();
     websocket_binary_message_test();
     websocket_sequential_connections_test();
+    websocket_multiple_clients_test();
 
     finished = 1;
     printf("All websocket integration tests passed.\n");
