@@ -14,7 +14,6 @@
 struct bb_ws_client {
     bb_runtime_t *runtime;
 
-    bb_connection_t *connection;
     bb_websocket_t *websocket;
 
     bb_ws_handler_cb message_cb;
@@ -26,6 +25,8 @@ typedef struct {
 
     bb_ws_connect_cb connect_cb;
     void *connect_userdata;
+
+    bb_connection_t *connection;
 
     char *host;
     char *path;
@@ -67,12 +68,6 @@ void bb_ws_client_close(bb_ws_client_t *client)
     {
         bb_websocket_destroy(client->websocket);
         client->websocket = NULL;
-    }
-
-    if (client->connection)
-    {
-        bb_connection_destroy(client->connection);
-        client->connection = NULL;
     }
 }
 
@@ -164,7 +159,7 @@ static int _parse_ws_url(const char *url, char **host, int *port, char **path)
 static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 {
     _bb_ws_client_task_data_t *data = userdata;
-    bb_connection_t *conn = data->client->connection;
+    bb_connection_t *conn = data->connection;
 
     if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
     {
@@ -177,9 +172,10 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 
     data->client->websocket = bb_websocket_create(conn, BB_WEBSOCKET_CLIENT);
 
+    data->connection = NULL;
     data->connect_cb(data->client->websocket, BB_SUCCESS(), data->connect_userdata);
 
-    bb_websocket_create_read_task(data->client->runtime, data->client->connection, data->client->message_cb);
+    bb_websocket_create_read_task(data->client->runtime, data->client->websocket->connection, data->client->message_cb);
 
     free(data->host);
     free(data->path);
@@ -196,6 +192,11 @@ static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
+    if (data->connection)
+    {
+        bb_connection_destroy(data->connection);
+    }
+
     data->connect_cb(data->client->websocket, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
 
     free(data->host);
@@ -209,7 +210,7 @@ static void _bb_ws_handshake_write_done(bb_task_t *task, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    bb_connection_task_create_read(data->client->runtime, data->client->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
+    bb_connection_task_create_read(data->client->runtime, data->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
 }
 
 static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
@@ -217,6 +218,11 @@ static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
     (void)task;
 
     _bb_ws_client_task_data_t *data = userdata;
+
+    if (data->connection)
+    {
+        bb_connection_destroy(data->connection);
+    }
 
     data->connect_cb(data->client->websocket, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
 
@@ -241,9 +247,9 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
 
     snprintf(port_str, sizeof(port_str), "%d", port);
 
-    client->connection = bb_connection_connect_nonblocking(host, port_str);
+    bb_connection_t *connection = bb_connection_connect_nonblocking(host, port_str);
 
-    if (!client->connection)
+    if (!connection)
     {
         callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Connection failed"), userdata);
 
@@ -258,6 +264,7 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
     data->client = client;
     data->connect_cb = callback;
     data->connect_userdata = userdata;
+    data->connection = connection;
     data->host = host;
     data->path = path;
     data->port = port;
@@ -281,9 +288,7 @@ void bb_ws_client_connect_async(bb_ws_client_t *client, const char *url, bb_ws_c
         data->port,
         key);
 
-    bb_connection_t *conn = client->connection;
+    bb_connection_buffer_add(connection, strdup(request), strlen(request));
 
-    bb_connection_buffer_add(conn, strdup(request), strlen(request));
-
-    bb_connection_task_create_write(client->runtime, conn, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
+    bb_connection_task_create_write(client->runtime, connection, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
 }
