@@ -295,6 +295,72 @@ static void websocket_binary_message_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Large Binary Message test
+
+#define LARGE_BINARY_SIZE 8192
+
+static volatile int large_binary_finished = 0;
+
+static uint8_t large_binary[LARGE_BINARY_SIZE];
+
+static void _large_binary_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(!BB_FAILED(err));
+
+    bb_error_t send_err =
+        bb_websocket_send_binary(ws, large_binary, LARGE_BINARY_SIZE);
+
+    assert(!BB_FAILED(send_err));
+}
+
+bb_error_t _large_binary_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
+{
+    (void)ws;
+
+    assert(msg->type == BB_WS_MESSAGE_BINARY);
+    assert(msg->length == LARGE_BINARY_SIZE);
+    assert(memcmp(msg->data, large_binary, LARGE_BINARY_SIZE) == 0);
+
+    large_binary_finished = 1;
+
+    return BB_SUCCESS();
+}
+
+static void websocket_large_binary_test(void)
+{
+    printf("\tTesting WebSocket Large Binary Message...\n");
+
+    large_binary_finished = 0;
+
+    for (size_t i = 0; i < LARGE_BINARY_SIZE; i++)
+    {
+        large_binary[i] = (uint8_t)(i & 0xFF);
+    }
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+
+    bb_websocket_set_message_callback(client, _large_binary_message_cb, NULL);
+
+    bb_websocket_connect(
+        client,
+        "ws://127.0.0.1:8080/echo",
+        _large_binary_connect_cb,
+        NULL
+    );
+
+    while (!large_binary_finished)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 // Sequential Connections test
 
 #define SEQUENTIAL_CONNECTIONS 100
@@ -503,6 +569,7 @@ int main(void)
     websocket_multi_message_test();
     websocket_large_message_test();
     websocket_binary_message_test();
+    websocket_large_binary_test();
     websocket_sequential_connections_test();
     websocket_multiple_clients_test();
     websocket_many_messages_test();
