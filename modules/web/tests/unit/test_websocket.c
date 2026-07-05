@@ -23,7 +23,7 @@ void test_websocket_create_destroy(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     assert(ws != NULL);
 
@@ -38,7 +38,7 @@ void test_queue_text_frame(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_text(ws, "hello");
 
@@ -65,7 +65,7 @@ void test_queue_binary_frame(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     unsigned char payload[] =
     {
@@ -98,7 +98,7 @@ void test_queue_ping(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_ping(ws);
 
@@ -121,7 +121,7 @@ void test_queue_pong(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_pong(ws);
 
@@ -144,7 +144,7 @@ void test_queue_close(void)
 
     bb_connection_t *conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_close(ws);
 
@@ -174,7 +174,7 @@ void test_parse_unmasked_text_frame(void)
     conn->buffer_length = 7;
     conn->buffer_capacity = 7;
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -228,7 +228,7 @@ void test_parse_masked_text_frame(void)
 
     conn->buffer_capacity = sizeof(frame_bytes);
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -297,7 +297,7 @@ void test_parse_multiple_frames(void)
     conn->buffer_length = sizeof(frames);
     conn->buffer_capacity = sizeof(frames);
 
-    bb_websocket_t *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -345,6 +345,7 @@ int main(void)
 
     test_parse_multiple_frames();
 
+    bb_runtime_destroy(bb_runtime_default());
     printf("All tests passed.\n");
 
     return 0;

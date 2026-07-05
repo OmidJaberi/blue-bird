@@ -1,6 +1,6 @@
 #include "blue-bird/runtime/runtime.h"
 #include "blue-bird/web/server.h"
-#include "blue-bird/web/websocket/client.h"
+#include "blue-bird/web/websocket/websocket.h"
 
 #include <assert.h>
 #include <pthread.h>
@@ -91,18 +91,18 @@ static void websocket_echo_test(void)
 
     bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
-    bb_ws_client_set_message_callback(client, _echo_message_cb, NULL);
+    bb_websocket_set_message_callback(client, _echo_message_cb, NULL);
 
-    bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _echo_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _echo_connect_cb, NULL);
 
     while (!echo_finished)
     {
         bb_runtime_tick(runtime);
     }
 
-    bb_ws_client_destroy(client);
+    bb_websocket_destroy(client);
     bb_runtime_destroy(runtime);
 }
 
@@ -154,18 +154,18 @@ static void websocket_multi_message_test(void)
 
     bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
-    bb_ws_client_set_message_callback(client, _multi_messages_message_cb, NULL);
+    bb_websocket_set_message_callback(client, _multi_messages_message_cb, NULL);
 
-    bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _multi_messages_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _multi_messages_connect_cb, NULL);
 
     while (messages < 3)
     {
         bb_runtime_tick(runtime);
     }
 
-    bb_ws_client_destroy(client);
+    bb_websocket_destroy(client);
     bb_runtime_destroy(runtime);
 }
 
@@ -212,18 +212,18 @@ static void websocket_large_message_test(void)
 
     bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
-    bb_ws_client_set_message_callback(client, _large_message_cb, NULL);
+    bb_websocket_set_message_callback(client, _large_message_cb, NULL);
 
-    bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _large_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _large_connect_cb, NULL);
 
     while (!large_finished)
     {
         bb_runtime_tick(runtime);
     }
 
-    bb_ws_client_destroy(client);
+    bb_websocket_destroy(client);
     bb_runtime_destroy(runtime);
 }
 
@@ -275,11 +275,11 @@ static void websocket_binary_message_test(void)
 
     bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
-    bb_ws_client_set_message_callback(client, _binary_message_cb, NULL);
+    bb_websocket_set_message_callback(client, _binary_message_cb, NULL);
 
-    bb_ws_client_connect_async(
+    bb_websocket_connect(
         client,
         "ws://127.0.0.1:8080/echo",
         _binary_connect_cb,
@@ -291,7 +291,7 @@ static void websocket_binary_message_test(void)
         bb_runtime_tick(runtime);
     }
 
-    bb_ws_client_destroy(client);
+    bb_websocket_destroy(client);
     bb_runtime_destroy(runtime);
 }
 
@@ -335,19 +335,18 @@ static void websocket_sequential_connections_test(void)
     {
         sequential_finished = 0;
 
-        bb_ws_client_t *client = bb_ws_client_create_on_runtime(runtime);
+        bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
-        bb_ws_client_set_message_callback(client, _sequential_message_cb, NULL);
+        bb_websocket_set_message_callback(client, _sequential_message_cb, NULL);
 
-        bb_ws_client_connect_async(client, "ws://127.0.0.1:8080/echo", _sequential_connect_cb, NULL);
+        bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _sequential_connect_cb, NULL);
 
         while (!sequential_finished)
         {
             bb_runtime_tick(runtime);
         }
 
-        bb_ws_client_close(client);
-        bb_ws_client_destroy(client);
+        bb_websocket_destroy(client);
     }
 
     bb_runtime_destroy(runtime);
@@ -404,15 +403,15 @@ static void websocket_multiple_clients_test(void)
 
     bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_ws_client_t *clients[CLIENT_COUNT];
+    bb_websocket_t *clients[CLIENT_COUNT];
 
     for (int i = 0; i < CLIENT_COUNT; i++)
     {
-        clients[i] = bb_ws_client_create_on_runtime(runtime);
+        clients[i] = bb_websocket_create_on_runtime(runtime);
 
-        bb_ws_client_set_message_callback(clients[i], _clients_message_cb, NULL);
+        bb_websocket_set_message_callback(clients[i], _clients_message_cb, NULL);
 
-        bb_ws_client_connect_async(clients[i], "ws://127.0.0.1:8080/echo", _clients_connect_cb, (void *)client_messages[i]);
+        bb_websocket_connect(clients[i], "ws://127.0.0.1:8080/echo", _clients_connect_cb, (void *)client_messages[i]);
     }
 
     while (clients_finished < CLIENT_COUNT)
@@ -422,7 +421,7 @@ static void websocket_multiple_clients_test(void)
 
     for (int i = 0; i < CLIENT_COUNT; i++)
     {
-        bb_ws_client_destroy(clients[i]);
+        bb_websocket_destroy(clients[i]);
     }
 
     bb_runtime_destroy(runtime);
@@ -453,4 +452,3 @@ int main(void)
     pthread_join(thread, NULL);
     return 0;
 }
-

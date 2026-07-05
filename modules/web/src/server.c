@@ -256,27 +256,13 @@ static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_req
     return bb_middleware_list_run(server->post_middleware_list, req, res);
 }
 
-static bb_error_t _run_websocket_route(bb_route_t *route, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
+static bb_error_t _run_websocket_route(bb_runtime_t *runtime, bb_route_t *route, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
 {
-    BB_LOG_INFO("Starting websocket upgrade\n");
-
-    bb_error_t err = bb_websocket_accept(req, res);
-    conn->buffer_length = 0; // Temporary Buffer reset
-
-    if (BB_FAILED(err))
-    {
-        BB_LOG_ERROR("Upgrade failed: %s\n", err.msg);
-        return err;
-    }
-
-    BB_LOG_INFO("Upgrade accepted\n");
-
-    *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
-    (*ws)->handler = bb_route_get_websocket_handler(route);
+    *ws = bb_websocket_accept(runtime, conn, req, res, bb_route_get_websocket_handler(route));
 
     if (!(*ws))
     {
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to create websocket.");
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to create websocket.");
     }
 
     return BB_SUCCESS();
@@ -301,7 +287,7 @@ bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *
         case BB_ROUTE_HTTP:
             return _run_http_route(server, route, req, res);
         case BB_ROUTE_WEBSOCKET:
-            return _run_websocket_route(route, conn, ws, req, res);
+            return _run_websocket_route(server->runtime, route, conn, ws, req, res);
         default:
             return BB_ERROR(BB_ERR_INTERNAL, "Unknown route type");
     }

@@ -16,18 +16,19 @@ typedef enum {
 } bb_websocket_mode_t;
 
 typedef struct bb_websocket {
+    bb_runtime_t *runtime;
     bb_connection_t *connection;
     bb_websocket_mode_t mode;
-    bb_ws_handler_cb handler;
+    bb_ws_handler_cb handler; // message_cb
+    void *message_userdata;
 } bb_websocket_t;
 
 // Accept
 char *bb_websocket_accept_key(const char *client_key);
-bb_error_t bb_websocket_accept(bb_request_t *req, bb_response_t *res);
+bb_websocket_t *bb_websocket_accept(bb_runtime_t *runtime, bb_connection_t *connection, bb_request_t *req, bb_response_t *res, bb_ws_handler_cb handler);
 
 // Lifecycle
-bb_websocket_t *bb_websocket_create(bb_connection_t *connection, bb_websocket_mode_t mode);
-void bb_websocket_destroy(bb_websocket_t *ws);
+bb_websocket_t *bb_websocket_create_with_type(bb_runtime_t *runtime, bb_connection_t *connection, bb_websocket_mode_t mode);
 
 // Frame operations
 bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame);
