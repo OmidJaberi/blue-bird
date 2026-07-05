@@ -427,6 +427,66 @@ static void websocket_multiple_clients_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Many Messages test
+
+#define MANY_MESSAGES 10000
+
+static volatile int many_messages_received = 0;
+
+static void _many_messages_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(!BB_FAILED(err));
+
+    for (int i = 0; i < MANY_MESSAGES; i++)
+    {
+        bb_error_t send_err = bb_websocket_send_text(ws, "ping");
+        assert(!BB_FAILED(send_err));
+    }
+}
+
+bb_error_t _many_messages_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
+{
+    (void)ws;
+
+    assert(msg->type == BB_WS_MESSAGE_TEXT);
+    assert(msg->length == 4);
+    assert(memcmp(msg->data, "ping", 4) == 0);
+
+    many_messages_received++;
+
+    return BB_SUCCESS();
+}
+
+static void websocket_many_messages_test(void)
+{
+    printf("\tTesting WebSocket Many Messages...\n");
+
+    many_messages_received = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+
+    bb_websocket_set_message_callback(client, _many_messages_message_cb, NULL);
+
+    bb_websocket_connect(
+        client,
+        "ws://127.0.0.1:8080/echo",
+        _many_messages_connect_cb,
+        NULL
+    );
+
+    while (many_messages_received < MANY_MESSAGES)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -445,6 +505,7 @@ int main(void)
     websocket_binary_message_test();
     websocket_sequential_connections_test();
     websocket_multiple_clients_test();
+    websocket_many_messages_test();
 
     finished = 1;
     printf("All websocket integration tests passed.\n");
