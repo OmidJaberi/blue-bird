@@ -18,7 +18,6 @@ add_library(bluebird_web
     src/websocket/websocket.c
     src/websocket/message.c
     src/websocket/frame.c
-    src/websocket/session.c
     src/websocket/client.c
 )
 

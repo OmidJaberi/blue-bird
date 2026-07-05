@@ -1,6 +1,5 @@
 #include "blue-bird/web/websocket/websocket.h"
 #include "websocket/websocket_internal.h"
-#include "websocket/session.h"
 #include "connection/async_tasks.h"
 
 #include "blue-bird/error/error.h"
@@ -428,17 +427,17 @@ bb_error_t bb_websocket_queue_close(bb_websocket_t *ws)
 
 typedef struct {
     bb_runtime_t *runtime;
-    bb_ws_session_t *ws_session;
+    bb_websocket_t *ws;
 } bb_ws_task_data_t;
 
 static void _websocket_after_write(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_ws_task_data_t *data = userdata;
-    bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws_session->connection, data->ws_session->handler);
+    bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws->connection, data->ws->handler);
     if (BB_FAILED(err))
     {
-        bb_ws_session_destroy(data->ws_session);
+        bb_websocket_destroy(data->ws);
     }
     free(data);
 }
@@ -447,7 +446,7 @@ static void _websocket_write_error(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_ws_task_data_t *data = userdata;
-    bb_connection_destroy(data->ws_session->connection);
+    bb_connection_destroy(data->ws->connection);
     free(data);
 }
 
@@ -455,18 +454,18 @@ static void _websocket_read_error(bb_error_t err, void *userdata)
 {
     (void)err;
     bb_ws_task_data_t *data = userdata;
-    bb_ws_session_destroy(data->ws_session);
+    bb_websocket_destroy(data->ws);
     free(data);
 }
 
 static bb_read_status_t _websocket_read_step(void *userdata)
 {
     bb_ws_task_data_t *data = userdata;
-    bb_ws_session_t *session = data->ws_session;
+    bb_websocket_t *ws = data->ws;
 
     bb_ws_frame_t frame = {0};
 
-    bb_error_t err = bb_websocket_read_frames(session->websocket, &frame);
+    bb_error_t err = bb_websocket_read_frames(ws, &frame);
 
     if (err.code == BB_ERR_INTERNAL)
     {
@@ -490,21 +489,21 @@ static bb_read_status_t _websocket_read_step(void *userdata)
             return (bb_read_status_t){ BB_READ_ERROR, err };
         }
 
-        session->handler(session->websocket, &msg);
+        ws->handler(ws, &msg);
     }
 
     bb_ws_frame_destroy(&frame);
 
-    if (session->connection->write_data && session->connection->write_data->write_buffer)
+    if (ws->connection->write_data && ws->connection->write_data->write_buffer)
     {
-        if (BB_FAILED(bb_connection_task_create_write(data->runtime, session->connection, _websocket_after_write, _websocket_write_error, data)))
+        if (BB_FAILED(bb_connection_task_create_write(data->runtime, ws->connection, _websocket_after_write, _websocket_write_error, data)))
         {
             return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
         }
     }
     else
     {
-        if (BB_FAILED(bb_websocket_create_read_task(data->runtime, session->connection, session->handler)))
+        if (BB_FAILED(bb_websocket_create_read_task(data->runtime, ws->connection, ws->handler)))
         {
             return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule read task.") };
         }
@@ -521,8 +520,10 @@ bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t 
         return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
     }
     data->runtime = runtime;
-    data->ws_session = bb_ws_session_create(connection, handler);
-    if (!data->ws_session)
+    data->ws = bb_websocket_create(connection, BB_WEBSOCKET_SERVER);
+    data->ws->handler = handler;
+
+    if (!data->ws)
     {
         free(data);
         return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
@@ -531,7 +532,7 @@ bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t 
     bb_error_t err = bb_connection_task_create_read(runtime, connection, _websocket_read_step, _websocket_read_error, data);
     if (BB_FAILED(err))
     {
-        bb_ws_session_destroy(data->ws_session);
+        bb_websocket_destroy(data->ws);
         free(data);
     }
     return err;

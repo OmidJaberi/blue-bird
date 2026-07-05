@@ -15,7 +15,7 @@ typedef struct {
     bb_server_t *server;
     bb_connection_t *connection;
     bb_runtime_t *runtime;
-    bb_ws_session_t *ws_session;
+    bb_websocket_t *ws;
 } bb_server_task_data_t;
 
 
@@ -71,16 +71,16 @@ static void _server_after_write(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_server_task_data_t *data = userdata;
-    if (data->ws_session)
+    if (data->ws)
     {
         /*
         * Now websocket session owns the connection.
         */
         data->connection = NULL;
-        bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws_session->connection, data->ws_session->handler);
+        bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws->connection, data->ws->handler);
         if (BB_FAILED(err))
         {
-            bb_ws_session_destroy(data->ws_session);
+            bb_websocket_destroy(data->ws);
         }
         free(data);
         return;
@@ -136,7 +136,7 @@ static bb_read_status_t _server_read_step(void *userdata)
     }
     else
     {
-        bb_error_t err = bb_server_run_request_pipeline(data->server, connection, &data->ws_session, req, res);
+        bb_error_t err = bb_server_run_request_pipeline(data->server, connection, &data->ws, req, res);
 
         if (BB_FAILED(err))
         {
@@ -173,7 +173,7 @@ static int _server_create_read_task(bb_server_t *server, bb_connection_t *connec
     data->server = server;
     data->connection = connection;
     data->runtime = runtime;
-    data->ws_session = NULL;
+    data->ws = NULL;
 
     if (BB_FAILED(bb_connection_task_create_read(runtime, connection, _server_read_step, _server_read_error, data)))
         return 1;
@@ -256,7 +256,7 @@ static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_req
     return bb_middleware_list_run(server->post_middleware_list, req, res);
 }
 
-static bb_error_t _run_websocket_route(bb_route_t *route, bb_connection_t *conn, bb_ws_session_t **session, bb_request_t *req, bb_response_t *res)
+static bb_error_t _run_websocket_route(bb_route_t *route, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
 {
     BB_LOG_INFO("Starting websocket upgrade\n");
 
@@ -271,17 +271,18 @@ static bb_error_t _run_websocket_route(bb_route_t *route, bb_connection_t *conn,
 
     BB_LOG_INFO("Upgrade accepted\n");
 
-    *session = bb_ws_session_create(conn, bb_route_get_websocket_handler(route));
+    *ws = bb_websocket_create(conn, BB_WEBSOCKET_SERVER);
+    (*ws)->handler = bb_route_get_websocket_handler(route);
 
-    if (!(*session))
+    if (!(*ws))
     {
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to create websocket session");
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to create websocket.");
     }
 
     return BB_SUCCESS();
 }
 
-bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_ws_session_t **session, bb_request_t *req, bb_response_t *res)
+bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
 {
     BB_LOG_INFO("Looking for route\n");
     bb_route_t *route = bb_route_list_match(server->route_list, req);
@@ -300,7 +301,7 @@ bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *
         case BB_ROUTE_HTTP:
             return _run_http_route(server, route, req, res);
         case BB_ROUTE_WEBSOCKET:
-            return _run_websocket_route(route, conn, session, req, res);
+            return _run_websocket_route(route, conn, ws, req, res);
         default:
             return BB_ERROR(BB_ERR_INTERNAL, "Unknown route type");
     }

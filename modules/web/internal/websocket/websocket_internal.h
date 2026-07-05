@@ -18,6 +18,7 @@ typedef enum {
 typedef struct bb_websocket {
     bb_connection_t *connection;
     bb_websocket_mode_t mode;
+    bb_ws_handler_cb handler;
 } bb_websocket_t;
 
 // Accept
