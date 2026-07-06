@@ -51,7 +51,7 @@ bb_error_t bb_websocket_queue_pong(bb_websocket_t *ws, const void *payload, size
 bb_error_t bb_websocket_queue_close(bb_websocket_t *ws, uint16_t code, const char *reason);
 
 // Async Task
-bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t *connection, bb_ws_handler_cb handler);
+bb_error_t bb_websocket_create_read_task(bb_websocket_t *ws);
 
 
 #endif

@@ -179,7 +179,7 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
     data->connection = NULL;
     data->connect_cb(data->ws, BB_SUCCESS(), data->connect_userdata);
 
-    bb_websocket_create_read_task(data->ws->runtime, data->ws->connection, data->ws->handler);
+    bb_websocket_create_read_task(data->ws);
 
     free(data->host);
     free(data->path);
@@ -900,7 +900,7 @@ static void _websocket_after_write(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_ws_task_data_t *data = userdata;
-    bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws->connection, data->ws->handler);
+    bb_error_t err = bb_websocket_create_read_task(data->ws);
     if (BB_FAILED(err))
     {
         bb_websocket_destroy(data->ws);
@@ -993,7 +993,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
     }
     else
     {
-        if (BB_FAILED(bb_websocket_create_read_task(data->runtime, ws->connection, ws->handler)))
+        if (BB_FAILED(bb_websocket_create_read_task(ws)))
         {
             return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule read task.") };
         }
@@ -1002,16 +1002,15 @@ static bb_read_status_t _websocket_read_step(void *userdata)
     return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
 }
 
-bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t *connection, bb_ws_handler_cb handler)
+bb_error_t bb_websocket_create_read_task(bb_websocket_t *ws)
 {
     bb_ws_task_data_t *data = malloc(sizeof(*data));
     if (!data)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
     }
-    data->runtime = runtime;
-    data->ws = bb_websocket_create_with_type(runtime, connection, BB_WEBSOCKET_SERVER);
-    data->ws->handler = handler;
+    data->runtime = ws->runtime;
+    data->ws = ws;
 
     if (!data->ws)
     {
@@ -1019,7 +1018,7 @@ bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t 
         return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
     }
 
-    bb_error_t err = bb_connection_task_create_read(runtime, connection, _websocket_read_step, _websocket_read_error, data);
+    bb_error_t err = bb_connection_task_create_read(ws->runtime, ws->connection, _websocket_read_step, _websocket_read_error, data);
     if (BB_FAILED(err))
     {
         bb_websocket_destroy(data->ws);
