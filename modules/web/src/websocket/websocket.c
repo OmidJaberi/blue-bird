@@ -891,43 +891,35 @@ bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char
     return BB_SUCCESS();
 }
 
-typedef struct {
-    bb_runtime_t *runtime;
-    bb_websocket_t *ws;
-} bb_ws_task_data_t;
-
 static void _websocket_after_write(bb_task_t *task, void *userdata)
 {
     (void) task;
-    bb_ws_task_data_t *data = userdata;
-    bb_error_t err = bb_websocket_create_read_task(data->ws);
+    bb_websocket_t *ws = userdata;
+    bb_error_t err = bb_websocket_create_read_task(ws);
     if (BB_FAILED(err))
     {
-        bb_websocket_destroy(data->ws);
+        bb_websocket_destroy(ws);
     }
-    free(data);
 }
 
 static void _websocket_write_error(bb_task_t *task, void *userdata)
 {
     (void) task;
-    bb_ws_task_data_t *data = userdata;
-    bb_connection_destroy(data->ws->connection);
-    free(data);
+    bb_websocket_t *ws = userdata;
+    bb_connection_destroy(ws->connection);
+    bb_websocket_destroy(ws);
 }
 
 static void _websocket_read_error(bb_error_t err, void *userdata)
 {
     (void)err;
-    bb_ws_task_data_t *data = userdata;
-    bb_websocket_destroy(data->ws);
-    free(data);
+    bb_websocket_t *ws = userdata;
+    bb_websocket_destroy(ws);
 }
 
 static bb_read_status_t _websocket_read_step(void *userdata)
 {
-    bb_ws_task_data_t *data = userdata;
-    bb_websocket_t *ws = data->ws;
+    bb_websocket_t *ws = userdata;
 
     bb_ws_frame_t frame = {0};
 
@@ -986,7 +978,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     if (ws->connection->write_data && ws->connection->write_data->write_buffer)
     {
-        if (BB_FAILED(bb_connection_task_create_write(data->runtime, ws->connection, _websocket_after_write, _websocket_write_error, data)))
+        if (BB_FAILED(bb_connection_task_create_write(ws->runtime, ws->connection, _websocket_after_write, _websocket_write_error, ws)))
         {
             return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
         }
@@ -1004,25 +996,15 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
 bb_error_t bb_websocket_create_read_task(bb_websocket_t *ws)
 {
-    bb_ws_task_data_t *data = malloc(sizeof(*data));
-    if (!data)
+    if (!ws)
     {
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
-    }
-    data->runtime = ws->runtime;
-    data->ws = ws;
-
-    if (!data->ws)
-    {
-        free(data);
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
+        return BB_ERROR(BB_ERR_NULL, "Null websocket.");
     }
 
-    bb_error_t err = bb_connection_task_create_read(ws->runtime, ws->connection, _websocket_read_step, _websocket_read_error, data);
+    bb_error_t err = bb_connection_task_create_read(ws->runtime, ws->connection, _websocket_read_step, _websocket_read_error, ws);
     if (BB_FAILED(err))
     {
-        bb_websocket_destroy(data->ws);
-        free(data);
+        bb_websocket_destroy(ws);
     }
     return err;
 }
