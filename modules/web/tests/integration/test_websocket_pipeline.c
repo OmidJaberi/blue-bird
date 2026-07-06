@@ -553,6 +553,54 @@ static void websocket_many_messages_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Ping Pong test
+
+static volatile int pong_received = 0;
+
+static void _pong_cb(bb_websocket_t *ws, const void *payload, size_t length, void *userdata)
+{
+    (void)ws;
+    (void)userdata;
+
+    assert(length == 4);
+    assert(memcmp(payload, "ping", 4) == 0);
+
+    pong_received = 1;
+}
+
+static void _ping_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(!BB_FAILED(err));
+
+    bb_error_t e = bb_websocket_send_ping(ws, "ping", 4);
+    assert(!BB_FAILED(e));
+}
+
+static void websocket_ping_pong_test(void)
+{
+    printf("\tTesting WebSocket Ping/Pong...\n");
+
+    pong_received = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+
+    bb_websocket_set_pong_callback(client, _pong_cb, NULL);
+
+    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _ping_connect_cb, NULL);
+
+    while (!pong_received)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -573,6 +621,7 @@ int main(void)
     websocket_sequential_connections_test();
     websocket_multiple_clients_test();
     websocket_many_messages_test();
+    websocket_ping_pong_test();
 
     finished = 1;
     printf("All websocket integration tests passed.\n");
