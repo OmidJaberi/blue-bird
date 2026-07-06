@@ -781,145 +781,6 @@ bb_error_t bb_websocket_queue_close(bb_websocket_t *ws, uint16_t code, const cha
     return _bb_websocket_queue_control(ws, BB_WS_CLOSE, payload, length);
 }
 
-typedef struct {
-    bb_runtime_t *runtime;
-    bb_websocket_t *ws;
-} bb_ws_task_data_t;
-
-static void _websocket_after_write(bb_task_t *task, void *userdata)
-{
-    (void) task;
-    bb_ws_task_data_t *data = userdata;
-    bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws->connection, data->ws->handler);
-    if (BB_FAILED(err))
-    {
-        bb_websocket_destroy(data->ws);
-    }
-    free(data);
-}
-
-static void _websocket_write_error(bb_task_t *task, void *userdata)
-{
-    (void) task;
-    bb_ws_task_data_t *data = userdata;
-    bb_connection_destroy(data->ws->connection);
-    free(data);
-}
-
-static void _websocket_read_error(bb_error_t err, void *userdata)
-{
-    (void)err;
-    bb_ws_task_data_t *data = userdata;
-    bb_websocket_destroy(data->ws);
-    free(data);
-}
-
-static bb_error_t bb_websocket_send_pong(bb_websocket_t *ws, const void *payload, size_t length);
-
-static bb_read_status_t _websocket_read_step(void *userdata)
-{
-    bb_ws_task_data_t *data = userdata;
-    bb_websocket_t *ws = data->ws;
-
-    bb_ws_frame_t frame = {0};
-
-    bb_error_t err = bb_websocket_read_frames(ws, &frame);
-
-    if (err.code == BB_ERR_INTERNAL)
-    {
-        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
-    }
-
-    if (BB_FAILED(err))
-    {
-        return (bb_read_status_t){ BB_READ_ERROR, err };
-    }
-
-    for (bb_ws_frame_t *current = &frame; current; current = current->next)
-    {
-        switch (frame.opcode)
-        {
-            case BB_WS_TEXT:
-            case BB_WS_BINARY:
-            {
-                bb_ws_message_t msg;
-
-                err = bb_ws_frame_to_message(current, &msg);
-
-                if (BB_FAILED(err))
-                {
-                    bb_ws_frame_destroy(&frame);
-                    return (bb_read_status_t){ BB_READ_ERROR, err }; // Next frames ignored?
-                }
-
-                if (ws->handler)
-                {
-                    ws->handler(ws, &msg);
-                }
-
-                break;
-            }
-            case BB_WS_PING:
-                bb_websocket_send_pong(ws, frame.payload, frame.payload_length);
-                break;
-            case BB_WS_PONG:
-                if (ws->pong_cb)
-                {
-                    ws->pong_cb(ws, frame.payload, frame.payload_length, ws->pong_userdata);
-                }
-                break;
-            case BB_WS_CLOSE:
-                bb_websocket_send_close(ws, 1000, NULL);
-                return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_NETWORK, "Peer closed connection") };
-        }
-    }
-
-    bb_ws_frame_destroy(&frame);
-
-    if (ws->connection->write_data && ws->connection->write_data->write_buffer)
-    {
-        if (BB_FAILED(bb_connection_task_create_write(data->runtime, ws->connection, _websocket_after_write, _websocket_write_error, data)))
-        {
-            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
-        }
-    }
-    else
-    {
-        if (BB_FAILED(bb_websocket_create_read_task(data->runtime, ws->connection, ws->handler)))
-        {
-            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule read task.") };
-        }
-    }
-
-    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
-}
-
-bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t *connection, bb_ws_handler_cb handler)
-{
-    bb_ws_task_data_t *data = malloc(sizeof(*data));
-    if (!data)
-    {
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
-    }
-    data->runtime = runtime;
-    data->ws = bb_websocket_create_with_type(runtime, connection, BB_WEBSOCKET_SERVER);
-    data->ws->handler = handler;
-
-    if (!data->ws)
-    {
-        free(data);
-        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
-    }
-
-    bb_error_t err = bb_connection_task_create_read(runtime, connection, _websocket_read_step, _websocket_read_error, data);
-    if (BB_FAILED(err))
-    {
-        bb_websocket_destroy(data->ws);
-        free(data);
-    }
-    return err;
-}
-
 bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
 {
     if (!ws)
@@ -1028,4 +889,141 @@ bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char
     }
 
     return BB_SUCCESS();
+}
+
+typedef struct {
+    bb_runtime_t *runtime;
+    bb_websocket_t *ws;
+} bb_ws_task_data_t;
+
+static void _websocket_after_write(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    bb_ws_task_data_t *data = userdata;
+    bb_error_t err = bb_websocket_create_read_task(data->runtime, data->ws->connection, data->ws->handler);
+    if (BB_FAILED(err))
+    {
+        bb_websocket_destroy(data->ws);
+    }
+    free(data);
+}
+
+static void _websocket_write_error(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    bb_ws_task_data_t *data = userdata;
+    bb_connection_destroy(data->ws->connection);
+    free(data);
+}
+
+static void _websocket_read_error(bb_error_t err, void *userdata)
+{
+    (void)err;
+    bb_ws_task_data_t *data = userdata;
+    bb_websocket_destroy(data->ws);
+    free(data);
+}
+
+static bb_read_status_t _websocket_read_step(void *userdata)
+{
+    bb_ws_task_data_t *data = userdata;
+    bb_websocket_t *ws = data->ws;
+
+    bb_ws_frame_t frame = {0};
+
+    bb_error_t err = bb_websocket_read_frames(ws, &frame);
+
+    if (err.code == BB_ERR_INTERNAL)
+    {
+        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
+    }
+
+    if (BB_FAILED(err))
+    {
+        return (bb_read_status_t){ BB_READ_ERROR, err };
+    }
+
+    for (bb_ws_frame_t *current = &frame; current; current = current->next)
+    {
+        switch (frame.opcode)
+        {
+            case BB_WS_TEXT:
+            case BB_WS_BINARY:
+            {
+                bb_ws_message_t msg;
+
+                err = bb_ws_frame_to_message(current, &msg);
+
+                if (BB_FAILED(err))
+                {
+                    bb_ws_frame_destroy(&frame);
+                    return (bb_read_status_t){ BB_READ_ERROR, err }; // Next frames ignored?
+                }
+
+                if (ws->handler)
+                {
+                    ws->handler(ws, &msg);
+                }
+
+                break;
+            }
+            case BB_WS_PING:
+                bb_websocket_send_pong(ws, frame.payload, frame.payload_length);
+                break;
+            case BB_WS_PONG:
+                if (ws->pong_cb)
+                {
+                    ws->pong_cb(ws, frame.payload, frame.payload_length, ws->pong_userdata);
+                }
+                break;
+            case BB_WS_CLOSE:
+                bb_websocket_send_close(ws, 1000, NULL);
+                return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_NETWORK, "Peer closed connection") };
+        }
+    }
+
+    bb_ws_frame_destroy(&frame);
+
+    if (ws->connection->write_data && ws->connection->write_data->write_buffer)
+    {
+        if (BB_FAILED(bb_connection_task_create_write(data->runtime, ws->connection, _websocket_after_write, _websocket_write_error, data)))
+        {
+            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
+        }
+    }
+    else
+    {
+        if (BB_FAILED(bb_websocket_create_read_task(data->runtime, ws->connection, ws->handler)))
+        {
+            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule read task.") };
+        }
+    }
+
+    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
+}
+
+bb_error_t bb_websocket_create_read_task(bb_runtime_t *runtime, bb_connection_t *connection, bb_ws_handler_cb handler)
+{
+    bb_ws_task_data_t *data = malloc(sizeof(*data));
+    if (!data)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
+    }
+    data->runtime = runtime;
+    data->ws = bb_websocket_create_with_type(runtime, connection, BB_WEBSOCKET_SERVER);
+    data->ws->handler = handler;
+
+    if (!data->ws)
+    {
+        free(data);
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate.");
+    }
+
+    bb_error_t err = bb_connection_task_create_read(runtime, connection, _websocket_read_step, _websocket_read_error, data);
+    if (BB_FAILED(err))
+    {
+        bb_websocket_destroy(data->ws);
+        free(data);
+    }
+    return err;
 }
