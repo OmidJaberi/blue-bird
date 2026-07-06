@@ -470,6 +470,17 @@ void bb_websocket_set_message_callback(bb_websocket_t *ws, bb_ws_handler_cb call
     ws->message_userdata = userdata;
 }
 
+void bb_websocket_set_pong_callback(bb_websocket_t *ws, bb_ws_pong_cb callback, void *userdata)
+{
+    if (!ws)
+    {
+        return;
+    }
+
+    ws->pong_cb = callback;
+    ws->pong_userdata = userdata;
+}
+
 bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
 {
     if (!ws || !frame)
@@ -735,19 +746,39 @@ static bb_error_t _bb_websocket_queue_control(bb_websocket_t *ws, bb_ws_opcode_t
     return bb_websocket_queue_frame(ws, &frame);
 }
 
-bb_error_t bb_websocket_queue_ping(bb_websocket_t *ws)
+bb_error_t bb_websocket_queue_ping(bb_websocket_t *ws, const void *payload, size_t length)
 {
-    return _bb_websocket_queue_control(ws, BB_WS_PING, NULL, 0);
+    return _bb_websocket_queue_control(ws, BB_WS_PING, payload, length);
 }
 
-bb_error_t bb_websocket_queue_pong(bb_websocket_t *ws)
+bb_error_t bb_websocket_queue_pong(bb_websocket_t *ws, const void *payload, size_t length)
 {
-    return _bb_websocket_queue_control(ws, BB_WS_PONG, NULL, 0);
+    return _bb_websocket_queue_control(ws, BB_WS_PONG, payload, length);
 }
 
-bb_error_t bb_websocket_queue_close(bb_websocket_t *ws)
+bb_error_t bb_websocket_queue_close(bb_websocket_t *ws, uint16_t code, const char *reason)
 {
-    return _bb_websocket_queue_control(ws, BB_WS_CLOSE, NULL, 0);
+    uint8_t payload[125];
+    size_t length = 2;
+
+    uint16_t network = htons(code);
+
+    memcpy(payload, &network, sizeof(network));
+
+    if (reason)
+    {
+        size_t reason_length = strlen(reason);
+
+        if (reason_length > 123)
+        {
+            reason_length = 123;
+        }
+
+        memcpy(payload + 2, reason, reason_length);
+
+        length += reason_length;
+    }
+    return _bb_websocket_queue_control(ws, BB_WS_CLOSE, payload, length);
 }
 
 typedef struct {
@@ -783,6 +814,8 @@ static void _websocket_read_error(bb_error_t err, void *userdata)
     free(data);
 }
 
+static bb_error_t bb_websocket_send_pong(bb_websocket_t *ws, const void *payload, size_t length);
+
 static bb_read_status_t _websocket_read_step(void *userdata)
 {
     bb_ws_task_data_t *data = userdata;
@@ -804,17 +837,41 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     for (bb_ws_frame_t *current = &frame; current; current = current->next)
     {
-        bb_ws_message_t msg;
-
-        err = bb_ws_frame_to_message(current, &msg);
-
-        if (BB_FAILED(err))
+        switch (frame.opcode)
         {
-            bb_ws_frame_destroy(&frame);
-            return (bb_read_status_t){ BB_READ_ERROR, err };
-        }
+            case BB_WS_TEXT:
+            case BB_WS_BINARY:
+            {
+                bb_ws_message_t msg;
 
-        ws->handler(ws, &msg);
+                err = bb_ws_frame_to_message(current, &msg);
+
+                if (BB_FAILED(err))
+                {
+                    bb_ws_frame_destroy(&frame);
+                    return (bb_read_status_t){ BB_READ_ERROR, err }; // Next frames ignored?
+                }
+
+                if (ws->handler)
+                {
+                    ws->handler(ws, &msg);
+                }
+
+                break;
+            }
+            case BB_WS_PING:
+                bb_websocket_send_pong(ws, frame.payload, frame.payload_length);
+                break;
+            case BB_WS_PONG:
+                if (ws->pong_cb)
+                {
+                    ws->pong_cb(ws, frame.payload, frame.payload_length, ws->pong_userdata);
+                }
+                break;
+            case BB_WS_CLOSE:
+                bb_websocket_send_close(ws, 1000, NULL);
+                return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_NETWORK, "Peer closed connection") };
+        }
     }
 
     bb_ws_frame_destroy(&frame);
@@ -893,6 +950,72 @@ bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t
     }
 
     bb_error_t err = bb_websocket_queue_binary(ws, data, length);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    if (bb_connection_write(ws->connection) < 0)
+    {
+        return BB_ERROR(BB_ERR_IO, "Write failed");
+    }
+
+    return BB_SUCCESS();
+}
+
+static bb_error_t bb_websocket_send_pong(bb_websocket_t *ws, const void *payload, size_t length)
+{
+    if (!ws)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
+    }
+
+    bb_error_t err = bb_websocket_queue_pong(ws, payload, length);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    if (bb_connection_write(ws->connection) < 0)
+    {
+        return BB_ERROR(BB_ERR_IO, "Write failed");
+    }
+
+    return BB_SUCCESS();
+}
+
+bb_error_t bb_websocket_send_ping(bb_websocket_t *ws, const void *payload, size_t length)
+{
+    if (!ws)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
+    }
+
+    bb_error_t err = bb_websocket_queue_ping(ws, payload, length);
+
+    if (BB_FAILED(err))
+    {
+        return err;
+    }
+
+    if (bb_connection_write(ws->connection) < 0)
+    {
+        return BB_ERROR(BB_ERR_IO, "Write failed");
+    }
+
+    return BB_SUCCESS();
+}
+
+bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char *reason)
+{
+    if (!ws)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
+    }
+
+    bb_error_t err = bb_websocket_queue_close(ws, code, reason);
 
     if (BB_FAILED(err))
     {

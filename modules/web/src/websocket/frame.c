@@ -19,6 +19,18 @@ bb_error_t bb_ws_frame_to_message(const bb_ws_frame_t *frame, bb_ws_message_t *m
             message->type = BB_WS_MESSAGE_BINARY;
             break;
 
+        case BB_WS_CLOSE:
+            message->type = BB_WS_MESSAGE_CLOSE;
+            break;
+
+        case BB_WS_PING:
+            message->type = BB_WS_MESSAGE_PING;
+            break;
+
+        case BB_WS_PONG:
+            message->type = BB_WS_MESSAGE_PONG;
+            break;
+
         default:
             return BB_ERROR(BB_ERR_INTERNAL, "Unsupported opcode");
     }

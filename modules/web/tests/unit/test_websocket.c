@@ -100,7 +100,7 @@ void test_queue_ping(void)
 
     bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
-    bb_error_t err = bb_websocket_queue_ping(ws);
+    bb_error_t err = bb_websocket_queue_ping(ws, NULL, 0);
 
     assert(err.code == BB_OK);
 
@@ -123,7 +123,7 @@ void test_queue_pong(void)
 
     bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
-    bb_error_t err = bb_websocket_queue_pong(ws);
+    bb_error_t err = bb_websocket_queue_pong(ws, NULL, 0);
 
     assert(err.code == BB_OK);
 
@@ -146,7 +146,7 @@ void test_queue_close(void)
 
     bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
 
-    bb_error_t err = bb_websocket_queue_close(ws);
+    bb_error_t err = bb_websocket_queue_close(ws, 1000, NULL);
 
     assert(err.code == BB_OK);
 
@@ -154,7 +154,11 @@ void test_queue_close(void)
 
     assert(buf[0] == 0x88);
 
-    assert(buf[1] == 0);
+    assert(buf[1] == 2);
+
+    uint16_t code;
+    memcpy(&code, buf + 2, sizeof(code));
+    assert(ntohs(code) == 1000);
 
     bb_websocket_destroy(ws);
 
