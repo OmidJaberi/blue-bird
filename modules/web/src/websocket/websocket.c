@@ -17,15 +17,8 @@
 
 typedef struct {
     bb_websocket_t *ws;
-
     bb_ws_connect_cb connect_cb;
     void *connect_userdata;
-
-    bb_connection_t *connection;
-
-    char *host;
-    char *path;
-    int port;
 } _bb_ws_client_task_data_t;
 
 static int _parse_ws_url(const char *url, char **host, int *port, char **path)
@@ -163,7 +156,7 @@ error:
 static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 {
     _bb_ws_client_task_data_t *data = userdata;
-    bb_connection_t *conn = data->connection;
+    bb_connection_t *conn = data->ws->connection;
 
     if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
     {
@@ -174,15 +167,10 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 
     conn->buffer_length = 0;
 
-    // data->ws = bb_websocket_create_with_type(data->runtime, conn, BB_WEBSOCKET_CLIENT);
-
-    data->connection = NULL;
     data->connect_cb(data->ws, BB_SUCCESS(), data->connect_userdata);
 
     bb_websocket_create_read_task(data->ws);
 
-    free(data->host);
-    free(data->path);
     free(data);
 
     return (bb_read_status_t){
@@ -196,15 +184,13 @@ static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    if (data->connection)
+    if (data->ws->connection)
     {
-        bb_connection_destroy(data->connection);
+        bb_connection_destroy(data->ws->connection);
     }
 
     data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
 
-    free(data->host);
-    free(data->path);
     free(data);
 }
 
@@ -214,7 +200,7 @@ static void _bb_ws_handshake_write_done(bb_task_t *task, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    bb_connection_task_create_read(data->ws->runtime, data->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
+    bb_connection_task_create_read(data->ws->runtime, data->ws->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
 }
 
 static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
@@ -223,15 +209,13 @@ static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    if (data->connection)
+    if (data->ws->connection)
     {
-        bb_connection_destroy(data->connection);
+        bb_connection_destroy(data->ws->connection);
     }
 
     data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
 
-    free(data->host);
-    free(data->path);
     free(data);
 }
 
@@ -269,10 +253,6 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
     data->ws = ws;
     data->connect_cb = connect_callback;
     data->connect_userdata = userdata;
-    data->connection = connection;
-    data->host = host;
-    data->path = path;
-    data->port = port;
 
     const char *key = "dGhlIHNhbXBsZSBub25jZQ==";
 
@@ -288,9 +268,9 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         "Sec-WebSocket-Key: %s\r\n"
         "Sec-WebSocket-Version: 13\r\n"
         "\r\n",
-        data->path,
-        data->host,
-        data->port,
+        path,
+        host,
+        port,
         key);
 
     bb_connection_buffer_add(connection, strdup(request), strlen(request));
