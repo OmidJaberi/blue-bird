@@ -38,6 +38,11 @@ bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t
 bb_error_t bb_websocket_send_ping(bb_websocket_t *ws, const void *payload, size_t length);
 bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char *reason);
 
+static inline bb_error_t bb_websocket_close(bb_websocket_t *ws)
+{
+    return bb_websocket_send_close(ws, 1000, NULL);
+}
+
 // Callbacks
 void bb_websocket_set_message_callback(bb_websocket_t *ws, bb_ws_handler_cb callback, void *userdata);
 void bb_websocket_set_pong_callback(bb_websocket_t *ws, bb_ws_pong_cb callback, void *userdata);

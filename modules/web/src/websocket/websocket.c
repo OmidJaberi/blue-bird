@@ -885,6 +885,9 @@ bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
 
+    bb_connection_destroy(ws->connection);
+    // ws->connection = NULL;
+
     return BB_SUCCESS();
 }
 
@@ -966,8 +969,11 @@ static bb_read_status_t _websocket_read_step(void *userdata)
                 }
                 break;
             case BB_WS_CLOSE:
+            {
                 bb_websocket_send_close(ws, 1000, NULL);
-                return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_NETWORK, "Peer closed connection") };
+                bb_ws_frame_destroy(&frame);
+                return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
+            }
         }
     }
 
