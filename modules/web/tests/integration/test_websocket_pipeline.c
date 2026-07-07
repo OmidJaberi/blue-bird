@@ -601,6 +601,67 @@ static void websocket_ping_pong_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Close test
+
+static volatile int close_done = 0;
+static volatile int message_after_close = 0;
+
+bb_error_t _close_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
+{
+    (void)ws;
+    (void)msg;
+
+    if (close_done)
+    {
+        message_after_close++;
+    }
+
+    return BB_SUCCESS();
+}
+
+static void _close_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    assert(!BB_FAILED(err));
+
+    bb_error_t e = bb_websocket_send_text(ws, "before-close");
+    assert(!BB_FAILED(e));
+
+    e = bb_websocket_send_close(ws, 1000, "normal");
+    assert(!BB_FAILED(e));
+
+    close_done = 1;
+}
+
+static void websocket_close_test(void)
+{
+    printf("\tTesting WebSocket Close...\n");
+
+    close_done = 0;
+    message_after_close = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+
+    bb_websocket_set_message_callback(client, _close_message_cb, NULL);
+
+    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _close_connect_cb, NULL);
+
+    int ticks = 0;
+    while (ticks++ < 400)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    // after close, no new messages should arrive unexpectedly
+    assert(message_after_close == 0);
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -622,6 +683,7 @@ int main(void)
     websocket_multiple_clients_test();
     websocket_many_messages_test();
     websocket_ping_pong_test();
+    websocket_close_test();
 
     finished = 1;
     printf("All websocket integration tests passed.\n");
