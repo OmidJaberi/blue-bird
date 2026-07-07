@@ -54,9 +54,14 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     free(data);
 }
 
-bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_t *conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
+bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_t *connection, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
 {
-    if (conn->write_pending)
+    if (!runtime)
+        return BB_ERROR(BB_ERR_NULL, "NULL runtime.");
+    if (!connection)
+        return BB_ERROR(BB_ERR_NULL, "NULL connection.");
+
+    if (connection->write_pending)
         return BB_SUCCESS();
 
     _bb_write_task_data_t *data = malloc(sizeof(*data));
@@ -64,7 +69,7 @@ bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_
     if (!data)
         return BB_ERROR(BB_ERR_ALLOC, "Allocation failed.");
 
-    data->connection = conn;
+    data->connection = connection;
     data->runtime = runtime;
     data->success = success;
     data->failure = failure;
@@ -73,8 +78,8 @@ bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_
     bb_task_t *task = bb_task_create(_bb_write_task, data);
     if (!task)
         return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate task data.");
-    conn->write_pending = true;
-    bb_runtime_watch_fd(runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
+    connection->write_pending = true;
+    bb_runtime_watch_fd(runtime, connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task); // unwatch?
     return BB_SUCCESS();
 }
 
@@ -122,6 +127,11 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
 bb_error_t bb_connection_task_create_read(bb_runtime_t *runtime, bb_connection_t *connection, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata)
 {
+    if (!runtime)
+        return BB_ERROR(BB_ERR_NULL, "NULL runtime.");
+    if (!connection)
+        return BB_ERROR(BB_ERR_NULL, "NULL connection.");
+
     bb_read_task_data_t *read = malloc(sizeof(*read));
 
     if (!read)

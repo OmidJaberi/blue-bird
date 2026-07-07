@@ -77,6 +77,10 @@ void bb_connection_destroy(bb_connection_t *connection)
 
 int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t length)
 {
+    if (!connection)
+    {
+        return -1;
+    }
     if (length == 0)
         return 0;
 

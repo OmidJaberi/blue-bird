@@ -157,6 +157,13 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 {
     _bb_ws_client_task_data_t *data = userdata;
     bb_connection_t *conn = data->ws->connection;
+    if (!conn)
+    {
+        return (bb_read_status_t){
+            .err = BB_ERROR(BB_ERR_NULL, "No connection"),
+            .result = BB_READ_ERROR
+        };
+    }
 
     if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
     {
@@ -436,6 +443,8 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
 
 void bb_websocket_destroy(bb_websocket_t *ws)
 {
+    if (!ws) return;
+    // bb_connection_destroy(ws->connection);
     free(ws);
 }
 
@@ -469,6 +478,10 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
     }
 
     bb_connection_t *conn = ws->connection;
+    if (!conn)
+    {
+        return BB_ERROR(BB_ERR_NETWORK, "Connection doesn't exist.");
+    }
 
     frame->next = NULL;
 
@@ -613,6 +626,10 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
     }
 
     bb_connection_t *conn = ws->connection;
+    if (!conn)
+    {
+        return BB_ERROR(BB_ERR_NETWORK, "Connection doesn't exist.");
+    }
 
     const int masked = (ws->mode == BB_WEBSOCKET_CLIENT);
 
@@ -956,7 +973,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     bb_ws_frame_destroy(&frame);
 
-    if (ws->connection->write_data && ws->connection->write_data->write_buffer)
+    if (ws->connection && ws->connection->write_data && ws->connection->write_data->write_buffer)
     {
         if (BB_FAILED(bb_connection_task_create_write(ws->runtime, ws->connection, _websocket_after_write, _websocket_write_error, ws)))
         {
