@@ -193,25 +193,3 @@ bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_con
     bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
     return BB_SUCCESS();
 }
-
-// OLD API
-
-bb_error_t bb_connection_task_create_write(bb_runtime_t *runtime, bb_connection_t *conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
-{
-    (void) runtime;
-    (void) conn;
-    (void) success;
-    (void) failure;
-    (void) userdata;
-    return BB_SUCCESS();
-}
-
-bb_error_t bb_connection_task_create_read(bb_runtime_t *runtime, bb_connection_t *connection, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata)
-{
-    (void) runtime;
-    (void) connection;
-    (void) read_step;
-    (void) read_error;
-    (void) userdata;
-    return BB_SUCCESS();
-}
