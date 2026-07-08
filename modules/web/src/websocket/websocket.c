@@ -156,7 +156,7 @@ error:
 static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 {
     _bb_ws_client_task_data_t *data = userdata;
-    bb_connection_t *conn = data->ws->connection;
+    bb_connection_t *conn = data->ws->async_conn->connection;
     if (!conn)
     {
         return (bb_read_status_t){
@@ -191,9 +191,9 @@ static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    if (data->ws->connection)
+    if (data->ws->async_conn->connection)
     {
-        bb_connection_destroy(data->ws->connection);
+        bb_connection_destroy(data->ws->async_conn->connection); // Close?
     }
 
     data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
@@ -207,7 +207,7 @@ static void _bb_ws_handshake_write_done(bb_task_t *task, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    bb_connection_task_create_read(data->ws->runtime, data->ws->connection, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
+    bb_async_connection_create_read_task(data->ws->async_conn, _bb_ws_handshake_read_step, _bb_ws_handshake_read_error, data);
 }
 
 static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
@@ -216,9 +216,9 @@ static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    if (data->ws->connection)
+    if (data->ws->async_conn->connection)
     {
-        bb_connection_destroy(data->ws->connection);
+        bb_connection_destroy(data->ws->async_conn->connection); // Close?
     }
 
     data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
@@ -242,9 +242,9 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
 
     snprintf(port_str, sizeof(port_str), "%d", port);
 
-    bb_connection_t *connection = bb_connection_connect_nonblocking(host, port_str);
+    bb_async_connection_t *async_conn = bb_async_connection_connect(ws->runtime, host, port_str);
 
-    if (!connection)
+    if (!async_conn)
     {
         connect_callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Connection failed"), userdata);
 
@@ -253,7 +253,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
 
         return;
     }
-    ws->connection = connection;
+    ws->async_conn = async_conn;
 
     _bb_ws_client_task_data_t *data = calloc(1, sizeof(*data));
 
@@ -280,9 +280,9 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         port,
         key);
 
-    bb_connection_buffer_add(connection, strdup(request), strlen(request));
+    bb_connection_buffer_add(async_conn->connection, strdup(request), strlen(request));
 
-    bb_connection_task_create_write(ws->runtime, connection, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
+    bb_async_connection_create_write_task(ws->async_conn, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
 }
 
 bool _is_upgrade_request(bb_request_t *req)
@@ -394,17 +394,17 @@ static bb_error_t bb_websocket_accept_req(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
-bb_websocket_t *bb_websocket_accept(bb_runtime_t *runtime, bb_connection_t *connection, bb_request_t *req, bb_response_t *res, bb_ws_handler_cb handler)
+bb_websocket_t *bb_websocket_accept(bb_async_connection_t *async_conn, bb_request_t *req, bb_response_t *res, bb_ws_handler_cb handler)
 {
     bb_error_t err = bb_websocket_accept_req(req, res);
-    connection->buffer_length = 0; // Temporary Buffer reset
+    async_conn->connection->buffer_length = 0; // Temporary Buffer reset
 
     if (BB_FAILED(err))
     {
         return NULL;
     }
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(runtime, connection, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
     ws->handler = handler;
 
     if (!ws)
@@ -415,8 +415,30 @@ bb_websocket_t *bb_websocket_accept(bb_runtime_t *runtime, bb_connection_t *conn
     return ws;
 }
 
-bb_websocket_t *bb_websocket_create_with_type(bb_runtime_t *runtime, bb_connection_t *connection, bb_websocket_mode_t mode)
+bb_websocket_t *bb_websocket_create_with_type(bb_async_connection_t *async_conn, bb_websocket_mode_t mode)
 {
+    if (!async_conn)
+    {
+        return NULL;
+    }
+
+    bb_websocket_t *ws = malloc(sizeof(*ws));
+
+    if (!ws)
+    {
+        return NULL;
+    }
+
+    ws->runtime = async_conn->runtime;
+    ws->async_conn = async_conn;
+    ws->mode = mode;
+
+    return ws;
+}
+
+bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
+{
+    // return bb_websocket_create_with_type(runtime, NULL, BB_WEBSOCKET_CLIENT);
     if (!runtime)
     {
         return NULL;
@@ -430,15 +452,10 @@ bb_websocket_t *bb_websocket_create_with_type(bb_runtime_t *runtime, bb_connecti
     }
 
     ws->runtime = runtime;
-    ws->connection = connection;
-    ws->mode = mode;
+    ws->async_conn = NULL;
+    ws->mode = BB_WEBSOCKET_CLIENT;
 
     return ws;
-}
-
-bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
-{
-    return bb_websocket_create_with_type(runtime, NULL, BB_WEBSOCKET_CLIENT);
 }
 
 void bb_websocket_destroy(bb_websocket_t *ws)
@@ -477,7 +494,7 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
         return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
     }
 
-    bb_connection_t *conn = ws->connection;
+    bb_connection_t *conn = ws->async_conn->connection;
     if (!conn)
     {
         return BB_ERROR(BB_ERR_NETWORK, "Connection doesn't exist.");
@@ -625,7 +642,7 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
         return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
     }
 
-    bb_connection_t *conn = ws->connection;
+    bb_connection_t *conn = ws->async_conn->connection;
     if (!conn)
     {
         return BB_ERROR(BB_ERR_NETWORK, "Connection doesn't exist.");
@@ -792,7 +809,7 @@ bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
         return err;
     }
 
-    if (bb_connection_write(ws->connection) < 0)
+    if (bb_connection_write(ws->async_conn->connection) < 0)
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -814,7 +831,7 @@ bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t
         return err;
     }
 
-    if (bb_connection_write(ws->connection) < 0)
+    if (bb_connection_write(ws->async_conn->connection) < 0)
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -836,7 +853,7 @@ static bb_error_t bb_websocket_send_pong(bb_websocket_t *ws, const void *payload
         return err;
     }
 
-    if (bb_connection_write(ws->connection) < 0)
+    if (bb_connection_write(ws->async_conn->connection) < 0)
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -858,7 +875,7 @@ bb_error_t bb_websocket_send_ping(bb_websocket_t *ws, const void *payload, size_
         return err;
     }
 
-    if (bb_connection_write(ws->connection) < 0)
+    if (bb_connection_write(ws->async_conn->connection) < 0)
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -880,13 +897,12 @@ bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char
         return err;
     }
 
-    if (bb_connection_write(ws->connection) < 0)
+    if (bb_connection_write(ws->async_conn->connection) < 0)
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
 
-    bb_connection_destroy(ws->connection);
-    // ws->connection = NULL;
+    // bb_async_connection_close(ws->async_conn);
 
     return BB_SUCCESS();
 }
@@ -906,7 +922,7 @@ static void _websocket_write_error(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_websocket_t *ws = userdata;
-    bb_connection_destroy(ws->connection);
+    bb_async_connection_close(ws->async_conn);
     bb_websocket_destroy(ws);
 }
 
@@ -979,9 +995,9 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     bb_ws_frame_destroy(&frame);
 
-    if (ws->connection && ws->connection->write_data && ws->connection->write_data->write_buffer)
+    if (ws->async_conn && ws->async_conn->connection && ws->async_conn->connection->write_data && ws->async_conn->connection->write_data->write_buffer)
     {
-        if (BB_FAILED(bb_connection_task_create_write(ws->runtime, ws->connection, _websocket_after_write, _websocket_write_error, ws)))
+        if (BB_FAILED(bb_async_connection_create_write_task(ws->async_conn, _websocket_after_write, _websocket_write_error, ws)))
         {
             return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
         }
@@ -1004,7 +1020,7 @@ bb_error_t bb_websocket_create_read_task(bb_websocket_t *ws)
         return BB_ERROR(BB_ERR_NULL, "Null websocket.");
     }
 
-    bb_error_t err = bb_connection_task_create_read(ws->runtime, ws->connection, _websocket_read_step, _websocket_read_error, ws);
+    bb_error_t err = bb_async_connection_create_read_task(ws->async_conn, _websocket_read_step, _websocket_read_error, ws);
     if (BB_FAILED(err))
     {
         bb_websocket_destroy(ws);

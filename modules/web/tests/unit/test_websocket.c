@@ -6,47 +6,51 @@
 #include <stdlib.h>
 #include <string.h>
 
-static bb_connection_t *create_test_connection(void)
+static bb_async_connection_t *create_test_connection(void)
 {
-    bb_connection_t *conn = calloc(1, sizeof(*conn));
+    bb_async_connection_t *async_conn = calloc(1, sizeof(*async_conn));
 
-    assert(conn);
+    assert(async_conn);
 
-    conn->fd = -1;
+    async_conn->connection = calloc(1, sizeof(*async_conn->connection));
 
-    return conn;
+    assert(async_conn->connection);
+
+    async_conn->connection->fd = -1;
+
+    return async_conn;
 }
 
 void test_websocket_create_destroy(void)
 {
     printf("\tTesting websocket create/destroy...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     assert(ws != NULL);
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_text_frame(void)
 {
     printf("\tTesting text frame serialization...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_text(ws, "hello");
 
     assert(err.code == BB_OK);
 
-    assert(conn->write_data != NULL);
+    assert(async_conn->connection->write_data != NULL);
 
-    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
+    unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
     assert(buf[0] == 0x81);
 
@@ -56,16 +60,16 @@ void test_queue_text_frame(void)
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_binary_frame(void)
 {
     printf("\tTesting binary frame serialization...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     unsigned char payload[] =
     {
@@ -79,7 +83,7 @@ void test_queue_binary_frame(void)
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
+    unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
     assert(buf[0] == 0x82);
 
@@ -89,22 +93,22 @@ void test_queue_binary_frame(void)
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_ping(void)
 {
     printf("\tTesting ping frame...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_ping(ws, NULL, 0);
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
+    unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
     assert(buf[0] == 0x89);
 
@@ -112,22 +116,22 @@ void test_queue_ping(void)
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_pong(void)
 {
     printf("\tTesting pong frame...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_pong(ws, NULL, 0);
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
+    unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
     assert(buf[0] == 0x8A);
 
@@ -135,22 +139,22 @@ void test_queue_pong(void)
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_close(void)
 {
     printf("\tTesting close frame...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     bb_error_t err = bb_websocket_queue_close(ws, 1000, NULL);
 
     assert(err.code == BB_OK);
 
-    unsigned char *buf = (unsigned char *)conn->write_data->write_buffer;
+    unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
     assert(buf[0] == 0x88);
 
@@ -162,23 +166,23 @@ void test_queue_close(void)
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_parse_unmasked_text_frame(void)
 {
     printf("\tTesting frame parsing...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
-    conn->buffer = malloc(7);
+    async_conn->connection->buffer = malloc(7);
 
-    memcpy(conn->buffer, "\x81\x05hello", 7);
+    memcpy(async_conn->connection->buffer, "\x81\x05hello", 7);
 
-    conn->buffer_length = 7;
-    conn->buffer_capacity = 7;
+    async_conn->connection->buffer_length = 7;
+    async_conn->connection->buffer_capacity = 7;
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -198,14 +202,14 @@ void test_parse_unmasked_text_frame(void)
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_parse_masked_text_frame(void)
 {
     printf("\tTesting masked frame parsing...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
     unsigned char frame_bytes[] =
     {
@@ -224,15 +228,15 @@ void test_parse_masked_text_frame(void)
         0x58
     };
 
-    conn->buffer = malloc(sizeof(frame_bytes));
+    async_conn->connection->buffer = malloc(sizeof(frame_bytes));
 
-    memcpy(conn->buffer, frame_bytes, sizeof(frame_bytes));
+    memcpy(async_conn->connection->buffer, frame_bytes, sizeof(frame_bytes));
 
-    conn->buffer_length = sizeof(frame_bytes);
+    async_conn->connection->buffer_length = sizeof(frame_bytes);
 
-    conn->buffer_capacity = sizeof(frame_bytes);
+    async_conn->connection->buffer_capacity = sizeof(frame_bytes);
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -248,7 +252,7 @@ void test_parse_masked_text_frame(void)
 
     bb_websocket_destroy(ws);
 
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 void test_invalid_arguments(void)
@@ -283,7 +287,7 @@ void test_parse_multiple_frames(void)
 {
     printf("\tTesting multiple frames...\n");
 
-    bb_connection_t *conn = create_test_connection();
+    bb_async_connection_t *async_conn = create_test_connection();
 
     unsigned char frames[] =
     {
@@ -294,14 +298,14 @@ void test_parse_multiple_frames(void)
         'w','o','r','l','d'
     };
 
-    conn->buffer = malloc(sizeof(frames));
+    async_conn->connection->buffer = malloc(sizeof(frames));
 
-    memcpy(conn->buffer, frames, sizeof(frames));
+    memcpy(async_conn->connection->buffer, frames, sizeof(frames));
 
-    conn->buffer_length = sizeof(frames);
-    conn->buffer_capacity = sizeof(frames);
+    async_conn->connection->buffer_length = sizeof(frames);
+    async_conn->connection->buffer_capacity = sizeof(frames);
 
-    bb_websocket_t *ws = bb_websocket_create_with_type(bb_runtime_default(), conn, BB_WEBSOCKET_SERVER);
+    bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
     bb_ws_frame_t frame = {0};
 
@@ -315,12 +319,12 @@ void test_parse_multiple_frames(void)
     assert(strcmp(frame.next->payload, "world") == 0);
     assert(frame.next->next == NULL);
 
-    assert(conn->buffer_length == 0);
+    assert(async_conn->connection->buffer_length == 0);
 
     bb_ws_frame_destroy(&frame);
 
     bb_websocket_destroy(ws);
-    bb_connection_destroy(conn);
+    bb_async_connection_destroy(async_conn);
 }
 
 int main(void)

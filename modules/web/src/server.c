@@ -136,9 +136,9 @@ static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_req
     return bb_middleware_list_run(server->post_middleware_list, req, res);
 }
 
-static bb_error_t _run_websocket_route(bb_runtime_t *runtime, bb_route_t *route, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
+static bb_error_t _run_websocket_route(bb_async_connection_t *async_conn, bb_route_t *route, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
 {
-    *ws = bb_websocket_accept(runtime, conn, req, res, bb_route_get_websocket_handler(route));
+    *ws = bb_websocket_accept(async_conn, req, res, bb_route_get_websocket_handler(route));
 
     if (!(*ws))
     {
@@ -148,7 +148,7 @@ static bb_error_t _run_websocket_route(bb_runtime_t *runtime, bb_route_t *route,
     return BB_SUCCESS();
 }
 
-bb_error_t _run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
+bb_error_t _run_request_pipeline(bb_server_t *server, bb_async_connection_t *async_conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
 {
     bb_route_t *route = bb_route_list_match(server->route_list, req);
     if (!route)
@@ -161,7 +161,7 @@ bb_error_t _run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_
         case BB_ROUTE_HTTP:
             return _run_http_route(server, route, req, res);
         case BB_ROUTE_WEBSOCKET:
-            return _run_websocket_route(server->runtime, route, conn, ws, req, res);
+            return _run_websocket_route(async_conn, route, ws, req, res);
         default:
             return BB_ERROR(BB_ERR_INTERNAL, "Unknown route type");
     }
@@ -186,7 +186,7 @@ static bb_read_status_t _server_read_step(void *userdata)
     }
     else
     {
-        bb_error_t err = _run_request_pipeline(data->server, async_conn->connection, &data->ws, req, res);
+        bb_error_t err = _run_request_pipeline(data->server, async_conn, &data->ws, req, res);
 
         if (BB_FAILED(err))
         {
