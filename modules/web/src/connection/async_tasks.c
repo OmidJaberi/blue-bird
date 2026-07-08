@@ -84,6 +84,10 @@ void bb_async_connection_close(bb_async_connection_t *async_conn)
 static void _bb_write_task(bb_task_t *task, void *userdata)
 {
     bb_async_connection_t *async_conn = userdata;
+    if (!async_conn || !async_conn->connection)
+    {
+        return;
+    }
     bb_connection_t *conn = async_conn->connection;
     if (bb_connection_write(conn) < 0)
     {
@@ -110,7 +114,7 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
 
 bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
 {
-    if (!async_conn)
+    if (!async_conn || !async_conn->connection)
         return BB_ERROR(BB_ERR_NULL, "No connection.");
 
     if (async_conn->connection->write_pending)
@@ -135,6 +139,11 @@ bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_co
 static void _bb_read_task(bb_task_t *task, void *userdata)
 {
     bb_async_connection_t *async_conn = userdata;
+
+    if (!async_conn || !async_conn->connection)
+    {
+        return;
+    }
 
     int n = bb_connection_read(async_conn->connection);
     if (n < 0)
@@ -173,7 +182,8 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
 bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_conn, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata)
 {
-    if (!async_conn)
+
+    if (!async_conn || !async_conn->connection)
         return BB_ERROR(BB_ERR_NULL, "No connection.");
 
     async_conn->read_step = read_step;

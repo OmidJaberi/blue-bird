@@ -244,7 +244,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
 
     bb_async_connection_t *async_conn = bb_async_connection_connect(ws->runtime, host, port_str);
 
-    if (!async_conn)
+    if (!async_conn || !async_conn->connection)
     {
         connect_callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Connection failed"), userdata);
 
@@ -396,6 +396,8 @@ static bb_error_t bb_websocket_accept_req(bb_request_t *req, bb_response_t *res)
 
 bb_websocket_t *bb_websocket_accept(bb_async_connection_t *async_conn, bb_request_t *req, bb_response_t *res, bb_ws_handler_cb handler)
 {
+    if (!async_conn || !async_conn->connection)
+        return NULL;
     bb_error_t err = bb_websocket_accept_req(req, res);
     async_conn->connection->buffer_length = 0; // Temporary Buffer reset
 
@@ -797,7 +799,7 @@ bb_error_t bb_websocket_queue_close(bb_websocket_t *ws, uint16_t code, const cha
 
 bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
 {
-    if (!ws)
+    if (!ws || !ws->async_conn || !ws->async_conn->connection)
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
     }
@@ -819,7 +821,7 @@ bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
 
 bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t length)
 {
-    if (!ws)
+    if (!ws || !ws->async_conn || !ws->async_conn->connection)
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
     }
@@ -841,7 +843,7 @@ bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t
 
 static bb_error_t bb_websocket_send_pong(bb_websocket_t *ws, const void *payload, size_t length)
 {
-    if (!ws)
+    if (!ws || !ws->async_conn || !ws->async_conn->connection)
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
     }
@@ -863,7 +865,7 @@ static bb_error_t bb_websocket_send_pong(bb_websocket_t *ws, const void *payload
 
 bb_error_t bb_websocket_send_ping(bb_websocket_t *ws, const void *payload, size_t length)
 {
-    if (!ws)
+    if (!ws || !ws->async_conn || !ws->async_conn->connection)
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
     }
@@ -885,7 +887,7 @@ bb_error_t bb_websocket_send_ping(bb_websocket_t *ws, const void *payload, size_
 
 bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char *reason)
 {
-    if (!ws)
+    if (!ws || !ws->async_conn || !ws->async_conn->connection)
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Websocket not connected");
     }
