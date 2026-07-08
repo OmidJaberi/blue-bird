@@ -463,7 +463,7 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
 void bb_websocket_destroy(bb_websocket_t *ws)
 {
     if (!ws) return;
-    // bb_connection_destroy(ws->connection);
+    bb_async_connection_destroy(ws->async_conn);
     free(ws);
 }
 
@@ -916,7 +916,7 @@ static void _websocket_after_write(bb_task_t *task, void *userdata)
     bb_error_t err = bb_websocket_create_read_task(ws);
     if (BB_FAILED(err))
     {
-        bb_websocket_destroy(ws);
+        bb_async_connection_close(ws->async_conn);
     }
 }
 
@@ -925,14 +925,14 @@ static void _websocket_write_error(bb_task_t *task, void *userdata)
     (void) task;
     bb_websocket_t *ws = userdata;
     bb_async_connection_close(ws->async_conn);
-    bb_websocket_destroy(ws);
+    bb_async_connection_close(ws->async_conn);
 }
 
 static void _websocket_read_error(bb_error_t err, void *userdata)
 {
     (void)err;
     bb_websocket_t *ws = userdata;
-    bb_websocket_destroy(ws);
+    bb_async_connection_close(ws->async_conn);
 }
 
 static bb_read_status_t _websocket_read_step(void *userdata)
@@ -1025,7 +1025,7 @@ bb_error_t bb_websocket_create_read_task(bb_websocket_t *ws)
     bb_error_t err = bb_async_connection_create_read_task(ws->async_conn, _websocket_read_step, _websocket_read_error, ws);
     if (BB_FAILED(err))
     {
-        bb_websocket_destroy(ws);
+        bb_async_connection_close(ws->async_conn);
     }
     return err;
 }
