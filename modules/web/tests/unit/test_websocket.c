@@ -32,8 +32,6 @@ void test_websocket_create_destroy(void)
     assert(ws != NULL);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_text_frame(void)
@@ -59,8 +57,6 @@ void test_queue_text_frame(void)
     assert(memcmp(buf + 2, "hello", 5) == 0);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_binary_frame(void)
@@ -92,8 +88,6 @@ void test_queue_binary_frame(void)
     assert(memcmp(buf + 2, payload, 4) == 0);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_ping(void)
@@ -115,8 +109,6 @@ void test_queue_ping(void)
     assert(buf[1] == 0);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_pong(void)
@@ -138,8 +130,6 @@ void test_queue_pong(void)
     assert(buf[1] == 0);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_queue_close(void)
@@ -165,8 +155,6 @@ void test_queue_close(void)
     assert(ntohs(code) == 1000);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_parse_unmasked_text_frame(void)
@@ -201,8 +189,6 @@ void test_parse_unmasked_text_frame(void)
     bb_ws_frame_destroy(&frame);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_parse_masked_text_frame(void)
@@ -251,8 +237,6 @@ void test_parse_masked_text_frame(void)
     bb_ws_frame_destroy(&frame);
 
     bb_websocket_destroy(ws);
-
-    bb_async_connection_destroy(async_conn);
 }
 
 void test_invalid_arguments(void)
@@ -324,7 +308,6 @@ void test_parse_multiple_frames(void)
     bb_ws_frame_destroy(&frame);
 
     bb_websocket_destroy(ws);
-    bb_async_connection_destroy(async_conn);
 }
 
 int main(void)
