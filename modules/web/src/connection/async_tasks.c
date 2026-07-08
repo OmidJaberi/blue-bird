@@ -53,6 +53,22 @@ bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, int ser
     return async_conn;
 }
 
+bb_async_connection_t *bb_async_connection_connect(bb_runtime_t *runtime, const char *host, const char *port_str)
+{
+    bb_async_connection_t *async_conn = bb_async_connection_create(runtime);
+    if (!async_conn)
+    {
+        return NULL;
+    }
+    async_conn->connection = bb_connection_connect_nonblocking(host, port_str);
+    if (!async_conn->connection)
+    {
+        bb_async_connection_destroy(async_conn);
+        return NULL;
+    }
+    return async_conn;
+}
+
 void bb_async_connection_close(bb_async_connection_t *async_conn)
 {
     if (!async_conn->connection)

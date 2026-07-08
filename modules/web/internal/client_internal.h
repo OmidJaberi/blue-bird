@@ -4,9 +4,10 @@
 #include "blue-bird/runtime/runtime.h"
 
 #include "blue-bird/web/http/handler.h"
-#include "connection/connection.h"
+#include "connection/async_tasks.h"
 
 struct bb_client {
+    bb_async_connection_t *async_conn;
     bb_connection_t *connection;
     bb_runtime_t *runtime;
     bb_request_t *req;

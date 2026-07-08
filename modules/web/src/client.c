@@ -37,6 +37,7 @@ bb_client_t *bb_client_create_on_runtime(bb_runtime_t *runtime)
         free(client);
         return NULL;
     }
+    client->async_conn = NULL;
     client->connection = NULL;
     client->runtime = runtime;
     return client;
@@ -46,10 +47,9 @@ void bb_client_destroy(bb_client_t *client)
 {
     if (!client) return;
 
-    if (client->connection)
+    if (client->async_conn)
     {
-        bb_connection_destroy(client->connection);
-        client->connection = NULL;
+        bb_async_connection_destroy(client->async_conn);
     }
 
     if (client->req) bb_request_destroy(client->req);
@@ -72,6 +72,11 @@ void bb_client_close(bb_client_t *client)
 {
     if (!client) return;
 
+    if (client->async_conn)
+    {
+        // bb_async_connection_destroy(client->async_conn);
+        // client->async_conn = NULL;
+    }
     if (client->connection)
     {
         bb_connection_destroy(client->connection);
@@ -189,7 +194,8 @@ static bb_read_status_t _client_read_step(void *userdata)
     _bb_client_task_data_t *data = userdata;
 
     bb_client_t *client = data->client;
-    bb_connection_t *conn = client->connection;
+    bb_async_connection_t *async_conn = client->async_conn;
+    bb_connection_t *conn = async_conn->connection;
 
     if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
     {
@@ -212,7 +218,7 @@ static void _client_after_write(bb_task_t *task, void *userdata)
 {
     (void) task;
     _bb_client_task_data_t *data = userdata;
-    bb_connection_task_create_read(data->client->runtime, data->client->connection, _client_read_step, _client_read_error, data);
+    bb_async_connection_create_read_task(data->client->async_conn, _client_read_step, _client_read_error, data);
 }
 
 static void _client_write_error(bb_task_t *task, void *userdata)
@@ -239,9 +245,9 @@ bb_error_t _client_create_write_task(bb_client_t *client, bb_client_callback_t c
     char *buffer;
     size_t length;
     bb_request_serialize(client->req, &buffer, &length);
-    bb_connection_buffer_add(client->connection, buffer, length);
+    bb_connection_buffer_add(client->async_conn->connection, buffer, length);
 
-    return bb_connection_task_create_write(client->runtime, client->connection, _client_after_write, _client_write_error, data);
+    return bb_async_connection_create_write_task(client->async_conn, _client_after_write, _client_write_error, data);
 }
 
 void bb_client_execute_async(bb_client_t *client, bb_client_callback_t callback, void *userdata)
@@ -251,8 +257,8 @@ void bb_client_execute_async(bb_client_t *client, bb_client_callback_t callback,
     char port_str[16];
     snprintf(port_str, sizeof(port_str), "%d", port);
 
-    client->connection = bb_connection_connect(host, port_str);
-    if (!client->connection)
+    client->async_conn = bb_async_connection_connect(client->runtime, host, port_str);
+    if (!client->async_conn)
     {
         callback(client, BB_ERROR(BB_ERR_NETWORK, "Connection failed"), userdata);
         return;

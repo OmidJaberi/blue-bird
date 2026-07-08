@@ -49,6 +49,7 @@ void bb_async_connection_destroy(bb_async_connection_t *async_conn);
 
 bb_async_connection_t *bb_async_connection_serve(bb_runtime_t *runtime, int port);
 bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, int server_fd);
+bb_async_connection_t *bb_async_connection_connect(bb_runtime_t *runtime, const char *host, const char *port_str);
 void bb_async_connection_close(bb_async_connection_t *async_conn);
 
 bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata);
