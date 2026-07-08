@@ -1,6 +1,5 @@
-#include "blue-bird/web/server.h"
-#include "connection/async_tasks.h"
 #include "server_internal.h"
+#include "connection/async_tasks.h"
 #include "http/parser.h"
 
 #include "blue-bird/runtime/event.h"
@@ -13,8 +12,7 @@
 
 typedef struct {
     bb_server_t *server;
-    bb_connection_t *connection;
-    bb_runtime_t *runtime;
+    bb_async_connection_t *async_conn;
     bb_websocket_t *ws;
 } bb_server_task_data_t;
 
@@ -52,8 +50,8 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
 
     server->runtime = runtime;
 
-    server->connection = bb_connection_serve(port);
-    if (!server->connection)
+    server->async_conn = bb_async_connection_serve(runtime, port);
+    if (!server->async_conn)
     {
         bb_server_destroy(server);
         return NULL;
@@ -76,7 +74,7 @@ static void _server_after_write(bb_task_t *task, void *userdata)
         /*
         * Now websocket session owns the connection.
         */
-        data->connection = NULL;
+        data->async_conn = NULL;
         bb_error_t err = bb_websocket_create_read_task(data->ws);
         if (BB_FAILED(err))
         {
@@ -85,7 +83,7 @@ static void _server_after_write(bb_task_t *task, void *userdata)
         free(data);
         return;
     }
-    bb_connection_destroy(data->connection);
+    bb_async_connection_destroy(data->async_conn);
 
     free(data);
 }
@@ -94,13 +92,13 @@ static void _server_write_error(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_server_task_data_t *data = userdata;
-    bb_connection_destroy(data->connection);
+    bb_async_connection_destroy(data->async_conn);
     free(data);
 }
 
 static int _server_create_write_task(bb_server_task_data_t *data)
 {
-    if (BB_FAILED(bb_connection_task_create_write(data->runtime, data->connection, _server_after_write, _server_write_error, data)))
+    if (BB_FAILED(bb_async_connection_create_write_task(data->async_conn, _server_after_write, _server_write_error, data)))
         return -1;
     return 0;
 }
@@ -113,126 +111,8 @@ static void _server_read_error(bb_error_t err, void *userdata)
 
     BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
 
-    bb_connection_destroy(data->connection);
+    bb_async_connection_destroy(data->async_conn);
     free(data);
-}
-
-static bb_read_status_t _server_read_step(void *userdata)
-{
-    bb_server_task_data_t *data = userdata;
-    bb_connection_t *connection = data->connection;
-
-    if (!bb_http_message_complete(connection->buffer, connection->buffer_length))
-    {
-        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
-    }
-
-    bb_request_t *req = bb_request_server_create();
-    bb_response_t *res = bb_response_create();
-
-    if (bb_request_parse(connection->buffer, req))
-    {
-        default_400(req, res);
-    }
-    else
-    {
-        bb_error_t err = bb_server_run_request_pipeline(data->server, connection, &data->ws, req, res);
-
-        if (BB_FAILED(err))
-        {
-            bb_request_destroy(req);
-            bb_response_destroy(res);
-
-            return (bb_read_status_t){ BB_READ_ERROR, err };
-        }
-    }
-
-    char *buffer;
-    size_t length;
-    bb_response_serialize(res, &buffer, &length);
-    bb_connection_buffer_add(connection, buffer, length);
-
-    bb_request_destroy(req);
-    bb_response_destroy(res);
-
-    connection->state = BB_CONNECTION_WRITING;
-
-    if (_server_create_write_task(data))
-    {
-        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
-    }
-
-    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
-}
-
-static int _server_create_read_task(bb_server_t *server, bb_connection_t *connection, bb_runtime_t *runtime)
-{
-    bb_server_task_data_t *data = malloc(sizeof(*data));
-    if (!data) return 1;
-
-    data->server = server;
-    data->connection = connection;
-    data->runtime = runtime;
-    data->ws = NULL;
-
-    if (BB_FAILED(bb_connection_task_create_read(runtime, connection, _server_read_step, _server_read_error, data)))
-        return 1;
-    return 0;
-}
-
-// Accept:
-void _server_accept_task(bb_task_t *task, void *userdata)
-{
-    (void)task;
-
-    bb_server_task_data_t *data = userdata;
-
-    bb_connection_t *connection;
-    while ((connection = bb_connection_accept(data->connection->fd)))
-    {
-        if (_server_create_read_task(data->server, connection, data->runtime) != 0)
-        {
-            bb_connection_destroy(connection);
-        }
-    }
-}
-
-void bb_server_start(bb_server_t *server)
-{
-    bb_server_task_data_t *data = malloc(sizeof(*data));
-    if (!data)
-    {
-        BB_LOG_ERROR("Failed to allocate server task.\n");
-        return;
-    }
-
-    data->server = server;
-    data->runtime = server->runtime;
-    data->connection = server->connection;
-
-    bb_task_t *task = bb_task_create(_server_accept_task, data);
-    bb_runtime_watch_fd(server->runtime, server->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
-
-    BB_LOG_INFO("Blue-Bird async server started.\n");
-}
-
-void bb_server_destroy(bb_server_t *server)
-{
-    if (!server)
-    {
-        return;
-    }
-
-    if (server->connection)
-    {
-        bb_connection_destroy(server->connection);
-    }
-
-    bb_route_list_destroy(server->route_list);
-    bb_middleware_list_destroy(server->pre_middleware_list);
-    bb_middleware_list_destroy(server->post_middleware_list);
-
-    free(server);
 }
 
 static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_request_t *req, bb_response_t *res)
@@ -268,19 +148,13 @@ static bb_error_t _run_websocket_route(bb_runtime_t *runtime, bb_route_t *route,
     return BB_SUCCESS();
 }
 
-bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
+bb_error_t _run_request_pipeline(bb_server_t *server, bb_connection_t *conn, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)
 {
-    BB_LOG_INFO("Looking for route\n");
     bb_route_t *route = bb_route_list_match(server->route_list, req);
-
-
     if (!route)
     {
-        BB_LOG_INFO("Route not found\n");
         return default_404(req, res);
     }
-
-    BB_LOG_INFO("Route found\n");
 
     switch (bb_route_get_type(route))
     {
@@ -291,6 +165,122 @@ bb_error_t bb_server_run_request_pipeline(bb_server_t *server, bb_connection_t *
         default:
             return BB_ERROR(BB_ERR_INTERNAL, "Unknown route type");
     }
+}
+
+static bb_read_status_t _server_read_step(void *userdata)
+{
+    bb_server_task_data_t *data = userdata;
+    bb_async_connection_t *async_conn = data->async_conn;
+
+    if (!bb_http_message_complete(async_conn->connection->buffer, async_conn->connection->buffer_length))
+    {
+        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
+    }
+
+    bb_request_t *req = bb_request_server_create();
+    bb_response_t *res = bb_response_create();
+
+    if (bb_request_parse(async_conn->connection->buffer, req))
+    {
+        default_400(req, res);
+    }
+    else
+    {
+        bb_error_t err = _run_request_pipeline(data->server, async_conn->connection, &data->ws, req, res);
+
+        if (BB_FAILED(err))
+        {
+            bb_request_destroy(req);
+            bb_response_destroy(res);
+
+            return (bb_read_status_t){ BB_READ_ERROR, err };
+        }
+    }
+
+    char *buffer;
+    size_t length;
+    bb_response_serialize(res, &buffer, &length);
+    bb_connection_buffer_add(async_conn->connection, buffer, length);
+
+    bb_request_destroy(req);
+    bb_response_destroy(res);
+
+    async_conn->connection->state = BB_CONNECTION_WRITING;
+
+    if (_server_create_write_task(data))
+    {
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
+    }
+
+    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
+}
+
+static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *async_conn)
+{
+    bb_server_task_data_t *data = malloc(sizeof(*data));
+    if (!data) return 1;
+
+    data->server = server;
+    data->async_conn = async_conn;
+    data->ws = NULL;
+
+    if (BB_FAILED(bb_async_connection_create_read_task(async_conn, _server_read_step, _server_read_error, data)))
+        return 1;
+    return 0;
+}
+
+// Accept:
+void _server_accept_task(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_server_task_data_t *data = userdata;
+
+    bb_async_connection_t *async_conn;
+    while ((async_conn = bb_async_connection_accept(data->async_conn->runtime, data->async_conn->connection->fd)))
+    {
+        if (_server_create_read_task(data->server, async_conn) != 0)
+        {
+            bb_async_connection_destroy(async_conn);
+        }
+    }
+}
+
+void bb_server_start(bb_server_t *server)
+{
+    bb_server_task_data_t *data = malloc(sizeof(*data));
+    if (!data)
+    {
+        BB_LOG_ERROR("Failed to allocate server task.\n");
+        return;
+    }
+
+    data->server = server;
+    data->async_conn = server->async_conn;
+
+    bb_task_t *task = bb_task_create(_server_accept_task, data);
+    bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
+
+    BB_LOG_INFO("Blue-Bird async server started.\n");
+}
+
+void bb_server_destroy(bb_server_t *server)
+{
+    if (!server)
+    {
+        return;
+    }
+
+    if (server->async_conn)
+    {
+        bb_async_connection_destroy(server->async_conn);
+    }
+
+    bb_route_list_destroy(server->route_list);
+    bb_middleware_list_destroy(server->pre_middleware_list);
+    bb_middleware_list_destroy(server->post_middleware_list);
+
+    free(server);
 }
 
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler)
