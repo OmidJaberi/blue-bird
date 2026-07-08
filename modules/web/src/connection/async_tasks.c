@@ -75,10 +75,10 @@ void bb_async_connection_close(bb_async_connection_t *async_conn)
     {
         return; // Already closed
     }
-    bb_task_destroy(async_conn->read_task);
-    bb_task_destroy(async_conn->write_task);
+    // bb_task_destroy(async_conn->read_task);
+    // bb_task_destroy(async_conn->write_task);
     bb_connection_destroy(async_conn->connection);
-    async_conn->connection = NULL;
+    // async_conn->connection = NULL;
 }
 
 static void _bb_write_task(bb_task_t *task, void *userdata)

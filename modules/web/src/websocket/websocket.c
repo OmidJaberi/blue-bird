@@ -902,7 +902,7 @@ bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
 
-    // bb_async_connection_close(ws->async_conn);
+    bb_async_connection_close(ws->async_conn);
 
     return BB_SUCCESS();
 }
