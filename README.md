@@ -17,7 +17,7 @@ The project focuses on:
 Rather than being just an HTTP server library, Blue-Bird provides a growing ecosystem of backend infrastructure components including:
 
 - HTTP server and client
-- Websockets server and client
+- Websockets as server and client
 - routing and middleware
 - authentication and session management
 - JSON parsing and serialization
@@ -48,9 +48,9 @@ Blue-Bird is designed for developers who want lower-level control and transparen
 
 ## Web Framework
 
-- HTTP server
+- Server supporting HTTP + Websockets
 - HTTP client
-- Websockets client and server
+- Websocket client
 - Request/response abstractions
 - Routing system
 - Middleware pipeline
@@ -243,7 +243,6 @@ Contributions, issue reports, ideas, and discussions are welcome.
 Areas of interest include:
 
 - routing improvements
-- WebSockets improvements
 - security middleware integrations
 - additional persistence backends
 - documentation and examples

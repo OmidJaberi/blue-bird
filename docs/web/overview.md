@@ -5,6 +5,7 @@ The Blue-Bird web module provides lightweight HTTP server and client functionali
 It includes:
 - HTTP server support
 - HTTP client support
+- Websockets server and client support
 - request and response abstractions
 - routing
 - middleware integration
@@ -33,9 +34,11 @@ Client <---- HTTP ----> Server
 Main architectural layers:
 - HTTP client
 - HTTP server
+- Websockets as both server and client
 - router
 - middleware system
-- request/response abstraction layer
+- HTTP request/response abstraction layer
+- Async/Sync Connection Layer
 
 ---
 
@@ -46,8 +49,9 @@ The HTTP server is responsible for:
 - parsing HTTP requests
 - dispatching requests to route handlers
 - generating HTTP responses
+- create websocket instance for ws requests
 
-Example server setup:
+Example HTTP server setup:
 
 ```c
 bb_server_t *server = bb_server_create(8080);
@@ -58,7 +62,7 @@ bb_server_start(server);
 bb_runtime_run_default();
 ```
 
-A route consists of:
+A HTTP route consists of:
 - HTTP method
 - URL path
 - handler callback

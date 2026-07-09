@@ -17,7 +17,7 @@ Each layer builds on lower-level infrastructure while remaining modular and loos
 ## Web
 
 The `web` module provides:
-- HTTP server
+- Web server supporting HTTP and Websocket routes
 - HTTP client
 - routing
 - middleware
