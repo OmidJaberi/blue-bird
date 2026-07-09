@@ -6,7 +6,7 @@ add_library(bluebird_web
     src/parser.c
 
     src/connection/connection.c
-    src/connection/async_tasks.c
+    src/connection/async_connection.c
 
     src/http/message.c
     src/http/request.c

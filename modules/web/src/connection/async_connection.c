@@ -1,6 +1,6 @@
 #include "blue-bird/log/log.h"
 
-#include "connection/async_tasks.h"
+#include "connection/async_connection.h"
 
 bb_async_connection_t *bb_async_connection_create(bb_runtime_t *runtime)
 {
