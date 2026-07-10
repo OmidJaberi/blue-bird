@@ -56,7 +56,12 @@ int bb_scheduler_schedule(bb_scheduler_t *scheduler, bb_task_t *task)
         return -1;
     }
 
-    _bb_task_node_t *node = malloc(sizeof(_bb_task_node_t));
+    if (task->state & BB_TASK_SCHEDULED)
+    {
+        return 0;
+    }
+
+    _bb_task_node_t *node = malloc(sizeof(*node));
 
     if (!node)
     {
@@ -65,6 +70,8 @@ int bb_scheduler_schedule(bb_scheduler_t *scheduler, bb_task_t *task)
 
     node->task = task;
     node->next = NULL;
+
+    task->state |= BB_TASK_SCHEDULED;
 
     if (!scheduler->head)
     {

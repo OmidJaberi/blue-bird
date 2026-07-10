@@ -58,10 +58,6 @@ void test_scheduler(void)
     assert(order[1] == 2);
     assert(order[2] == 3);
 
-    bb_task_destroy(t1);
-    bb_task_destroy(t2);
-    bb_task_destroy(t3);
-
     bb_scheduler_destroy(scheduler);
 }
 

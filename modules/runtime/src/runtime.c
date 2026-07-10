@@ -109,6 +109,56 @@ int bb_runtime_schedule(bb_runtime_t *runtime, bb_task_t *task)
     return bb_scheduler_schedule(runtime->scheduler, task);
 }
 
+static void _bb_runtime_remove_timers(bb_runtime_t *runtime, bb_task_t *task)
+{
+    for (int i = 0; i < runtime->timer_count;)
+    {
+        if (runtime->timers[i].task == task)
+        {
+            runtime->timers[i] = runtime->timers[runtime->timer_count - 1];
+
+            runtime->timer_count--;
+        }
+        else
+        {
+            i++;
+        }
+    }
+}
+
+static void _bb_runtime_remove_watchers(bb_runtime_t *runtime, bb_task_t *task)
+{
+    for (int i = 0; i < runtime->watcher_count;)
+    {
+        if (runtime->watchers[i].task == task)
+        {
+            bb_poller_unregister(runtime->poller, runtime->watchers[i].fd);
+            runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
+            runtime->watcher_count--;
+        }
+        else
+        {
+            i++;
+        }
+    }
+}
+
+int bb_runtime_cancel_task(bb_runtime_t *runtime, bb_task_t *task)
+{
+    if (!runtime || !task)
+    {
+        return -1;
+    }
+
+    bb_task_cancel(task);
+
+    _bb_runtime_remove_watchers(runtime, task);
+
+    _bb_runtime_remove_timers(runtime, task);
+
+    return 0;
+}
+
 void bb_runtime_tick(bb_runtime_t *runtime)
 {
     if (!runtime)
@@ -188,7 +238,18 @@ void bb_runtime_tick(bb_runtime_t *runtime)
 
     while ((task = bb_scheduler_next(runtime->scheduler)))
     {
-        bb_task_execute(task);
+        if (!(task->state & BB_TASK_CANCELLED))
+        {
+            bb_task_execute(task);
+        }
+        if (task->state & BB_TASK_PERSISTENT)
+        {
+            continue;
+        }
+        if (!(task->state & BB_TASK_SCHEDULED))
+        {
+            bb_task_destroy(task);
+        }
     }
 }
 
@@ -234,6 +295,8 @@ int bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode
         return -1;
     }
 
+    task->state |= BB_TASK_PERSISTENT;
+
     _bb_runtime_watcher_t *watcher = &runtime->watchers[runtime->watcher_count];
 
     watcher->fd = fd;
@@ -260,6 +323,7 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd)
 
         if (runtime->watchers[i].fd == fd)
         {
+            // bb_task_destroy(runtime->watchers[i].task);
             runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
             runtime->watcher_count--;
             return 0;
@@ -280,6 +344,8 @@ int bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task
     {
         return -1;
     }
+
+    task->state |= BB_TASK_PERSISTENT;
 
     _bb_runtime_timer_t *timer = &runtime->timers[runtime->timer_count];
 

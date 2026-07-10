@@ -8,12 +8,12 @@ static int executed = 0;
 
 static void runtime_task_cb(bb_task_t *task, void *userdata)
 {
+    (void) task;
     bb_runtime_t *runtime = userdata;
 
     executed = 1;
 
     bb_runtime_stop(runtime);
-    bb_task_destroy(task);
 }
 
 void test_runtime(void)

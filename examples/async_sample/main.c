@@ -40,6 +40,7 @@ static void counter_task(bb_task_t *task, void *userdata)
 
 static void stdin_task(bb_task_t *task, void *userdata)
 {
+    (void) task;
     bb_runtime_t *runtime = userdata;
 
     char c;
@@ -53,8 +54,6 @@ static void stdin_task(bb_task_t *task, void *userdata)
             disable_raw_mode();
 
             bb_runtime_stop(runtime);
-
-            bb_task_destroy(task);
         }
     }
 }
@@ -88,8 +87,6 @@ int main(void)
     printf("Press 'q' to quit.\n");
 
     bb_runtime_run(runtime);
-
-    bb_task_destroy(counter);
 
     bb_runtime_destroy(runtime);
 

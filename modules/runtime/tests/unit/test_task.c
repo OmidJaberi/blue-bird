@@ -23,8 +23,6 @@ void test_task(void)
     bb_task_execute(task);
 
     assert(executed == 1);
-
-    bb_task_destroy(task);
 }
 
 int main(void)

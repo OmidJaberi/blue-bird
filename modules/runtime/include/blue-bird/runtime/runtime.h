@@ -28,6 +28,8 @@ void bb_runtime_tick(bb_runtime_t *runtime);
 
 int bb_runtime_schedule(bb_runtime_t *runtime, bb_task_t *task);
 
+int bb_runtime_cancel_task(bb_runtime_t *runtime, bb_task_t *task);
+
 int bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task);
 
 int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd);

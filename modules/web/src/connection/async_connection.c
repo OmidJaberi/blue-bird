@@ -75,24 +75,32 @@ void bb_async_connection_close(bb_async_connection_t *async_conn)
     {
         return; // Already closed
     }
-    // bb_task_destroy(async_conn->read_task);
-    // bb_task_destroy(async_conn->write_task);
     bb_runtime_unwatch_fd(async_conn->runtime, async_conn->connection->fd); // ?
     bb_connection_destroy(async_conn->connection);
     async_conn->connection = NULL;
+    
+    bb_task_cancel(async_conn->read_task);
+    async_conn->read_task = NULL;
+
+    bb_task_cancel(async_conn->write_task);
+    async_conn->write_task = NULL;
 }
 
 static void _bb_write_task(bb_task_t *task, void *userdata)
 {
     bb_async_connection_t *async_conn = userdata;
-    if (!async_conn || !async_conn->connection)
+    if (!async_conn)
     {
+        return;
+    }
+    if (!async_conn->connection)
+    {
+        async_conn->write_task = NULL;
         return;
     }
     bb_connection_t *conn = async_conn->connection;
     if (bb_connection_write(conn) < 0)
     {
-        bb_task_destroy(task);
         async_conn->write_task = NULL;
         conn->write_pending = false;
         if (async_conn->write_failure)
@@ -106,11 +114,12 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
         return;
     }
 
-    bb_task_destroy(task);
     async_conn->write_task = NULL;
     conn->write_pending = false;
     if (async_conn->write_success)
+    {
         async_conn->write_success(task, async_conn->write_userdata);
+    }
 }
 
 bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
@@ -133,7 +142,7 @@ bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_co
     async_conn->write_task = task;
     async_conn->connection->write_pending = true;
 
-    bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task); // unwatch?
+    bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
     return BB_SUCCESS();
 }
 
@@ -141,21 +150,31 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 {
     bb_async_connection_t *async_conn = userdata;
 
-    if (!async_conn || !async_conn->connection)
+    if (!async_conn)
     {
+        return;
+    }
+
+    if (!async_conn->connection)
+    {
+        async_conn->read_task = NULL;
         return;
     }
 
     int n = bb_connection_read(async_conn->connection);
     if (n < 0)
     {
+        async_conn->read_task = NULL;
         if (async_conn->read_error)
+        {
             async_conn->read_error(BB_ERROR(BB_ERR_IO, "Read failed"), async_conn->read_userdata);
+        }
         return;
     }
     if (n == 0 && async_conn->connection->buffer_length == 0)
     {
         // closed
+        async_conn->read_task = NULL;
         return;
     }
 
@@ -177,7 +196,6 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
         case BB_READ_DONE:
             break;
     }
-    bb_task_destroy(task);
     async_conn->read_task = NULL;
 }
 

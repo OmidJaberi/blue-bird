@@ -13,6 +13,7 @@ typedef struct {
 
 static void task_c_cb(bb_task_t *task, void *userdata)
 {
+    (void) task;
     runtime_test_ctx_t *ctx = userdata;
 
     execution_order[execution_index++] = 3;
@@ -20,12 +21,11 @@ static void task_c_cb(bb_task_t *task, void *userdata)
     printf("Task C executed\n");
 
     bb_runtime_stop(ctx->runtime);
-
-    bb_task_destroy(task);
 }
 
 static void task_b_cb(bb_task_t *task, void *userdata)
 {
+    (void) task;
     runtime_test_ctx_t *ctx = userdata;
 
     execution_order[execution_index++] = 2;
@@ -37,12 +37,11 @@ static void task_b_cb(bb_task_t *task, void *userdata)
     assert(task_c != NULL);
 
     assert(bb_runtime_schedule(ctx->runtime, task_c) == 0);
-
-    bb_task_destroy(task);
 }
 
 static void task_a_cb(bb_task_t *task, void *userdata)
 {
+    (void) task;
     runtime_test_ctx_t *ctx = userdata;
 
     execution_order[execution_index++] = 1;
@@ -54,8 +53,6 @@ static void task_a_cb(bb_task_t *task, void *userdata)
     assert(task_b != NULL);
 
     assert(bb_runtime_schedule(ctx->runtime, task_b) == 0);
-
-    bb_task_destroy(task);
 }
 
 void test_runtime_chain(void)
