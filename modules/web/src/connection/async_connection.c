@@ -95,12 +95,14 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     }
     if (!async_conn->connection)
     {
+        bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->write_task = NULL;
         return;
     }
     bb_connection_t *conn = async_conn->connection;
     if (bb_connection_write(conn) < 0)
     {
+        bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->write_task = NULL;
         conn->write_pending = false;
         if (async_conn->write_failure)
@@ -110,10 +112,10 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
 
     if (conn->write_data)
     {
-        bb_runtime_rewatch_fd(async_conn->runtime, conn->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, task);
         return;
     }
 
+    bb_runtime_cancel_task(async_conn->runtime, task);
     async_conn->write_task = NULL;
     conn->write_pending = false;
     if (async_conn->write_success)
@@ -134,7 +136,7 @@ bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_co
     async_conn->write_failure = failure;
     async_conn->write_userdata = userdata;
 
-    bb_task_t *task = bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_WRITE, BB_WATCH_ONESHOT, _bb_write_task, async_conn);
+    bb_task_t *task = bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_WRITE, BB_WATCH_PERSISTENT, _bb_write_task, async_conn);
     if (!task)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to create task.");
@@ -153,11 +155,13 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
     if (!async_conn)
     {
+        // bb_runtime_cancel_task(async_conn->runtime, task);
         return;
     }
 
     if (!async_conn->connection)
     {
+        bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->read_task = NULL;
         return;
     }
@@ -165,6 +169,7 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
     int n = bb_connection_read(async_conn->connection);
     if (n < 0)
     {
+        bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->read_task = NULL;
         if (async_conn->read_error)
         {
@@ -175,6 +180,7 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
     if (n == 0 && async_conn->connection->buffer_length == 0)
     {
         // closed
+        bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->read_task = NULL;
         return;
     }
@@ -185,7 +191,6 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
     {
         case BB_READ_MORE:
         {
-            bb_runtime_rewatch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, task);
             return;
         }
         case BB_READ_ERROR:
@@ -197,6 +202,7 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
         case BB_READ_DONE:
             break;
     }
+    bb_runtime_cancel_task(async_conn->runtime, task);
     async_conn->read_task = NULL;
 }
 
@@ -211,7 +217,7 @@ bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_con
     async_conn->read_error = read_error;
     async_conn->read_userdata = userdata;
 
-    bb_task_t *task = bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_ONESHOT, _bb_read_task, async_conn);
+    bb_task_t *task = bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _bb_read_task, async_conn);
     if (!task)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate task.");

@@ -291,7 +291,7 @@ void bb_runtime_stop(bb_runtime_t *runtime)
     runtime->running = 0;
 }
 
-int bb_runtime_rewatch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task)
+static int _watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task)
 {
     if (!runtime || !task)
     {
@@ -336,7 +336,7 @@ bb_task_t *bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_wat
         return NULL;
     }
     
-    if (bb_runtime_rewatch_fd(runtime, fd, events, mode, task) != 0)
+    if (_watch_fd(runtime, fd, events, mode, task) != 0)
     {
         bb_task_destroy(task);
         return NULL;
