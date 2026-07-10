@@ -69,20 +69,17 @@ int main(void)
         .counter = 0
     };
 
-    bb_task_t *counter = bb_task_create(counter_task, &app);
+    bb_task_t *counter = bb_runtime_set_interval(runtime, 1000, counter_task, &app);
+    (void) counter;
 
-    bb_runtime_set_interval(runtime, 1000, counter);
-
-    bb_task_t *stdin_watcher =
-        bb_task_create(stdin_task, runtime);
-
-    bb_runtime_watch_fd(
+    bb_task_t *stdin_watcher = bb_runtime_watch_fd(
         runtime,
         STDIN_FILENO,
         BB_EVENT_READ,
         BB_WATCH_PERSISTENT,
-        stdin_watcher
+        stdin_task, runtime
     );
+    (void)stdin_watcher;
 
     printf("Press 'q' to quit.\n");
 

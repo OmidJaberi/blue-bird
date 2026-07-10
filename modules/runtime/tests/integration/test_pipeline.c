@@ -2,7 +2,6 @@
 #include <stdio.h>
 
 #include "blue-bird/runtime/runtime.h"
-#include "blue-bird/runtime/task.h"
 
 static int execution_order[10];
 static int execution_index = 0;
@@ -32,11 +31,7 @@ static void task_b_cb(bb_task_t *task, void *userdata)
 
     printf("Task B executed\n");
 
-    bb_task_t *task_c = bb_task_create(task_c_cb, ctx);
-
-    assert(task_c != NULL);
-
-    assert(bb_runtime_schedule(ctx->runtime, task_c) == 0);
+    assert(bb_runtime_schedule(ctx->runtime, task_c_cb, ctx) != NULL);
 }
 
 static void task_a_cb(bb_task_t *task, void *userdata)
@@ -48,11 +43,7 @@ static void task_a_cb(bb_task_t *task, void *userdata)
 
     printf("Task A executed\n");
 
-    bb_task_t *task_b = bb_task_create(task_b_cb, ctx);
-
-    assert(task_b != NULL);
-
-    assert(bb_runtime_schedule(ctx->runtime, task_b) == 0);
+    assert(bb_runtime_schedule(ctx->runtime, task_b_cb, ctx) != NULL);
 }
 
 void test_runtime_chain(void)
@@ -65,11 +56,7 @@ void test_runtime_chain(void)
         .runtime = runtime
     };
 
-    bb_task_t *task_a = bb_task_create(task_a_cb, &ctx);
-
-    assert(task_a != NULL);
-
-    assert(bb_runtime_schedule(runtime, task_a) == 0);
+    assert(bb_runtime_schedule(runtime, task_a_cb, &ctx) != NULL);
 
     bb_runtime_run(runtime);
 

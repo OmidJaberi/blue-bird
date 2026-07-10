@@ -100,14 +100,26 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     free(runtime);
 }
 
-int bb_runtime_schedule(bb_runtime_t *runtime, bb_task_t *task)
+bb_task_t *bb_runtime_schedule(bb_runtime_t *runtime, bb_task_cb callback, void *userdata)
 {
-    if (!runtime || !task)
+    if (!runtime)
     {
-        return -1;
+        return NULL;
     }
 
-    return bb_scheduler_schedule(runtime->scheduler, task);
+    bb_task_t *task = bb_task_create(callback, userdata);
+
+    if (!task)
+    {
+        return NULL;
+    }
+
+    if (bb_scheduler_schedule(runtime->scheduler, task) != 0)
+    {
+        bb_task_destroy(task);
+        task = NULL;
+    }
+    return task;
 }
 
 static void _bb_runtime_remove_timers(bb_runtime_t *runtime, bb_task_t *task)
@@ -279,7 +291,7 @@ void bb_runtime_stop(bb_runtime_t *runtime)
     runtime->running = 0;
 }
 
-int bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task)
+int bb_runtime_rewatch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task)
 {
     if (!runtime || !task)
     {
@@ -310,6 +322,29 @@ int bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode
     return 0;
 }
 
+bb_task_t *bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_cb callback, void *userdata)
+{
+    if (!runtime)
+    {
+        return NULL;
+    }
+
+    bb_task_t *task = bb_task_create(callback, userdata);
+
+    if (!task)
+    {
+        return NULL;
+    }
+    
+    if (bb_runtime_rewatch_fd(runtime, fd, events, mode, task) != 0)
+    {
+        bb_task_destroy(task);
+        return NULL;
+    }
+
+    return task;
+}
+
 int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd)
 {
     if (!runtime)
@@ -334,16 +369,24 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd)
     return -1;
 }
 
-int bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task_t *task)
+bb_task_t *bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task_cb callback, void *userdata)
 {
-    if (!runtime || !task)
+    if (!runtime)
     {
-        return -1;
+        return NULL;
+    }
+
+    bb_task_t *task = bb_task_create(callback, userdata);
+
+    if (!task)
+    {
+        return NULL;
     }
 
     if (runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
     {
-        return -1;
+        bb_task_destroy(task);
+        return NULL;
     }
 
     task->state |= BB_TASK_PERSISTENT;
@@ -356,19 +399,27 @@ int bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task
     timer->task = task;
     runtime->timer_count++;
 
-    return 0;
+    return task;
 }
 
-int bb_runtime_set_timeout(bb_runtime_t *runtime, uint64_t timeout_ms, bb_task_t *task)
+bb_task_t *bb_runtime_set_timeout(bb_runtime_t *runtime, uint64_t timeout_ms, bb_task_cb callback, void *userdata)
 {
-    if (!runtime || !task)
+    if (!runtime)
     {
-        return -1;
+        return NULL;
+    }
+
+    bb_task_t *task = bb_task_create(callback, userdata);
+
+    if (!task)
+    {
+        return NULL;
     }
 
     if (runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
     {
-        return -1;
+        bb_task_destroy(task);
+        return NULL;
     }
 
     _bb_runtime_timer_t *timer = &runtime->timers[runtime->timer_count];

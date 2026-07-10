@@ -22,10 +22,7 @@ void test_runtime(void)
 
     assert(runtime != NULL);
 
-    bb_task_t *task = bb_task_create(runtime_task_cb, runtime);
-    assert(task != NULL);
-
-    assert(bb_runtime_schedule(runtime, task) == 0);
+    assert(bb_runtime_schedule(runtime, runtime_task_cb, runtime) != NULL);
 
     bb_runtime_run(runtime);
 

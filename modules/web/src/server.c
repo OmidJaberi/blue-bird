@@ -60,6 +60,7 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     server->route_list = bb_route_list_create();
     server->pre_middleware_list = bb_middleware_list_create();
     server->post_middleware_list = bb_middleware_list_create();
+    server->accept_task = NULL;
 
     BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return server;
@@ -258,8 +259,7 @@ void bb_server_start(bb_server_t *server)
     data->server = server;
     data->async_conn = server->async_conn;
 
-    bb_task_t *task = bb_task_create(_server_accept_task, data);
-    bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, task);
+    server->accept_task = bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _server_accept_task, data);
 
     BB_LOG_INFO("Blue-Bird async server started.\n");
 }
@@ -274,6 +274,11 @@ void bb_server_destroy(bb_server_t *server)
     if (server->async_conn)
     {
         bb_async_connection_destroy(server->async_conn);
+    }
+
+    if (server->accept_task)
+    {
+        bb_runtime_cancel_task(server->runtime, server->accept_task);
     }
 
     bb_route_list_destroy(server->route_list);

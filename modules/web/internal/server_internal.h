@@ -10,6 +10,7 @@
 struct bb_server {
     bb_async_connection_t *async_conn;
     bb_runtime_t *runtime;
+    bb_task_t *accept_task;
     bb_route_list_t *route_list;
     bb_middleware_list_t *pre_middleware_list; // Runs before the handler
     bb_middleware_list_t *post_middleware_list; // Runs after the handler
