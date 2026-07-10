@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "blue-bird/runtime/scheduler.h"
-#include "blue-bird/runtime/task.h"
+#include "scheduler.h"
+#include "task_internal.h"
 
 static int order[3];
 static int index_pos = 0;

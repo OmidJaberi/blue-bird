@@ -2,8 +2,9 @@
 #include <time.h>
 
 #include "blue-bird/runtime/runtime.h"
-#include "blue-bird/runtime/scheduler.h"
-#include "blue-bird/runtime/poller.h"
+#include "task_internal.h"
+#include "scheduler.h"
+#include "poller.h"
 
 #define BB_RUNTIME_MAX_WATCHERS 1024
 #define BB_RUNTIME_MAX_TIMERS 1024

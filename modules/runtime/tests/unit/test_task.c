@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "blue-bird/runtime/task.h"
+#include "task_internal.h"
 
 static int executed = 0;
 

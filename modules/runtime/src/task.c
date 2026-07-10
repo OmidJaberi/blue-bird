@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "blue-bird/runtime/task.h"
+#include "task_internal.h"
 
 bb_task_t *bb_task_create(bb_task_cb callback, void *userdata)
 {

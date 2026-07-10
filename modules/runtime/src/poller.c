@@ -3,7 +3,7 @@
 #include <sys/select.h>
 #include <unistd.h>
 
-#include "blue-bird/runtime/poller.h"
+#include "poller.h"
 
 #define BB_POLLER_MAX_FDS 1024
 

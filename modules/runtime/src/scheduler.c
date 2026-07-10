@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
-#include "blue-bird/runtime/scheduler.h"
+#include "scheduler.h"
+#include "task_internal.h"
 
 typedef struct _bb_task_node {
     bb_task_t *task;
