@@ -435,7 +435,7 @@ bb_task_t *bb_runtime_set_timeout(bb_runtime_t *runtime, uint64_t timeout_ms, bb
 
 bool bb_runtime_is_empty(bb_runtime_t *runtime)
 {
-    if (runtime->watcher_count > 0 || runtime->timer_count > 0 || runtime->scheduler->head != NULL)
+    if (runtime->watcher_count > 0 || runtime->timer_count > 0 || !bb_scheduler_is_empty(runtime->scheduler))
     {
         return false;
     }
