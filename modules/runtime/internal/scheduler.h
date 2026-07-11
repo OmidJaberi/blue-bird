@@ -3,7 +3,15 @@
 
 #include "blue-bird/runtime/task.h"
 
-typedef struct bb_scheduler bb_scheduler_t;
+typedef struct _bb_task_node {
+    bb_task_t *task;
+    struct _bb_task_node *next;
+} _bb_task_node_t;
+
+typedef struct bb_scheduler {
+    _bb_task_node_t *head;
+    _bb_task_node_t *tail;
+} bb_scheduler_t;
 
 bb_scheduler_t *bb_scheduler_create(void);
 

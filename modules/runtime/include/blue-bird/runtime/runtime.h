@@ -8,6 +8,7 @@ extern "C" {
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "blue-bird/runtime/task.h"
 #include "blue-bird/runtime/event.h"
@@ -37,6 +38,8 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd);
 bb_task_t *bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task_cb callback, void *userdata);
 
 bb_task_t *bb_runtime_set_timeout(bb_runtime_t *runtime, uint64_t timeout_ms, bb_task_cb callback, void *userdata);
+
+bool bb_runtime_is_empty(bb_runtime_t *runtime);
 
 static inline void bb_runtime_run_default(void)
 {

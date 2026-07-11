@@ -649,8 +649,7 @@ static void websocket_close_test(void)
 
     bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _close_connect_cb, NULL);
 
-    int ticks = 0;
-    while (ticks++ < 400)
+    while (!bb_runtime_is_empty(runtime))
     {
         bb_runtime_tick(runtime);
     }

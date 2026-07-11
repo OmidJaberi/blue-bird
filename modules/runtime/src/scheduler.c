@@ -3,16 +3,6 @@
 #include "scheduler.h"
 #include "task_internal.h"
 
-typedef struct _bb_task_node {
-    bb_task_t *task;
-    struct _bb_task_node *next;
-} _bb_task_node_t;
-
-struct bb_scheduler {
-    _bb_task_node_t *head;
-    _bb_task_node_t *tail;
-};
-
 bb_scheduler_t *bb_scheduler_create(void)
 {
     bb_scheduler_t *scheduler = malloc(sizeof(bb_scheduler_t));
