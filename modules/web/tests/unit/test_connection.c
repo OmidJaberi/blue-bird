@@ -117,7 +117,7 @@ static void connection_read_write_test(void)
     int fds[2];
     assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
-    bb_connection_t *reader = bb_connection_create(fds[0]);
+    bb_connection_t *reader = bb_connection_create_non_blocking(fds[0]);
     bb_connection_t *writer = bb_connection_create(fds[1]);
 
     char *msg = malloc(6);

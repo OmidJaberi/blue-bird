@@ -41,6 +41,7 @@ typedef struct bb_connection {
 } bb_connection_t;
 
 bb_connection_t *bb_connection_create(int client_fd);
+bb_connection_t *bb_connection_create_non_blocking(int fd);
 void bb_connection_destroy(bb_connection_t *connection);
 
 int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t length);

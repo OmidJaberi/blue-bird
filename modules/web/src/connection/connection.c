@@ -55,6 +55,16 @@ bb_connection_t *bb_connection_create(int fd)
     return connection;
 }
 
+bb_connection_t *bb_connection_create_non_blocking(int fd)
+{
+    bb_connection_t *conn = bb_connection_create(fd);
+    if (conn)
+    {
+        _bb_set_nonblocking(fd);
+    }
+    return conn;
+}
+
 void bb_connection_destroy(bb_connection_t *connection)
 {
     if (!connection)
