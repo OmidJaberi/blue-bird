@@ -75,7 +75,6 @@ void bb_async_connection_close(bb_async_connection_t *async_conn)
     {
         return; // Already closed
     }
-    bb_runtime_unwatch_fd(async_conn->runtime, async_conn->connection->fd); // ?
     bb_connection_destroy(async_conn->connection);
     async_conn->connection = NULL;
 
@@ -187,23 +186,10 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
     bb_read_status_t status = async_conn->read_step(async_conn->read_userdata);
 
-    switch (status.result)
+    if (status.result == BB_READ_ERROR && async_conn->read_error)
     {
-        case BB_READ_MORE:
-        {
-            return;
-        }
-        case BB_READ_ERROR:
-            if (async_conn->read_error)
-            {
-                async_conn->read_error(status.err, async_conn->read_userdata);
-            }
-            break;
-        case BB_READ_DONE:
-            break;
+        async_conn->read_error(status.err, async_conn->read_userdata);
     }
-    bb_runtime_cancel_task(async_conn->runtime, task);
-    async_conn->read_task = NULL;
 }
 
 bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_conn, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata)
@@ -216,6 +202,11 @@ bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_con
     async_conn->read_step = read_step;
     async_conn->read_error = read_error;
     async_conn->read_userdata = userdata;
+
+    if (async_conn->read_task != NULL)
+    {
+        return BB_SUCCESS();
+    }
 
     bb_task_t *task = bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _bb_read_task, async_conn);
     if (!task)

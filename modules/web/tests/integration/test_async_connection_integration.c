@@ -57,6 +57,8 @@ static bb_read_status_t read_done(void *userdata)
         .result = BB_READ_DONE
     };
 
+    bb_runtime_cancel_task(conn->runtime, conn->read_task);
+    conn->read_task = NULL;
     return status;
 }
 
@@ -71,6 +73,8 @@ static bb_read_status_t read_more(void *userdata)
 
     read_called = 1;
 
+    bb_runtime_cancel_task(conn->runtime, conn->read_task);
+    conn->read_task = NULL;
     return (bb_read_status_t){ .result = BB_READ_DONE };
 }
 

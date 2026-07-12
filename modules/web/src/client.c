@@ -74,8 +74,8 @@ void bb_client_close(bb_client_t *client)
 
     if (client->async_conn)
     {
-        // bb_async_connection_destroy(client->async_conn);
-        // client->async_conn = NULL;
+        bb_async_connection_destroy(client->async_conn);
+        client->async_conn = NULL;
     }
     if (client->connection)
     {

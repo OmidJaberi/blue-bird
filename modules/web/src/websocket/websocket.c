@@ -1004,15 +1004,8 @@ static bb_read_status_t _websocket_read_step(void *userdata)
             return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
         }
     }
-    else
-    {
-        if (BB_FAILED(bb_websocket_create_read_task(ws)))
-        {
-            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule read task.") };
-        }
-    }
 
-    return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
+    return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
 }
 
 bb_error_t bb_websocket_create_read_task(bb_websocket_t *ws)
