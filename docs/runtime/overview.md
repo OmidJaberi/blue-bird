@@ -102,9 +102,7 @@ These may be introduced incrementally in future phases.
 ```c
 #include <blue-bird/runtime/runtime.h>
 #include <blue-bird/runtime/task.h>
-#include <blue-bird/runtime/scheduler.h>
 #include <blue-bird/runtime/event.h>
-#include <blue-bird/runtime/poller.h>
 ```
 
 ---
@@ -270,7 +268,8 @@ This model is similar conceptually to:
 #include <stdio.h>
 
 #include <blue-bird/runtime/runtime.h>
-#include <blue-bird/runtime/task.h>
+
+bb_runtime_t *runtime;
 
 static void hello_task(bb_task_t *task, void *userdata)
 {
@@ -278,15 +277,15 @@ static void hello_task(bb_task_t *task, void *userdata)
     (void) userdata;
 
     printf("Hello Runtime\n");
+
+    bb_runtime_stop(runtime);
 }
 
 int main(void)
 {
-    bb_runtime_t *runtime = bb_runtime_create();
+    runtime = bb_runtime_create();
 
-    bb_task_t *task = bb_task_create(hello_task, NULL);
-
-    bb_runtime_schedule_task(runtime, task);
+    bb_task_t *task = bb_runtime_schedule(runtime, hello_task, NULL);
 
     bb_runtime_run(runtime);
 
@@ -294,6 +293,7 @@ int main(void)
 
     return 0;
 }
+
 ```
 
 ---
@@ -317,7 +317,7 @@ int main(void)
 {
     bb_runtime_t *runtime = bb_runtime_create();
 
-    bb_runtime_set_interval(runtime, 1000, tick);
+    bb_runtime_set_interval(runtime, 1000, tick, NULL);
 
     bb_runtime_run(runtime);
 
@@ -339,7 +339,8 @@ bb_runtime_watch_fd(
     fd,
     BB_EVENT_READ,
     BB_WATCH_PERSISTENT,
-    task
+    callback,
+    userdata
 );
 ```
 
@@ -480,22 +481,23 @@ over:
 
 ```txt
 modules/runtime/
-├── include/
-│   └── blue-bird/runtime/
-│       ├── runtime.h
-│       ├── scheduler.h
-│       ├── task.h
-│       ├── event.h
-│       └── poller.h
-│
-└── src/
-    ├── runtime.c
-    ├── loop.c
-    ├── scheduler.c
-    ├── task.c
-    ├── event.c
-    ├── timer.c
-    └── poller_select.c
+├── CMakeLists.txt
+├── include
+│   └── blue-bird
+│       └── runtime
+│           ├── event.h
+│           ├── runtime.h
+│           └── task.h
+├── internal
+│   ├── poller.h
+│   ├── scheduler.h
+│   └── task_internal.h
+├── src
+│   ├── poller.c
+│   ├── runtime.c
+│   ├── scheduler.c
+│   └── task.c
+└── tests
 ```
 
 ---
