@@ -71,9 +71,9 @@ bb_async_connection_t *bb_async_connection_connect(bb_runtime_t *runtime, const 
 
 void bb_async_connection_close(bb_async_connection_t *async_conn)
 {
-    if (!async_conn || !async_conn->connection)
+    if (!async_conn)
     {
-        return; // Already closed
+        return;
     }
     bb_connection_destroy(async_conn->connection);
     async_conn->connection = NULL;

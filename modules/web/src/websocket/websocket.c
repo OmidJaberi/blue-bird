@@ -502,10 +502,11 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
         return BB_ERROR(BB_ERR_NETWORK, "Connection doesn't exist.");
     }
 
-    frame->next = NULL;
+    memset(frame, 0, sizeof(*frame));
 
     bb_ws_frame_t *current = frame;
     size_t consumed_total = 0;
+    bool first = true;
 
     while (1)
     {
@@ -515,6 +516,21 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
         {
             break;
         }
+
+        if (!first)
+        {
+            current->next = calloc(1, sizeof(*current));
+
+            if (!current->next)
+            {
+                bb_ws_frame_destroy(frame);
+                return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+            }
+
+            current = current->next;
+        }
+
+        first = false;
 
         uint8_t *buf = (uint8_t *)conn->buffer + consumed_total;
 
@@ -530,6 +546,14 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
         {
             if (available < 4)
             {
+                if (current != frame)
+                {
+                    bb_ws_frame_t *prev = frame;
+                    while (prev->next != current)
+                        prev = prev->next;
+                    prev->next = NULL;
+                    free(current);
+                }
                 break;
             }
 
@@ -543,6 +567,14 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
         {
             if (available < 10)
             {
+                if (current != frame)
+                {
+                    bb_ws_frame_t *prev = frame;
+                    while (prev->next != current)
+                        prev = prev->next;
+                    prev->next = NULL;
+                    free(current);
+                }
                 break;
             }
 
@@ -565,6 +597,14 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
         {
             if (available < offset + 4)
             {
+                if (current != frame)
+                {
+                    bb_ws_frame_t *prev = frame;
+                    while (prev->next != current)
+                        prev = prev->next;
+                    prev->next = NULL;
+                    free(current);
+                }
                 break;
             }
 
@@ -574,6 +614,14 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
 
         if (available < offset + payload_len)
         {
+            if (current != frame)
+            {
+                bb_ws_frame_t *prev = frame;
+                while (prev->next != current)
+                    prev = prev->next;
+                prev->next = NULL;
+                free(current);
+            }
             break;
         }
 
@@ -592,32 +640,13 @@ bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
         {
             for (uint64_t i = 0; i < payload_len; ++i)
             {
-                current->payload[i] ^= current->masking_key[i % 4];
+                current->payload[i] ^= current->masking_key[i & 3];
             }
         }
 
         current->payload[payload_len] = '\0';
-        current->next = NULL;
 
         consumed_total += offset + payload_len;
-
-        available = conn->buffer_length - consumed_total;
-
-        if (available < 2)
-        {
-            break;
-        }
-
-        current->next = calloc(1, sizeof(bb_ws_frame_t));
-
-        if (!current->next)
-        {
-            bb_ws_frame_destroy(frame);
-
-            return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
-        }
-
-        current = current->next;
     }
 
     if (consumed_total == 0)
@@ -924,7 +953,6 @@ static void _websocket_write_error(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_websocket_t *ws = userdata;
-    bb_async_connection_close(ws->async_conn);
     bb_async_connection_close(ws->async_conn);
 }
 
