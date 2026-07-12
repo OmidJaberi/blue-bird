@@ -145,7 +145,7 @@ static void _bb_runtime_remove_watchers(bb_runtime_t *runtime, bb_task_t *task)
     {
         if (runtime->watchers[i].task == task)
         {
-            bb_poller_unregister(runtime->poller, runtime->watchers[i].fd);
+            bb_poller_unregister(runtime->poller, runtime->watchers[i].fd, runtime->watchers[i].events);
             runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
             runtime->watcher_count--;
         }
@@ -192,7 +192,7 @@ void bb_runtime_tick(bb_runtime_t *runtime)
         {
             _bb_runtime_watcher_t *watcher = &runtime->watchers[j];
 
-            if (watcher->fd == events[i].fd)
+            if (watcher->fd == events[i].fd && (watcher->events & events[i].events))
             {
                 bb_scheduler_schedule(runtime->scheduler, watcher->task);
 
@@ -202,7 +202,7 @@ void bb_runtime_tick(bb_runtime_t *runtime)
                  */
                 if (watcher->mode == BB_WATCH_ONESHOT)
                 {
-                    bb_runtime_unwatch_fd(runtime, watcher->fd);
+                    bb_runtime_cancel_task(runtime, watcher->task);
 
                     /*
                      * watcher array compacted,
@@ -352,21 +352,22 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd)
         return -1;
     }
 
-    bb_poller_unregister(runtime->poller, fd);
+    bb_poller_unregister(runtime->poller, fd, BB_EVENT_READ | BB_EVENT_WRITE);
 
-    for (int i = 0; i < runtime->watcher_count; i++)
+    for (int i = 0; i < runtime->watcher_count;)
     {
-
         if (runtime->watchers[i].fd == fd)
         {
-            // bb_task_destroy(runtime->watchers[i].task);
             runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
             runtime->watcher_count--;
-            return 0;
+        }
+        else
+        {
+            i++;
         }
     }
 
-    return -1;
+    return 0;
 }
 
 bb_task_t *bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task_cb callback, void *userdata)

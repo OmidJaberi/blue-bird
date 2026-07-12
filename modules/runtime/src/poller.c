@@ -48,6 +48,15 @@ int bb_poller_register(bb_poller_t *poller, int fd, int events)
         return -1;
     }
 
+    for (int i = 0; i < poller->count; i++)
+    {
+        if (poller->fds[i].fd == fd)
+        {
+            poller->fds[i].events |= events;
+            return 0;
+        }
+    }
+
     if (poller->count >= BB_POLLER_MAX_FDS)
     {
         return -1;
@@ -61,7 +70,7 @@ int bb_poller_register(bb_poller_t *poller, int fd, int events)
     return 0;
 }
 
-int bb_poller_unregister(bb_poller_t *poller, int fd)
+int bb_poller_unregister(bb_poller_t *poller, int fd, int events)
 {
     if (!poller)
     {
@@ -72,9 +81,13 @@ int bb_poller_unregister(bb_poller_t *poller, int fd)
     {
         if (poller->fds[i].fd == fd)
         {
-            poller->fds[i] = poller->fds[poller->count - 1];
+            poller->fds[i].events &= ~events;
 
-            poller->count--;
+            if (poller->fds[i].events == 0)
+            {
+                poller->fds[i] = poller->fds[poller->count - 1];
+                poller->count--;
+            }
 
             return 0;
         }
