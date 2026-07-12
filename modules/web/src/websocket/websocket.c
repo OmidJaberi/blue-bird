@@ -955,7 +955,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     for (bb_ws_frame_t *current = &frame; current; current = current->next)
     {
-        switch (frame.opcode)
+        switch (current->opcode)
         {
             case BB_WS_TEXT:
             case BB_WS_BINARY:
@@ -978,12 +978,12 @@ static bb_read_status_t _websocket_read_step(void *userdata)
                 break;
             }
             case BB_WS_PING:
-                bb_websocket_send_pong(ws, frame.payload, frame.payload_length);
+                bb_websocket_send_pong(ws, current->payload, current->payload_length);
                 break;
             case BB_WS_PONG:
                 if (ws->pong_cb)
                 {
-                    ws->pong_cb(ws, frame.payload, frame.payload_length, ws->pong_userdata);
+                    ws->pong_cb(ws, current->payload, current->payload_length, ws->pong_userdata);
                 }
                 break;
             case BB_WS_CLOSE:
