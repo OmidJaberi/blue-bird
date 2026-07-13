@@ -261,7 +261,16 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
     data->connect_cb = connect_callback;
     data->connect_userdata = userdata;
 
-    const char *key = "dGhlIHNhbXBsZSBub25jZQ==";
+    uint8_t nonce[16];
+
+    for (size_t i = 0; i < sizeof(nonce); i++)
+        nonce[i] = rand() & 0xff;
+
+    char *key = bb_base64_encode(nonce, sizeof(nonce));
+    if (!key)
+    {
+        return;
+    }
 
     char request[1024];
 
@@ -279,6 +288,8 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         host,
         port,
         key);
+    
+    free(key);
 
     bb_connection_buffer_add(async_conn->connection, strdup(request), strlen(request));
 
