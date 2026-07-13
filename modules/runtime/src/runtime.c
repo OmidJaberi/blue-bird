@@ -57,7 +57,7 @@ bb_runtime_t *bb_runtime_default(void)
 
 bb_runtime_t *bb_runtime_create(void)
 {
-    bb_runtime_t *runtime = malloc(sizeof(bb_runtime_t));
+    bb_runtime_t *runtime = calloc(1, sizeof(bb_runtime_t));
 
     if (!runtime)
     {
