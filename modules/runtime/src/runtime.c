@@ -291,6 +291,32 @@ void bb_runtime_stop(bb_runtime_t *runtime)
     runtime->running = 0;
 }
 
+static int _bb_runtime_find_watcher_exact(bb_runtime_t *runtime, int fd, int events)
+{
+    for (int i = 0; i < runtime->watcher_count; i++)
+    {
+        if (runtime->watchers[i].fd == fd && runtime->watchers[i].events == events)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int _bb_runtime_fd_registered_mask(bb_runtime_t *runtime, int fd)
+{
+    int mask = 0;
+
+    for (int i = 0; i < runtime->watcher_count; i++)
+    {
+        if (runtime->watchers[i].fd == fd)
+        {
+            mask |= runtime->watchers[i].events;
+        }
+    }
+    return mask;
+}
+
 static int _watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task)
 {
     if (!runtime || !task)
@@ -298,14 +324,56 @@ static int _watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t 
         return -1;
     }
 
+    /*
+     * Exact same (fd, events) watcher already exists -> this is a re-arm,
+     * swap the task, don't touch other event types on this fd.
+     */
+    int idx = _bb_runtime_find_watcher_exact(runtime, fd, events);
+
+    if (idx >= 0)
+    {
+        _bb_runtime_watcher_t *watcher = &runtime->watchers[idx];
+        bb_task_t *old_task = watcher->task;
+
+        watcher->mode = mode;
+        watcher->task = task;
+        task->state |= BB_TASK_PERSISTENT;
+
+        if (old_task != task)
+        {
+            bb_task_cancel(old_task); /* see destroy caveat below */
+        }
+        return 0;
+    }
+
+    /*
+     * New watcher for this fd. It may be a brand-new fd, or a new event
+     * type layered onto an fd we already watch (e.g. adding WRITE to
+     * an fd we already watch for READ) -- either way, don't unregister
+     * events that other watchers on this fd still care about.
+     */
     if (runtime->watcher_count >= BB_RUNTIME_MAX_WATCHERS)
     {
         return -1;
     }
 
-    if (bb_poller_register(runtime->poller, fd, events) != 0)
+    int existing_mask = _bb_runtime_fd_registered_mask(runtime, fd);
+    int new_mask = existing_mask | events;
+
+    if (new_mask != existing_mask)
     {
-        return -1;
+        if (existing_mask != 0)
+        {
+            bb_poller_unregister(runtime->poller, fd, existing_mask);
+        }
+        if (bb_poller_register(runtime->poller, fd, new_mask) != 0)
+        {
+            if (existing_mask != 0)
+            {
+                bb_poller_register(runtime->poller, fd, existing_mask); /* best-effort restore */
+            }
+            return -1;
+        }
     }
 
     task->state |= BB_TASK_PERSISTENT;
@@ -358,6 +426,7 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd)
     {
         if (runtime->watchers[i].fd == fd)
         {
+            bb_task_cancel(runtime->watchers[i].task);
             runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
             runtime->watcher_count--;
         }
