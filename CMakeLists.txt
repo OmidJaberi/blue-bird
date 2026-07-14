@@ -13,6 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
+option(BLUEBIRD_INSTALL "Install Blue-Bird" OFF)
 
 # Global warnings
 if(MSVC)
@@ -42,9 +43,8 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 
 # Tests
-include(tests/cmake/BlueBirdTests.cmake)
-
 if(BUILD_TESTS)
+    include(tests/cmake/BlueBirdTests.cmake)
     enable_testing()
     add_subdirectory(tests)
 endif()
@@ -77,6 +77,17 @@ target_link_libraries(bluebird INTERFACE
 add_library(BlueBird::bluebird ALIAS bluebird)
 
 # Examples
+
+# if(BLUEBIRD_INSTALL)
+#     install(
+#         FILES
+#             cmake/BlueBirdHelpers.cmake
+#         DESTINATION
+#             lib/cmake/BlueBird
+#     )
+# endif()
+
 if(BUILD_EXAMPLES)
+    include("cmake/BlueBirdHelpers.cmake")
     add_subdirectory(examples)
 endif()
