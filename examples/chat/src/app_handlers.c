@@ -2,13 +2,13 @@
 #include "app_repo.h"
 #include "app_util.h"
 #include "app_ws.h"
-#include "app_html.h"
 
 #include <blue-bird/log/log.h>
 #include <blue-bird/utils/json.h>
 #include <blue-bird/security/auth.h>
 #include <blue-bird/security/password.h>
 #include <blue-bird/security/session.h>
+#include <blue-bird/utils/asset.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -19,7 +19,13 @@ bb_error_t serve_index(bb_request_t *req, bb_response_t *res)
 
     bb_response_set_status(res, 200);
     bb_response_set_header(res, "Content-Type", "text/html; charset=utf-8");
-    bb_response_set_body(res, (char *) APP_INDEX_HTML);
+    char *html;
+    if (BB_FAILED(bb_asset_text_read_all("assets/index.html", &html, NULL)))
+    {
+        bb_response_set_status(res, 500);
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to read asset");
+    }
+    bb_response_set_body(res, html);
 
     return BB_SUCCESS();
 }

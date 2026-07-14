@@ -5,7 +5,6 @@ add_executable(example_chat
     src/app_repo.c
     src/app_ws.c
     src/app_util.c
-    src/app_html.c
 )
 
 target_include_directories(example_chat
@@ -20,4 +19,10 @@ target_link_libraries(example_chat
         bluebird_log
         bluebird_security
         bluebird_utils
+)
+
+bb_add_assets(
+    TARGET example_chat
+    DIRECTORIES
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets
 )

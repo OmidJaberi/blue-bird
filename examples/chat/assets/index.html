@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blue-Bird Chat</title>
+<style>
+  :root {
+    --accent: #2AABEE;
+    --accent-dark: #229ED9;
+    --bg: #ffffff;
+    --sidebar-bg: #f7f8fa;
+    --border: #e4e6eb;
+    --text: #1c1e21;
+    --muted: #8a8d91;
+    --bubble-own: #e3f6d8;
+    --bubble-other: #ffffff;
+    --danger: #e35555;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--sidebar-bg);
+  }
+  .hidden { display: none !important; }
+
+  /* ---------- Auth screen ---------- */
+  #auth-screen {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .auth-card {
+    width: 340px;
+    background: var(--bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 28px 28px 24px;
+  }
+  .auth-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 auto 14px;
+  }
+  .auth-title {
+    text-align: center;
+    font-size: 19px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .auth-subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .auth-tabs {
+    display: flex;
+    background: var(--sidebar-bg);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 18px;
+  }
+  .auth-tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--muted);
+    user-select: none;
+  }
+  .auth-tab.active {
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  .field {
+    margin-bottom: 12px;
+  }
+  .field input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    background: var(--bg);
+  }
+  .field input:focus {
+    border-color: var(--accent);
+  }
+  .btn-primary {
+    width: 100%;
+    padding: 11px 0;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; }
+  .auth-error {
+    color: var(--danger);
+    font-size: 12.5px;
+    margin-top: 10px;
+    text-align: center;
+    min-height: 16px;
+  }
+
+  /* ---------- App screen ---------- */
+  #app-screen {
+    height: 100%;
+    display: flex;
+  }
+  #sidebar {
+    width: 300px;
+    min-width: 300px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  #sidebar-header {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  #me {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+  }
+  #logout-btn {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  #logout-btn:hover { color: var(--danger); }
+  #search-wrap { padding: 10px 12px; }
+  #search-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--bg);
+    font-size: 13px;
+    outline: none;
+  }
+  #user-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .contact {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .contact:hover { background: #eef0f2; }
+  .contact.active {
+    background: #e8f4fd;
+    border-left-color: var(--accent);
+  }
+  .avatar {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 15px;
+    position: relative;
+  }
+  .presence-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #c6c9cc;
+    border: 2px solid var(--sidebar-bg);
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+  }
+  .presence-dot.online { background: #4bc158; }
+  .contact-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .contact-sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  #empty-users {
+    padding: 20px 16px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  #chat-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    min-width: 0;
+  }
+  #chat-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #chat-header .contact-name { font-size: 15px; }
+  #chat-header .contact-sub { margin-top: 1px; }
+  .back-btn {
+    display: none;
+    font-size: 24px;
+    color: var(--accent);
+    cursor: pointer;
+    padding-right: 8px;
+    user-select: none;
+  }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .bubble-row {
+    display: flex;
+  }
+  .bubble-row.own { justify-content: flex-end; }
+  .bubble {
+    max-width: 62%;
+    padding: 9px 13px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+  }
+  .bubble-row.own .bubble {
+    background: var(--bubble-own);
+    border-bottom-right-radius: 4px;
+  }
+  .bubble-row:not(.own) .bubble {
+    background: var(--bubble-other);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .bubble-time {
+    display: block;
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-top: 3px;
+    text-align: right;
+  }
+  #composer {
+    display: flex;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+  }
+  #msg-input {
+    flex: 1;
+    padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 14px;
+    outline: none;
+    resize: none;
+  }
+  #msg-input:focus { border-color: var(--accent); }
+  #send-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  #send-btn:hover { background: var(--accent-dark); }
+  #send-btn:disabled { opacity: 0.5; cursor: default; }
+  #no-chat {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  /* ---------- Mobile Responsive Modifications ---------- */
+  @media (max-width: 600px) {
+    #sidebar {
+      width: 100%;
+      min-width: 100%;
+    }
+    #chat-panel {
+      display: none;
+    }
+    .back-btn {
+      display: block;
+    }
+    #no-chat {
+      display: none !important;
+    }
+    .mobile-chat-open #sidebar {
+      display: none;
+    }
+    .mobile-chat-open #chat-panel {
+      display: flex;
+    }
+    .bubble { max-width: 85%; }
+    #messages { padding: 12px 14px; }
+    #composer { padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">BB</div>
+    <div class="auth-title">Blue-Bird Chat</div>
+    <div class="auth-subtitle">Simple, live messaging</div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" data-tab="login">Log in</div>
+      <div class="auth-tab" data-tab="register">Sign up</div>
+    </div>
+
+    <form id="login-form">
+      <div class="field"><input type="text" id="login-username" placeholder="Username" autocomplete="username" required></div>
+      <div class="field"><input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required></div>
+      <button type="submit" class="btn-primary">Log in</button>
+    </form>
+
+    <form id="register-form" class="hidden">
+      <div class="field"><input type="text" id="register-username" placeholder="Choose a username" autocomplete="username" required></div>
+      <div class="field"><input type="password" id="register-password" placeholder="Choose a password" autocomplete="new-password" required></div>
+      <button type="submit" class="btn-primary">Create account</button>
+    </form>
+
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<div id="app-screen" class="hidden">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <div id="me">
+        <div class="avatar" id="me-avatar">?</div>
+        <span id="me-name"></span>
+      </div>
+      <button id="logout-btn">Log out</button>
+    </div>
+    <div id="search-wrap">
+      <input type="text" id="search-input" placeholder="Search people...">
+    </div>
+    <div id="user-list"></div>
+  </div>
+
+  <div id="chat-panel">
+    <div id="no-chat">Pick someone on the left to start chatting.</div>
+
+    <div id="chat-header" class="hidden">
+      <div class="back-btn" id="chat-back-btn">&#8249;</div>
+      <div class="avatar" id="peer-avatar">?</div>
+      <div>
+        <div class="contact-name" id="peer-name"></div>
+        <div class="contact-sub" id="peer-status">offline</div>
+      </div>
+    </div>
+    <div id="messages" class="hidden"></div>
+    <div id="composer" class="hidden">
+      <input type="text" id="msg-input" placeholder="Write a message..." autocomplete="off">
+      <button id="send-btn">&#10148;</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var state = {
+    me: null,
+    peer: null,
+    users: [],
+    ws: null,
+    wsReady: false,
+    loggedIn: false,
+    pollTimer: null
+  };
+
+  // ---------- helpers ----------
+
+  function $(id) { return document.getElementById(id); }
+
+  function getCookie(name) {
+    var parts = document.cookie.split(";");
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      if (p.indexOf(name + "=") === 0) {
+        return p.substring(name.length + 1);
+      }
+    }
+    return null;
+  }
+
+  function initials(name) {
+    return name ? name.charAt(0).toUpperCase() : "?";
+  }
+
+  function formatTime(unixSeconds) {
+    var d = new Date(unixSeconds * 1000);
+    var h = d.getHours().toString().padStart(2, "0");
+    var m = d.getMinutes().toString().padStart(2, "0");
+    return h + ":" + m;
+  }
+
+  function api(path, options) {
+    options = options || {};
+    options.headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+    return fetch(path, options).then(function (resp) {
+      return resp.json().then(function (data) {
+        return { status: resp.status, ok: resp.ok, data: data };
+      });
+    });
+  }
+
+  // ---------- auth screen ----------
+
+  var authTabs = document.querySelectorAll(".auth-tab");
+  authTabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      authTabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      $("auth-error").textContent = "";
+      if (tab.dataset.tab === "login") {
+        $("login-form").classList.remove("hidden");
+        $("register-form").classList.add("hidden");
+      } else {
+        $("register-form").classList.remove("hidden");
+        $("login-form").classList.add("hidden");
+      }
+    });
+  });
+
+  $("login-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    $("auth-error").textContent = "";
+    var username = $("login-username").value.trim();
+    var password = $("login-password").value;
+    api("/api/login", { method: "POST", body: JSON.stringify({ username: username, password: password }) })
+      .then(function (res) {
+        if (!res.ok) {
+          $("auth-error").textContent = (res.data && res.data.error) || "Login failed";
+          return;
+        }
+        onAuthenticated(res.data.username);
+      })
+      .catch(function () { $("auth-error").textContent = "Network error"; });
+  });
+
+  $("register-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    $("auth-error").textContent = "";
+    var username = $("register-username").value.trim();
+    var password = $("register-password").value;
+    api("/api/register", { method: "POST", body: JSON.stringify({ username: username, password: password }) })
+      .then(function (res) {
+        if (!res.ok) {
+          $("auth-error").textContent = (res.data && res.data.error) || "Registration failed";
+          return;
+        }
+        onAuthenticated(res.data.username);
+      })
+      .catch(function () { $("auth-error").textContent = "Network error"; });
+  });
+
+  $("logout-btn").addEventListener("click", function () {
+    api("/api/logout", { method: "POST" }).finally(function () {
+      state.loggedIn = false;
+      if (state.ws) { state.ws.onclose = null; state.ws.close(); }
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      state.me = null;
+      state.peer = null;
+      $("app-screen").classList.remove("mobile-chat-open");
+      $("app-screen").classList.add("hidden");
+      $("auth-screen").classList.remove("hidden");
+      $("login-password").value = "";
+    });
+  });
+
+  function onAuthenticated(username) {
+    state.me = username;
+    state.loggedIn = true;
+    $("me-name").textContent = username;
+    $("me-avatar").textContent = initials(username);
+    $("auth-screen").classList.add("hidden");
+    $("app-screen").classList.remove("hidden");
+    connectWebSocket();
+    loadUsers();
+    state.pollTimer = setInterval(loadUsers, 4000);
+  }
+
+  // ---------- users / sidebar ----------
+
+  function loadUsers() {
+    api("/api/users").then(function (res) {
+      if (!res.ok) return;
+      state.users = res.data.users || [];
+      renderUsers();
+    });
+  }
+
+  function renderUsers() {
+    var filter = $("search-input").value.trim().toLowerCase();
+    var list = $("user-list");
+    list.innerHTML = "";
+
+    var visible = state.users.filter(function (u) {
+      return u.username.toLowerCase().indexOf(filter) !== -1;
+    });
+
+    if (visible.length === 0) {
+      var empty = document.createElement("div");
+      empty.id = "empty-users";
+      empty.textContent = state.users.length === 0
+        ? "No other users yet. Ask a friend to sign up!"
+        : "No matches.";
+      list.appendChild(empty);
+      return;
+    }
+
+    visible.forEach(function (u) {
+      var row = document.createElement("div");
+      row.className = "contact" + (state.peer === u.username ? " active" : "");
+      row.innerHTML =
+        "<div class='avatar'>" + initials(u.username) +
+        "<span class='presence-dot" + (u.online ? " online" : "") + "'></span></div>" +
+        "<div><div class='contact-name'></div>" +
+        "<div class='contact-sub'>" + (u.online ? "online" : "offline") + "</div></div>";
+      row.querySelector(".contact-name").textContent = u.username;
+      row.addEventListener("click", function () { selectPeer(u.username); });
+      list.appendChild(row);
+    });
+
+    if (state.peer) {
+      var peerData = state.users.find(function (u) { return u.username === state.peer; });
+      $("peer-status").textContent = peerData && peerData.online ? "online" : "offline";
+    }
+  }
+
+  function selectPeer(username) {
+    state.peer = username;
+    renderUsers();
+
+    $("no-chat").classList.add("hidden");
+    $("chat-header").classList.remove("hidden");
+    $("messages").classList.remove("hidden");
+    $("composer").classList.remove("hidden");
+    $("app-screen").classList.add("mobile-chat-open");
+
+    $("peer-name").textContent = username;
+    $("peer-avatar").textContent = initials(username);
+
+    var peerData = state.users.find(function (u) { return u.username === username; });
+    $("peer-status").textContent = peerData && peerData.online ? "online" : "offline";
+
+    loadConversation(username);
+  }
+
+  $("chat-back-btn").addEventListener("click", function() {
+    state.peer = null;
+    $("app-screen").classList.remove("mobile-chat-open");
+    renderUsers();
+  });
+
+  // ---------- conversation ----------
+
+  function loadConversation(peer) {
+    api("/api/messages/" + encodeURIComponent(peer)).then(function (res) {
+      if (!res.ok) return;
+      var box = $("messages");
+      box.innerHTML = "";
+      (res.data.messages || []).forEach(function (m) { appendMessage(m); });
+      box.scrollTop = box.scrollHeight;
+    });
+  }
+
+  function appendMessage(m) {
+    var isOwn = m.from === state.me;
+    var row = document.createElement("div");
+    row.className = "bubble-row" + (isOwn ? " own" : "");
+    var bubble = document.createElement("div");
+    bubble.className = "bubble";
+
+    var text = document.createElement("span");
+    text.textContent = m.body;
+    bubble.appendChild(text);
+
+    var time = document.createElement("span");
+    time.className = "bubble-time";
+    time.textContent = formatTime(m.created_at);
+    bubble.appendChild(time);
+
+    row.appendChild(bubble);
+    $("messages").appendChild(row);
+  }
+
+  function belongsToOpenConversation(m) {
+    if (!state.peer) return false;
+    return (m.from === state.me && m.to === state.peer) ||
+           (m.from === state.peer && m.to === state.me);
+  }
+
+  // ---------- websocket ----------
+
+  function connectWebSocket() {
+    if (!state.loggedIn) return;
+
+    var proto = location.protocol === "https:" ? "wss" : "ws";
+    var ws = new WebSocket(proto + "://" + location.host + "/ws");
+    state.ws = ws;
+    state.wsReady = false;
+
+    ws.onopen = function () {
+      var sessionId = getCookie("session_id");
+      ws.send(JSON.stringify({ type: "auth", session_id: sessionId }));
+    };
+
+    ws.onmessage = function (evt) {
+      var data;
+      try { data = JSON.parse(evt.data); } catch (e) { return; }
+
+      if (data.type === "auth_ok") {
+        state.wsReady = true;
+      } else if (data.type === "auth_error") {
+        state.wsReady = false;
+      } else if (data.type === "message") {
+        if (belongsToOpenConversation(data)) {
+          appendMessage(data);
+          var box = $("messages");
+          box.scrollTop = box.scrollHeight;
+        }
+        loadUsers();
+      }
+    };
+
+    ws.onclose = function () {
+      state.wsReady = false;
+      if (state.loggedIn) {
+        setTimeout(connectWebSocket, 1500);
+      }
+    };
+
+    ws.onerror = function () {
+      ws.close();
+    };
+  }
+
+  function sendCurrentMessage() {
+    var input = $("msg-input");
+    var text = input.value.trim();
+    if (!text || !state.peer) return;
+
+    if (!state.ws || !state.wsReady) {
+      return;
+    }
+
+    state.ws.send(JSON.stringify({ type: "message", to: state.peer, body: text }));
+    input.value = "";
+  }
+
+  $("send-btn").addEventListener("click", sendCurrentMessage);
+  $("msg-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendCurrentMessage();
+    }
+  });
+
+  $("search-input").addEventListener("input", renderUsers);
+
+  // ---------- bootstrap ----------
+
+  api("/api/me").then(function (res) {
+    if (res.ok) {
+      onAuthenticated(res.data.username);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
