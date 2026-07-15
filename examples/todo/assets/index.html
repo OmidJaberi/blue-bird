@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Blue-Bird TODO</title>
+
+<style>
+:root {
+    --bg: #f4f6fb;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --text: #1f2937;
+    --muted: #6b7280;
+
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+
+    --success: #16a34a;
+    --success-hover: #15803d;
+
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+
+    --radius: 14px;
+    --shadow: 0 10px 25px rgba(0,0,0,.08);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 32px 16px;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.container {
+    max-width: 720px;
+    margin: auto;
+}
+
+h1 {
+    margin: 0 0 24px;
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.add-form {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 28px;
+}
+
+.add-form input {
+    flex: 1;
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: white;
+    font-size: 15px;
+    outline: none;
+    transition: .2s;
+}
+
+.add-form input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: .2s;
+}
+
+.add-form button {
+    background: var(--primary);
+    color: white;
+}
+
+.add-form button:hover {
+    background: var(--primary-hover);
+}
+
+ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+li {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin-bottom: 16px;
+
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.task-info {
+    flex: 1;
+    min-width: 220px;
+}
+
+.task-info strong {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+form.inline {
+    display: inline;
+}
+
+.done-btn {
+    background: var(--success);
+    color: white;
+}
+
+.done-btn:hover {
+    background: var(--success-hover);
+}
+
+.delete-btn {
+    background: var(--danger);
+    color: white;
+}
+
+.delete-btn:hover {
+    background: var(--danger-hover);
+}
+
+@media (max-width: 600px) {
+
+    body {
+        padding: 20px 12px;
+    }
+
+    .add-form {
+        flex-direction: column;
+    }
+
+    .add-form button {
+        width: 100%;
+    }
+
+    li {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .actions {
+        width: 100%;
+    }
+
+    .actions form {
+        flex: 1;
+    }
+
+    .actions button {
+        width: 100%;
+    }
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+
+<h1>Blue-Bird TODO</h1>
+
+<form class="add-form" method="POST" action="/add_task">
+    <input
+        type="text"
+        name="task"
+        placeholder="What needs to be done?"
+    >
+    <button type="submit">Add Task</button>
+</form>
+
+<ul>
+{{#tasks}}
+<li>
+
+    <div class="task-info">
+        <strong>{{name}}</strong>
+        <span class="status">{{status}}</span>
+    </div>
+
+    <div class="actions">
+
+        <form class="inline" method="POST" action="/mark_done/{{id}}">
+            <button class="done-btn" type="submit">
+                Done
+            </button>
+        </form>
+
+        <form class="inline" method="POST" action="/remove_task/{{id}}">
+            <button class="delete-btn" type="submit">
+                Delete
+            </button>
+        </form>
+
+    </div>
+
+</li>
+{{/tasks}}
+</ul>
+
+</div>
+
+</body>
+</html>

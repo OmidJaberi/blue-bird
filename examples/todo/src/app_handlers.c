@@ -14,57 +14,6 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
 
-    static const char *html_template =
-        "<!DOCTYPE html>"
-        "<html>"
-        "<head>"
-        "    <title>Blue-Bird TODO</title>"
-        "    <style>"
-        "        body {"
-        "            font-family: sans-serif;"
-        "            margin: 40px;"
-        "        }"
-        ""
-        "        li {"
-        "            margin-bottom: 10px;"
-        "        }"
-        ""
-        "        form.inline {"
-        "            display: inline;"
-        "        }"
-        "    </style>"
-        "</head>"
-        "<body>"
-        ""
-        "<h1>TODO List</h1>"
-        ""
-        "<form method=\"POST\" action=\"/add_task\">"
-        "    <input type=\"text\" name=\"task\" placeholder=\"New task\">"
-        "    <button type=\"submit\">Add</button>"
-        "</form>"
-        ""
-        "<hr>"
-        ""
-        "<ul>"
-        "{{#tasks}}"
-        "    <li>"
-        "        <strong>{{name}}</strong>"
-        "        [{{status}}]"
-        ""
-        "        <form class=\"inline\" method=\"POST\" action=\"/mark_done/{{id}}\">"
-        "            <button type=\"submit\">Done</button>"
-        "        </form>"
-        ""
-        "        <form class=\"inline\" method=\"POST\" action=\"/remove_task/{{id}}\">"
-        "            <button type=\"submit\">Delete</button>"
-        "        </form>"
-        "    </li>"
-        "{{/tasks}}"
-        "</ul>"
-        ""
-        "</body>"
-        "</html>";
-
     // Fetch tasks.
     Task *tasks = NULL;
     size_t count = 0;
@@ -96,10 +45,7 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
 
     // Parse template.
     bb_template_t *tpl;
-    bb_error_t err = bb_template_parse(html_template, &tpl);
-    (void) err;
-
-    if (!tpl)
+    if (BB_FAILED(bb_template_parse_file("assets/index.html", &tpl)))
     {
         bb_json_destroy(ctx);
         free(tasks);
@@ -109,8 +55,7 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
 
     // Render template.
     char *html;
-    err = bb_template_render(tpl, ctx, &html);
-    if (!html)
+    if (BB_FAILED(bb_template_render(tpl, ctx, &html)))
     {
         bb_template_destroy(tpl);
         bb_json_destroy(ctx);

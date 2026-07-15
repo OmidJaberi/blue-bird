@@ -18,3 +18,9 @@ target_link_libraries(example_todo
         bluebird_log
         bluebird_template
 )
+
+bb_add_assets(
+    TARGET example_todo
+    DIRECTORIES
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets
+)
