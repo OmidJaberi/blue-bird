@@ -4,6 +4,8 @@
 #include "connection/async_connection.h"
 #include "client_internal.h"
 
+#include "blue-bird/web/error.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 

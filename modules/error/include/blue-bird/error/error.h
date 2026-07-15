@@ -14,17 +14,24 @@ typedef struct {
 } bb_error_t;
 
 
-// Common errors
 enum {
+    // Common errors:
     BB_OK = 0,
     BB_ERR_ALLOC,
     BB_ERR_NULL,
-    BB_ERR_BAD_REQUEST,
     BB_ERR_NOT_FOUND,
     BB_ERR_INTERNAL,
     BB_ERR_IO,
-    BB_ERR_NETWORK,
-    BB_ERR_UNKNOWN
+    BB_ERR_UNKNOWN,
+
+    // Module error ranges:
+    BB_ERR_RUNTIME  = 1000,
+    BB_ERR_WEB      = 2000,
+    BB_ERR_PERSIST  = 3000,
+    BB_ERR_TEMPLATE = 4000,
+    BB_ERR_SECURITY = 5000,
+    BB_ERR_LOG      = 6000,
+    BB_ERR_UTILS    = 7000,
 };
 
 // Helper Macros

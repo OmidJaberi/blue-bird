@@ -9,6 +9,8 @@
 
 #include "http/parser.h"
 
+#include "blue-bird/web/error.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

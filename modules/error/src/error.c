@@ -4,7 +4,6 @@ static const char *error_strings[] = {
     [BB_OK] = "OK",
     [BB_ERR_ALLOC] = "Memory allocation failed",
     [BB_ERR_NULL] = "Null pointer dereference",
-    [BB_ERR_BAD_REQUEST] = "Bad request",
     [BB_ERR_NOT_FOUND] = "Resource not found",
     [BB_ERR_INTERNAL] = "Internal server error",
     [BB_ERR_IO] = "I/O error",
