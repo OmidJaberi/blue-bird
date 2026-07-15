@@ -6,6 +6,8 @@ extern "C" {
 #endif
 
 
+#include <blue-bird/error/error.h>
+
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -20,6 +22,12 @@ typedef enum {
     BB_JSON_NOT_INITIALIZED
 } bb_json_node_type_t;
 
+// Error Codes:
+enum {
+    BB_ERR_JSON_TYPE_MISMATCH = BB_ERR_UTILS + 100,
+    BB_ERR_JSON_OVERFLOW,
+};
+
 typedef struct BBJsonNode bb_json_t;
 
 bb_json_t *bb_json_create(bb_json_node_type_t type);
@@ -28,10 +36,10 @@ size_t bb_json_get_size(bb_json_t *json);
 bb_json_node_type_t bb_json_get_type(bb_json_t *json);
 
 // JSON Primitives
-void bb_json_set_value_bool(bb_json_t *json, bool value);
-void bb_json_set_value_integer(bb_json_t *json, int value);
-void bb_json_set_value_real(bb_json_t *json, float value);
-void bb_json_set_value_text(bb_json_t *json, const char *value);
+bb_error_t bb_json_set_value_bool(bb_json_t *json, bool value);
+bb_error_t bb_json_set_value_integer(bb_json_t *json, int value);
+bb_error_t bb_json_set_value_real(bb_json_t *json, float value);
+bb_error_t bb_json_set_value_text(bb_json_t *json, const char *value);
 
 bool bb_json_get_value_bool(bb_json_t *json);
 int bb_json_get_value_integer(bb_json_t *json);
@@ -39,14 +47,14 @@ float bb_json_get_value_real(bb_json_t *json);
 char *bb_json_get_value_text(bb_json_t *json);
 
 // JSON Array
-void bb_json_array_push(bb_json_t *json_array, bb_json_t *element);
+bb_error_t bb_json_array_push(bb_json_t *json_array, bb_json_t *element);
 bb_json_t *bb_json_array_get_index(bb_json_t *json_array, unsigned int index);
-void bb_json_array_remove_at_index(bb_json_t *json_array, unsigned int index);
+bb_error_t bb_json_array_remove_at_index(bb_json_t *json_array, unsigned int index);
 
 // JSON Object
-void bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t *value);
+bb_error_t bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t *value);
 bb_json_t *bb_json_object_get_value(bb_json_t *json_object, const char *key);
-void bb_json_object_remove_key(bb_json_t *obj, const char *key);
+bb_error_t bb_json_object_remove_key(bb_json_t *obj, const char *key);
 
 // Serializer
 int bb_json_serialize(bb_json_t *json, char **buffer, int *size);
