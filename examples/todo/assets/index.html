@@ -132,6 +132,16 @@ li {
     font-weight: 600;
 }
 
+.not_done {
+    background-color: orange;
+    color: lightyellow;
+}
+
+.done {
+    background-color: #1d4ed8;
+    color: lightblue;
+}
+
 .actions {
     display: flex;
     gap: 8px;
@@ -214,7 +224,7 @@ form.inline {
 
     <div class="task-info">
         <strong>{{name}}</strong>
-        <span class="status">{{status}}</span>
+        <span class="status {{status}}">{{status}}</span>
     </div>
 
     <div class="actions">
