@@ -6,10 +6,12 @@
 #include <blue-bird/web/server.h>
 #include <blue-bird/log/console_logger.h>
 #include <blue-bird/persist/model/model_sqlite.h>
+#include <blue-bird/utils/asset.h>
 
 int main(void)
 {
-    const char *dbfile = "todo_sqlite.db";
+    char dbfile[1024];
+    bb_asset_resolve_path("todo_sqlite.db", dbfile, 1024);
 
     /* Register repo backend */
     bb_model_register(bb_model_sqlite_api());
