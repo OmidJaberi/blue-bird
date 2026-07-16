@@ -17,6 +17,15 @@ typedef enum {
     BB_LOG_LEVEL_TRACE
 } bb_log_level_t;
 
+/* Verbosity presets, so callers don't have to think in terms of levels.
+ * Each mode just maps onto a bb_log_level_t under the hood. */
+typedef enum {
+    BB_LOG_MODE_QUIET = 0,      /* ERROR only                     */
+    BB_LOG_MODE_NORMAL,         /* ERROR, WARN, INFO              */
+    BB_LOG_MODE_VERBOSE,        /* + DEBUG                        */
+    BB_LOG_MODE_VERY_VERBOSE    /* + TRACE                        */
+} bb_log_mode_t;
+
 /* Forward declaration */
 struct bb_logger_t;
 
@@ -34,8 +43,19 @@ typedef struct bb_logger_t {
 void bb_logger_log(bb_logger_t *logger, bb_log_level_t level, const char *fmt, ...);
 void bb_logger_vlog(bb_logger_t *logger, bb_log_level_t level, const char *fmt, va_list args);
 
-/* Convenience macros (default logger) */
+/* Runtime verbosity control */
+void bb_logger_set_level(bb_logger_t *logger, bb_log_level_t level);
+void bb_logger_set_mode(bb_logger_t *logger, bb_log_mode_t mode);
+
+/* Convenience macros (default logger)
+ *
+ * default_logger is auto-initialized as a console logger at INFO level
+ * the first time it's used, so BB_LOG_INFO(...) etc. work out of the box
+ * with no bb_logger_init_console() call required. Reassign default_logger
+ * (or call bb_logger_init_* on it) before first use to change backends. */
 extern bb_logger_t default_logger;
+
+#define BB_LOG_SET_MODE(mode) bb_logger_set_mode(&default_logger, (mode))
 
 #define BB_LOG_ERROR(fmt, ...) bb_logger_log(&default_logger, BB_LOG_LEVEL_ERROR, "[%s:%d] " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #define BB_LOG_WARN(fmt, ...)  bb_logger_log(&default_logger, BB_LOG_LEVEL_WARN,  "[%s:%d] " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
