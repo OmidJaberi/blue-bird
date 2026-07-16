@@ -9,10 +9,6 @@
 
 int main(void)
 {
-    bb_logger_t console_logger;
-    bb_logger_init_console(&console_logger, BB_LOG_LEVEL_INFO, stderr);
-    default_logger = console_logger;
-
     const char *dbfile = "chat_sqlite.db";
 
     /* Register the sqlite persistence backend and open the database. */
