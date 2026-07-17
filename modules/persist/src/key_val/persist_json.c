@@ -74,7 +74,7 @@ static int json_remove(bb_persist_kv_handle_t *h, const char *key)
     return 0;
 }
 
-static const bb_persist_kv_api_t file_api = {
+static const bb_persist_kv_api_t json_api = {
     .name   = "json",
     .open   = json_open,
     .close  = json_close,
@@ -85,5 +85,5 @@ static const bb_persist_kv_api_t file_api = {
 
 int bb_persist_kv_json_register(void)
 {
-    return bb_persist_kv_register(&file_api);
+    return bb_persist_kv_register(&json_api);
 }
