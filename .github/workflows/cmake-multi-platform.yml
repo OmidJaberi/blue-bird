@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            cc: gcc
+            build_type: Debug
+
+          - os: ubuntu-latest
+            compiler: gcc
+            cc: gcc
+            build_type: Release
+
+          - os: ubuntu-latest
+            compiler: clang
+            cc: clang
+            build_type: Debug
+
+          - os: windows-latest
+            compiler: msvc
+            cc: cl
+            build_type: Release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev
+
+      - name: Configure
+        run: >
+          cmake
+          -B build
+          -S .
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+
+      - name: Build
+        run: >
+          cmake
+          --build build
+          --config ${{ matrix.build_type }}
+          --parallel
+
+      - name: Test
+        working-directory: build
+        run: >
+          ctest
+          --build-config ${{ matrix.build_type }}
+          --output-on-failure
