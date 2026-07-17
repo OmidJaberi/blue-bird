@@ -34,6 +34,18 @@ Blue-Bird is designed for developers who want lower-level control and transparen
 
 ---
 
+## Why C
+
+C forces every abstraction to be explicit — there's no framework magic hiding
+allocation, control flow, or lifetime behind the scenes. Blue-Bird is built in
+C because that transparency is the point: every module's behavior should be
+traceable and predictable, and every dependency should be a deliberate choice,
+not a transitive one. Practically, it also means no runtime to bundle, no GC
+pauses, and portability to anywhere a C compiler runs — embedded targets,
+older systems, constrained environments included.
+
+---
+
 # Features
 
 ## Async Runtime
@@ -118,7 +130,7 @@ blue-bird/
 │   └── error/      # Error handling primitives
 │
 ├── examples/       # Example applications
-├── tests/          # Unit and integration tests
+├── tests/          # Unit and integration testing infrastructure
 ├── CMakeLists.txt
 └── README.md
 ```
@@ -236,17 +248,21 @@ However, APIs may still evolve as the architecture matures.
 
 ---
 
+# Examples
+
+For examples, checkout [here](examples/README.md). Currently the following examples are available:
+| Example | What it adds | Modules used |
+|---|---|---|
+| [`hello`](examples/hello/README.md) | Routing, request/response basics | `web` |
+| [`async_sample`](examples/async_sample/README.md) | The event loop underneath everything else (no HTTP) | `runtime` |
+| [`todo`](examples/todo/README.md) | Persistence (SQLite-backed repos), templating, middleware | `web`, `persist`, `template`, `log` |
+| [`chat`](examples/chat/README.md) | Auth/sessions, websockets, a real frontend | `web`, `persist`, `security`, `log` |
+
+---
+
 # Contributing
 
 Contributions, issue reports, ideas, and discussions are welcome.
-
-Areas of interest include:
-
-- routing improvements
-- security middleware integrations
-- additional persistence backends
-- documentation and examples
-- performance benchmarking
 
 ---
 
