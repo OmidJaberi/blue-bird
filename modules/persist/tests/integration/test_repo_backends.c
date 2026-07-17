@@ -156,9 +156,6 @@ static void test_repo_sqlite_crud(void)
     const bb_model_api_t *api = bb_model_get("sqlite");
     assert(api);
 
-    bb_model_handle_t *h = api->open(db);
-    assert(h);
-
     run_tests(db, api);
 
     printf("SQLite Tests passed...\n");

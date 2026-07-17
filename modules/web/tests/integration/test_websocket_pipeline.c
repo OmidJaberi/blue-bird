@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define TEST_PORT 8080
+#define TEST_PORT 8081
 
 static volatile int finished = 0;
 
@@ -95,7 +95,7 @@ static void websocket_echo_test(void)
 
     bb_websocket_set_message_callback(client, _echo_message_cb, NULL);
 
-    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _echo_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _echo_connect_cb, NULL);
 
     while (!echo_finished)
     {
@@ -158,7 +158,7 @@ static void websocket_multi_message_test(void)
 
     bb_websocket_set_message_callback(client, _multi_messages_message_cb, NULL);
 
-    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _multi_messages_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _multi_messages_connect_cb, NULL);
 
     while (messages < 3)
     {
@@ -216,7 +216,7 @@ static void websocket_large_message_test(void)
 
     bb_websocket_set_message_callback(client, _large_message_cb, NULL);
 
-    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _large_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _large_connect_cb, NULL);
 
     while (!large_finished)
     {
@@ -281,7 +281,7 @@ static void websocket_binary_message_test(void)
 
     bb_websocket_connect(
         client,
-        "ws://127.0.0.1:8080/echo",
+        "ws://127.0.0.1:8081/echo",
         _binary_connect_cb,
         NULL
     );
@@ -347,7 +347,7 @@ static void websocket_large_binary_test(void)
 
     bb_websocket_connect(
         client,
-        "ws://127.0.0.1:8080/echo",
+        "ws://127.0.0.1:8081/echo",
         _large_binary_connect_cb,
         NULL
     );
@@ -405,7 +405,7 @@ static void websocket_sequential_connections_test(void)
 
         bb_websocket_set_message_callback(client, _sequential_message_cb, NULL);
 
-        bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _sequential_connect_cb, NULL);
+        bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _sequential_connect_cb, NULL);
 
         while (!sequential_finished)
         {
@@ -477,7 +477,7 @@ static void websocket_multiple_clients_test(void)
 
         bb_websocket_set_message_callback(clients[i], _clients_message_cb, NULL);
 
-        bb_websocket_connect(clients[i], "ws://127.0.0.1:8080/echo", _clients_connect_cb, (void *)client_messages[i]);
+        bb_websocket_connect(clients[i], "ws://127.0.0.1:8081/echo", _clients_connect_cb, (void *)client_messages[i]);
     }
 
     while (clients_finished < CLIENT_COUNT)
@@ -539,7 +539,7 @@ static void websocket_many_messages_test(void)
 
     bb_websocket_connect(
         client,
-        "ws://127.0.0.1:8080/echo",
+        "ws://127.0.0.1:8081/echo",
         _many_messages_connect_cb,
         NULL
     );
@@ -590,7 +590,7 @@ static void websocket_ping_pong_test(void)
 
     bb_websocket_set_pong_callback(client, _pong_cb, NULL);
 
-    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _ping_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _ping_connect_cb, NULL);
 
     while (!pong_received)
     {
@@ -647,7 +647,7 @@ static void websocket_close_test(void)
 
     bb_websocket_set_message_callback(client, _close_message_cb, NULL);
 
-    bb_websocket_connect(client, "ws://127.0.0.1:8080/echo", _close_connect_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _close_connect_cb, NULL);
 
     while (!bb_runtime_is_empty(runtime))
     {

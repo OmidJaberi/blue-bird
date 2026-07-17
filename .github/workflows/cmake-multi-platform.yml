@@ -8,12 +8,10 @@ on:
 jobs:
   build-test:
     name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.build_type }}
-
     runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
-
       matrix:
         include:
           - os: ubuntu-latest
@@ -35,6 +33,7 @@ jobs:
             compiler: msvc
             cc: cl
             build_type: Release
+            toolchain_suffix: /scripts/buildsystems/vcpkg.cmake
 
     steps:
       - uses: actions/checkout@v4
@@ -49,25 +48,24 @@ jobs:
         if: runner.os == 'Windows'
         run: vcpkg install sqlite3:x64-windows
 
-      - name: Configure
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
         run: >
-          cmake
-          -B build
-          -S .
+          cmake -B build -S .
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
           -DCMAKE_C_COMPILER=${{ matrix.cc }}
-          ${{ runner.os == 'Windows' && format('-DCMAKE_TOOLCHAIN_FILE={0}/scripts/buildsystems/vcpkg.cmake', env.VCPKG_INSTALLATION_ROOT) || '' }}
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+        shell: pwsh
 
       - name: Build
-        run: >
-          cmake
-          --build build
-          --config ${{ matrix.build_type }}
-          --parallel
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
 
       - name: Test
         working-directory: build
-        run: >
-          ctest
-          --build-config ${{ matrix.build_type }}
-          --output-on-failure
+        run: ctest --build-config ${{ matrix.build_type }} --output-on-failure

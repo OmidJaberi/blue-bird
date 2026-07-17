@@ -977,6 +977,7 @@ int bb_json_parse(bb_json_t **json, char *buffer)
     if ((size_t)res != strlen(buffer))
     {
         bb_json_destroy(*json);
+        *json = NULL;
         return -1;
     }
     return res;
