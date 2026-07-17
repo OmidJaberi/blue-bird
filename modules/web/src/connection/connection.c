@@ -189,7 +189,7 @@ bb_connection_t *bb_connection_accept(int server_fd)
     return connection;
 }
 
-int _connect(const char *host, const char *port_str)
+static int _connect(const char *host, const char *port_str)
 {
     struct addrinfo hints = {0};
     struct addrinfo *res = NULL;
@@ -334,7 +334,7 @@ ssize_t bb_connection_write(bb_connection_t *connection)
                 connection->fd,
                 connection->write_data->write_buffer + connection->write_data->write_offset,
                 connection->write_data->write_length - connection->write_data->write_offset,
-                0
+                MSG_NOSIGNAL
             );
             if (n > 0)
             {

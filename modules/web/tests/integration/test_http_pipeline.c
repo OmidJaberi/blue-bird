@@ -768,15 +768,15 @@ void test_partial_request(void)
     int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     assert(rc == 0);
 
-    send(fd, "GET / HTTP/1.1\r\n", 17, 0);
+    send(fd, "GET / HTTP/1.1\r\n", 17, MSG_NOSIGNAL);
 
     usleep(10000);
 
-    send(fd, "Host: localhost\r\n", 17, 0);
+    send(fd, "Host: localhost\r\n", 17, MSG_NOSIGNAL);
 
     usleep(10000);
 
-    send(fd, "\r\n", 2, 0);
+    send(fd, "\r\n", 2, MSG_NOSIGNAL);
 
     char buffer[4096];
 

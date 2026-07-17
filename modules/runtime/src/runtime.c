@@ -6,6 +6,15 @@
 #include "scheduler.h"
 #include "poller.h"
 
+#include <signal.h>
+
+static void _init_signals(void)
+{
+#if defined(SIGPIPE) && !defined(_WIN32)
+    signal(SIGPIPE, SIG_IGN);
+#endif
+}
+
 #define BB_RUNTIME_MAX_WATCHERS 1024
 #define BB_RUNTIME_MAX_TIMERS 1024
 
@@ -57,6 +66,8 @@ bb_runtime_t *bb_runtime_default(void)
 
 bb_runtime_t *bb_runtime_create(void)
 {
+    _init_signals();
+
     bb_runtime_t *runtime = calloc(1, sizeof(bb_runtime_t));
 
     if (!runtime)

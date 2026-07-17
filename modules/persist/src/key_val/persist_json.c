@@ -50,16 +50,19 @@ static int json_save(bb_persist_kv_handle_t *h, const char *key,
 static int json_load(bb_persist_kv_handle_t *h, const char *key,
                      void *buf, size_t bufsize)
 {
-    (void) bufsize;
-
     if (!h || !key || !buf) return 1;
 
     bb_json_load(&h->json, h->jsonpath);
     bb_json_t *val_json = bb_json_object_get_value(h->json, key);
     if (val_json)
     {
+        size_t sz = bb_json_get_size(val_json);
+        if (sz > bufsize)
+        {
+            return 1;
+        }
         char *val = bb_json_get_value_text(val_json);
-        memcpy(buf, val, bb_json_get_size(val_json));    
+        memcpy(buf, val, sz);
         return 0;
     }
     return -1;

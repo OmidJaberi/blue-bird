@@ -220,7 +220,7 @@ static int json_find_all(bb_model_handle_t *handle, bb_schema_t *schema, void **
 {
     BB_ModelJSONHandle *h = (BB_ModelJSONHandle *)handle;
 
-    bb_json_t *root = bb_json_new_array();
+    bb_json_t *root = bb_json_new_object();
 
     /* load file */
     if (bb_json_load(&root, h->path) != 0)
