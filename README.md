@@ -1,6 +1,6 @@
 # Blue-Bird
 
-[![CI](https://github.com/OmidJaberi/blue-bird/actions/workflows/ci.yml/badge.svg)](https://github.com/OmidJaberi/blue-bird/actions/workflows/ci.yml)
+[![CI](https://github.com/OmidJaberi/blue-bird/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/OmidJaberi/blue-bird/actions/workflows/cmake-multi-platform.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![C11](https://img.shields.io/badge/C-C11-blue)
 ![CMake](https://img.shields.io/badge/CMake-3.20+-brightgreen)
