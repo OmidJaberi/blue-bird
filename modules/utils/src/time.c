@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 700
+
 #include "blue-bird/utils/time.h"
 
 #include <time.h>
