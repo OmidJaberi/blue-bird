@@ -127,6 +127,20 @@ void test_object_key_deletion(void)
     bb_json_destroy(obj);
 }
 
+void test_serialize_integer_json(void)
+{
+    printf("\tTesting serializing JSON integer...\n");
+    bb_json_t *json = bb_json_create(BB_JSON_INT);
+    bb_json_set_value_integer(json, -123);
+    char *buffer;
+    int size;
+    bb_json_serialize(json, &buffer, &size);
+    assert(size == 4);
+    assert(strcmp(buffer, "-123") == 0);
+    free(buffer);
+    bb_json_destroy(json);
+}
+
 void test_serialize_text_json(void)
 {
     printf("\tTesting serializing JSON text...\n");
@@ -136,6 +150,7 @@ void test_serialize_text_json(void)
     int size;
     bb_json_serialize(json, &buffer, &size);
     assert(strcmp(buffer, "\"123456\"") == 0);
+    assert(size == 8);
     free(buffer);
     bb_json_destroy(json);
 }
@@ -148,7 +163,9 @@ void test_serialize_text_json_with_escape_characters(void)
     char *buffer;
     int size;
     bb_json_serialize(json, &buffer, &size);
-    assert(strcmp(buffer, "\"sample text:\\t12\\\\34\\nanother line.\"") == 0);
+    char *expected = "\"sample text:\\t12\\\\34\\nanother line.\"";
+    assert(strcmp(buffer, expected) == 0);
+    assert(size == (int)strlen(expected));
     free(buffer);
     bb_json_destroy(json);
 }
@@ -167,7 +184,9 @@ void test_serialize_array_json(void)
     char *buffer;
     int size;
     bb_json_serialize(arr, &buffer, &size);
-    assert(strcmp(buffer, "[\"ZERO\", \"ONE\", \"TWO\", \"THREE\", \"FOUR\"]") == 0);
+    char *expected = "[\"ZERO\", \"ONE\", \"TWO\", \"THREE\", \"FOUR\"]";
+    assert(strcmp(buffer, expected) == 0);
+    assert(size == (int)strlen(expected));
     free(buffer);
     bb_json_destroy(arr);
 }
@@ -187,7 +206,9 @@ void test_serialize_object_json(void)
     char *buffer;
     int size;
     bb_json_serialize(obj, &buffer, &size);
-    assert(strcmp(buffer, "{\"one\": \"ichi\", \"two\": \"nii\", \"three\": \"san\", \"four\": \"yon\"}") == 0);
+    char *expected = "{\"one\": \"ichi\", \"two\": \"nii\", \"three\": \"san\", \"four\": \"yon\"}";
+    assert(strcmp(buffer, expected) == 0);
+    assert(size == (int)strlen(expected));
     free(buffer);
     bb_json_destroy(obj);
 }
@@ -211,29 +232,30 @@ void test_serialize_large_json(void)
         bb_json_object_set_value(json, key, value);
     }
     
-    char *large_buffer = (char *)malloc(sizeof(char) * 20000);
-    int index = sprintf(large_buffer, "{");
+    char *expected = (char *)malloc(sizeof(char) * 20000);
+    int index = sprintf(expected, "{");
     for (int i = 0; i < n; i++)
     {
-        index += sprintf(large_buffer + index, "\"%d\": ", i);
-        index += sprintf(large_buffer + index, "[");
+        index += sprintf(expected + index, "\"%d\": ", i);
+        index += sprintf(expected + index, "[");
         for (int j = 0; j < i; j++)
-            index += sprintf(large_buffer + index, "%d%s", j, j < i - 1 ? ", " : "");
-        index += sprintf(large_buffer + index, "]%s", i < n - 1 ? ", " : "");
+            index += sprintf(expected + index, "%d%s", j, j < i - 1 ? ", " : "");
+        index += sprintf(expected + index, "]%s", i < n - 1 ? ", " : "");
     }
-    index += sprintf(large_buffer + index, "}");
+    index += sprintf(expected + index, "}");
 
-    char *serialize_buffer;
+    char *buffer;
     int size;
-    bb_json_serialize(json, &serialize_buffer, &size);
+    bb_json_serialize(json, &buffer, &size);
 
-    assert(strcmp(large_buffer, serialize_buffer) == 0);
-    free(serialize_buffer);
-    free(large_buffer);
+    assert(strcmp(buffer, expected) == 0);
+    assert(size == (int)strlen(expected));
+    free(buffer);
+    free(expected);
     bb_json_destroy(json);
 }
 
-void test_parse_and_bb_json_serialize(void)
+void test_parse_and_serialize(void)
 {
     printf("\tTesting JSON parsing...\n");
     char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
@@ -243,6 +265,7 @@ void test_parse_and_bb_json_serialize(void)
     int size;
     bb_json_serialize(json, &buffer, &size);
     assert(strcmp(buffer, s) == 0);
+    assert(size == (int)strlen(s));
     free(buffer);
     bb_json_destroy(json);
 }
@@ -565,12 +588,13 @@ int main(void)
     test_object_key_overwrite();
     test_object_key_deletion();
 
+    test_serialize_integer_json();
     test_serialize_text_json();
     test_serialize_array_json();
     test_serialize_object_json();
     test_serialize_large_json();
 
-    test_parse_and_bb_json_serialize();
+    test_parse_and_serialize();
     test_parse_empty_text_json();
     test_parse_empty_array_json();
     test_parse_empty_object_json();

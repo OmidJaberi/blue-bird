@@ -57,8 +57,8 @@ bb_json_t *bb_json_object_get_value(bb_json_t *json_object, const char *key);
 bb_error_t bb_json_object_remove_key(bb_json_t *obj, const char *key);
 
 // Serializer
-int bb_json_serialize(bb_json_t *json, char **buffer, int *size);
-int bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size);
+bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size);
+bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size);
 
 // Parser
 bb_json_t *bb_json_parse(char *buffer);

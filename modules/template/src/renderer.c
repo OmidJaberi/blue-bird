@@ -87,8 +87,7 @@ static int bb_template_render_value(bb_string_builder_t *sb, bb_json_t *value)
     // Everything else:
     char *tmp;
     int size;
-    bb_json_serialize(value, &tmp, &size);
-    if (!tmp)
+    if (BB_FAILED(bb_json_serialize(value, &tmp, &size)) || !tmp)
     {
         return -1;
     }

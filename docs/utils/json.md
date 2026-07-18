@@ -45,7 +45,7 @@ bb_json_t *obj = BB_JSON(
 ```c
 int size;
 char *buffer;
-int rc = bb_json_serialize(&json, &buffer, &size);
+bb_error_t err = bb_json_serialize(&json, &buffer, &size);
 ```
 
 ---

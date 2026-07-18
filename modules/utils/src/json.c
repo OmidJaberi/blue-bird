@@ -511,6 +511,11 @@ static int serialize_int_json(bb_json_t *json, char *buffer)
     if (buffer)
         return sprintf(buffer, "%d", json->int_val);
     int val = json->int_val, len = 0;
+    if (val < 0)
+    {
+        val *= -1;
+        len++;
+    }
     while (val > 0)
     {
         val /= 10;
@@ -690,32 +695,36 @@ static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent)
     return serialize_json_to_allocated_buffer(json, buffer);
 }
 
-int bb_json_serialize(bb_json_t *json, char **buffer, int *size)
+bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size)
 {
     *size = serialize_json_to_allocated_buffer(json, NULL);
     if (!buffer)
-        return 1;
+    {
+        return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
+    }
     *buffer = (char*)malloc(*size * sizeof(char));
     if (!*buffer)
     {
-        return 1;
+        return BB_ERROR(BB_ERR_ALLOC, "Buffer allocation failed.");
     }
     serialize_json_to_allocated_buffer(json, *buffer);
-    return 0;
+    return BB_SUCCESS();
 }
 
-int bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
+bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
 {
     *size = serialize_json_with_indent(json, NULL, 0);
     if (!buffer)
-        return 1;
+    {
+        return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
+    }
     *buffer = (char*)malloc(*size * sizeof(char));
     if (!*buffer)
     {
-        return 1;
+        return BB_ERROR(BB_ERR_ALLOC, "Buffer allocation failed.");
     }
     serialize_json_with_indent(json, *buffer, 0);
-    return 0;
+    return BB_SUCCESS();
 }
 
 static bool is_substr(char *buffer, const char *str)
@@ -1124,7 +1133,7 @@ bb_error_t bb_json_dump(bb_json_t *json, const char *path)
 
     int size;
     char *buffer;
-    if (bb_json_serialize_indented(json, &buffer, &size) != 0)
+    if (BB_FAILED(bb_json_serialize_indented(json, &buffer, &size)))
     {
         if (buffer) free(buffer);
         return BB_ERROR(BB_ERR_INTERNAL, "Failed to serialize.");
