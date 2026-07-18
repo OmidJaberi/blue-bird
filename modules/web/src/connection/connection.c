@@ -271,12 +271,13 @@ ssize_t bb_connection_read(bb_connection_t *connection)
         }
 
         ssize_t n =
-            read(
+            recv(
                 connection->fd,
                 connection->buffer +
                 connection->buffer_length,
                 connection->buffer_capacity -
-                connection->buffer_length
+                connection->buffer_length,
+                0
             );
 
         if (n > 0)
@@ -292,7 +293,7 @@ ssize_t bb_connection_read(bb_connection_t *connection)
             return total;
         }
 
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        if (bb_socket_would_block())
         {
             break;
         }
@@ -323,7 +324,7 @@ ssize_t bb_connection_write(bb_connection_t *connection)
                 connection->write_data->write_offset += n;
                 continue;
             }
-            if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+            if (n < 0 && (bb_socket_would_block()))
             {
                 return 0;
             }

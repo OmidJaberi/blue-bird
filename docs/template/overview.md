@@ -179,7 +179,7 @@ int main(void)
         );
 
     bb_json_t ctx = OBJ(
-        KEY("name", TEXT("Blue-Bird"))
+        KEY("name", TEXTV("Blue-Bird"))
     );
 
     char *result;

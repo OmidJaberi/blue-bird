@@ -8,6 +8,7 @@ extern "C" {
 
 #include <blue-bird/error/error.h>
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -119,21 +120,30 @@ static inline bb_json_t *bb_json_new_object(void)
 #define BB_JSON(v) (v)
 
 #define NULLV()   bb_json_new_null()
-#define BOOL(v)   bb_json_new_bool(v)
-#define INT(v)    bb_json_new_int(v)
-#define REAL(v)   bb_json_new_real(v)
-#define TEXT(v)   bb_json_new_text(v)
+#define BOOLV(v)   bb_json_new_bool(v)
+#define INTV(v)    bb_json_new_int(v)
+#define REALV(v)   bb_json_new_real(v)
+#define TEXTV(v)   bb_json_new_text(v)
 
 
-#define ARR(...)                                                        \
-({                                                                      \
-    bb_json_t *_arr = bb_json_create(BB_JSON_ARRAY);                    \
-    bb_json_t *_items[] = { __VA_ARGS__ };                              \
-    int _n = sizeof(_items) / sizeof(_items[0]);                        \
-    for (int _i = 0; _i < _n; _i++)                                     \
-        bb_json_array_push(_arr, _items[_i]);                           \
-    _arr;                                                               \
-})
+static inline bb_json_t *bb_json_varr(bb_json_t *first, ...)
+{
+    bb_json_t *arr = bb_json_create(BB_JSON_ARRAY);
+    bb_json_t *item = first;
+    va_list args;
+
+    va_start(args, first);
+    while (item != NULL)
+    {
+        bb_json_array_push(arr, item);
+        item = va_arg(args, bb_json_t *);
+    }
+    va_end(args);
+
+    return arr;
+}
+
+#define ARR(...) bb_json_varr(__VA_ARGS__, (bb_json_t *)NULL)
 
 
 typedef struct {
@@ -142,15 +152,25 @@ typedef struct {
 } json_kv_t;
 
 #define KEY(k, v) ((json_kv_t){ (k), (v) })
-#define OBJ(...)                                                        \
-({                                                                      \
-    bb_json_t *_obj = bb_json_create(BB_JSON_OBJECT);                   \
-    json_kv_t _kvs[] = { __VA_ARGS__ };                                 \
-    int _n = sizeof(_kvs) / sizeof(_kvs[0]);                            \
-    for (int _i = 0; _i < _n; _i++)                                     \
-        bb_json_object_set_value(_obj, _kvs[_i].key, _kvs[_i].value);   \
-    _obj;                                                               \
-})
+
+static inline bb_json_t *bb_json_vobj(json_kv_t first, ...)
+{
+    bb_json_t *obj = bb_json_create(BB_JSON_OBJECT);
+    json_kv_t kv = first;
+    va_list args;
+
+    va_start(args, first);
+    while (kv.key != NULL)
+    {
+        bb_json_object_set_value(obj, kv.key, kv.value);
+        kv = va_arg(args, json_kv_t);
+    }
+    va_end(args);
+
+    return obj;
+}
+
+#define OBJ(...) bb_json_vobj(__VA_ARGS__, KEY(NULL, NULL))
 
 
 #ifdef __cplusplus

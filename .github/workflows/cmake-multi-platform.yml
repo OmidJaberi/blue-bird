@@ -46,7 +46,7 @@ jobs:
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
-        run: vcpkg install sqlite3:x64-windows
+        run: vcpkg install sqlite3:x64-windows pthreads:x64-windows
 
       - name: Configure (Linux)
         if: runner.os == 'Linux'

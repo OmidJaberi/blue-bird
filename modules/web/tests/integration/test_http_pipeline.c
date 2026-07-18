@@ -1,12 +1,12 @@
 #include "blue-bird/web/server.h"
 #include "blue-bird/web/client.h"
+#include "blue-bird/utils/platform.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
 
 bb_runtime_t *server_runtime = NULL;
 
@@ -770,11 +770,11 @@ void test_partial_request(void)
 
     send(fd, "GET / HTTP/1.1\r\n", 17, MSG_NOSIGNAL);
 
-    usleep(10000);
+    bb_usleep(10000);
 
     send(fd, "Host: localhost\r\n", 17, MSG_NOSIGNAL);
 
-    usleep(10000);
+    bb_usleep(10000);
 
     send(fd, "\r\n", 2, MSG_NOSIGNAL);
 
@@ -998,7 +998,7 @@ int main(void)
 
     while (!bb_runtime_is_running(server_runtime))
     {
-        usleep(10000);
+        bb_usleep(10000);
     }
 
     test_root_req();

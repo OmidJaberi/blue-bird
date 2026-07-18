@@ -176,8 +176,8 @@ void app_send_json(bb_response_t *res, int status, bb_json_t *json)
 void app_send_error(bb_response_t *res, int status, const char *msg)
 {
     bb_json_t *json = OBJ(
-        KEY("ok", BOOL(false)),
-        KEY("error", TEXT(msg))
+        KEY("ok", BOOLV(false)),
+        KEY("error", TEXTV(msg))
     );
 
     app_send_json(res, status, json);

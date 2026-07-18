@@ -5,6 +5,7 @@
 #include <blue-bird/log/log.h>
 #include <blue-bird/utils/json.h>
 #include <blue-bird/utils/uuid.h>
+#include <blue-bird/utils/platform.h>
 #include <blue-bird/security/session.h>
 
 #include <stdlib.h>
@@ -150,8 +151,8 @@ static void ws_send_json(bb_websocket_t *ws, bb_json_t *json)
 static void ws_send_error(bb_websocket_t *ws, const char *msg)
 {
     ws_send_json(ws, OBJ(
-        KEY("type", TEXT("error")),
-        KEY("error", TEXT(msg))
+        KEY("type", TEXTV("error")),
+        KEY("error", TEXTV(msg))
     ));
 }
 
@@ -166,8 +167,8 @@ static void handle_auth(bb_websocket_t *ws, bb_json_t *json)
     if (!session_id)
     {
         ws_send_json(ws, OBJ(
-            KEY("type", TEXT("auth_error")),
-            KEY("error", TEXT("missing session_id"))
+            KEY("type", TEXTV("auth_error")),
+            KEY("error", TEXTV("missing session_id"))
         ));
         return;
     }
@@ -177,8 +178,8 @@ static void handle_auth(bb_websocket_t *ws, bb_json_t *json)
     if (BB_FAILED(bb_session_get(session_id, &session)))
     {
         ws_send_json(ws, OBJ(
-            KEY("type", TEXT("auth_error")),
-            KEY("error", TEXT("invalid or expired session"))
+            KEY("type", TEXTV("auth_error")),
+            KEY("error", TEXTV("invalid or expired session"))
         ));
         return;
     }
@@ -186,8 +187,8 @@ static void handle_auth(bb_websocket_t *ws, bb_json_t *json)
     online_add(session.user_id, ws);
 
     ws_send_json(ws, OBJ(
-        KEY("type", TEXT("auth_ok")),
-        KEY("username", TEXT(session.user_id))
+        KEY("type", TEXTV("auth_ok")),
+        KEY("username", TEXTV(session.user_id))
     ));
 
     BB_LOG_INFO("[chat] %s connected\n", session.user_id);
@@ -232,12 +233,12 @@ static void handle_chat_message(bb_websocket_t *ws, bb_json_t *json)
     }
 
     bb_json_t *payload = OBJ(
-        KEY("type", TEXT("message")),
-        KEY("id", TEXT(m.id)),
-        KEY("from", TEXT(m.from_user)),
-        KEY("to", TEXT(m.to_user)),
-        KEY("body", TEXT(m.body)),
-        KEY("created_at", INT(m.created_at))
+        KEY("type", TEXTV("message")),
+        KEY("id", TEXTV(m.id)),
+        KEY("from", TEXTV(m.from_user)),
+        KEY("to", TEXTV(m.to_user)),
+        KEY("body", TEXTV(m.body)),
+        KEY("created_at", INTV(m.created_at))
     );
 
     /* Echo back to the sender so their UI can confirm delivery/id. */
@@ -272,7 +273,7 @@ bb_error_t chat_ws_handler(bb_websocket_t *ws, const bb_ws_message_t *message)
         return BB_SUCCESS();
     }
 
-    char *raw = strndup((const char *) message->data, message->length);
+    char *raw = bb_strndup((const char *) message->data, message->length);
     if (!raw)
     {
         return BB_ERROR(BB_ERR_ALLOC, "allocation failed");

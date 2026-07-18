@@ -15,6 +15,15 @@ option(BUILD_TESTS "Build tests" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
 option(BLUEBIRD_INSTALL "Install Blue-Bird" OFF)
 
+# Thread library
+if(WIN32)
+    find_package(PThreads4W REQUIRED)
+    set(BLUEBIRD_THREADS_TARGET PThreads4W::PThreads4W)
+else()
+    find_package(Threads REQUIRED)
+    set(BLUEBIRD_THREADS_TARGET Threads::Threads)
+endif()
+
 # Global warnings
 if(MSVC)
     add_compile_options(/W4)

@@ -30,9 +30,9 @@ bb_error_t root(bb_request_t *req, bb_response_t *res)
     {
         bb_json_t *task =
             OBJ(
-                KEY("id", TEXT(tasks[i].id)),
-                KEY("name", TEXT(tasks[i].name)),
-                KEY("status", TEXT(tasks[i].status))
+                KEY("id", TEXTV(tasks[i].id)),
+                KEY("name", TEXTV(tasks[i].name)),
+                KEY("status", TEXTV(tasks[i].status))
             );
 
         bb_json_array_push(task_array, task);
@@ -180,9 +180,9 @@ bb_error_t list_tasks(bb_request_t *req, bb_response_t *res)
     {
         bb_json_t *task = BB_JSON(
             OBJ(
-                KEY("id", TEXT(tasks[i].id)),
-                KEY("name", TEXT(tasks[i].name)),
-                KEY("status", TEXT(tasks[i].status))
+                KEY("id", TEXTV(tasks[i].id)),
+                KEY("name", TEXTV(tasks[i].name)),
+                KEY("status", TEXTV(tasks[i].status))
             )
         );
         bb_json_array_push(task_list, task);

@@ -1,5 +1,6 @@
 #include "blue-bird/utils/json.h"
 #include <blue-bird/error/assert.h>
+#include <blue-bird/utils/platform.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -557,15 +558,15 @@ void test_json_dsl_macros(void)
     printf("\tTesting JSON DSL Macros...\n");
     bb_json_t *doc = BB_JSON(
         OBJ(
-            KEY("name", TEXT("Alice")),
-            KEY("age", INT(30)),
-            KEY("admin", BOOL(false)),
-            KEY("scores", ARR(INT(10), INT(20), INT(30))),
+            KEY("name", TEXTV("Alice")),
+            KEY("age", INTV(30)),
+            KEY("admin", BOOLV(false)),
+            KEY("scores", ARR(INTV(10), INTV(20), INTV(30))),
             KEY("misc", NULLV()),
             KEY("nested",
                 OBJ(
-                    KEY("pi", REAL(3.14)),
-                    KEY("ok", BOOL(true))
+                    KEY("pi", REALV(3.14)),
+                    KEY("ok", BOOLV(true))
                 )
             )
         )

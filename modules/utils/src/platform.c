@@ -55,3 +55,14 @@ int bb_socket_last_error(void)
     return errno;
 #endif
 }
+
+void bb_usleep(unsigned int usec)
+{
+#if defined(_WIN32)
+    /* Sleep() is millisecond resolution. */
+    DWORD msec = (usec + 999) / 1000;
+    Sleep(msec);
+#else
+    usleep(usec);
+#endif
+}

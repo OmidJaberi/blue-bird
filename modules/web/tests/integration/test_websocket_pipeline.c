@@ -1,6 +1,7 @@
 #include "blue-bird/runtime/runtime.h"
 #include "blue-bird/web/server.h"
 #include "blue-bird/web/websocket/websocket.h"
+#include "blue-bird/utils/platform.h"
 
 #include <blue-bird/error/assert.h>
 #include <pthread.h>
@@ -675,7 +676,7 @@ int main(void)
 
     while (!started)
     {
-        usleep(10000);
+        bb_usleep(10000);
     }
 
     printf("Testing websocket client/server integration:\n");

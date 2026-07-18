@@ -2,7 +2,6 @@
 #include "blue-bird/error/assert.h"
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #define MAX_SEGMENTS 20
 #define MAX_PATH_LEN 256

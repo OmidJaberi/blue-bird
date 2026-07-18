@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <blue-bird/utils/platform.h>
+
 static const char *find_bytes(const char *buf, size_t len,
                               const char *needle, size_t needle_len)
 {

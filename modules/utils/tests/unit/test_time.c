@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <blue-bird/error/assert.h>
-#include <unistd.h>
+#include <blue-bird/utils/platform.h>
 
 
 void test_now_sec(void)

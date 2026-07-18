@@ -1,10 +1,10 @@
 #include "connection/connection.h"
 
+#include <blue-bird/utils/platform.h>
 #include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdlib.h>
 
 #define TEST_PORT 18080
@@ -25,7 +25,7 @@ static void *server_thread(void *arg)
 
     while (!finished)
     {
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     bb_connection_destroy(server_listener);
@@ -50,7 +50,7 @@ static void connection_test(void)
     while (!server)
     {
         server = bb_connection_accept(server_listener->fd);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     BB_ASSERT(server != NULL);
@@ -72,7 +72,7 @@ static void client_to_server_test(void)
     while (!server)
     {
         server = bb_connection_accept(server_listener->fd);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     char *msg = malloc(6);
@@ -84,7 +84,7 @@ static void client_to_server_test(void)
     while (server->buffer_length < 6)
     {
         bb_connection_read(server);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     BB_ASSERT(server->buffer_length == 6);
@@ -107,7 +107,7 @@ static void server_to_client_test(void)
     while (!server)
     {
         server = bb_connection_accept(server_listener->fd);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     char *msg = malloc(6);
@@ -119,7 +119,7 @@ static void server_to_client_test(void)
     while (client->buffer_length < 6)
     {
         bb_connection_read(client);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     BB_ASSERT(client->buffer_length == 6);
@@ -144,7 +144,7 @@ static void large_transfer_test(void)
     while (!server)
     {
         server = bb_connection_accept(server_listener->fd);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     char *buffer = malloc(LARGE_SIZE);
@@ -157,7 +157,7 @@ static void large_transfer_test(void)
     while (server->buffer_length < LARGE_SIZE)
     {
         bb_connection_read(server);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     BB_ASSERT(server->buffer_length == LARGE_SIZE);
@@ -175,13 +175,14 @@ static void large_transfer_test(void)
 
 int main(void)
 {
+    bb_platform_net_init();
     pthread_t thread;
 
     BB_ASSERT(pthread_create(&thread, NULL, server_thread, NULL) == 0);
 
     while (!server_listener)
     {
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     printf("Running connection integration tests...\n");

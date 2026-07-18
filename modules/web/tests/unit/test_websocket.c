@@ -1,7 +1,7 @@
 #include "blue-bird/web/websocket/websocket.h"
 #include "websocket/websocket_internal.h"
 
-#include <arpa/inet.h>
+#include <blue-bird/utils/platform.h>
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -32,8 +32,8 @@ Example:
 ```c
 bb_json_t *obj = BB_JSON(
     OBJ(
-        KEY("name", TEXT("Bob")),
-        KEY("age", INT(24))
+        KEY("name", TEXTV("Bob")),
+        KEY("age", INTV(24))
     )
 );
 ```
@@ -59,8 +59,8 @@ Example:
 ```c
 BB_JSON(
     OBJ(
-        KEY("active", BOOL(true)),
-        KEY("count", INT(10))
+        KEY("active", BOOLV(true)),
+        KEY("count", INTV(10))
     )
 )
 ```

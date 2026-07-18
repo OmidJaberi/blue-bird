@@ -1,4 +1,5 @@
 #include "blue-bird/utils/bb_config.h"
+#include "blue-bird/utils/platform.h"
 
 #include <stdlib.h>
 #include <string.h>

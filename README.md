@@ -209,9 +209,9 @@ int main(void)
 ```c
 bb_json_t *obj = BB_JSON(
     OBJ(
-        KEY("name", TEXT("Bob")),
-        KEY("age", INT(24)),
-        KEY("active", BOOL(true))
+        KEY("name", TEXTV("Bob")),
+        KEY("age", INTV(24)),
+        KEY("active", BOOLV(true))
     )
 );
 ```

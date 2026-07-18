@@ -93,8 +93,8 @@ bb_error_t api_register(bb_request_t *req, bb_response_t *res)
     app_set_session_cookie(res, session.id);
 
     app_send_json(res, 201, OBJ(
-        KEY("ok", BOOL(true)),
-        KEY("username", TEXT(u.username))
+        KEY("ok", BOOLV(true)),
+        KEY("username", TEXTV(u.username))
     ));
 
     BB_LOG_INFO("[chat] registered user %s\n", u.username);
@@ -157,8 +157,8 @@ bb_error_t api_login(bb_request_t *req, bb_response_t *res)
     app_set_session_cookie(res, session.id);
 
     app_send_json(res, 200, OBJ(
-        KEY("ok", BOOL(true)),
-        KEY("username", TEXT(session.user_id))
+        KEY("ok", BOOLV(true)),
+        KEY("username", TEXTV(session.user_id))
     ));
 
     return BB_SUCCESS();
@@ -175,7 +175,7 @@ bb_error_t api_logout(bb_request_t *req, bb_response_t *res)
 
     app_clear_session_cookie(res);
 
-    app_send_json(res, 200, OBJ(KEY("ok", BOOL(true))));
+    app_send_json(res, 200, OBJ(KEY("ok", BOOLV(true))));
 
     return BB_SUCCESS();
 }
@@ -191,8 +191,8 @@ bb_error_t api_me(bb_request_t *req, bb_response_t *res)
     }
 
     app_send_json(res, 200, OBJ(
-        KEY("ok", BOOL(true)),
-        KEY("username", TEXT(session.user_id))
+        KEY("ok", BOOLV(true)),
+        KEY("username", TEXTV(session.user_id))
     ));
 
     return BB_SUCCESS();
@@ -227,15 +227,15 @@ bb_error_t api_list_users(bb_request_t *req, bb_response_t *res)
         }
 
         bb_json_array_push(list, OBJ(
-            KEY("username", TEXT(users[i].username)),
-            KEY("online", BOOL(chat_is_online(users[i].username)))
+            KEY("username", TEXTV(users[i].username)),
+            KEY("online", BOOLV(chat_is_online(users[i].username)))
         ));
     }
 
     free(users);
 
     app_send_json(res, 200, OBJ(
-        KEY("ok", BOOL(true)),
+        KEY("ok", BOOLV(true)),
         KEY("users", list)
     ));
 
@@ -274,19 +274,19 @@ bb_error_t api_conversation(bb_request_t *req, bb_response_t *res)
     for (size_t i = 0; i < count; i++)
     {
         bb_json_array_push(list, OBJ(
-            KEY("id", TEXT(messages[i].id)),
-            KEY("from", TEXT(messages[i].from_user)),
-            KEY("to", TEXT(messages[i].to_user)),
-            KEY("body", TEXT(messages[i].body)),
-            KEY("created_at", INT(messages[i].created_at))
+            KEY("id", TEXTV(messages[i].id)),
+            KEY("from", TEXTV(messages[i].from_user)),
+            KEY("to", TEXTV(messages[i].to_user)),
+            KEY("body", TEXTV(messages[i].body)),
+            KEY("created_at", INTV(messages[i].created_at))
         ));
     }
 
     free(messages);
 
     app_send_json(res, 200, OBJ(
-        KEY("ok", BOOL(true)),
-        KEY("peer", TEXT(peer)),
+        KEY("ok", BOOLV(true)),
+        KEY("peer", TEXTV(peer)),
         KEY("messages", list)
     ));
 

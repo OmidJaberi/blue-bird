@@ -2,11 +2,12 @@
 #include "blue-bird/runtime/runtime.h"
 
 #include <blue-bird/error/assert.h>
+#include <blue-bird/utils/platform.h>
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #define TEST_PORT 18081
 
@@ -125,7 +126,7 @@ static void async_connect_accept_test(void)
             listener->connection->fd);
 
         bb_runtime_tick(runtime);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     BB_ASSERT(server);
@@ -167,7 +168,7 @@ static void async_write_callback_test(void)
     while (!write_called)
     {
         bb_runtime_tick(runtime);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     bb_async_connection_destroy(client);
@@ -208,7 +209,7 @@ static void async_read_callback_test(void)
     while (!read_called)
     {
         bb_runtime_tick(runtime);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     BB_ASSERT(error_called == 0);
@@ -249,7 +250,7 @@ static void async_read_more_test(void)
     while (!read_called)
     {
         bb_runtime_tick(runtime);
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     BB_ASSERT(server->read_task == NULL);
@@ -271,7 +272,7 @@ int main(void)
 
     while (!listener)
     {
-        usleep(1000);
+        bb_usleep(1000);
     }
 
     printf("Running async connection integration tests...\n");

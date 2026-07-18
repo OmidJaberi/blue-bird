@@ -1,6 +1,8 @@
 #include "blue-bird/web/http/message.h"
 #include "blue-bird/utils/encoding.h"
 
+#include <blue-bird/utils/platform.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

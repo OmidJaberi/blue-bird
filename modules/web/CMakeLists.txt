@@ -26,9 +26,10 @@ target_include_directories(bluebird_web
     PRIVATE
         internal
 )
-
 target_link_libraries(bluebird_web
     PUBLIC
+        ${BLUEBIRD_THREADS_TARGET}
+
         bluebird_utils
         bluebird_error
         bluebird_runtime

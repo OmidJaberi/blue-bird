@@ -48,7 +48,7 @@ static void test_simple_variable_render(void)
     BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
-        KEY("name", TEXT("Blue"))
+        KEY("name", TEXTV("Blue"))
     );
 
     char *result;
@@ -77,7 +77,7 @@ static void test_nested_variable_render(void)
     BB_ASSERT(tpl != NULL);
 
     bb_json_t *user = OBJ(
-        KEY("name", TEXT("BlueBird"))
+        KEY("name", TEXTV("BlueBird"))
     );
 
     bb_json_t *ctx = OBJ(
@@ -142,7 +142,7 @@ static void test_numeric_render(void)
     BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
-        KEY("port", INT(8080))
+        KEY("port", INTV(8080))
     );
 
     char *result;
@@ -176,7 +176,7 @@ static void test_boolean_render(void)
     BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
-        KEY("enabled", BOOL(1))
+        KEY("enabled", BOOLV(1))
     );
 
     char *result;
@@ -256,14 +256,14 @@ static void test_section_render(void)
     bb_json_array_push(
         items,
         OBJ(
-            KEY("name", TEXT("Alpha"))
+            KEY("name", TEXTV("Alpha"))
         )
     );
 
     bb_json_array_push(
         items,
         OBJ(
-            KEY("name", TEXT("Beta"))
+            KEY("name", TEXTV("Beta"))
         )
     );
 
@@ -307,14 +307,14 @@ static void test_nested_sections(void)
     bb_json_array_push(
         posts,
         OBJ(
-            KEY("title", TEXT("Post A"))
+            KEY("title", TEXTV("Post A"))
         )
     );
 
     bb_json_array_push(
         posts,
         OBJ(
-            KEY("title", TEXT("Post B"))
+            KEY("title", TEXTV("Post B"))
         )
     );
 
@@ -323,7 +323,7 @@ static void test_nested_sections(void)
     bb_json_array_push(
         users,
         OBJ(
-            KEY("name", TEXT("Blue")),
+            KEY("name", TEXTV("Blue")),
             KEY("posts", posts)
         )
     );
@@ -366,7 +366,7 @@ static void test_conditional_truthy(void)
     BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
-        KEY("logged_in", BOOL(1))
+        KEY("logged_in", BOOLV(1))
     );
 
     char *result;
@@ -396,7 +396,7 @@ static void test_conditional_falsy(void)
     BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
-        KEY("logged_in", BOOL(0))
+        KEY("logged_in", BOOLV(0))
     );
 
     char *result;
@@ -460,12 +460,12 @@ static void test_parent_context_lookup(void)
     bb_json_array_push(
         users,
         OBJ(
-            KEY("name", TEXT("Blue"))
+            KEY("name", TEXTV("Blue"))
         )
     );
 
     bb_json_t *ctx = OBJ(
-        KEY("site", TEXT("BlueBird")),
+        KEY("site", TEXTV("BlueBird")),
         KEY("users", users)
     );
 

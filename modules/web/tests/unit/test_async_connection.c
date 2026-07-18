@@ -2,9 +2,8 @@
 #include "blue-bird/runtime/runtime.h"
 
 #include <blue-bird/error/assert.h>
+#include <blue-bird/utils/platform.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 static bb_read_status_t dummy_read_step(void *userdata)
 {
