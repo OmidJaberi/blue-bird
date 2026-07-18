@@ -61,7 +61,7 @@ int bb_json_serialize(bb_json_t *json, char **buffer, int *size);
 int bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size);
 
 // Parser
-int bb_json_parse(bb_json_t **json, char *buffer);
+bb_json_t *bb_json_parse(char *buffer);
 
 // Compare
 int bb_json_compare(bb_json_t *json_a, bb_json_t *json_b); // 0 for equal, -1 for not equal

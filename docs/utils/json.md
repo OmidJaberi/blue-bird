@@ -20,8 +20,7 @@ The JSON module provides parsing, serialization, and JSON object utilities.
 Example:
 
 ```c
-bb_json_t *json;
-int rc = bb_json_parse(&json, "{ \"name\": \"Bob\" }");
+bb_json_t *json = bb_json_parse("{ \"name\": \"Bob\" }");
 ```
 
 ---

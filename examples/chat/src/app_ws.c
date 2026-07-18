@@ -278,9 +278,9 @@ bb_error_t chat_ws_handler(bb_websocket_t *ws, const bb_ws_message_t *message)
         return BB_ERROR(BB_ERR_ALLOC, "allocation failed");
     }
 
-    bb_json_t *json = NULL;
+    bb_json_t *json = bb_json_parse(raw);
 
-    if (bb_json_parse(&json, raw) < 0 || !json || bb_json_get_type(json) != BB_JSON_OBJECT)
+    if (!json || bb_json_get_type(json) != BB_JSON_OBJECT)
     {
         free(raw);
         ws_send_error(ws, "invalid JSON");

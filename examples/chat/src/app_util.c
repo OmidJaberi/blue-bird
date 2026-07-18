@@ -115,9 +115,9 @@ bb_json_t *app_parse_body_json(bb_request_t *req)
         return NULL;
     }
 
-    bb_json_t *json = NULL;
+    bb_json_t *json = bb_json_parse(copy);
 
-    if (bb_json_parse(&json, copy) < 0 || !json)
+    if (!json)
     {
         free(copy);
         return NULL;

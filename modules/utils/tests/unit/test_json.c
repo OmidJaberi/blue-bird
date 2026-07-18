@@ -36,8 +36,7 @@ void test_json_array(void)
 void test_bb_json_array_remove_at_index(void)
 {
     printf("\tTesting JSON array remove at index...\n");
-    bb_json_t *arr;
-    bb_json_parse(&arr, "[1, 2, 3, 4, 5, 6, 7, 8]");
+    bb_json_t *arr = bb_json_parse("[1, 2, 3, 4, 5, 6, 7, 8]");
     bb_json_array_remove_at_index(arr, 2);
     assert(bb_json_get_size(arr) == 7);
     char *buffer;
@@ -238,8 +237,7 @@ void test_parse_and_bb_json_serialize(void)
 {
     printf("\tTesting JSON parsing...\n");
     char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
-    bb_json_t *json;
-    bb_json_parse(&json, s);
+    bb_json_t *json = bb_json_parse(s);
 
     char *buffer;
     int size;
@@ -252,9 +250,8 @@ void test_parse_and_bb_json_serialize(void)
 void test_parse_empty_text_json(void)
 {
     printf("\tTesting empty text JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "\"\"");
-    assert(res != -1);
+    bb_json_t *json = bb_json_parse("\"\"");
+    assert(json != NULL);
     assert(bb_json_get_size(json) == 0);
     bb_json_destroy(json);
 }
@@ -262,9 +259,8 @@ void test_parse_empty_text_json(void)
 void test_parse_empty_array_json(void)
 {
     printf("\tTesting empty array JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "[]");
-    assert(res != -1);
+    bb_json_t *json = bb_json_parse("[]");
+    assert(json != NULL);
     assert(bb_json_get_size(json) == 0);
     bb_json_destroy(json);
 }
@@ -272,9 +268,8 @@ void test_parse_empty_array_json(void)
 void test_parse_empty_object_json(void)
 {
     printf("\tTesting empty object JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{}");
-    assert(res != -1);
+    bb_json_t *json = bb_json_parse("{}");
+    assert(json != NULL);
     assert(bb_json_get_size(json) == 0);
     bb_json_destroy(json);
 }
@@ -294,8 +289,7 @@ void test_parse_large_json(void)
         index += sprintf(large_buffer + index, "]%s", (i + 1) < n ? ", " : "");
     }
     index += sprintf(large_buffer + index, "}");
-    bb_json_t *json;
-    bb_json_parse(&json, large_buffer);
+    bb_json_t *json = bb_json_parse(large_buffer);
     assert(bb_json_get_size(json) == n);
     for (unsigned int i = 0; i < n; i++)
     {
@@ -322,9 +316,8 @@ void test_parse_text_with_escapes(void)
     // JSON source text (escaped, not raw C escapes)
     char *s = "\"hello\\nworld\\t\\u0001\"";
 
-    bb_json_t *json;
-    int res = bb_json_parse(&json, s);
-    assert(res > 0);
+    bb_json_t *json = bb_json_parse(s);
+    assert(json != NULL);
 
     assert(bb_json_get_type(json) == BB_JSON_TEXT);
 
@@ -350,8 +343,7 @@ void test_serialize_json_size(void)
 {
     printf("\tTesting serialized JSON size...\n");
     char *s = "[\"one\", \"two\", \"escape\tcharacter\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
-    bb_json_t *json;
-    bb_json_parse(&json, s);
+    bb_json_t *json = bb_json_parse(s);
 
     char *buffer;
     int size, null_size, str_size;
@@ -368,89 +360,78 @@ void test_serialize_json_size(void)
 void test_incomplete_text_json(void)
 {
     printf("\tTesting incomplete text JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "\"text with no ending quotation mark.");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("\"text with no ending quotation mark.");
+    assert(json == NULL);
 }
 
 void test_incomplete_array_json(void)
 {
     printf("\tTesting incomplete array JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "[1, 2, 3");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("[1, 2, 3");
+    assert(json == NULL);
 }
 
 void test_multiple_comma_array_json(void)
 {
     printf("\tTesting multiple comma array JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "[1, 2, , 3]");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("[1, 2, , 3]");
+    assert(json == NULL);
 }
 
 void test_missing_comma_array_json(void)
 {
     printf("\tTesting missing comma array JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "[1, 2 3, 4]");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("[1, 2 3, 4]");
+    assert(json == NULL);
 }
 
 void test_incomplete_object_json(void)
 {
     printf("\tTesting incomplete object JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{\"one\": 1, \"two\": 2, \"three\": 3");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3");
+    assert(json == NULL);
 }
 
 void test_multiple_comma_object_json(void)
 {
     printf("\tTesting multiple comma object JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{\"one\": 1, , \"two\": 2, \"three\": 3}");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("{\"one\": 1, , \"two\": 2, \"three\": 3}");
+    assert(json == NULL);
 }
 
 void test_missing_comma_object_json(void)
 {
     printf("\tTesting missing comma object JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{\"one\": 1 \"two\": 2, \"three\": 3}");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("{\"one\": 1 \"two\": 2, \"three\": 3}");
+    assert(json == NULL);
 }
 
 void test_missing_colon_object_json(void)
 {
     printf("\tTesting missing colon object JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{\"one\": 1, \"two\" 2, \"three\": 3}");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("{\"one\": 1, \"two\" 2, \"three\": 3}");
+    assert(json == NULL);
 }
 
 void test_missing_value_object_json(void)
 {
     printf("\tTesting missing value object JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{\"one\": 1, \"two\": , \"three\": 3}");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("{\"one\": 1, \"two\": , \"three\": 3}");
+    assert(json == NULL);
 }
 
 void test_missing_key_object_json(void)
 {
     printf("\tTesting missing key object JSON parsing...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{\"one\": 1, : 2 , \"three\": 3}");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("{\"one\": 1, : 2 , \"three\": 3}");
+    assert(json == NULL);
 }
 
 void test_parse_json_with_trailing_str(void)
 {
     printf("\tTesting parsing object JSON with trailing str...\n");
-    bb_json_t *json;
-    int res = bb_json_parse(&json, "{\"one\": 1, \"two\": 2 , \"three\": 3}something unrelated");
-    assert(res == -1);
+    bb_json_t *json = bb_json_parse("{\"one\": 1, \"two\": 2 , \"three\": 3}something unrelated");
+    assert(json == NULL);
 }
 
 void test_serialize_with_non_empty_buffer(void)
@@ -475,9 +456,8 @@ void test_serialize_with_non_empty_buffer(void)
 void test_compare_equal_jsons(void)
 {
     printf("\tTesting comparison of equal JSONs...\n");
-    bb_json_t *json_1, *json_2;
-    bb_json_parse(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
-    bb_json_parse(&json_2, "{\"one\": 1, \"two\": 2, \"three\": 3}");
+    bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
+    bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
     assert(bb_json_compare(json_1, json_2) == 0);
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
@@ -486,9 +466,8 @@ void test_compare_equal_jsons(void)
 void test_compare_equal_jsons_different_order(void)
 {
     printf("\tTesting comparison of equal JSONs with different order...\n");
-    bb_json_t *json_1, *json_2;
-    bb_json_parse(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
-    bb_json_parse(&json_2, "{\"one\": 1, \"three\": 3, \"two\": 2}");
+    bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
+    bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"three\": 3, \"two\": 2}");
     assert(bb_json_compare(json_1, json_2) == 0);
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
@@ -497,9 +476,8 @@ void test_compare_equal_jsons_different_order(void)
 void test_compare_jsons_missing_key(void)
 {
     printf("\tTesting comparison of JSONs: missing key...\n");
-    bb_json_t *json_1, *json_2;
-    bb_json_parse(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3}");
-    bb_json_parse(&json_2, "{\"one\": 1, \"two\": 2}");
+    bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
+    bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"two\": 2}");
     assert(bb_json_compare(json_1, json_2) != 0);
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
@@ -508,9 +486,8 @@ void test_compare_jsons_missing_key(void)
 void test_compare_jsons_extra_key(void)
 {
     printf("\tTesting comparison of JSONs: extra key...\n");
-    bb_json_t *json_1, *json_2;
-    bb_json_parse(&json_1, "{\"one\": 1, \"two\": 2}");
-    bb_json_parse(&json_2, "{\"one\": 1, \"two\": 2, \"three\": 3}");
+    bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2}");
+    bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
     assert(bb_json_compare(json_1, json_2) != 0);
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
@@ -519,9 +496,8 @@ void test_compare_jsons_extra_key(void)
 void test_compare_complex_equal_jsons(void)
 {
     printf("\tTesting comparison of complex equal JSONs...\n");
-    bb_json_t *json_1, *json_2;
-    bb_json_parse(&json_1, "{\"one\": 1, \"two\": 2, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}]}");
-    bb_json_parse(&json_2, "{\"one\": 1, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}], \"two\": 2}");
+    bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}]}");
+    bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}], \"two\": 2}");
     assert(bb_json_compare(json_1, json_2) == 0);
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);

@@ -971,16 +971,16 @@ static int parse_json_str_partial(bb_json_t **json, char *buffer)
     }
 }
 
-int bb_json_parse(bb_json_t **json, char *buffer)
+bb_json_t *bb_json_parse(char *buffer)
 {
-    int res = parse_json_str_partial(json, buffer);
+    bb_json_t *json = NULL;
+    int res = parse_json_str_partial(&json, buffer);
     if ((size_t)res != strlen(buffer))
     {
-        bb_json_destroy(*json);
-        *json = NULL;
-        return -1;
+        bb_json_destroy(json);
+        json = NULL;
     }
-    return res;
+    return json;
 }
 
 static int compare_json_bool(bb_json_t *json_a, bb_json_t *json_b)
@@ -1108,11 +1108,9 @@ bb_json_t *bb_json_load(const char *path)
     buffer[size] = '\0';
     fclose(f);
 
-    bb_json_t *json = bb_json_create(BB_JSON_NULL);
-
-    int res = bb_json_parse(&json, buffer);
+    bb_json_t *json = bb_json_parse(buffer);
     free(buffer);
-    return res < 0 ? NULL : json;
+    return json;
 }
 
 bb_error_t bb_json_dump(bb_json_t *json, const char *path)
