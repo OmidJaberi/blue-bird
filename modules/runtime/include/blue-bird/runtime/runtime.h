@@ -25,6 +25,8 @@ void bb_runtime_run(bb_runtime_t *runtime);
 
 void bb_runtime_stop(bb_runtime_t *runtime);
 
+bool bb_runtime_is_running(bb_runtime_t *runtime);
+
 void bb_runtime_tick(bb_runtime_t *runtime);
 
 bb_task_t *bb_runtime_schedule(bb_runtime_t *runtime, bb_task_cb callback, void *userdata);

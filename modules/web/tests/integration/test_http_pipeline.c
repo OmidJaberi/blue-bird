@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
-bb_runtime_t *server_runtime;
+bb_runtime_t *server_runtime = NULL;
 
 bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
 {
@@ -994,6 +994,11 @@ int main(void)
     {
         fprintf(stderr, "Error creating server thread\n");
         return 1;
+    }
+
+    while (!bb_runtime_is_running(server_runtime))
+    {
+        usleep(10000);
     }
 
     test_root_req();

@@ -9,6 +9,7 @@
 
 #define TEST_PORT 8081
 
+static volatile int started = 0;
 static volatile int finished = 0;
 
 /* ============================================================
@@ -41,6 +42,7 @@ static void *server_thread(void *arg)
 
     bb_server_start(server);
 
+    started = 1;
     while (!finished)
     {
         bb_runtime_tick(runtime);
@@ -670,6 +672,11 @@ int main(void)
     pthread_t thread;
 
     assert(pthread_create(&thread, NULL, server_thread, NULL) == 0);
+
+    while (!started)
+    {
+        usleep(10000);
+    }
 
     printf("Testing websocket client/server integration:\n");
 

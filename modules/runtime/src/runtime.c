@@ -37,7 +37,7 @@ typedef struct {
 } _bb_runtime_timer_t;
 
 struct bb_runtime {
-    int running;
+    bool running;
     bb_scheduler_t *scheduler;
     bb_poller_t *poller;
 
@@ -95,7 +95,7 @@ bb_runtime_t *bb_runtime_create(void)
         return NULL;
     }
 
-    runtime->running = 0;
+    runtime->running = false;
 
     return runtime;
 }
@@ -291,7 +291,7 @@ void bb_runtime_run(bb_runtime_t *runtime)
         return;
     }
 
-    runtime->running = 1;
+    runtime->running = true;
 
     while (runtime->running)
     {
@@ -306,7 +306,16 @@ void bb_runtime_stop(bb_runtime_t *runtime)
         return;
     }
 
-    runtime->running = 0;
+    runtime->running = false;
+}
+
+bool bb_runtime_is_running(bb_runtime_t *runtime)
+{
+    if (!runtime)
+    {
+        return false;
+    }
+    return runtime->running;
 }
 
 static int _bb_runtime_find_watcher_exact(bb_runtime_t *runtime, int fd, int events)
