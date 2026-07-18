@@ -8,6 +8,7 @@ extern "C" {
 
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 #if defined(_WIN32)
 
@@ -102,6 +103,16 @@ static inline int socketpair(int domain, int type, int protocol, int sv[2])
 {
     (void)domain;
     (void)protocol;
+
+    static int wsa_ready = 0;
+    if (!wsa_ready)
+    {
+        if (bb_platform_net_init() != 0)
+        {
+            return -1;
+        }
+        wsa_ready = 1;
+    }
 
     SOCKET listener = socket(AF_INET, type, 0);
     if (listener == INVALID_SOCKET)
