@@ -2,20 +2,13 @@
 #include <time.h>
 
 #include "blue-bird/utils/time.h"
+#include "blue-bird/utils/platform.h"
 
 #include "blue-bird/runtime/runtime.h"
 #include "task_internal.h"
 #include "scheduler.h"
 #include "poller.h"
 
-#include <signal.h>
-
-static void _init_signals(void)
-{
-#if defined(SIGPIPE) && !defined(_WIN32)
-    signal(SIGPIPE, SIG_IGN);
-#endif
-}
 
 #define BB_RUNTIME_MAX_WATCHERS 1024
 #define BB_RUNTIME_MAX_TIMERS 1024
@@ -64,12 +57,7 @@ bb_runtime_t *bb_runtime_default(void)
 
 bb_runtime_t *bb_runtime_create(void)
 {
-    _init_signals();
-
-    #ifdef _WIN32
-    WSADATA wsa;
-    WSAStartup(MAKEWORD(2,2), &wsa);
-    #endif
+    bb_platform_net_init();
 
     bb_runtime_t *runtime = calloc(1, sizeof(bb_runtime_t));
 
@@ -107,9 +95,7 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
         return;
     }
 
-    #ifdef _WIN32
-    WSACleanup();
-    #endif
+    bb_platform_net_cleanup();
 
     bb_scheduler_destroy(runtime->scheduler);
 

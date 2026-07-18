@@ -4,6 +4,7 @@ add_library(bluebird_utils
     src/uuid.c
     src/hash.c
     src/asset.c
+    src/platform.c
     src/encoding.c
     src/bb_config.c
 )

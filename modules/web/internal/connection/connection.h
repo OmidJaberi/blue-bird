@@ -6,8 +6,9 @@ extern "C" {
 #endif
 
 
+#include <blue-bird/utils/platform.h>
+
 #include <stddef.h>
-#include <unistd.h>
 #include <stdbool.h>
 
 typedef enum {
@@ -24,7 +25,7 @@ typedef struct write_buffer {
 } write_buffer_t;
 
 typedef struct bb_connection {
-    int fd;
+    bb_socket_t fd;
 
     bb_connection_state_t state;
 

@@ -1,29 +1,11 @@
+#include <blue-bird/utils/platform.h>
+
 #include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netdb.h>
 
 #include "connection/connection.h"
 
 #define BB_CONNECTION_INITIAL_BUFFER_SIZE 4096
-
-static int _bb_set_nonblocking(int fd)
-{
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0)
-    {
-        return -1;
-    }
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
-    {
-        return -1;
-    }
-    return 0;
-}
 
 bb_connection_t *bb_connection_create(int fd)
 {
@@ -60,7 +42,7 @@ bb_connection_t *bb_connection_create_non_blocking(int fd)
     bb_connection_t *conn = bb_connection_create(fd);
     if (conn)
     {
-        _bb_set_nonblocking(fd);
+        bb_socket_set_nonblocking(fd);
     }
     return conn;
 }
@@ -72,7 +54,7 @@ void bb_connection_destroy(bb_connection_t *connection)
         return;
     }
 
-    close(connection->fd);
+    bb_socket_close(connection->fd);
     free(connection->buffer);
 
     while (connection->write_data)
@@ -122,7 +104,7 @@ bb_connection_t *bb_connection_serve(int port)
         return NULL;
     }
 
-    if (_bb_set_nonblocking(server_fd) != 0)
+    if (bb_socket_set_nonblocking(server_fd) != 0)
     {
         return NULL;
     }
@@ -152,7 +134,7 @@ bb_connection_t *bb_connection_serve(int port)
     bb_connection_t *connection = bb_connection_create(server_fd);
     if (!connection)
     {
-        close(server_fd);
+        bb_socket_close(server_fd);
     }
     return connection;
 }
@@ -174,7 +156,7 @@ bb_connection_t *bb_connection_accept(int server_fd)
         return NULL;
     }
 
-    if (_bb_set_nonblocking(client_fd) != 0)
+    if (bb_socket_set_nonblocking(client_fd) != 0)
     {
         return NULL;
     }
@@ -183,7 +165,7 @@ bb_connection_t *bb_connection_accept(int server_fd)
 
     if (!connection)
     {
-        close(client_fd);
+        bb_socket_close(client_fd);
         return NULL;
     }
     return connection;
@@ -211,12 +193,12 @@ static int _connect(const char *host, const char *port_str)
         if (fd < 0)
             continue;
 
-        if (connect(fd, p->ai_addr, p->ai_addrlen) == 0)
+        if (!bb_socket_is_invalid(connect(fd, p->ai_addr, p->ai_addrlen)))
         {
             break;
         }
 
-        close(fd);
+        bb_socket_close(fd);
         fd = -1;
     }
 
@@ -237,7 +219,7 @@ bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
     bb_connection_t *connection = bb_connection_create(fd);
     if (!connection)
     {
-        close(fd);
+        bb_socket_close(fd);
     }
     return connection;
 }
@@ -251,7 +233,7 @@ bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char 
         return NULL;
     }
 
-    if (_bb_set_nonblocking(fd) != 0)
+    if (bb_socket_set_nonblocking(fd) != 0)
     {
         return NULL;
     }
@@ -259,7 +241,7 @@ bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char 
     bb_connection_t *connection = bb_connection_create(fd);
     if (!connection)
     {
-        close(fd);
+        bb_socket_close(fd);
     }
     return connection;
 }
