@@ -258,7 +258,7 @@ void test_serialize_large_json(void)
 void test_parse_and_serialize(void)
 {
     printf("\tTesting JSON parsing...\n");
-    char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, 3, 11.47]}, null, [\"first\", 15, true, false]]";
+    char *s = "[\"one\", \"two\", {\"some thing\": null, \"other thing\": false, \"and the other thing\": [1, 2, -3, 11.47]}, null, [\"first\", 15, true, false]]";
     bb_json_t *json = bb_json_parse(s);
 
     char *buffer;

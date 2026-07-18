@@ -322,9 +322,13 @@ static size_t hash_function(const char *str, size_t bucket_count)
     return hash & (bucket_count - 1);
 }
 
-static void bb_json_object_resize(bb_json_t *json_object, size_t new_bucket_count)
+static int _json_object_resize(bb_json_t *json_object, size_t new_bucket_count)
 {
     _bb_hash_table_node_t **new_buckets = calloc(new_bucket_count, sizeof(*new_buckets));
+    if (!new_buckets)
+    {
+        return -1;
+    }
     for (size_t i = 0; i < json_object->object.bucket_count; i++)
     {
         _bb_hash_table_node_t *node = json_object->object.buckets[i];
@@ -340,6 +344,7 @@ static void bb_json_object_resize(bb_json_t *json_object, size_t new_bucket_coun
     free(json_object->object.buckets);
     json_object->object.buckets = new_buckets;
     json_object->object.bucket_count = new_bucket_count;
+    return 0;
 }
 
 bb_error_t bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t *value)
@@ -360,7 +365,8 @@ bb_error_t bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_
     // Resize if load factor > 0.75
     if (json_object->object.item_count * BB_JSON_MAX_LOAD_DEN >= json_object->object.bucket_count * BB_JSON_MAX_LOAD_NUM)
     {
-        bb_json_object_resize(json_object, json_object->object.bucket_count * 2);
+        if (_json_object_resize(json_object, json_object->object.bucket_count * 2) != 0)
+            return BB_ERROR(BB_ERR_ALLOC, "Failed to resize hash table.");
     }
     size_t index = hash_function(key, json_object->object.bucket_count);
     _bb_hash_table_node_t *node = json_object->object.buckets[index];
@@ -379,6 +385,10 @@ bb_error_t bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_
     }
     // Create new node
     node = malloc(sizeof(*node));
+    if (!node)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
 
     node->key = strdup(key);
     node->value = value;
@@ -702,7 +712,7 @@ bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size)
     {
         return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
     }
-    *buffer = (char*)malloc(*size * sizeof(char));
+    *buffer = (char*)malloc((*size + 1) * sizeof(char));
     if (!*buffer)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Buffer allocation failed.");
@@ -718,7 +728,7 @@ bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
     {
         return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
     }
-    *buffer = (char*)malloc(*size * sizeof(char));
+    *buffer = (char*)malloc((*size + 1) * sizeof(char));
     if (!*buffer)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Buffer allocation failed.");
@@ -767,6 +777,10 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
 {
     (*json) = bb_json_create(BB_JSON_INT);
     int index = 0;
+    if (buffer[index] == '-')
+    {
+        index++;
+    }
     while ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '.' && (*json)->type == BB_JSON_INT))
     {
         if (buffer[index] == '.')
@@ -899,7 +913,7 @@ static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
         return -1;
     }
     int index = 1;
-    while (buffer[index] != '\"' && buffer[index] != '\t')
+    while (buffer[index] != '\"' && buffer[index] != '\0')
         index++;
     if (buffer[index] != '\"')
         return -1;
@@ -952,32 +966,36 @@ static int parse_json_str_partial(bb_json_t **json, char *buffer)
 {
     int index = 0;
     while (white_space(buffer[index])) index++;
+    int res;
     switch (buffer[index])
     {
         case '{':
-            return parse_json_str_object(json, buffer);
+            res = parse_json_str_object(json, buffer + index);
             break;
         case '[':
-            return parse_json_str_array(json, buffer);
+            res = parse_json_str_array(json, buffer + index);
             break;
         case 'n':
-            return parse_json_str_null(json, buffer);
+            res = parse_json_str_null(json, buffer + index);
             break;
         case 't':
-            return parse_json_str_true(json, buffer);
+            res = parse_json_str_true(json, buffer + index);
             break;
         case 'f':
-            return parse_json_str_false(json, buffer);
+            res = parse_json_str_false(json, buffer + index);
             break;
         case '\"':
-            return parse_json_str_text(json, buffer);
+            res = parse_json_str_text(json, buffer + index);
             break;
         default:
-            if (buffer[index] >= '0' && buffer[index] <= '9')
-                return parse_json_str_number(json, buffer);
+            if ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '-' && buffer[index + 1] >= '0' && buffer[index + 1] <= '9'))
+            {
+                res = parse_json_str_number(json, buffer + index);
+                break;
+            }
             return -1;
-            break;
     }
+    return res < 0 ? -1 : res + index;
 }
 
 bb_json_t *bb_json_parse(char *buffer)
