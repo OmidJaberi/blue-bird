@@ -1,5 +1,5 @@
 #include "middleware.h"
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -53,10 +53,10 @@ void test_middleware_order(void)
     bb_middleware_list_append(mw_list, mw3);
 
     bb_error_t result = bb_middleware_list_run(mw_list, req, res);
-    assert(!BB_FAILED(result));
-    assert(call_order[0] == 1);
-    assert(call_order[1] == 2);
-    assert(call_order[2] == 3);
+    BB_ASSERT(!BB_FAILED(result));
+    BB_ASSERT(call_order[0] == 1);
+    BB_ASSERT(call_order[1] == 2);
+    BB_ASSERT(call_order[2] == 3);
     
     bb_middleware_list_destroy(mw_list);
     bb_request_destroy(req);
@@ -73,9 +73,9 @@ void test_middleware_stop(void)
     bb_middleware_list_append(mw_list, mw_stop);
 
     bb_error_t result = bb_middleware_list_run(mw_list, req, res);
-    assert(BB_FAILED(result));
-    assert(bb_response_get_status(res) == 403);
-    assert(strcmp(bb_response_get_body(res), "Forbidden") == 0);
+    BB_ASSERT(BB_FAILED(result));
+    BB_ASSERT(bb_response_get_status(res) == 403);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Forbidden") == 0);
     
     bb_middleware_list_destroy(mw_list);
     bb_request_destroy(req);

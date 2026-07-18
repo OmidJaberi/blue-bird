@@ -1,5 +1,5 @@
 #include "blue-bird/persist/schema.h"
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 
 static void test_valid_schema(void)
@@ -35,7 +35,7 @@ static void test_valid_schema(void)
         .primary_key_index = 0
     };
 
-    assert(bb_schema_validate(&schema) == 0);
+    BB_ASSERT(bb_schema_validate(&schema) == 0);
 }
 
 static void test_duplicate_field_names(void)
@@ -70,7 +70,7 @@ static void test_duplicate_field_names(void)
         .primary_key_index = 0
     };
 
-    assert(bb_schema_validate(&schema) != 0);
+    BB_ASSERT(bb_schema_validate(&schema) != 0);
 }
 
 static void test_relationship_validation(void)
@@ -103,7 +103,7 @@ static void test_relationship_validation(void)
         .primary_key_index = 0
     };
 
-    assert(bb_schema_register(&user_schema) == 0);
+    BB_ASSERT(bb_schema_register(&user_schema) == 0);
 
     bb_field_t task_fields[] = {
         {
@@ -133,7 +133,7 @@ static void test_relationship_validation(void)
         .primary_key_index = 0
     };
 
-    assert(bb_schema_validate(&task_schema) == 0);
+    BB_ASSERT(bb_schema_validate(&task_schema) == 0);
 }
 
 int main(void)

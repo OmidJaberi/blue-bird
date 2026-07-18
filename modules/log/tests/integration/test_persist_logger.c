@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -98,15 +98,15 @@ static void test_persist_logger_writes_log(void)
 
     bb_logger_log(&logger, BB_LOG_LEVEL_INFO, "Hello %s", "World");
 
-    assert(mock.open_called >= 2);
-    assert(mock.load_called == 1);
-    assert(mock.save_called == 1);
+    BB_ASSERT(mock.open_called >= 2);
+    BB_ASSERT(mock.load_called == 1);
+    BB_ASSERT(mock.save_called == 1);
 
-    assert(strcmp(mock.stored_key, "bluebird_log") == 0);
+    BB_ASSERT(strcmp(mock.stored_key, "bluebird_log") == 0);
 
-    assert(strstr(mock.stored_data, "INFO") != NULL);
+    BB_ASSERT(strstr(mock.stored_data, "INFO") != NULL);
 
-    assert(strstr(mock.stored_data, "Hello World") != NULL);
+    BB_ASSERT(strstr(mock.stored_data, "Hello World") != NULL);
 
     bb_logger_free_persist_context(&logger);
 }
@@ -125,11 +125,11 @@ static void test_persist_logger_appends(void)
 
     bb_logger_log(&logger, BB_LOG_LEVEL_WARN, "Second entry");
 
-    assert(strstr(mock.stored_data, "Existing entry") != NULL);
+    BB_ASSERT(strstr(mock.stored_data, "Existing entry") != NULL);
 
-    assert(strstr(mock.stored_data, "Second entry") != NULL);
+    BB_ASSERT(strstr(mock.stored_data, "Second entry") != NULL);
 
-    assert(strstr(mock.stored_data, "WARN") != NULL);
+    BB_ASSERT(strstr(mock.stored_data, "WARN") != NULL);
 
     bb_logger_free_persist_context(&logger);
 }
@@ -146,8 +146,8 @@ static void test_level_filtering(void)
 
     bb_logger_log(&logger, BB_LOG_LEVEL_DEBUG, "Should not persist");
 
-    assert(mock.save_called == 0);
-    assert(mock.load_called == 0);
+    BB_ASSERT(mock.save_called == 0);
+    BB_ASSERT(mock.load_called == 0);
 
     bb_logger_free_persist_context(&logger);
 }
@@ -160,13 +160,13 @@ static void test_free_persist_context(void)
 
     bb_logger_init_persist(&logger, BB_LOG_LEVEL_TRACE);
 
-    assert(logger.write != NULL);
-    assert(logger.userdata != NULL);
+    BB_ASSERT(logger.write != NULL);
+    BB_ASSERT(logger.userdata != NULL);
 
     bb_logger_free_persist_context(&logger);
 
-    assert(logger.write == NULL);
-    assert(logger.userdata == NULL);
+    BB_ASSERT(logger.write == NULL);
+    BB_ASSERT(logger.userdata == NULL);
 }
 
 /* ---------------------------
@@ -177,7 +177,7 @@ int main(void)
 {
     printf("Running persist logger integration tests...\n");
 
-    assert(bb_persist_kv_register(&mock_api) == 0);
+    BB_ASSERT(bb_persist_kv_register(&mock_api) == 0);
 
     bb_persist_kv_set_default("mock");
     bb_persist_kv_set_default_uri("ignored");

@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -60,25 +60,25 @@ static void test_json_insert_and_find(void)
     const char *path = "test_model_json.json";
     cleanup_file(path);
 
-    assert(bb_model_register(bb_model_json_api()) == 0);
+    BB_ASSERT(bb_model_register(bb_model_json_api()) == 0);
 
     const bb_model_api_t *api = bb_model_get("json");
-    assert(api);
+    BB_ASSERT(api);
 
     bb_model_handle_t *h = api->open(path);
-    assert(h);
+    BB_ASSERT(h);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(api->insert(h, &user_schema, &u) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u) == 0);
 
     User out = {0};
     int id = 1;
-    assert(api->find_by_pk(h, &user_schema, &out, &id) == 0);
+    BB_ASSERT(api->find_by_pk(h, &user_schema, &out, &id) == 0);
 
-    assert(out.id == 1);
-    assert(strcmp(out.name, "Alice") == 0);
+    BB_ASSERT(out.id == 1);
+    BB_ASSERT(strcmp(out.name, "Alice") == 0);
 
     api->close(h);
 }
@@ -95,16 +95,16 @@ static void test_json_update(void)
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
-    assert(api->insert(h, &user_schema, &u) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u) == 0);
 
     strncpy(u.name, "Bob", sizeof(u.name));
-    assert(api->update(h, &user_schema, &u) == 0);
+    BB_ASSERT(api->update(h, &user_schema, &u) == 0);
 
     User out = {0};
     int id = 1;
-    assert(api->find_by_pk(h, &user_schema, &out, &id) == 0);
+    BB_ASSERT(api->find_by_pk(h, &user_schema, &out, &id) == 0);
 
-    assert(strcmp(out.name, "Bob") == 0);
+    BB_ASSERT(strcmp(out.name, "Bob") == 0);
 
     api->close(h);
 }
@@ -122,13 +122,13 @@ static void test_json_remove(void)
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(api->insert(h, &user_schema, &u) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u) == 0);
     int id = 1;
-    assert(api->remove(h, &user_schema, &id) == 0);
+    BB_ASSERT(api->remove(h, &user_schema, &id) == 0);
 
     User out = {0};
     id = 1;
-    assert(api->find_by_pk(h, &user_schema, &out, &id) != 0);
+    BB_ASSERT(api->find_by_pk(h, &user_schema, &out, &id) != 0);
 
     api->close(h);
 }
@@ -149,8 +149,8 @@ static void test_json_conflict(void)
     User u2 = { .id = 1 };
     strncpy(u2.name, "Bob", sizeof(u2.name));
 
-    assert(api->insert(h, &user_schema, &u1) == 0);
-    assert(api->insert(h, &user_schema, &u2) != 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u1) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u2) != 0);
 
     api->close(h);
 }

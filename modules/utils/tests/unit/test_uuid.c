@@ -1,6 +1,6 @@
 #include "blue-bird/utils/uuid.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -9,13 +9,13 @@ static void test_uuid_v4_generation(void)
     uint8_t uuid[16];
 
     int rc = bb_uuid_v4(uuid);
-    assert(rc == 0);
+    BB_ASSERT(rc == 0);
 
     /* Version must be 4 */
-    assert((uuid[6] & 0xF0) == 0x40);
+    BB_ASSERT((uuid[6] & 0xF0) == 0x40);
 
     /* Variant must be 10xxxxxx */
-    assert((uuid[8] & 0xC0) == 0x80);
+    BB_ASSERT((uuid[8] & 0xC0) == 0x80);
 }
 
 static void test_uuid_string_format(void)
@@ -23,15 +23,15 @@ static void test_uuid_string_format(void)
     bb_uuid_t buf;
 
     int rc = bb_uuid_v4_string(buf);
-    assert(rc == 0);
+    BB_ASSERT(rc == 0);
 
-    assert(strlen(buf) == 36);
+    BB_ASSERT(strlen(buf) == 36);
 
     /* Check hyphen positions */
-    assert(buf[8]  == '-');
-    assert(buf[13] == '-');
-    assert(buf[18] == '-');
-    assert(buf[23] == '-');
+    BB_ASSERT(buf[8]  == '-');
+    BB_ASSERT(buf[13] == '-');
+    BB_ASSERT(buf[18] == '-');
+    BB_ASSERT(buf[23] == '-');
 }
 
 static void test_uuid_uniqueness(void)
@@ -43,7 +43,7 @@ static void test_uuid_uniqueness(void)
     bb_uuid_v4_string(b);
 
     /* Extremely unlikely to collide */
-    assert(strcmp(a, b) != 0);
+    BB_ASSERT(strcmp(a, b) != 0);
 }
 
 int main(void)

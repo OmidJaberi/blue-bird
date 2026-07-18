@@ -2,7 +2,7 @@
 #include "blue-bird/web/server.h"
 #include "blue-bird/web/websocket/websocket.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <string.h>
 #include <stdio.h>
@@ -66,20 +66,20 @@ static void _echo_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     err = bb_websocket_send_text(ws, "hello");
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 }
 
 bb_error_t _echo_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void) ws;
 
-    assert(msg->type == BB_WS_MESSAGE_TEXT);
-    assert(msg->length == 5);
-    assert(memcmp(msg->data, "hello", 5) == 0);
+    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(msg->length == 5);
+    BB_ASSERT(memcmp(msg->data, "hello", 5) == 0);
 
     echo_finished = 1;
     return BB_SUCCESS();
@@ -133,15 +133,15 @@ bb_error_t _multi_messages_message_cb(bb_websocket_t *ws, const bb_ws_message_t 
     switch(messages)
     {
         case 1:
-            assert(strcmp(msg->data, "one") == 0);
+            BB_ASSERT(strcmp(msg->data, "one") == 0);
             break;
 
         case 2:
-            assert(strcmp(msg->data, "two") == 0);
+            BB_ASSERT(strcmp(msg->data, "two") == 0);
             break;
 
         case 3:
-            assert(strcmp(msg->data, "three") == 0);
+            BB_ASSERT(strcmp(msg->data, "three") == 0);
             break;
     }
 
@@ -183,20 +183,20 @@ static void _large_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     bb_error_t send_err = bb_websocket_send_text(ws, large_message);
 
-    assert(!BB_FAILED(send_err));
+    BB_ASSERT(!BB_FAILED(send_err));
 }
 
 bb_error_t _large_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void)ws;
 
-    assert(msg->type == BB_WS_MESSAGE_TEXT);
-    assert(msg->length == LARGE_MESSAGE_SIZE);
-    assert(memcmp(msg->data, large_message, LARGE_MESSAGE_SIZE) == 0);
+    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(msg->length == LARGE_MESSAGE_SIZE);
+    BB_ASSERT(memcmp(msg->data, large_message, LARGE_MESSAGE_SIZE) == 0);
 
     large_finished = 1;
 
@@ -249,20 +249,20 @@ static void _binary_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdat
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     bb_error_t send_err = bb_websocket_send_binary(ws, binary_message, BINARY_MESSAGE_SIZE);
 
-    assert(!BB_FAILED(send_err));
+    BB_ASSERT(!BB_FAILED(send_err));
 }
 
 bb_error_t _binary_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void)ws;
 
-    assert(msg->type == BB_WS_MESSAGE_BINARY);
-    assert(msg->length == BINARY_MESSAGE_SIZE);
-    assert(memcmp(msg->data, binary_message, BINARY_MESSAGE_SIZE) == 0);
+    BB_ASSERT(msg->type == BB_WS_MESSAGE_BINARY);
+    BB_ASSERT(msg->length == BINARY_MESSAGE_SIZE);
+    BB_ASSERT(memcmp(msg->data, binary_message, BINARY_MESSAGE_SIZE) == 0);
 
     binary_finished = 1;
 
@@ -309,21 +309,21 @@ static void _large_binary_connect_cb(bb_websocket_t *ws, bb_error_t err, void *u
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     bb_error_t send_err =
         bb_websocket_send_binary(ws, large_binary, LARGE_BINARY_SIZE);
 
-    assert(!BB_FAILED(send_err));
+    BB_ASSERT(!BB_FAILED(send_err));
 }
 
 bb_error_t _large_binary_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void)ws;
 
-    assert(msg->type == BB_WS_MESSAGE_BINARY);
-    assert(msg->length == LARGE_BINARY_SIZE);
-    assert(memcmp(msg->data, large_binary, LARGE_BINARY_SIZE) == 0);
+    BB_ASSERT(msg->type == BB_WS_MESSAGE_BINARY);
+    BB_ASSERT(msg->length == LARGE_BINARY_SIZE);
+    BB_ASSERT(memcmp(msg->data, large_binary, LARGE_BINARY_SIZE) == 0);
 
     large_binary_finished = 1;
 
@@ -373,20 +373,20 @@ static void _sequential_connect_cb(bb_websocket_t *ws, bb_error_t err, void *use
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     err = bb_websocket_send_text(ws, "ping");
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 }
 
 bb_error_t _sequential_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void)ws;
 
-    assert(msg->type == BB_WS_MESSAGE_TEXT);
-    assert(msg->length == 4);
-    assert(memcmp(msg->data, "ping", 4) == 0);
+    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(msg->length == 4);
+    BB_ASSERT(memcmp(msg->data, "ping", 4) == 0);
 
     sequential_finished = 1;
 
@@ -436,13 +436,13 @@ static const char *client_messages[CLIENT_COUNT] = {
 
 static void _clients_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     const char *text = userdata;
 
     err = bb_websocket_send_text(ws, text);
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 }
 
 bb_error_t _clients_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
@@ -458,7 +458,7 @@ bb_error_t _clients_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
         }
     }
 
-    assert(0 && "Unexpected message");
+    BB_ASSERT(0 && "Unexpected message");
 
     return BB_SUCCESS();
 }
@@ -505,12 +505,12 @@ static void _many_messages_connect_cb(bb_websocket_t *ws, bb_error_t err, void *
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     for (int i = 0; i < MANY_MESSAGES; i++)
     {
         bb_error_t send_err = bb_websocket_send_text(ws, "ping");
-        assert(!BB_FAILED(send_err));
+        BB_ASSERT(!BB_FAILED(send_err));
     }
 }
 
@@ -518,9 +518,9 @@ bb_error_t _many_messages_message_cb(bb_websocket_t *ws, const bb_ws_message_t *
 {
     (void)ws;
 
-    assert(msg->type == BB_WS_MESSAGE_TEXT);
-    assert(msg->length == 4);
-    assert(memcmp(msg->data, "ping", 4) == 0);
+    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(msg->length == 4);
+    BB_ASSERT(memcmp(msg->data, "ping", 4) == 0);
 
     many_messages_received++;
 
@@ -564,8 +564,8 @@ static void _pong_cb(bb_websocket_t *ws, const void *payload, size_t length, voi
     (void)ws;
     (void)userdata;
 
-    assert(length == 4);
-    assert(memcmp(payload, "ping", 4) == 0);
+    BB_ASSERT(length == 4);
+    BB_ASSERT(memcmp(payload, "ping", 4) == 0);
 
     pong_received = 1;
 }
@@ -574,10 +574,10 @@ static void _ping_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     bb_error_t e = bb_websocket_send_ping(ws, "ping", 4);
-    assert(!BB_FAILED(e));
+    BB_ASSERT(!BB_FAILED(e));
 }
 
 static void websocket_ping_pong_test(void)
@@ -625,13 +625,13 @@ static void _close_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata
 {
     (void)userdata;
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     bb_error_t e = bb_websocket_send_text(ws, "before-close");
-    assert(!BB_FAILED(e));
+    BB_ASSERT(!BB_FAILED(e));
 
     e = bb_websocket_send_close(ws, 1000, "normal");
-    assert(!BB_FAILED(e));
+    BB_ASSERT(!BB_FAILED(e));
 
     close_done = 1;
 }
@@ -657,7 +657,7 @@ static void websocket_close_test(void)
     }
 
     // after close, no new messages should arrive unexpectedly
-    assert(message_after_close == 0);
+    BB_ASSERT(message_after_close == 0);
 
     bb_websocket_destroy(client);
     bb_runtime_destroy(runtime);
@@ -671,7 +671,7 @@ int main(void)
 {
     pthread_t thread;
 
-    assert(pthread_create(&thread, NULL, server_thread, NULL) == 0);
+    BB_ASSERT(pthread_create(&thread, NULL, server_thread, NULL) == 0);
 
     while (!started)
     {

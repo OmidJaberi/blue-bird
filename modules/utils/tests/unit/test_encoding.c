@@ -1,6 +1,6 @@
 #include "blue-bird/utils/encoding.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +13,7 @@ void test_decode_percent(void)
 
     bb_decode_percent(str, 0);
 
-    assert(strcmp(str, "hello world") == 0);
+    BB_ASSERT(strcmp(str, "hello world") == 0);
 }
 
 void test_decode_plus(void)
@@ -24,7 +24,7 @@ void test_decode_plus(void)
 
     bb_decode_percent(str, 1);
 
-    assert(strcmp(str, "hello world") == 0);
+    BB_ASSERT(strcmp(str, "hello world") == 0);
 }
 
 void test_base64_empty(void)
@@ -34,9 +34,9 @@ void test_base64_empty(void)
     char *encoded =
         bb_base64_encode("", 0);
 
-    assert(encoded != NULL);
+    BB_ASSERT(encoded != NULL);
 
-    assert(strcmp(encoded, "") == 0);
+    BB_ASSERT(strcmp(encoded, "") == 0);
 
     free(encoded);
 }
@@ -48,9 +48,9 @@ void test_base64_one_byte(void)
     char *encoded =
         bb_base64_encode("f", 1);
 
-    assert(encoded != NULL);
+    BB_ASSERT(encoded != NULL);
 
-    assert(strcmp(encoded, "Zg==") == 0);
+    BB_ASSERT(strcmp(encoded, "Zg==") == 0);
 
     free(encoded);
 }
@@ -62,9 +62,9 @@ void test_base64_two_bytes(void)
     char *encoded =
         bb_base64_encode("fo", 2);
 
-    assert(encoded != NULL);
+    BB_ASSERT(encoded != NULL);
 
-    assert(strcmp(encoded, "Zm8=") == 0);
+    BB_ASSERT(strcmp(encoded, "Zm8=") == 0);
 
     free(encoded);
 }
@@ -76,9 +76,9 @@ void test_base64_three_bytes(void)
     char *encoded =
         bb_base64_encode("foo", 3);
 
-    assert(encoded != NULL);
+    BB_ASSERT(encoded != NULL);
 
-    assert(strcmp(encoded, "Zm9v") == 0);
+    BB_ASSERT(strcmp(encoded, "Zm9v") == 0);
 
     free(encoded);
 }
@@ -91,17 +91,17 @@ void test_base64_rfc_examples(void)
 
     encoded = bb_base64_encode("foobar", 6);
 
-    assert(encoded != NULL);
+    BB_ASSERT(encoded != NULL);
 
-    assert(strcmp(encoded, "Zm9vYmFy") == 0);
+    BB_ASSERT(strcmp(encoded, "Zm9vYmFy") == 0);
 
     free(encoded);
 
     encoded = bb_base64_encode("hello", 5);
 
-    assert(encoded != NULL);
+    BB_ASSERT(encoded != NULL);
 
-    assert(strcmp(encoded, "aGVsbG8=") == 0);
+    BB_ASSERT(strcmp(encoded, "aGVsbG8=") == 0);
 
     free(encoded);
 }

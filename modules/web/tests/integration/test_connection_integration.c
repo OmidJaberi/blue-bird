@@ -1,6 +1,6 @@
 #include "connection/connection.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,7 +21,7 @@ static void *server_thread(void *arg)
     (void)arg;
 
     server_listener = bb_connection_serve(TEST_PORT);
-    assert(server_listener != NULL);
+    BB_ASSERT(server_listener != NULL);
 
     while (!finished)
     {
@@ -43,7 +43,7 @@ static void connection_test(void)
 
     bb_connection_t *client = bb_connection_connect_nonblocking("127.0.0.1", "18080");
 
-    assert(client != NULL);
+    BB_ASSERT(client != NULL);
 
     bb_connection_t *server = NULL;
 
@@ -53,7 +53,7 @@ static void connection_test(void)
         usleep(1000);
     }
 
-    assert(server != NULL);
+    BB_ASSERT(server != NULL);
 
     bb_connection_destroy(client);
     bb_connection_destroy(server);
@@ -65,7 +65,7 @@ static void client_to_server_test(void)
 
     bb_connection_t *client = bb_connection_connect_nonblocking("127.0.0.1", "18080");
 
-    assert(client);
+    BB_ASSERT(client);
 
     bb_connection_t *server = NULL;
 
@@ -78,8 +78,8 @@ static void client_to_server_test(void)
     char *msg = malloc(6);
     memcpy(msg, "hello", 6);
 
-    assert(bb_connection_buffer_add(client, msg, 6) == 0);
-    assert(bb_connection_write(client) == 1);
+    BB_ASSERT(bb_connection_buffer_add(client, msg, 6) == 0);
+    BB_ASSERT(bb_connection_write(client) == 1);
 
     while (server->buffer_length < 6)
     {
@@ -87,8 +87,8 @@ static void client_to_server_test(void)
         usleep(1000);
     }
 
-    assert(server->buffer_length == 6);
-    assert(memcmp(server->buffer, "hello", 6) == 0);
+    BB_ASSERT(server->buffer_length == 6);
+    BB_ASSERT(memcmp(server->buffer, "hello", 6) == 0);
 
     bb_connection_destroy(client);
     bb_connection_destroy(server);
@@ -100,7 +100,7 @@ static void server_to_client_test(void)
 
     bb_connection_t *client = bb_connection_connect_nonblocking("127.0.0.1", "18080");
 
-    assert(client);
+    BB_ASSERT(client);
 
     bb_connection_t *server = NULL;
 
@@ -113,8 +113,8 @@ static void server_to_client_test(void)
     char *msg = malloc(6);
     memcpy(msg, "world", 6);
 
-    assert(bb_connection_buffer_add(server, msg, 6) == 0);
-    assert(bb_connection_write(server) == 1);
+    BB_ASSERT(bb_connection_buffer_add(server, msg, 6) == 0);
+    BB_ASSERT(bb_connection_write(server) == 1);
 
     while (client->buffer_length < 6)
     {
@@ -122,8 +122,8 @@ static void server_to_client_test(void)
         usleep(1000);
     }
 
-    assert(client->buffer_length == 6);
-    assert(memcmp(client->buffer, "world", 6) == 0);
+    BB_ASSERT(client->buffer_length == 6);
+    BB_ASSERT(memcmp(client->buffer, "world", 6) == 0);
 
     bb_connection_destroy(client);
     bb_connection_destroy(server);
@@ -137,7 +137,7 @@ static void large_transfer_test(void)
 
     bb_connection_t *client = bb_connection_connect_nonblocking("127.0.0.1", "18080");
 
-    assert(client);
+    BB_ASSERT(client);
 
     bb_connection_t *server = NULL;
 
@@ -151,8 +151,8 @@ static void large_transfer_test(void)
 
     memset(buffer, 'A', LARGE_SIZE);
 
-    assert(bb_connection_buffer_add(client, buffer, LARGE_SIZE) == 0);
-    assert(bb_connection_write(client) == 1);
+    BB_ASSERT(bb_connection_buffer_add(client, buffer, LARGE_SIZE) == 0);
+    BB_ASSERT(bb_connection_write(client) == 1);
 
     while (server->buffer_length < LARGE_SIZE)
     {
@@ -160,14 +160,14 @@ static void large_transfer_test(void)
         usleep(1000);
     }
 
-    assert(server->buffer_length == LARGE_SIZE);
+    BB_ASSERT(server->buffer_length == LARGE_SIZE);
 
     for (int i = 0; i < LARGE_SIZE; i++)
     {
-        assert(server->buffer[i] == 'A');
+        BB_ASSERT(server->buffer[i] == 'A');
     }
 
-    assert(server->buffer_capacity >= LARGE_SIZE);
+    BB_ASSERT(server->buffer_capacity >= LARGE_SIZE);
 
     bb_connection_destroy(client);
     bb_connection_destroy(server);
@@ -177,7 +177,7 @@ int main(void)
 {
     pthread_t thread;
 
-    assert(pthread_create(&thread, NULL, server_thread, NULL) == 0);
+    BB_ASSERT(pthread_create(&thread, NULL, server_thread, NULL) == 0);
 
     while (!server_listener)
     {

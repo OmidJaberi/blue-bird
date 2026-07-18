@@ -2,7 +2,7 @@
 #include "websocket/websocket_internal.h"
 
 #include <arpa/inet.h>
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,11 +11,11 @@ static bb_async_connection_t *create_test_connection(void)
 {
     bb_async_connection_t *async_conn = calloc(1, sizeof(*async_conn));
 
-    assert(async_conn);
+    BB_ASSERT(async_conn);
 
     async_conn->connection = calloc(1, sizeof(*async_conn->connection));
 
-    assert(async_conn->connection);
+    BB_ASSERT(async_conn->connection);
 
     async_conn->connection->fd = -1;
 
@@ -30,7 +30,7 @@ void test_websocket_create_destroy(void)
 
     bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
 
-    assert(ws != NULL);
+    BB_ASSERT(ws != NULL);
 
     bb_websocket_destroy(ws);
 }
@@ -45,17 +45,17 @@ void test_queue_text_frame(void)
 
     bb_error_t err = bb_websocket_queue_text(ws, "hello");
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
-    assert(async_conn->connection->write_data != NULL);
+    BB_ASSERT(async_conn->connection->write_data != NULL);
 
     unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
-    assert(buf[0] == 0x81);
+    BB_ASSERT(buf[0] == 0x81);
 
-    assert(buf[1] == 5);
+    BB_ASSERT(buf[1] == 5);
 
-    assert(memcmp(buf + 2, "hello", 5) == 0);
+    BB_ASSERT(memcmp(buf + 2, "hello", 5) == 0);
 
     bb_websocket_destroy(ws);
 }
@@ -78,15 +78,15 @@ void test_queue_binary_frame(void)
 
     bb_error_t err = bb_websocket_queue_binary(ws, payload, sizeof(payload));
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
     unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
-    assert(buf[0] == 0x82);
+    BB_ASSERT(buf[0] == 0x82);
 
-    assert(buf[1] == 4);
+    BB_ASSERT(buf[1] == 4);
 
-    assert(memcmp(buf + 2, payload, 4) == 0);
+    BB_ASSERT(memcmp(buf + 2, payload, 4) == 0);
 
     bb_websocket_destroy(ws);
 }
@@ -101,13 +101,13 @@ void test_queue_ping(void)
 
     bb_error_t err = bb_websocket_queue_ping(ws, NULL, 0);
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
     unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
-    assert(buf[0] == 0x89);
+    BB_ASSERT(buf[0] == 0x89);
 
-    assert(buf[1] == 0);
+    BB_ASSERT(buf[1] == 0);
 
     bb_websocket_destroy(ws);
 }
@@ -122,13 +122,13 @@ void test_queue_pong(void)
 
     bb_error_t err = bb_websocket_queue_pong(ws, NULL, 0);
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
     unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
-    assert(buf[0] == 0x8A);
+    BB_ASSERT(buf[0] == 0x8A);
 
-    assert(buf[1] == 0);
+    BB_ASSERT(buf[1] == 0);
 
     bb_websocket_destroy(ws);
 }
@@ -143,17 +143,17 @@ void test_queue_close(void)
 
     bb_error_t err = bb_websocket_queue_close(ws, 1000, NULL);
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
     unsigned char *buf = (unsigned char *)async_conn->connection->write_data->write_buffer;
 
-    assert(buf[0] == 0x88);
+    BB_ASSERT(buf[0] == 0x88);
 
-    assert(buf[1] == 2);
+    BB_ASSERT(buf[1] == 2);
 
     uint16_t code;
     memcpy(&code, buf + 2, sizeof(code));
-    assert(ntohs(code) == 1000);
+    BB_ASSERT(ntohs(code) == 1000);
 
     bb_websocket_destroy(ws);
 }
@@ -177,15 +177,15 @@ void test_parse_unmasked_text_frame(void)
 
     bb_error_t err = bb_websocket_read_frames(ws, &frame);
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
-    assert(frame.fin == 1);
+    BB_ASSERT(frame.fin == 1);
 
-    assert(frame.opcode == BB_WS_TEXT);
+    BB_ASSERT(frame.opcode == BB_WS_TEXT);
 
-    assert(frame.payload_length == 5);
+    BB_ASSERT(frame.payload_length == 5);
 
-    assert(strcmp(frame.payload, "hello") == 0);
+    BB_ASSERT(strcmp(frame.payload, "hello") == 0);
 
     bb_ws_frame_destroy(&frame);
 
@@ -229,11 +229,11 @@ void test_parse_masked_text_frame(void)
 
     bb_error_t err = bb_websocket_read_frames(ws, &frame);
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
-    assert(frame.opcode == BB_WS_TEXT);
+    BB_ASSERT(frame.opcode == BB_WS_TEXT);
 
-    assert(strcmp(frame.payload, "Hello") == 0);
+    BB_ASSERT(strcmp(frame.payload, "Hello") == 0);
 
     bb_ws_frame_destroy(&frame);
 
@@ -248,11 +248,11 @@ void test_invalid_arguments(void)
 
     err = bb_websocket_queue_text(NULL, "hello");
 
-    assert(err.code != BB_OK);
+    BB_ASSERT(err.code != BB_OK);
 
     err = bb_websocket_queue_binary(NULL, "abc", 3);
 
-    assert(err.code != BB_OK);
+    BB_ASSERT(err.code != BB_OK);
 }
 
 void test_websocket_accept_key(void)
@@ -261,9 +261,9 @@ void test_websocket_accept_key(void)
 
     char *accept = bb_websocket_accept_key("dGhlIHNhbXBsZSBub25jZQ==");
 
-    assert(accept != NULL);
+    BB_ASSERT(accept != NULL);
 
-    assert(strcmp(accept, "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=") == 0);
+    BB_ASSERT(strcmp(accept, "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=") == 0);
 
     free(accept);
 }
@@ -296,15 +296,15 @@ void test_parse_multiple_frames(void)
 
     bb_error_t err = bb_websocket_read_frames(ws, &frame);
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
-    assert(strcmp(frame.payload, "hello") == 0);
-    assert(frame.next != NULL);
+    BB_ASSERT(strcmp(frame.payload, "hello") == 0);
+    BB_ASSERT(frame.next != NULL);
 
-    assert(strcmp(frame.next->payload, "world") == 0);
-    assert(frame.next->next == NULL);
+    BB_ASSERT(strcmp(frame.next->payload, "world") == 0);
+    BB_ASSERT(frame.next->next == NULL);
 
-    assert(async_conn->connection->buffer_length == 0);
+    BB_ASSERT(async_conn->connection->buffer_length == 0);
 
     bb_ws_frame_destroy(&frame);
 

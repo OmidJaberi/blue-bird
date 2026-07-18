@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -36,7 +36,7 @@ void test_scheduler(void)
 {
     bb_scheduler_t *scheduler = bb_scheduler_create();
 
-    assert(scheduler != NULL);
+    BB_ASSERT(scheduler != NULL);
 
     bb_task_t *t1 = bb_task_create(task1_cb, NULL);
 
@@ -54,9 +54,9 @@ void test_scheduler(void)
 
     bb_task_execute(bb_scheduler_next(scheduler));
 
-    assert(order[0] == 1);
-    assert(order[1] == 2);
-    assert(order[2] == 3);
+    BB_ASSERT(order[0] == 1);
+    BB_ASSERT(order[1] == 2);
+    BB_ASSERT(order[2] == 3);
 
     bb_scheduler_destroy(scheduler);
 }

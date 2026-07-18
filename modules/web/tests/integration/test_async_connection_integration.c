@@ -1,7 +1,7 @@
 #include "connection/async_connection.h"
 #include "blue-bird/runtime/runtime.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +24,7 @@ static void *server_thread(void *arg)
     bb_runtime_t *runtime = bb_runtime_create();
 
     listener = bb_async_connection_serve(runtime, TEST_PORT);
-    assert(listener);
+    BB_ASSERT(listener);
 
     while (!finished)
     {
@@ -49,7 +49,7 @@ static bb_read_status_t read_done(void *userdata)
 {
     bb_async_connection_t *conn = userdata;
 
-    assert(conn->connection->buffer_length > 0);
+    BB_ASSERT(conn->connection->buffer_length > 0);
 
     read_called = 1;
 
@@ -99,7 +99,7 @@ static void write_failure(bb_task_t *task, void *userdata)
     (void)task;
     (void)userdata;
 
-    assert(0 && "unexpected write failure");
+    BB_ASSERT(0 && "unexpected write failure");
 }
 
 /* ============================================================
@@ -114,7 +114,7 @@ static void async_connect_accept_test(void)
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
-    assert(client);
+    BB_ASSERT(client);
 
     bb_async_connection_t *server = NULL;
 
@@ -128,7 +128,7 @@ static void async_connect_accept_test(void)
         usleep(1000);
     }
 
-    assert(server);
+    BB_ASSERT(server);
 
     bb_async_connection_destroy(client);
     bb_async_connection_destroy(server);
@@ -145,7 +145,7 @@ static void async_write_callback_test(void)
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
-    assert(client);
+    BB_ASSERT(client);
 
     bb_async_connection_t *server = NULL;
 
@@ -162,7 +162,7 @@ static void async_write_callback_test(void)
 
     bb_error_t err = bb_async_connection_create_write_task(client, write_success, write_failure, NULL);
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     while (!write_called)
     {
@@ -185,7 +185,7 @@ static void async_read_callback_test(void)
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
-    assert(client);
+    BB_ASSERT(client);
 
     bb_async_connection_t *server = NULL;
 
@@ -198,7 +198,7 @@ static void async_read_callback_test(void)
 
     bb_error_t err = bb_async_connection_create_read_task(server, read_done, read_error, server);
 
-    assert(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(err));
 
     char *msg = strdup("hello");
 
@@ -211,7 +211,7 @@ static void async_read_callback_test(void)
         usleep(1000);
     }
 
-    assert(error_called == 0);
+    BB_ASSERT(error_called == 0);
 
     bb_async_connection_destroy(client);
     bb_async_connection_destroy(server);
@@ -228,7 +228,7 @@ static void async_read_more_test(void)
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
-    assert(client);
+    BB_ASSERT(client);
 
     bb_async_connection_t *server = NULL;
 
@@ -252,7 +252,7 @@ static void async_read_more_test(void)
         usleep(1000);
     }
 
-    assert(server->read_task == NULL);
+    BB_ASSERT(server->read_task == NULL);
 
     bb_async_connection_destroy(client);
     bb_async_connection_destroy(server);
@@ -267,7 +267,7 @@ int main(void)
 {
     pthread_t thread;
 
-    assert(pthread_create(&thread, NULL, server_thread, NULL) == 0);
+    BB_ASSERT(pthread_create(&thread, NULL, server_thread, NULL) == 0);
 
     while (!listener)
     {

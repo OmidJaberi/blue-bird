@@ -112,37 +112,37 @@ const char *bb_request_get_path(bb_request_t *req)
 
 void bb_request_set_path(bb_request_t *req, const char *path)
 {
-    BB_ASSERT(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
     bb_server_request_set_path(&req->inner_req.s_req, path);
 }
 
 int bb_request_parse(const char *raw, bb_request_t *req)
 {
-    BB_ASSERT(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
     return bb_server_request_parse(raw, &req->inner_req.s_req);
 }
 
 int bb_request_add_param(bb_request_t *req, const char *key, const char *value)
 {
-    BB_ASSERT(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
     return bb_server_request_add_param(&req->inner_req.s_req, key, value);
 }
 
 const char *bb_request_get_param(bb_request_t *req, const char *name)
 {
-    BB_ASSERT(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
     return bb_server_request_get_param(&req->inner_req.s_req, name);
 }
 
 int bb_request_add_query_param(bb_request_t *req, const char *key, const char *value)
 {
-    BB_ASSERT(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
     return bb_server_request_add_query_param(&req->inner_req.s_req, key, value);
 }
 
 const char *bb_request_get_query_param(bb_request_t *req, const char *key)
 {
-    BB_ASSERT(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
     return bb_server_request_get_query_param(&req->inner_req.s_req, key);
 }
 
@@ -150,37 +150,37 @@ const char *bb_request_get_query_param(bb_request_t *req, const char *key)
 
 void bb_request_set_url(bb_request_t *req, const char *url)
 {
-    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     bb_client_request_set_url(&req->inner_req.c_req, url);
 }
 
 const char *bb_request_get_url(bb_request_t *req)
 {
-    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     return req->inner_req.c_req.url;
 }
 
 const char *bb_request_get_scheme(bb_request_t *req)
 {
-    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     return bb_client_request_get_scheme(&req->inner_req.c_req);
 }
 
 const char *bb_request_get_host(bb_request_t *req)
 {
-    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     return bb_client_request_get_host(&req->inner_req.c_req);
 }
 
 int bb_request_get_port(bb_request_t *req)
 {
-    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     return bb_client_request_get_port(&req->inner_req.c_req);
 }
 
 int bb_request_serialize(bb_request_t *req, char **buffer, size_t *size)
 {
-    BB_ASSERT(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
+    BB_ASSERT_MSG(req->type == BB_CLIENT_REQUEST, "Invalid request type.");
     const char *method = bb_request_get_method(req) ? bb_request_get_method(req) : "GET";
     const char *path = bb_request_get_path(req) ? bb_request_get_path(req) : "/";
     

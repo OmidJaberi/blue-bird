@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,15 +18,15 @@ static void test_plain_text_render(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
-    assert(strcmp(result, "Hello World") == 0);
+    BB_ASSERT(result != NULL);
+    BB_ASSERT(strcmp(result, "Hello World") == 0);
 
     free(result);
 
@@ -45,7 +45,7 @@ static void test_simple_variable_render(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
         KEY("name", TEXT("Blue"))
@@ -54,8 +54,8 @@ static void test_simple_variable_render(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
-    assert(strcmp(result, "Hello Blue") == 0);
+    BB_ASSERT(result != NULL);
+    BB_ASSERT(strcmp(result, "Hello Blue") == 0);
 
     free(result);
 
@@ -74,7 +74,7 @@ static void test_nested_variable_render(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *user = OBJ(
         KEY("name", TEXT("BlueBird"))
@@ -87,8 +87,8 @@ static void test_nested_variable_render(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
-    assert(strcmp(result, "User: BlueBird") == 0);
+    BB_ASSERT(result != NULL);
+    BB_ASSERT(strcmp(result, "User: BlueBird") == 0);
 
     free(result);
 
@@ -107,20 +107,20 @@ static void test_missing_variable_render(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
     /*
      * Missing variables currently render
      * as empty strings.
      */
-    assert(strcmp(result, "Hello ") == 0);
+    BB_ASSERT(strcmp(result, "Hello ") == 0);
 
     free(result);
 
@@ -139,7 +139,7 @@ static void test_numeric_render(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
         KEY("port", INT(8080))
@@ -148,13 +148,13 @@ static void test_numeric_render(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
     /*
      * Depending on JSON stringify behavior,
      * adjust if needed.
      */
-    assert(strcmp(result, "Port=8080") == 0);
+    BB_ASSERT(strcmp(result, "Port=8080") == 0);
 
     free(result);
 
@@ -173,7 +173,7 @@ static void test_boolean_render(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
         KEY("enabled", BOOL(1))
@@ -182,9 +182,9 @@ static void test_boolean_render(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
-    assert(strcmp(result, "Enabled=true") == 0);
+    BB_ASSERT(strcmp(result, "Enabled=true") == 0);
 
     free(result);
 
@@ -203,7 +203,7 @@ static void test_invalid_template_parse(void)
         &tpl
     );
 
-    assert(tpl == NULL);
+    BB_ASSERT(tpl == NULL);
 }
 
 static void test_escaped_delimiter(void)
@@ -217,20 +217,20 @@ static void test_escaped_delimiter(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
     /*
      * Current behavior:
      * escaped variable renders literally.
      */
-    assert(strcmp(result, "{{literal}}") == 0);
+    BB_ASSERT(strcmp(result, "{{literal}}") == 0);
 
     free(result);
 
@@ -249,7 +249,7 @@ static void test_section_render(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *items = bb_json_new_array();
 
@@ -274,9 +274,9 @@ static void test_section_render(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
-    assert(strcmp(result, "- Alpha\n- Beta\n") == 0);
+    BB_ASSERT(strcmp(result, "- Alpha\n- Beta\n") == 0);
 
     free(result);
 
@@ -300,7 +300,7 @@ static void test_nested_sections(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *posts = bb_json_new_array();
 
@@ -335,9 +335,9 @@ static void test_nested_sections(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
-    assert(
+    BB_ASSERT(
         strcmp(
             result,
             "User: Blue\n"
@@ -363,7 +363,7 @@ static void test_conditional_truthy(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
         KEY("logged_in", BOOL(1))
@@ -372,9 +372,9 @@ static void test_conditional_truthy(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
-    assert(strcmp(result, "Welcome") == 0);
+    BB_ASSERT(strcmp(result, "Welcome") == 0);
 
     free(result);
 
@@ -393,7 +393,7 @@ static void test_conditional_falsy(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = OBJ(
         KEY("logged_in", BOOL(0))
@@ -402,9 +402,9 @@ static void test_conditional_falsy(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
-    assert(strcmp(result, "") == 0);
+    BB_ASSERT(strcmp(result, "") == 0);
 
     free(result);
 
@@ -423,16 +423,16 @@ static void test_comment_ignored(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *ctx = bb_json_new_object();
 
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
-    assert(strcmp(result, "Hello World") == 0);
+    BB_ASSERT(strcmp(result, "Hello World") == 0);
 
     free(result);
 
@@ -453,7 +453,7 @@ static void test_parent_context_lookup(void)
         &tpl
     );
 
-    assert(tpl != NULL);
+    BB_ASSERT(tpl != NULL);
 
     bb_json_t *users = bb_json_new_array();
 
@@ -472,9 +472,9 @@ static void test_parent_context_lookup(void)
     char *result;
     bb_template_render(tpl, ctx, &result);
 
-    assert(result != NULL);
+    BB_ASSERT(result != NULL);
 
-    assert(
+    BB_ASSERT(
         strcmp(
             result,
             "Blue @ BlueBird\n"
@@ -498,7 +498,7 @@ static void test_mismatched_closing_tag(void)
         &tpl
     );
 
-    assert(tpl == NULL);
+    BB_ASSERT(tpl == NULL);
 }
 
 int main(void)

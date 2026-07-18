@@ -1,7 +1,7 @@
 #include "connection/async_connection.h"
 #include "blue-bird/runtime/runtime.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -36,11 +36,11 @@ static void async_connection_create_test(void)
     bb_async_connection_t *conn =
         bb_async_connection_create(runtime);
 
-    assert(conn != NULL);
-    assert(conn->runtime == runtime);
-    assert(conn->connection == NULL);
-    assert(conn->read_task == NULL);
-    assert(conn->write_task == NULL);
+    BB_ASSERT(conn != NULL);
+    BB_ASSERT(conn->runtime == runtime);
+    BB_ASSERT(conn->connection == NULL);
+    BB_ASSERT(conn->read_task == NULL);
+    BB_ASSERT(conn->write_task == NULL);
 
     bb_async_connection_destroy(conn);
     bb_runtime_destroy(runtime);
@@ -50,7 +50,7 @@ static void async_connection_null_runtime_test(void)
 {
     printf("\tTesting NULL runtime...\n");
 
-    assert(bb_async_connection_create(NULL) == NULL);
+    BB_ASSERT(bb_async_connection_create(NULL) == NULL);
 }
 
 static void async_connection_close_empty_test(void)
@@ -77,7 +77,7 @@ static void async_connection_write_task_invalid_test(void)
     bb_async_connection_t *conn =
         bb_async_connection_create(runtime);
 
-    assert(BB_FAILED(
+    BB_ASSERT(BB_FAILED(
         bb_async_connection_create_write_task(
             conn,
             dummy_callback,
@@ -97,7 +97,7 @@ static void async_connection_read_task_invalid_test(void)
     bb_async_connection_t *conn =
         bb_async_connection_create(runtime);
 
-    assert(BB_FAILED(
+    BB_ASSERT(BB_FAILED(
         bb_async_connection_create_read_task(
             conn,
             dummy_read_step,
@@ -113,7 +113,7 @@ static void async_connection_close_test(void)
     printf("\tTesting async connection close...\n");
 
     int fds[2];
-    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+    BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_runtime_t *runtime = bb_runtime_create();
 
@@ -124,9 +124,9 @@ static void async_connection_close_test(void)
 
     bb_async_connection_close(conn);
 
-    assert(conn->connection == NULL);
-    assert(conn->read_task == NULL);
-    assert(conn->write_task == NULL);
+    BB_ASSERT(conn->connection == NULL);
+    BB_ASSERT(conn->read_task == NULL);
+    BB_ASSERT(conn->write_task == NULL);
 
     close(fds[1]);
 

@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 
 #include "blue-bird/runtime/runtime.h"
@@ -20,13 +20,13 @@ void test_runtime(void)
 {
     bb_runtime_t *runtime = bb_runtime_create();
 
-    assert(runtime != NULL);
+    BB_ASSERT(runtime != NULL);
 
-    assert(bb_runtime_schedule(runtime, runtime_task_cb, runtime) != NULL);
+    BB_ASSERT(bb_runtime_schedule(runtime, runtime_task_cb, runtime) != NULL);
 
     bb_runtime_run(runtime);
 
-    assert(executed == 1);
+    BB_ASSERT(executed == 1);
 
     bb_runtime_destroy(runtime);
 }

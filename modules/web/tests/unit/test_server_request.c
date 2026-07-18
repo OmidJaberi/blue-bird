@@ -1,5 +1,5 @@
 #include "http/server_request.h"
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -13,14 +13,14 @@ void test_request(void)
     req.version[0] = '\0';
     const char *raw = "GET /hello HTTP/1.1\r\nHost: localhost\r\n\r\n";
     int res = bb_server_request_parse(raw, &req);
-    assert(res == 0);
-    assert(strcmp(req.method, "GET") == 0);
-    assert(strcmp(req.path, "/hello") == 0);
-    assert(strcmp(req.version, "HTTP/1.1") == 0);
+    BB_ASSERT(res == 0);
+    BB_ASSERT(strcmp(req.method, "GET") == 0);
+    BB_ASSERT(strcmp(req.path, "/hello") == 0);
+    BB_ASSERT(strcmp(req.version, "HTTP/1.1") == 0);
 
     const char *bad_request = "INVALID REQUEST";
     res = bb_server_request_parse(bad_request, &req);
-    assert(res != 0);
+    BB_ASSERT(res != 0);
 
     bb_server_request_destroy(&req);
 }
@@ -36,17 +36,17 @@ void test_parse_get_request(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == 0);
+    BB_ASSERT(result == 0);
 
-    assert(strcmp(req.method, "GET") == 0);
-    assert(strcmp(req.path, "/hello") == 0);
-    assert(strcmp(req.version, "HTTP/1.1") == 0);
+    BB_ASSERT(strcmp(req.method, "GET") == 0);
+    BB_ASSERT(strcmp(req.path, "/hello") == 0);
+    BB_ASSERT(strcmp(req.version, "HTTP/1.1") == 0);
    
-    assert(strcmp(bb_message_get_header(req.msg, "Host"), "localhost:8080") == 0);
-    assert(strcmp(bb_message_get_header(req.msg, "User-Agent"), "TestClient") == 0);
+    BB_ASSERT(strcmp(bb_message_get_header(req.msg, "Host"), "localhost:8080") == 0);
+    BB_ASSERT(strcmp(bb_message_get_header(req.msg, "User-Agent"), "TestClient") == 0);
     
-    assert(bb_message_get_body(req.msg) == NULL);
-    assert(bb_message_get_body_len(req.msg) == 0);
+    BB_ASSERT(bb_message_get_body(req.msg) == NULL);
+    BB_ASSERT(bb_message_get_body_len(req.msg) == 0);
 
     bb_server_request_destroy(&req);
 }
@@ -64,17 +64,17 @@ void test_parse_post_request_with_body(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == 0);
+    BB_ASSERT(result == 0);
 
-    assert(strcmp(req.method, "POST") == 0);
-    assert(strcmp(req.path, "/submit") == 0);
+    BB_ASSERT(strcmp(req.method, "POST") == 0);
+    BB_ASSERT(strcmp(req.path, "/submit") == 0);
     
-    assert(strcmp(bb_message_get_header(req.msg, "Content-Type"), "text/plain") == 0);
-    assert(strcmp(bb_message_get_header(req.msg, "Content-Length"), "11") == 0);
+    BB_ASSERT(strcmp(bb_message_get_header(req.msg, "Content-Type"), "text/plain") == 0);
+    BB_ASSERT(strcmp(bb_message_get_header(req.msg, "Content-Length"), "11") == 0);
 
-    assert(bb_message_get_body(req.msg) != NULL);
-    assert(strcmp(bb_message_get_body(req.msg), "Hello World") == 0);
-    assert(bb_message_get_body_len(req.msg) == 11);
+    BB_ASSERT(bb_message_get_body(req.msg) != NULL);
+    BB_ASSERT(strcmp(bb_message_get_body(req.msg), "Hello World") == 0);
+    BB_ASSERT(bb_message_get_body_len(req.msg) == 11);
 
     bb_server_request_destroy(&req);
 }
@@ -88,14 +88,14 @@ void test_parse_server_request_with_no_headers(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == 0);
+    BB_ASSERT(result == 0);
 
-    assert(strcmp(req.method, "GET") == 0);
-    assert(strcmp(req.path, "/ping") == 0);
-    assert(strcmp(req.version, "HTTP/1.0") == 0);
+    BB_ASSERT(strcmp(req.method, "GET") == 0);
+    BB_ASSERT(strcmp(req.path, "/ping") == 0);
+    BB_ASSERT(strcmp(req.version, "HTTP/1.0") == 0);
     
-    assert(bb_message_get_header_count(req.msg) == 0);
-    assert(bb_message_get_header(req.msg, "Host") == NULL);
+    BB_ASSERT(bb_message_get_header_count(req.msg) == 0);
+    BB_ASSERT(bb_message_get_header(req.msg, "Host") == NULL);
 
     bb_server_request_destroy(&req);
 }
@@ -107,7 +107,7 @@ void test_malformed_request(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == -1);
+    BB_ASSERT(result == -1);
 }
 
 void test_request_with_invalid_header(void)
@@ -120,7 +120,7 @@ void test_request_with_invalid_header(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == -1);
+    BB_ASSERT(result == -1);
 }
 
 void test_request_with_query_params(void)
@@ -133,15 +133,15 @@ void test_request_with_query_params(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == 0);
+    BB_ASSERT(result == 0);
 
-    assert(strcmp(req.method, "GET") == 0);
-    assert(strcmp(req.path, "/search") == 0);
-    assert(strcmp(req.version, "HTTP/1.1") == 0);
+    BB_ASSERT(strcmp(req.method, "GET") == 0);
+    BB_ASSERT(strcmp(req.path, "/search") == 0);
+    BB_ASSERT(strcmp(req.version, "HTTP/1.1") == 0);
 
-    assert(req.query_count == 2);
-    assert(strcmp(bb_server_request_get_query_param(&req, "q"), "bluebird") == 0);
-    assert(strcmp(bb_server_request_get_query_param(&req, "limit"), "10") == 0);
+    BB_ASSERT(req.query_count == 2);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "q"), "bluebird") == 0);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "limit"), "10") == 0);
 
     bb_server_request_destroy(&req);
 }
@@ -156,13 +156,13 @@ void test_request_with_empty_query_value(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == 0);
+    BB_ASSERT(result == 0);
 
-    assert(strcmp(req.path, "/filter") == 0);
+    BB_ASSERT(strcmp(req.path, "/filter") == 0);
 
-    assert(req.query_count == 2);
-    assert(strcmp(bb_server_request_get_query_param(&req, "enabled"), "") == 0);
-    assert(strcmp(bb_server_request_get_query_param(&req, "sort"), "asc") == 0);
+    BB_ASSERT(req.query_count == 2);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "enabled"), "") == 0);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "sort"), "asc") == 0);
 
     bb_server_request_destroy(&req);
 }
@@ -177,12 +177,12 @@ void test_request_with_no_query_value(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == 0);
+    BB_ASSERT(result == 0);
 
-    assert(strcmp(req.path, "/items") == 0);
+    BB_ASSERT(strcmp(req.path, "/items") == 0);
 
-    assert(req.query_count == 1);
-    assert(strcmp(bb_server_request_get_query_param(&req, "flag"), "") == 0);
+    BB_ASSERT(req.query_count == 1);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "flag"), "") == 0);
 
     bb_server_request_destroy(&req);
 }
@@ -200,17 +200,17 @@ void test_request_max_query_params(void)
     bb_server_request_t req;
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
-    assert(result == 0);
+    BB_ASSERT(result == 0);
 
-    assert(strcmp(req.path, "/many") == 0);
+    BB_ASSERT(strcmp(req.path, "/many") == 0);
 
-    assert(req.query_count == MAX_QUERY_PARAMS);
+    BB_ASSERT(req.query_count == MAX_QUERY_PARAMS);
 
-    assert(strcmp(bb_server_request_get_query_param(&req, "k1"), "v1") == 0);
-    assert(strcmp(bb_server_request_get_query_param(&req, "k10"), "v10") == 0);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "k1"), "v1") == 0);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "k10"), "v10") == 0);
 
-    assert(bb_server_request_get_query_param(&req, "k11") == NULL);
-    assert(bb_server_request_get_query_param(&req, "k12") == NULL);
+    BB_ASSERT(bb_server_request_get_query_param(&req, "k11") == NULL);
+    BB_ASSERT(bb_server_request_get_query_param(&req, "k12") == NULL);
 
     bb_server_request_destroy(&req);
 }

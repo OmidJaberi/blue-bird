@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -131,9 +131,9 @@ void *concurrent_client(void *arg)
         bb_request_set_body(req, "");
 
         bb_error_t err = bb_client_execute(client);
-        assert(err.code == 0);
+        BB_ASSERT(err.code == 0);
 
-        assert(bb_response_get_status(res) == 200);
+        BB_ASSERT(bb_response_get_status(res) == 200);
 
         bb_client_destroy(client);
     }
@@ -158,11 +158,11 @@ void test_root_req(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
 
     bb_client_destroy(client);
 }
@@ -184,10 +184,10 @@ void test_missing_path_req(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 404);
+    BB_ASSERT(bb_response_get_status(res) == 404);
 
     bb_client_destroy(client);
 }
@@ -209,11 +209,11 @@ void test_param_req(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "name: my_name") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "name: my_name") == 0);
 
     bb_client_destroy(client);
 }
@@ -235,11 +235,11 @@ void test_multi_param_req(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "hello and good_bye") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "hello and good_bye") == 0);
 
     bb_client_destroy(client);
 }
@@ -258,9 +258,9 @@ void test_missing_param(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 404);
+    BB_ASSERT(bb_response_get_status(res) == 404);
 
     bb_client_destroy(client);
 }
@@ -287,13 +287,13 @@ void test_max_length_param(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
     char expected[6000];
     sprintf(expected, "name: %s", long_name);
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), expected) == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), expected) == 0);
 
     bb_client_destroy(client);
 }
@@ -320,10 +320,10 @@ void test_over_sized_param(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 400);
+    BB_ASSERT(bb_response_get_status(res) == 400);
 
     bb_client_destroy(client);
 }
@@ -345,11 +345,11 @@ void test_query_param_req(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "val: blue-bird") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "val: blue-bird") == 0);
 
     bb_client_destroy(client);
 }
@@ -366,10 +366,10 @@ void test_encoded_query_param(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "val: blue bird!") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "val: blue bird!") == 0);
 
     bb_client_destroy(client);
 }
@@ -391,11 +391,11 @@ void test_multi_query_param_req(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "blue-bird") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "blue-bird") == 0);
 
     bb_client_destroy(client);
 }
@@ -420,8 +420,8 @@ void test_too_many_query_params(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
-    assert(bb_response_get_status(res) == 400);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 400);
 
     bb_client_destroy(client);
 }
@@ -443,10 +443,10 @@ void test_missing_query_param_req(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 400);
+    BB_ASSERT(bb_response_get_status(res) == 400);
 
     bb_client_destroy(client);
 }
@@ -463,10 +463,10 @@ void test_duplicate_query_param(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "val: blue") == 0); // Based on implementation, we expect first param
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "val: blue") == 0); // Based on implementation, we expect first param
 
     bb_client_destroy(client);
 }
@@ -483,9 +483,9 @@ void test_empty_query_value(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
+    BB_ASSERT(bb_response_get_status(res) == 200);
     bb_client_destroy(client);
 }
 
@@ -501,8 +501,8 @@ void test_invalid_query_format(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
-    assert(bb_response_get_status(res) == 404);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 404);
 
     bb_client_destroy(client);
 }
@@ -524,11 +524,11 @@ void test_req_body(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "body: BODY_CONTENT") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "body: BODY_CONTENT") == 0);
 
     bb_client_destroy(client);
 }
@@ -555,14 +555,14 @@ void test_req_large_body(void)
     bb_request_set_body(req, body);
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     char *expected_res = malloc(size + 100);
     snprintf(expected_res, size + 100, "body: %s", body);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), expected_res) == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), expected_res) == 0);
 
     free(body);
     free(expected_res);
@@ -583,10 +583,10 @@ void test_large_response(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
-    assert(strlen(bb_response_get_body(res)) == 1024 * 1024);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strlen(bb_response_get_body(res)) == 1024 * 1024);
 
     bb_client_destroy(client);
 }
@@ -603,10 +603,10 @@ void test_empty_body_req(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "body: ") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "body: ") == 0);
 
     bb_client_destroy(client);
 }
@@ -631,11 +631,11 @@ void test_encoded_body_req(void)
     bb_request_set_header(req, "Content-Type", "application/x-www-form-urlencoded");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     /* ---- validate ---- */
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "body: name=blue bird&msg=hello!") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "body: name=blue bird&msg=hello!") == 0);
 
     bb_client_destroy(client);
 }
@@ -652,10 +652,10 @@ void test_encoded_path_segment(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "name: blue") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "name: blue") == 0);
 
     bb_client_destroy(client);
 }
@@ -673,9 +673,9 @@ void test_invalid_body_encoding(void)
 
     bb_request_set_header(req, "Content-Type", "application/x-www-form-urlencoded");
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
+    BB_ASSERT(bb_response_get_status(res) == 200);
 
     bb_client_destroy(client);
 }
@@ -692,9 +692,9 @@ void test_invalid_method(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 405 || bb_response_get_status(res) == 404);
+    BB_ASSERT(bb_response_get_status(res) == 405 || bb_response_get_status(res) == 404);
 
     bb_client_destroy(client);
 }
@@ -711,9 +711,9 @@ void test_trailing_slash(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
-    assert(bb_response_get_status(res) == 200);
+    BB_ASSERT(bb_response_get_status(res) == 200);
 
     bb_client_destroy(client);
 }
@@ -730,8 +730,8 @@ void test_invalid_url_chars(void)
     bb_request_set_body(req, "");
 
     bb_error_t err = bb_client_execute(client);
-    assert(err.code == 0);
-    assert(bb_response_get_status(res) == 400);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 400);
 
     bb_client_destroy(client);
 }
@@ -766,7 +766,7 @@ void test_partial_request(void)
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
-    assert(rc == 0);
+    BB_ASSERT(rc == 0);
 
     send(fd, "GET / HTTP/1.1\r\n", 17, MSG_NOSIGNAL);
 
@@ -782,11 +782,11 @@ void test_partial_request(void)
 
     ssize_t n = recv(fd, buffer, sizeof(buffer) - 1, 0);
 
-    assert(n > 0);
+    BB_ASSERT(n > 0);
 
     buffer[n] = '\0';
 
-    assert(strstr(buffer, "Hello, Blue-Bird :)") != NULL);
+    BB_ASSERT(strstr(buffer, "Hello, Blue-Bird :)") != NULL);
 
     close(fd);
 }
@@ -806,9 +806,9 @@ void test_many_requests(void)
         bb_request_set_body(req, "");
 
         bb_error_t err = bb_client_execute(client);
-        assert(err.code == 0);
+        BB_ASSERT(err.code == 0);
 
-        assert(bb_response_get_status(res) == 200);
+        BB_ASSERT(bb_response_get_status(res) == 200);
 
         bb_client_destroy(client);
     }
@@ -831,9 +831,9 @@ void test_client_reset_reuse(void)
 
     bb_error_t err = bb_client_execute(client);
 
-    assert(err.code == 0);
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
 
     /* ---------- Reset ---------- */
 
@@ -847,9 +847,9 @@ void test_client_reset_reuse(void)
 
     err = bb_client_execute(client);
 
-    assert(err.code == 0);
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "name: bluebird") == 0);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "name: bluebird") == 0);
 
     bb_client_destroy(client);
 }
@@ -869,8 +869,8 @@ void test_client_reset_different_host(void)
 
     bb_error_t err = bb_client_execute(client);
 
-    assert(err.code == 0);
-    assert(bb_response_get_status(res) == 200);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
 
     bb_client_reset(client);
 
@@ -884,8 +884,8 @@ void test_client_reset_different_host(void)
 
     err = bb_client_execute(client);
 
-    assert(err.code == 0);
-    assert(bb_response_get_status(res) == 200);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
 
     bb_client_destroy(client);
 }
@@ -909,8 +909,8 @@ void test_client_multiple_reuse(void)
 
         bb_error_t err = bb_client_execute(client);
 
-        assert(err.code == 0);
-        assert(bb_response_get_status(res) == 200);
+        BB_ASSERT(err.code == 0);
+        BB_ASSERT(bb_response_get_status(res) == 200);
     }
 
     bb_client_destroy(client);
@@ -922,12 +922,12 @@ static void async_get_cb(bb_client_t *client, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     bb_response_t *res = bb_client_get_response(client);
 
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
 
     async_done = 1;
 }
@@ -956,12 +956,12 @@ static void async_many_cb(bb_client_t *client, bb_error_t err, void *userdata)
 {
     (void)userdata;
 
-    assert(err.code == 0);
+    BB_ASSERT(err.code == 0);
 
     bb_response_t *res = bb_client_get_response(client);
 
-    assert(bb_response_get_status(res) == 200);
-    assert(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
 
     async_completed++;
 }

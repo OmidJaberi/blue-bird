@@ -1,5 +1,5 @@
 #include "blue-bird/persist/serialization/entity_json.h"
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 
 static void test_entity_to_json(void)
@@ -43,15 +43,15 @@ static void test_entity_to_json(void)
 
     bb_json_t *obj = bb_entity_to_json(&schema, &u);
 
-    assert(obj);
+    BB_ASSERT(obj);
 
-    assert(
+    BB_ASSERT(
         bb_json_get_value_integer(
             bb_json_object_get_value(obj, "id")
         ) == 1
     );
 
-    assert(
+    BB_ASSERT(
         strcmp(
             bb_json_get_value_text(
                 bb_json_object_get_value(obj, "name")
@@ -104,7 +104,7 @@ static void test_json_to_entity(void)
     User u;
     memset(&u, 0, sizeof(u));
 
-    assert(
+    BB_ASSERT(
         bb_json_to_entity(
             &schema,
             obj,
@@ -112,8 +112,8 @@ static void test_json_to_entity(void)
         ) == 0
     );
 
-    assert(u.id == 42);
-    assert(strcmp(u.name, "Bob") == 0);
+    BB_ASSERT(u.id == 42);
+    BB_ASSERT(strcmp(u.name, "Bob") == 0);
 
     bb_json_destroy(obj);
 }
@@ -150,7 +150,7 @@ static void test_json_to_entity_invalid_type(void)
 
     User u;
 
-    assert(
+    BB_ASSERT(
         bb_json_to_entity(
             &schema,
             obj,

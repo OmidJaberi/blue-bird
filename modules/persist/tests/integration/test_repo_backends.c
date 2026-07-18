@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,7 +59,7 @@ static void cleanup(const char *path)
 static void run_tests(const char *file, const bb_model_api_t *api)
 {
     bb_model_handle_t *h = api->open(file);
-    assert(h);
+    BB_ASSERT(h);
 
     bb_repo_t repo;
     bb_repo_init(&repo, api, h, &schema);
@@ -68,28 +68,28 @@ static void run_tests(const char *file, const bb_model_api_t *api)
     printf("\tInsert...\n");
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
-    assert(bb_repo_insert(&repo, &u) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u) == 0);
 
     /* FIND */
     printf("\tFind...\n");
     User out = {0};
     int id = 1;
-    assert(bb_repo_find_by_pk(&repo, &out, &id) == 0);
-    assert(strcmp(out.name, "Alice") == 0);
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, &id) == 0);
+    BB_ASSERT(strcmp(out.name, "Alice") == 0);
 
     /* UPDATE */
     printf("\tUpdate...\n");
     strncpy(u.name, "Bob", sizeof(u.name));
-    assert(bb_repo_update(&repo, &u) == 0);
+    BB_ASSERT(bb_repo_update(&repo, &u) == 0);
 
     memset(&out, 0, sizeof(out));
-    assert(bb_repo_find_by_pk(&repo, &out, &id) == 0);
-    assert(strcmp(out.name, "Bob") == 0);
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, &id) == 0);
+    BB_ASSERT(strcmp(out.name, "Bob") == 0);
 
     /* REMOVE */
     printf("\tRemove...\n");
-    assert(bb_repo_remove(&repo, &id) == 0);
-    assert(bb_repo_find_by_pk(&repo, &out, &id) != 0);
+    BB_ASSERT(bb_repo_remove(&repo, &id) == 0);
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, &id) != 0);
 
     /* FIND ALL */
     printf("\tFind All...\n");
@@ -101,15 +101,15 @@ static void run_tests(const char *file, const bb_model_api_t *api)
     User u2 = { .id = 2 };
     strcpy(u2.name, "Bob");
 
-    assert(bb_repo_insert(&repo, &u1) == 0);
-    assert(bb_repo_insert(&repo, &u2) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u1) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u2) == 0);
 
     User *arr = NULL;
     size_t count = 0;
 
-    assert(bb_repo_find_all(&repo, (void**)&arr, &count) == 0);
+    BB_ASSERT(bb_repo_find_all(&repo, (void**)&arr, &count) == 0);
 
-    assert(count == 2);
+    BB_ASSERT(count == 2);
 
     /* order not guaranteed → just check existence */
     int found1 = 0, found2 = 0;
@@ -120,7 +120,7 @@ static void run_tests(const char *file, const bb_model_api_t *api)
         if (arr[i].id == 2) found2 = 1;
     }
 
-    assert(found1 && found2);
+    BB_ASSERT(found1 && found2);
 
     free(arr);
 
@@ -134,10 +134,10 @@ static void test_repo_json_crud(void)
     const char *file = "test_repo_json.json";
     cleanup(file);
 
-    assert(bb_model_register(bb_model_json_api()) == 0);
+    BB_ASSERT(bb_model_register(bb_model_json_api()) == 0);
 
     const bb_model_api_t *api = bb_model_get("json");
-    assert(api);
+    BB_ASSERT(api);
 
     run_tests(file, api);
 
@@ -151,10 +151,10 @@ static void test_repo_sqlite_crud(void)
     const char *db = "test_repo_sqlite.db";
     cleanup(db);
 
-    assert(bb_model_register(bb_model_sqlite_api()) == 0);
+    BB_ASSERT(bb_model_register(bb_model_sqlite_api()) == 0);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api);
+    BB_ASSERT(api);
 
     run_tests(db, api);
 

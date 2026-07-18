@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <unistd.h>
 
 
@@ -12,8 +12,8 @@ void test_now_sec(void)
     int64_t t1 = bb_time_now_sec();
     int64_t t2 = bb_time_now_sec();
 
-    assert(t1 > 0);
-    assert(t2 >= t1);
+    BB_ASSERT(t1 > 0);
+    BB_ASSERT(t2 >= t1);
 }
 
 void test_now_ms(void)
@@ -22,8 +22,8 @@ void test_now_ms(void)
     int64_t t1 = bb_time_now_ms();
     int64_t t2 = bb_time_now_ms();
 
-    assert(t1 > 0);
-    assert(t2 >= t1);
+    BB_ASSERT(t1 > 0);
+    BB_ASSERT(t2 >= t1);
 }
 
 void test_monotonic_increases(void)
@@ -40,7 +40,7 @@ void test_monotonic_increases(void)
 
     int64_t t2 = bb_time_monotonic_ms();
 
-    assert(t2 > t1);
+    BB_ASSERT(t2 > t1);
 }
 
 void test_rfc1123_format(void)
@@ -52,9 +52,9 @@ void test_rfc1123_format(void)
     int64_t ts = 784111777;
 
     int rc = bb_time_format_rfc1123(ts, buf, sizeof(buf));
-    assert(rc == 0);
+    BB_ASSERT(rc == 0);
 
-    assert(strcmp(buf, "Sun, 06 Nov 1994 08:49:37 GMT") == 0);
+    BB_ASSERT(strcmp(buf, "Sun, 06 Nov 1994 08:49:37 GMT") == 0);
 }
 
 void test_iso8601_format(void)
@@ -65,9 +65,9 @@ void test_iso8601_format(void)
     int64_t ts = 784111777;
 
     int rc = bb_time_format_iso8601(ts, buf, sizeof(buf));
-    assert(rc == 0);
+    BB_ASSERT(rc == 0);
 
-    assert(strcmp(buf, "1994-11-06T08:49:37Z") == 0);
+    BB_ASSERT(strcmp(buf, "1994-11-06T08:49:37Z") == 0);
 }
 
 void test_rfc1123_buffer_too_small(void)
@@ -77,7 +77,7 @@ void test_rfc1123_buffer_too_small(void)
 
     int rc = bb_time_format_rfc1123(784111777, buf, sizeof(buf));
 
-    assert(rc != 0);
+    BB_ASSERT(rc != 0);
 }
 
 #ifndef _WIN32
@@ -89,8 +89,8 @@ void test_rfc1123_parse(void)
 
     int rc = bb_time_parse_rfc1123(str, &ts);
 
-    assert(rc == 0);
-    assert(ts == 784111777);
+    BB_ASSERT(rc == 0);
+    BB_ASSERT(ts == 784111777);
 }
 #endif
 

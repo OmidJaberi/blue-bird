@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -60,20 +60,20 @@ static void test_sqlite_insert_and_find(void)
     cleanup_db(db_path);
 
     /* register backend */
-    assert(bb_model_register(bb_model_sqlite_api()) == 0);
+    BB_ASSERT(bb_model_register(bb_model_sqlite_api()) == 0);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     /* insert */
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
     int rc = api->insert(h, &user_schema, &u);
-    assert(rc == 0);
+    BB_ASSERT(rc == 0);
 
     /* fetch */
     User out;
@@ -81,10 +81,10 @@ static void test_sqlite_insert_and_find(void)
 
     int id = 1;
     rc = api->find_by_pk(h, &user_schema, &out, &id);
-    assert(rc == 0);
+    BB_ASSERT(rc == 0);
 
-    assert(out.id == 1);
-    assert(strcmp(out.name, "Alice") == 0);
+    BB_ASSERT(out.id == 1);
+    BB_ASSERT(strcmp(out.name, "Alice") == 0);
 
     api->close(h);
 }
@@ -96,10 +96,10 @@ static void test_sqlite_multiple_inserts(void)
     cleanup_db(db_path);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     User u1 = { .id = 1 };
     strncpy(u1.name, "Alice", sizeof(u1.name));
@@ -107,19 +107,19 @@ static void test_sqlite_multiple_inserts(void)
     User u2 = { .id = 2 };
     strncpy(u2.name, "Bob", sizeof(u2.name));
 
-    assert(api->insert(h, &user_schema, &u1) == 0);
-    assert(api->insert(h, &user_schema, &u2) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u1) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u2) == 0);
 
     User out1 = {0};
     User out2 = {0};
 
     int id = 1;
-    assert(api->find_by_pk(h, &user_schema, &out1, &id) == 0);
+    BB_ASSERT(api->find_by_pk(h, &user_schema, &out1, &id) == 0);
     id = 2;
-    assert(api->find_by_pk(h, &user_schema, &out2, &id) == 0);
+    BB_ASSERT(api->find_by_pk(h, &user_schema, &out2, &id) == 0);
 
-    assert(strcmp(out1.name, "Alice") == 0);
-    assert(strcmp(out2.name, "Bob") == 0);
+    BB_ASSERT(strcmp(out1.name, "Alice") == 0);
+    BB_ASSERT(strcmp(out2.name, "Bob") == 0);
 
     api->close(h);
 }
@@ -131,16 +131,16 @@ static void test_sqlite_not_found(void)
     cleanup_db(db_path);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     User out = {0};
 
     int id = 999;
     int rc = api->find_by_pk(h, &user_schema, &out, &id);
-    assert(rc != 0); // should fail
+    BB_ASSERT(rc != 0); // should fail
 
     api->close(h);
 }
@@ -152,25 +152,25 @@ static void test_sqlite_update(void)
     cleanup_db(db_path);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(api->insert(h, &user_schema, &u) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u) == 0);
 
     // update
     strncpy(u.name, "Bob", sizeof(u.name));
-    assert(api->update(h, &user_schema, &u) == 0);
+    BB_ASSERT(api->update(h, &user_schema, &u) == 0);
 
     User out = {0};
     int id = 1;
-    assert(api->find_by_pk(h, &user_schema, &out, &id) == 0);
+    BB_ASSERT(api->find_by_pk(h, &user_schema, &out, &id) == 0);
 
-    assert(strcmp(out.name, "Bob") == 0);
+    BB_ASSERT(strcmp(out.name, "Bob") == 0);
 
     api->close(h);
 }
@@ -182,25 +182,25 @@ static void test_sqlite_remove(void)
     cleanup_db(db_path);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(api->insert(h, &user_schema, &u) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u) == 0);
 
     // remove
     int id = 1;
-    assert(api->remove(h, &user_schema, &id) == 0);
+    BB_ASSERT(api->remove(h, &user_schema, &id) == 0);
 
     User out = {0};
     id = 1;
     int rc = api->find_by_pk(h, &user_schema, &out, &id);
 
-    assert(rc != 0); // should not exist
+    BB_ASSERT(rc != 0); // should not exist
 
     api->close(h);
 }
@@ -212,10 +212,10 @@ static void test_sqlite_insert_conflict(void)
     cleanup_db(db_path);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     User u1 = { .id = 1 };
     strncpy(u1.name, "Alice", sizeof(u1.name));
@@ -223,11 +223,11 @@ static void test_sqlite_insert_conflict(void)
     User u2 = { .id = 1 };
     strncpy(u2.name, "Bob", sizeof(u2.name));
 
-    assert(api->insert(h, &user_schema, &u1) == 0);
+    BB_ASSERT(api->insert(h, &user_schema, &u1) == 0);
 
     // second insert with same PK should fail
     int rc = api->insert(h, &user_schema, &u2);
-    assert(rc != 0);
+    BB_ASSERT(rc != 0);
 
     api->close(h);
 }
@@ -239,17 +239,17 @@ static void test_sqlite_update_not_found(void)
     cleanup_db(db_path);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     User u = { .id = 999 };
     strncpy(u.name, "Ghost", sizeof(u.name));
 
     int rc = api->update(h, &user_schema, &u);
 
-    assert(rc != 0); // should fail
+    BB_ASSERT(rc != 0); // should fail
 
     api->close(h);
 }
@@ -261,15 +261,15 @@ static void test_sqlite_remove_not_found(void)
     cleanup_db(db_path);
 
     const bb_model_api_t *api = bb_model_get("sqlite");
-    assert(api != NULL);
+    BB_ASSERT(api != NULL);
 
     bb_model_handle_t *h = api->open(db_path);
-    assert(h != NULL);
+    BB_ASSERT(h != NULL);
 
     int id = 999;
     int rc = api->remove(h, &user_schema, &id);
 
-    assert(rc != 0); // should fail
+    BB_ASSERT(rc != 0); // should fail
 
     api->close(h);
 }

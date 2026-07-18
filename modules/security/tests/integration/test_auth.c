@@ -1,7 +1,7 @@
 #include "blue-bird/security/auth.h"
 #include "blue-bird/security/session.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -27,11 +27,11 @@ void test_login_success(void)
 
     bb_error_t err = bb_auth_login("admin", "secret123", verify_user, &session);
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
-    assert(strlen(session.id) > 0);
+    BB_ASSERT(strlen(session.id) > 0);
 
-    assert(strcmp(session.user_id, "user-1") == 0);
+    BB_ASSERT(strcmp(session.user_id, "user-1") == 0);
 }
 
 void test_login_failure(void)
@@ -42,7 +42,7 @@ void test_login_failure(void)
 
     bb_error_t err = bb_auth_login("admin", "wrong-password", verify_user, &session);
 
-    assert(err.code != BB_OK);
+    BB_ASSERT(err.code != BB_OK);
 }
 
 void test_logout(void)
@@ -57,7 +57,7 @@ void test_logout(void)
 
     bb_error_t err = bb_session_get(session.id, &session);
 
-    assert(err.code != BB_OK);
+    BB_ASSERT(err.code != BB_OK);
 }
 
 int main(void)

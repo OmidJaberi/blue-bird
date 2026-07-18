@@ -329,7 +329,7 @@ Error returns should be used for:
 Example:
 
 ```c
-BB_ASSERT(route_list != NULL, "Route list is NULL");
+BB_ASSERT_MSG(route_list != NULL, "Route list is NULL");
 ```
 
 ---

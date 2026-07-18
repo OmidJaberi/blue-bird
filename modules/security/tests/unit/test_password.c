@@ -1,6 +1,6 @@
 #include "blue-bird/security/password.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -12,11 +12,11 @@ void test_password_hash(void)
 
     bb_error_t err = bb_password_hash("secret123", hash, sizeof(hash));
 
-    assert(err.code == BB_OK);
+    BB_ASSERT(err.code == BB_OK);
 
-    assert(strlen(hash) > 0);
+    BB_ASSERT(strlen(hash) > 0);
 
-    assert(strncmp(hash, "bb$", 3) == 0);
+    BB_ASSERT(strncmp(hash, "bb$", 3) == 0);
 }
 
 void test_password_verify_success(void)
@@ -27,7 +27,7 @@ void test_password_verify_success(void)
 
     bb_password_hash("secret123", hash, sizeof(hash));
 
-    assert(bb_password_verify("secret123", hash) == 1);
+    BB_ASSERT(bb_password_verify("secret123", hash) == 1);
 }
 
 void test_password_verify_failure(void)
@@ -38,7 +38,7 @@ void test_password_verify_failure(void)
 
     bb_password_hash("secret123", hash, sizeof(hash));
 
-    assert(bb_password_verify("wrong-password", hash) == 0);
+    BB_ASSERT(bb_password_verify("wrong-password", hash) == 0);
 }
 
 void test_password_hash_uniqueness(void)
@@ -52,7 +52,7 @@ void test_password_hash_uniqueness(void)
 
     bb_password_hash("secret123", hash2, sizeof(hash2));
 
-    assert(strcmp(hash1, hash2) != 0);
+    BB_ASSERT(strcmp(hash1, hash2) != 0);
 }
 
 void test_null_arguments(void)
@@ -61,7 +61,7 @@ void test_null_arguments(void)
 
     bb_error_t err = bb_password_hash(NULL, hash, sizeof(hash));
 
-    assert(err.code == BB_ERR_NULL);
+    BB_ASSERT(err.code == BB_ERR_NULL);
 }
 
 int main(void)

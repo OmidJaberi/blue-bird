@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 
 #include "blue-bird/runtime/runtime.h"
@@ -31,7 +31,7 @@ static void task_b_cb(bb_task_t *task, void *userdata)
 
     printf("Task B executed\n");
 
-    assert(bb_runtime_schedule(ctx->runtime, task_c_cb, ctx) != NULL);
+    BB_ASSERT(bb_runtime_schedule(ctx->runtime, task_c_cb, ctx) != NULL);
 }
 
 static void task_a_cb(bb_task_t *task, void *userdata)
@@ -43,30 +43,30 @@ static void task_a_cb(bb_task_t *task, void *userdata)
 
     printf("Task A executed\n");
 
-    assert(bb_runtime_schedule(ctx->runtime, task_b_cb, ctx) != NULL);
+    BB_ASSERT(bb_runtime_schedule(ctx->runtime, task_b_cb, ctx) != NULL);
 }
 
 void test_runtime_chain(void)
 {
     bb_runtime_t *runtime = bb_runtime_create();
 
-    assert(runtime != NULL);
+    BB_ASSERT(runtime != NULL);
 
     runtime_test_ctx_t ctx = {
         .runtime = runtime
     };
 
-    assert(bb_runtime_schedule(runtime, task_a_cb, &ctx) != NULL);
+    BB_ASSERT(bb_runtime_schedule(runtime, task_a_cb, &ctx) != NULL);
 
     bb_runtime_run(runtime);
 
     // Validate execution chain
 
-    assert(execution_index == 3);
+    BB_ASSERT(execution_index == 3);
 
-    assert(execution_order[0] == 1);
-    assert(execution_order[1] == 2);
-    assert(execution_order[2] == 3);
+    BB_ASSERT(execution_order[0] == 1);
+    BB_ASSERT(execution_order[1] == 2);
+    BB_ASSERT(execution_order[2] == 3);
 
     bb_runtime_destroy(runtime);
 }

@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -54,9 +54,9 @@ static void test_log_calls_backend(void)
 
     bb_logger_log(&logger, BB_LOG_LEVEL_INFO, "Hello %s", "World");
 
-    assert(mock.write_called == 1);
-    assert(mock.last_level == BB_LOG_LEVEL_INFO);
-    assert(strcmp(mock.last_message, "Hello World") == 0);
+    BB_ASSERT(mock.write_called == 1);
+    BB_ASSERT(mock.last_level == BB_LOG_LEVEL_INFO);
+    BB_ASSERT(strcmp(mock.last_message, "Hello World") == 0);
 }
 
 static void test_log_filters_level(void)
@@ -73,7 +73,7 @@ static void test_log_filters_level(void)
 
     bb_logger_log(&logger, BB_LOG_LEVEL_DEBUG, "Should not appear");
 
-    assert(mock.write_called == 0);
+    BB_ASSERT(mock.write_called == 0);
 }
 
 static void test_log_null_logger(void)
@@ -84,7 +84,7 @@ static void test_log_null_logger(void)
 
     bb_logger_log(NULL, BB_LOG_LEVEL_INFO, "Ignored");
 
-    assert(mock.write_called == 0);
+    BB_ASSERT(mock.write_called == 0);
 }
 
 static void test_log_null_callback(void)
@@ -101,7 +101,7 @@ static void test_log_null_callback(void)
 
     bb_logger_log(&logger, BB_LOG_LEVEL_INFO, "Ignored");
 
-    assert(mock.write_called == 0);
+    BB_ASSERT(mock.write_called == 0);
 }
 
 /* Helper for testing bb_logger_vlog */
@@ -128,8 +128,8 @@ static void test_vlog_calls_backend(void)
 
     call_vlog(&logger, BB_LOG_LEVEL_INFO, "Value=%d", 42);
 
-    assert(mock.write_called == 1);
-    assert(strcmp(mock.last_message, "Value=42") == 0);
+    BB_ASSERT(mock.write_called == 1);
+    BB_ASSERT(strcmp(mock.last_message, "Value=42") == 0);
 }
 
 static void test_close_logger(void)
@@ -144,8 +144,8 @@ static void test_close_logger(void)
 
     bb_logger_close(&logger);
 
-    assert(logger.write == NULL);
-    assert(logger.userdata == NULL);
+    BB_ASSERT(logger.write == NULL);
+    BB_ASSERT(logger.userdata == NULL);
 }
 
 static void test_log_after_close(void)
@@ -164,7 +164,7 @@ static void test_log_after_close(void)
 
     bb_logger_log(&logger, BB_LOG_LEVEL_INFO, "Ignored");
 
-    assert(mock.write_called == 0);
+    BB_ASSERT(mock.write_called == 0);
 }
 
 static void test_default_logger_macro(void)
@@ -179,8 +179,8 @@ static void test_default_logger_macro(void)
 
     BB_LOG_INFO("macro test");
 
-    assert(mock.write_called == 1);
-    assert(strcmp(mock.last_message, "macro test") == 0);
+    BB_ASSERT(mock.write_called == 1);
+    BB_ASSERT(strcmp(mock.last_message, "macro test") == 0);
 }
 
 /* ---------------------------

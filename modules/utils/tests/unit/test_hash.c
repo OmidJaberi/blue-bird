@@ -1,6 +1,6 @@
 #include "blue-bird/utils/hash.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -28,7 +28,7 @@ void test_sha1_empty(void)
 
     digest_to_hex(digest, hex);
 
-    assert(strcmp(hex, "da39a3ee5e6b4b0d3255bfef95601890afd80709") == 0);
+    BB_ASSERT(strcmp(hex, "da39a3ee5e6b4b0d3255bfef95601890afd80709") == 0);
 }
 
 void test_sha1_abc(void)
@@ -42,7 +42,7 @@ void test_sha1_abc(void)
 
     digest_to_hex(digest, hex);
 
-    assert(strcmp(hex, "a9993e364706816aba3e25717850c26c9cd0d89d") == 0);
+    BB_ASSERT(strcmp(hex, "a9993e364706816aba3e25717850c26c9cd0d89d") == 0);
 }
 
 void test_sha1_long_vector(void)
@@ -58,7 +58,7 @@ void test_sha1_long_vector(void)
 
     digest_to_hex(digest, hex);
 
-    assert(strcmp(hex, "84983e441c3bd26ebaae4aa1f95129e5e54670f1") == 0);
+    BB_ASSERT(strcmp(hex, "84983e441c3bd26ebaae4aa1f95129e5e54670f1") == 0);
 }
 
 int main(void)

@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -158,31 +158,31 @@ static void test_mock_backend(void)
 {
     printf("\tTesting mock backend...\n");
 
-    assert(bb_model_register(&mock_api) == 0);
+    BB_ASSERT(bb_model_register(&mock_api) == 0);
 
     const bb_model_api_t *api = bb_model_get("mock");
-    assert(api);
+    BB_ASSERT(api);
 
     bb_model_handle_t *h = api->open("ignored");
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(api->insert(h, &schema, &u) == 0);
-    assert(mock.insert_called == 1);
+    BB_ASSERT(api->insert(h, &schema, &u) == 0);
+    BB_ASSERT(mock.insert_called == 1);
 
     User out = {0};
     int id = 1;
-    assert(api->find_by_pk(h, &schema, &out, &id) == 0);
-    assert(mock.find_called == 1);
+    BB_ASSERT(api->find_by_pk(h, &schema, &out, &id) == 0);
+    BB_ASSERT(mock.find_called == 1);
 
     strncpy(u.name, "Bob", sizeof(u.name));
-    assert(api->update(h, &schema, &u) == 0);
-    assert(mock.update_called == 1);
+    BB_ASSERT(api->update(h, &schema, &u) == 0);
+    BB_ASSERT(mock.update_called == 1);
 
     id = 1;
-    assert(api->remove(h, &schema, &id) == 0);
-    assert(mock.remove_called == 1);
+    BB_ASSERT(api->remove(h, &schema, &id) == 0);
+    BB_ASSERT(mock.remove_called == 1);
 
     api->close(h);
 }

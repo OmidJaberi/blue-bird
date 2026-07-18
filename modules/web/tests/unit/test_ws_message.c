@@ -1,6 +1,6 @@
 #include "blue-bird/web/websocket/message.h"
 
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -14,11 +14,11 @@ void test_message_init_text(void)
 
     bb_ws_message_init(&message, BB_WS_MESSAGE_TEXT, text, strlen(text));
 
-    assert(message.type == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(message.type == BB_WS_MESSAGE_TEXT);
 
-    assert(message.data == text);
+    BB_ASSERT(message.data == text);
 
-    assert(message.length == strlen(text));
+    BB_ASSERT(message.length == strlen(text));
 }
 
 void test_message_init_binary(void)
@@ -36,11 +36,11 @@ void test_message_init_binary(void)
 
     bb_ws_message_init(&message, BB_WS_MESSAGE_BINARY, data, sizeof(data));
 
-    assert(message.type == BB_WS_MESSAGE_BINARY);
+    BB_ASSERT(message.type == BB_WS_MESSAGE_BINARY);
 
-    assert(message.data == data);
+    BB_ASSERT(message.data == data);
 
-    assert(message.length == sizeof(data));
+    BB_ASSERT(message.length == sizeof(data));
 }
 
 void test_message_destroy(void)

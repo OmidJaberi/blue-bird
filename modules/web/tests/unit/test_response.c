@@ -1,5 +1,5 @@
 #include "blue-bird/web/http/response.h"
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,10 +16,10 @@ void test_response_basic(void)
 
     bb_response_serialize(res, &buffer, &size);
     
-    assert(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
-    assert(strstr(buffer, "Content-Type: text/plain") != NULL);
-    assert(strstr(buffer, "Content-Length: 12") != NULL);
-    assert(strstr(buffer, "Hello there!") != NULL);
+    BB_ASSERT(strstr(buffer, "HTTP/1.1 200 OK") != NULL);
+    BB_ASSERT(strstr(buffer, "Content-Type: text/plain") != NULL);
+    BB_ASSERT(strstr(buffer, "Content-Length: 12") != NULL);
+    BB_ASSERT(strstr(buffer, "Hello there!") != NULL);
 
     free(buffer);
     bb_response_destroy(res);
@@ -38,11 +38,11 @@ void test_response_multiple_headers(void)
 
     bb_response_serialize(res, &buffer, &size);
     
-    assert(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
-    assert(strstr(buffer, "Content-Type: application/json") != NULL);
-    assert(strstr(buffer, "X-Custom: Blue-Bird") != NULL);
-    assert(strstr(buffer, "Content-Length: 11") != NULL);
-    assert(strstr(buffer, "{\"ok\":true}") != NULL);
+    BB_ASSERT(strstr(buffer, "HTTP/1.1 201 Created") != NULL);
+    BB_ASSERT(strstr(buffer, "Content-Type: application/json") != NULL);
+    BB_ASSERT(strstr(buffer, "X-Custom: Blue-Bird") != NULL);
+    BB_ASSERT(strstr(buffer, "Content-Length: 11") != NULL);
+    BB_ASSERT(strstr(buffer, "{\"ok\":true}") != NULL);
 
     free(buffer);
     bb_response_destroy(res);
@@ -58,8 +58,8 @@ void test_response_empty_body(void)
 
     bb_response_serialize(res, &buffer, &size);
    
-    assert(strstr(buffer, "HTTP/1.1 204 No Content") != NULL);
-    assert(strstr(buffer, "Content-Length: 0") != NULL);
+    BB_ASSERT(strstr(buffer, "HTTP/1.1 204 No Content") != NULL);
+    BB_ASSERT(strstr(buffer, "Content-Length: 0") != NULL);
 
     free(buffer);
     bb_response_destroy(res);
@@ -84,8 +84,8 @@ void test_response_large_body(void)
 
     bb_response_serialize(res, &buffer, &size);
 
-    assert(strstr(buffer, "Content-Length: 50000") != NULL);
-    assert(buffer[size - 2] == 'A');
+    BB_ASSERT(strstr(buffer, "Content-Length: 50000") != NULL);
+    BB_ASSERT(buffer[size - 2] == 'A');
 
     free(buffer);
     bb_response_destroy(res);

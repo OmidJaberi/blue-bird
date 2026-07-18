@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -242,13 +242,13 @@ static void test_repo_insert_and_find(void)
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(bb_repo_insert(&repo, &u) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u) == 0);
 
     User out = {0};
-    assert(bb_repo_find_by_pk(&repo, &out, &(int){1}) == 0);
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, &(int){1}) == 0);
 
-    assert(out.id == 1);
-    assert(strcmp(out.name, "Alice") == 0);
+    BB_ASSERT(out.id == 1);
+    BB_ASSERT(strcmp(out.name, "Alice") == 0);
 
     mock_api.close(h);
 }
@@ -265,15 +265,15 @@ static void test_repo_update(void)
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(bb_repo_insert(&repo, &u) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u) == 0);
 
     strncpy(u.name, "Bob", sizeof(u.name));
-    assert(bb_repo_update(&repo, &u) == 0);
+    BB_ASSERT(bb_repo_update(&repo, &u) == 0);
 
     User out = {0};
-    assert(bb_repo_find_by_pk(&repo, &out, &(int){1}) == 0);
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, &(int){1}) == 0);
 
-    assert(strcmp(out.name, "Bob") == 0);
+    BB_ASSERT(strcmp(out.name, "Bob") == 0);
 
     mock_api.close(h);
 }
@@ -290,11 +290,11 @@ static void test_repo_remove(void)
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
 
-    assert(bb_repo_insert(&repo, &u) == 0);
-    assert(bb_repo_remove(&repo, &(int){1}) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u) == 0);
+    BB_ASSERT(bb_repo_remove(&repo, &(int){1}) == 0);
 
     User out = {0};
-    assert(bb_repo_find_by_pk(&repo, &out, &(int){1}) != 0);
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, &(int){1}) != 0);
 
     mock_api.close(h);
 }
@@ -314,10 +314,10 @@ static void test_repo_error_propagation(void)
     User u2 = { .id = 1 };
     strncpy(u2.name, "Bob", sizeof(u2.name));
 
-    assert(bb_repo_insert(&repo, &u1) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u1) == 0);
 
     /* duplicate insert should fail */
-    assert(bb_repo_insert(&repo, &u2) != 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u2) != 0);
 
     mock_api.close(h);
 }
@@ -346,14 +346,14 @@ static void test_repo_filter(void)
     User u3 = { .id = 4 };
     strcpy(u3.name, "Charlie");
 
-    assert(bb_repo_insert(&repo, &u1) == 0);
-    assert(bb_repo_insert(&repo, &u2) == 0);
-    assert(bb_repo_insert(&repo, &u3) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u1) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u2) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &u3) == 0);
 
     User *filtered = NULL;
     size_t count = 0;
 
-    assert(
+    BB_ASSERT(
         bb_repo_filter(
             &repo,
             (void **)&filtered,
@@ -363,10 +363,10 @@ static void test_repo_filter(void)
         ) == 0
     );
 
-    assert(count == 2);
+    BB_ASSERT(count == 2);
 
-    assert(filtered[0].id == 2);
-    assert(filtered[1].id == 4);
+    BB_ASSERT(filtered[0].id == 2);
+    BB_ASSERT(filtered[1].id == 4);
 
     free(filtered);
 

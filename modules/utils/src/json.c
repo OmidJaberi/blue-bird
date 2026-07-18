@@ -499,7 +499,7 @@ static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer);
 
 static int serialize_null_json(bb_json_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == BB_JSON_NULL, "Invalid JSON type.");
+    BB_ASSERT_MSG(json->type == BB_JSON_NULL, "Invalid JSON type.");
     if (buffer)
         memcpy(buffer, "null\0", 5 * sizeof(char));
     return 4;
@@ -507,7 +507,7 @@ static int serialize_null_json(bb_json_t *json, char *buffer)
 
 static int serialize_bool_json(bb_json_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == BB_JSON_BOOL, "Invalid JSON type.");
+    BB_ASSERT_MSG(json->type == BB_JSON_BOOL, "Invalid JSON type.");
     int size = json->bool_val ? 4 : 5;
     if (buffer)
         memcpy(buffer, json->bool_val ? "true\0" : "false\0", (size + 1) * sizeof(char));
@@ -516,7 +516,7 @@ static int serialize_bool_json(bb_json_t *json, char *buffer)
 
 static int serialize_int_json(bb_json_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == BB_JSON_INT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json->type == BB_JSON_INT, "Invalid JSON type.");
     // Unsafe
     if (buffer)
         return sprintf(buffer, "%d", json->int_val);
@@ -536,7 +536,7 @@ static int serialize_int_json(bb_json_t *json, char *buffer)
 
 static int serialize_real_json(bb_json_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == BB_JSON_REAL, "Invalid JSON type.");
+    BB_ASSERT_MSG(json->type == BB_JSON_REAL, "Invalid JSON type.");
     // Unsafe
     char s[128];
     int index = sprintf(s, "%f", json->real_val) - 1;
@@ -553,7 +553,7 @@ static int serialize_real_json(bb_json_t *json, char *buffer)
 
 static int serialize_text_json(bb_json_t *json, char *buffer)
 {
-    BB_ASSERT(json->type == BB_JSON_TEXT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json->type == BB_JSON_TEXT, "Invalid JSON type.");
     // Unsafe
     char *s = (char*)malloc((json->size * 6 + 3) * sizeof(char));
     if (!s)
@@ -598,7 +598,7 @@ static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent)
 
 static int serialize_array_json(bb_json_t *json, char *buffer, int indent, bool has_indent)
 {
-    BB_ASSERT(json->type == BB_JSON_ARRAY, "Invalid JSON type.");
+    BB_ASSERT_MSG(json->type == BB_JSON_ARRAY, "Invalid JSON type.");
     int len = 0;
     len += buffer ? sprintf(buffer, "[") : 1;
     if (has_indent)
@@ -623,7 +623,7 @@ static int serialize_array_json(bb_json_t *json, char *buffer, int indent, bool 
 
 static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool has_indent)
 {
-    BB_ASSERT(json->type == BB_JSON_OBJECT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json->type == BB_JSON_OBJECT, "Invalid JSON type.");
     size_t len = 0;
     len += buffer ? sprintf(buffer, "{") : 1;
     bool first = true;
@@ -807,7 +807,7 @@ static int hex_char_to_int(char c)
 
 static int parse_json_str_text(bb_json_t **json, char *buffer)
 {
-    BB_ASSERT(buffer[0] == '"', "Invalid str quotation.");
+    BB_ASSERT_MSG(buffer[0] == '"', "Invalid str quotation.");
     (*json) = bb_json_create(BB_JSON_TEXT);
 
     int len = strlen(buffer);
@@ -878,7 +878,7 @@ static int parse_json_str_partial(bb_json_t **json, char *buffer);
 
 static int parse_json_str_array(bb_json_t **json, char *buffer)
 {
-    BB_ASSERT(buffer[0] == '[', "Invalid array start.");
+    BB_ASSERT_MSG(buffer[0] == '[', "Invalid array start.");
     (*json) = bb_json_create(BB_JSON_ARRAY);
     int index = 1;
     while (white_space(buffer[index])) index++;
@@ -907,7 +907,7 @@ static int parse_json_str_array(bb_json_t **json, char *buffer)
 
 static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
 {
-    BB_ASSERT(object->type == BB_JSON_OBJECT, "Invalid JSON type.");
+    BB_ASSERT_MSG(object->type == BB_JSON_OBJECT, "Invalid JSON type.");
     if (buffer[0] != '\"')
     {
         return -1;
@@ -942,7 +942,7 @@ static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
 
 static int parse_json_str_object(bb_json_t **json, char *buffer)
 {
-    BB_ASSERT(buffer[0] == '{', "Invalid object start.");
+    BB_ASSERT_MSG(buffer[0] == '{', "Invalid object start.");
     (*json) = bb_json_create(BB_JSON_OBJECT);
     int index = 1;
     while (white_space(buffer[index])) index++;
@@ -1017,36 +1017,36 @@ bb_json_t *bb_json_parse(char *buffer)
 
 static int compare_json_bool(bb_json_t *json_a, bb_json_t *json_b)
 {
-    BB_ASSERT(json_a->type == BB_JSON_BOOL, "Invalid JSON type.");
-    BB_ASSERT(json_b->type == BB_JSON_BOOL, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_a->type == BB_JSON_BOOL, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_b->type == BB_JSON_BOOL, "Invalid JSON type.");
     return json_a->bool_val == json_b->bool_val ? 0 : 1;
 }
 
 static int compare_json_int(bb_json_t *json_a, bb_json_t *json_b)
 {
-    BB_ASSERT(json_a->type == BB_JSON_INT, "Invalid JSON type.");
-    BB_ASSERT(json_b->type == BB_JSON_INT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_a->type == BB_JSON_INT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_b->type == BB_JSON_INT, "Invalid JSON type.");
     return json_a->int_val == json_b->int_val ? 0 : 1;
 }
 
 static int compare_json_real(bb_json_t *json_a, bb_json_t *json_b)
 {
-    BB_ASSERT(json_a->type == BB_JSON_REAL, "Invalid JSON type.");
-    BB_ASSERT(json_b->type == BB_JSON_REAL, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_a->type == BB_JSON_REAL, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_b->type == BB_JSON_REAL, "Invalid JSON type.");
     return json_a->real_val == json_b->real_val ? 0 : 1;
 }
 
 static int compare_json_text(bb_json_t *json_a, bb_json_t *json_b)
 {
-    BB_ASSERT(json_a->type == BB_JSON_TEXT, "Invalid JSON type.");
-    BB_ASSERT(json_b->type == BB_JSON_TEXT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_a->type == BB_JSON_TEXT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_b->type == BB_JSON_TEXT, "Invalid JSON type.");
     return strcmp(json_a->text_val, json_b->text_val) == 0 ? 0 : 1;
 }
 
 static int compare_json_array(bb_json_t *json_a, bb_json_t *json_b)
 {
-    BB_ASSERT(json_a->type == BB_JSON_ARRAY, "Invalid JSON type.");
-    BB_ASSERT(json_b->type == BB_JSON_ARRAY, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_a->type == BB_JSON_ARRAY, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_b->type == BB_JSON_ARRAY, "Invalid JSON type.");
     if (json_a->size != json_b->size)
     {
         return -1;
@@ -1063,8 +1063,8 @@ static int compare_json_array(bb_json_t *json_a, bb_json_t *json_b)
 
 static int compare_json_object(bb_json_t *json_a, bb_json_t *json_b)
 {
-    BB_ASSERT(json_a->type == BB_JSON_OBJECT, "Invalid JSON type.");
-    BB_ASSERT(json_b->type == BB_JSON_OBJECT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_a->type == BB_JSON_OBJECT, "Invalid JSON type.");
+    BB_ASSERT_MSG(json_b->type == BB_JSON_OBJECT, "Invalid JSON type.");
     if (json_a->size != json_b->size)
     {
         return -1;

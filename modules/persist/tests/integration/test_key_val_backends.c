@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,7 +59,7 @@ static void setup_backend(const backend_t *backend)
 {
     backend->cleanup(backend->uri);
 
-    assert(backend->register_backend() == 0);
+    BB_ASSERT(backend->register_backend() == 0);
     bb_persist_kv_set_default(backend->name);
     bb_persist_kv_set_default_uri(backend->uri);
 }
@@ -75,12 +75,12 @@ static void test_save_and_load(const backend_t *backend)
 
     const char *msg = "hello world";
 
-    assert(bb_persist_kv_save("key", msg, strlen(msg)) == 0);
+    BB_ASSERT(bb_persist_kv_save("key", msg, strlen(msg)) == 0);
 
     char buf[64] = {0};
 
-    assert(bb_persist_kv_load("key", buf, sizeof(buf)) == 0);
-    assert(strcmp(buf, msg) == 0);
+    BB_ASSERT(bb_persist_kv_load("key", buf, sizeof(buf)) == 0);
+    BB_ASSERT(strcmp(buf, msg) == 0);
 }
 
 static void test_remove(const backend_t *backend)
@@ -88,12 +88,12 @@ static void test_remove(const backend_t *backend)
     printf("\tTesting %s remove...\n", backend->name);
 
 
-    assert(bb_persist_kv_save("key", "value", 5) == 0);
-    assert(bb_persist_kv_remove("key") == 0);
+    BB_ASSERT(bb_persist_kv_save("key", "value", 5) == 0);
+    BB_ASSERT(bb_persist_kv_remove("key") == 0);
 
     char buf[64] = {0};
 
-    assert(bb_persist_kv_load("key", buf, sizeof(buf)) != 0);
+    BB_ASSERT(bb_persist_kv_load("key", buf, sizeof(buf)) != 0);
 }
 
 static void test_load_missing_key(const backend_t *backend)
@@ -103,7 +103,7 @@ static void test_load_missing_key(const backend_t *backend)
 
     char buf[64] = {0};
 
-    assert(bb_persist_kv_load("missing", buf, sizeof(buf)) != 0);
+    BB_ASSERT(bb_persist_kv_load("missing", buf, sizeof(buf)) != 0);
 }
 
 static void test_overwrite_value(const backend_t *backend)
@@ -111,13 +111,13 @@ static void test_overwrite_value(const backend_t *backend)
     printf("\tTesting %s overwrite value...\n", backend->name);
 
 
-    assert(bb_persist_kv_save("key", "first", 5) == 0);
-    assert(bb_persist_kv_save("key", "second", 6) == 0);
+    BB_ASSERT(bb_persist_kv_save("key", "first", 5) == 0);
+    BB_ASSERT(bb_persist_kv_save("key", "second", 6) == 0);
 
     char buf[64] = {0};
 
-    assert(bb_persist_kv_load("key", buf, sizeof(buf)) == 0);
-    assert(strcmp(buf, "second") == 0);
+    BB_ASSERT(bb_persist_kv_load("key", buf, sizeof(buf)) == 0);
+    BB_ASSERT(strcmp(buf, "second") == 0);
 }
 
 static void test_multiple_keys(const backend_t *backend)
@@ -125,41 +125,41 @@ static void test_multiple_keys(const backend_t *backend)
     printf("\tTesting %s multiple keys...\n", backend->name);
 
 
-    assert(bb_persist_kv_save("key1", "Alice", 5) == 0);
-    assert(bb_persist_kv_save("key2", "Bob", 3) == 0);
-    assert(bb_persist_kv_save("key3", "Charlie", 7) == 0);
+    BB_ASSERT(bb_persist_kv_save("key1", "Alice", 5) == 0);
+    BB_ASSERT(bb_persist_kv_save("key2", "Bob", 3) == 0);
+    BB_ASSERT(bb_persist_kv_save("key3", "Charlie", 7) == 0);
 
     char buf[64];
 
     memset(buf, 0, sizeof(buf));
-    assert(bb_persist_kv_load("key1", buf, sizeof(buf)) == 0);
-    assert(strcmp(buf, "Alice") == 0);
+    BB_ASSERT(bb_persist_kv_load("key1", buf, sizeof(buf)) == 0);
+    BB_ASSERT(strcmp(buf, "Alice") == 0);
 
     memset(buf, 0, sizeof(buf));
-    assert(bb_persist_kv_load("key2", buf, sizeof(buf)) == 0);
-    assert(strcmp(buf, "Bob") == 0);
+    BB_ASSERT(bb_persist_kv_load("key2", buf, sizeof(buf)) == 0);
+    BB_ASSERT(strcmp(buf, "Bob") == 0);
 
     memset(buf, 0, sizeof(buf));
-    assert(bb_persist_kv_load("key3", buf, sizeof(buf)) == 0);
-    assert(strcmp(buf, "Charlie") == 0);
+    BB_ASSERT(bb_persist_kv_load("key3", buf, sizeof(buf)) == 0);
+    BB_ASSERT(strcmp(buf, "Charlie") == 0);
 }
 
 static void test_remove_one_of_multiple_keys(const backend_t *backend)
 {
     printf("\tTesting %s remove one of multiple keys...\n", backend->name);
 
-    assert(bb_persist_kv_save("key1", "One", 3) == 0);
-    assert(bb_persist_kv_save("key2", "Two", 3) == 0);
+    BB_ASSERT(bb_persist_kv_save("key1", "One", 3) == 0);
+    BB_ASSERT(bb_persist_kv_save("key2", "Two", 3) == 0);
 
-    assert(bb_persist_kv_remove("key1") == 0);
+    BB_ASSERT(bb_persist_kv_remove("key1") == 0);
 
     char buf[64] = {0};
 
-    assert(bb_persist_kv_load("key1", buf, sizeof(buf)) != 0);
+    BB_ASSERT(bb_persist_kv_load("key1", buf, sizeof(buf)) != 0);
 
     memset(buf, 0, sizeof(buf));
-    assert(bb_persist_kv_load("key2", buf, sizeof(buf)) == 0);
-    assert(strcmp(buf, "Two") == 0);
+    BB_ASSERT(bb_persist_kv_load("key2", buf, sizeof(buf)) == 0);
+    BB_ASSERT(strcmp(buf, "Two") == 0);
 }
 
 static void test_large_buffer(const backend_t *backend)
@@ -170,12 +170,12 @@ static void test_large_buffer(const backend_t *backend)
     memset(value, 'A', sizeof(value) - 1);
     value[sizeof(value) - 1] = '\0';
 
-    assert(bb_persist_kv_save("large", value, strlen(value)) == 0);
+    BB_ASSERT(bb_persist_kv_save("large", value, strlen(value)) == 0);
 
     char buf[512] = {0};
 
-    assert(bb_persist_kv_load("large", buf, sizeof(buf)) == 0);
-    assert(strcmp(buf, value) == 0);
+    BB_ASSERT(bb_persist_kv_load("large", buf, sizeof(buf)) == 0);
+    BB_ASSERT(strcmp(buf, value) == 0);
 }
 
 /* ---------------------------

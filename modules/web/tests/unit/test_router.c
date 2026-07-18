@@ -1,5 +1,5 @@
 #include "router.h"
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -83,7 +83,7 @@ void test_route_match_get(void)
     bb_request_set_path(req, "/hello");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_body(res), "Hello GET OK") == 0);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello GET OK") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);
@@ -102,7 +102,7 @@ void test_route_match_post(void)
     bb_request_set_path(req, "/hello");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_body(res), "Hello POST OK") == 0);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello POST OK") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);
@@ -119,7 +119,7 @@ void test_route_not_found(void)
     bb_request_set_path(req, "/doesnotexist");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_body(res), "Route Not Found") == 0);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Route Not Found") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);
@@ -138,7 +138,7 @@ void test_route_with_param(void)
     bb_request_set_path(req, "/users/42");
 
     _handle_request(route_list, req, res);
-    assert(strcmp(bb_response_get_body(res), "User ID: 42") == 0);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "User ID: 42") == 0);
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
     bb_response_destroy(res);
@@ -159,11 +159,11 @@ void test_http_route_type(void)
 
     bb_route_t *route = bb_route_list_match(route_list, req);
 
-    assert(route != NULL);
+    BB_ASSERT(route != NULL);
 
-    assert(bb_route_get_type(route) == BB_ROUTE_HTTP);
+    BB_ASSERT(bb_route_get_type(route) == BB_ROUTE_HTTP);
 
-    assert(bb_route_get_http_handler(route) == handler_hello_get);
+    BB_ASSERT(bb_route_get_http_handler(route) == handler_hello_get);
 
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
@@ -184,11 +184,11 @@ void test_websocket_route_type(void)
 
     bb_route_t *route = bb_route_list_match(route_list, req);
 
-    assert(route != NULL);
+    BB_ASSERT(route != NULL);
 
-    assert(bb_route_get_type(route) == BB_ROUTE_WEBSOCKET);
+    BB_ASSERT(bb_route_get_type(route) == BB_ROUTE_WEBSOCKET);
 
-    assert(bb_route_get_websocket_handler(route) == websocket_handler);
+    BB_ASSERT(bb_route_get_websocket_handler(route) == websocket_handler);
 
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);
@@ -209,7 +209,7 @@ void test_websocket_route_only_matches_get(void)
 
     bb_route_t *route = bb_route_list_match(route_list, req);
 
-    assert(route == NULL);
+    BB_ASSERT(route == NULL);
 
     bb_route_list_destroy(route_list);
     bb_request_destroy(req);

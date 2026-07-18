@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -73,7 +73,7 @@ static int mock_load(bb_persist_kv_handle_t *h, const char *key, void *buf, size
 
     mock.load_called++;
 
-    assert(strcmp(key, mock.stored_key) == 0);
+    BB_ASSERT(strcmp(key, mock.stored_key) == 0);
 
     snprintf(buf, bufsize, "%s", mock.stored_data);
 
@@ -114,8 +114,8 @@ static void test_backend_registration(void)
 
     const bb_persist_kv_api_t *api = persist_get("mock");
 
-    assert(api != NULL);
-    assert(strcmp(api->name, "mock") == 0);
+    BB_ASSERT(api != NULL);
+    BB_ASSERT(strcmp(api->name, "mock") == 0);
 }
 
 static void test_default_backend_configuration(void)
@@ -124,7 +124,7 @@ static void test_default_backend_configuration(void)
 
     bb_persist_kv_set_default("mock");
 
-    assert(strcmp(bb_persist_kv_get_default(), "mock") == 0);
+    BB_ASSERT(strcmp(bb_persist_kv_get_default(), "mock") == 0);
 }
 
 static void test_save_wrapper(void)
@@ -135,17 +135,17 @@ static void test_save_wrapper(void)
 
     const char value[] = "hello world";
 
-    assert(bb_persist_kv_save("greeting", value, strlen(value)) == 0);
+    BB_ASSERT(bb_persist_kv_save("greeting", value, strlen(value)) == 0);
 
-    assert(mock.open_called == 1);
-    assert(mock.save_called == 1);
-    assert(mock.close_called == 1);
+    BB_ASSERT(mock.open_called == 1);
+    BB_ASSERT(mock.save_called == 1);
+    BB_ASSERT(mock.close_called == 1);
 
-    assert(strcmp(mock.stored_key, "greeting") == 0);
+    BB_ASSERT(strcmp(mock.stored_key, "greeting") == 0);
 
-    assert(strcmp(mock.stored_data, value) == 0);
+    BB_ASSERT(strcmp(mock.stored_data, value) == 0);
 
-    assert(strcmp(mock.last_uri, "test.db") == 0);
+    BB_ASSERT(strcmp(mock.last_uri, "test.db") == 0);
 }
 
 static void test_load_wrapper(void)
@@ -159,13 +159,13 @@ static void test_load_wrapper(void)
 
     char buf[32] = {0};
 
-    assert(bb_persist_kv_load("answer", buf, sizeof(buf)) == 0);
+    BB_ASSERT(bb_persist_kv_load("answer", buf, sizeof(buf)) == 0);
 
-    assert(mock.open_called == 1);
-    assert(mock.load_called == 1);
-    assert(mock.close_called == 1);
+    BB_ASSERT(mock.open_called == 1);
+    BB_ASSERT(mock.load_called == 1);
+    BB_ASSERT(mock.close_called == 1);
 
-    assert(strcmp(buf, "42") == 0);
+    BB_ASSERT(strcmp(buf, "42") == 0);
 }
 
 static void test_remove_wrapper(void)
@@ -177,14 +177,14 @@ static void test_remove_wrapper(void)
     strcpy(mock.stored_key, "temp");
     strcpy(mock.stored_data, "value");
 
-    assert(bb_persist_kv_remove("temp") == 0);
+    BB_ASSERT(bb_persist_kv_remove("temp") == 0);
 
-    assert(mock.open_called == 1);
-    assert(mock.remove_called == 1);
-    assert(mock.close_called == 1);
+    BB_ASSERT(mock.open_called == 1);
+    BB_ASSERT(mock.remove_called == 1);
+    BB_ASSERT(mock.close_called == 1);
 
-    assert(mock.stored_key[0] == '\0');
-    assert(mock.stored_data[0] == '\0');
+    BB_ASSERT(mock.stored_key[0] == '\0');
+    BB_ASSERT(mock.stored_data[0] == '\0');
 }
 
 static void test_open_close_per_operation(void)
@@ -195,18 +195,18 @@ static void test_open_close_per_operation(void)
 
     bb_persist_kv_save("k", "v", 1);
 
-    assert(mock.open_called == 1);
-    assert(mock.close_called == 1);
+    BB_ASSERT(mock.open_called == 1);
+    BB_ASSERT(mock.close_called == 1);
 
     bb_persist_kv_load("k", mock.stored_data, sizeof(mock.stored_data));
 
-    assert(mock.open_called == 2);
-    assert(mock.close_called == 2);
+    BB_ASSERT(mock.open_called == 2);
+    BB_ASSERT(mock.close_called == 2);
 
     bb_persist_kv_remove("k");
 
-    assert(mock.open_called == 3);
-    assert(mock.close_called == 3);
+    BB_ASSERT(mock.open_called == 3);
+    BB_ASSERT(mock.close_called == 3);
 }
 
 /* ---------------------------
@@ -217,7 +217,7 @@ int main(void)
 {
     printf("Running key/value persistence tests...\n");
 
-    assert(bb_persist_kv_register(&mock_api) == 0);
+    BB_ASSERT(bb_persist_kv_register(&mock_api) == 0);
 
     bb_persist_kv_set_default("mock");
     bb_persist_kv_set_default_uri("test.db");

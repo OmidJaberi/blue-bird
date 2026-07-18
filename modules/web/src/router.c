@@ -76,10 +76,10 @@ static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN
 bb_error_t bb_route_list_add_http(bb_route_list_t *route_list, const char *method, const char *path, bb_http_handler_cb handler)
 {
     // Basic sanity checks
-    BB_ASSERT(route_list != NULL, "Route list pointer is NULL");
-    BB_ASSERT(method != NULL, "HTTP method is NULL");
-    BB_ASSERT(path != NULL, "Route path is NULL");
-    BB_ASSERT(handler != NULL, "Route handler is NULL");
+    BB_ASSERT_MSG(route_list != NULL, "Route list pointer is NULL");
+    BB_ASSERT_MSG(method != NULL, "HTTP method is NULL");
+    BB_ASSERT_MSG(path != NULL, "Route path is NULL");
+    BB_ASSERT_MSG(handler != NULL, "Route handler is NULL");
 
     bb_route_t *new_route = malloc(sizeof(bb_route_t));
     
@@ -98,9 +98,9 @@ bb_error_t bb_route_list_add_http(bb_route_list_t *route_list, const char *metho
 bb_error_t bb_route_list_add_websocket(bb_route_list_t *route_list, const char *path, bb_ws_handler_cb handler)
 {
     // Basic sanity checks
-    BB_ASSERT(route_list != NULL, "Route list pointer is NULL");
-    BB_ASSERT(path != NULL, "Route path is NULL");
-    BB_ASSERT(handler != NULL, "Route handler is NULL");
+    BB_ASSERT_MSG(route_list != NULL, "Route list pointer is NULL");
+    BB_ASSERT_MSG(path != NULL, "Route path is NULL");
+    BB_ASSERT_MSG(handler != NULL, "Route handler is NULL");
 
     bb_route_t *new_route = malloc(sizeof(bb_route_t));
     
