@@ -15,7 +15,13 @@ target_include_directories(bluebird_runtime
 target_link_libraries(bluebird_runtime
     PUBLIC
         bluebird_error
+    PRIVATE
+        bluebird_utils
 )
+
+if (WIN32)
+    target_link_libraries(bluebird_runtime PRIVATE ws2_32)
+endif()
 
 add_library(BlueBird::runtime ALIAS bluebird_runtime)
 

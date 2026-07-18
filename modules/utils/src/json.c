@@ -928,10 +928,15 @@ static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
     int res = parse_json_str_partial(&value, buffer + index);
     if (res < 0) return -1;
 
-    char key[key_end];
+    char *key = malloc(key_end);
+    if (!key)
+    {
+        return -1;
+    }
     memcpy(key, buffer + 1, key_end - 1);
     key[key_end - 1] = '\0';
     bb_json_object_set_value(object, key, value);
+    free(key);
     return res + index;
 }
 

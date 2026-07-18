@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "blue-bird/utils/time.h"
+
 #include "blue-bird/runtime/runtime.h"
 #include "task_internal.h"
 #include "scheduler.h"
@@ -48,11 +50,7 @@ struct bb_runtime {
 
 static uint64_t _bb_runtime_now_ms(void)
 {
-    struct timespec ts;
-
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-
-    return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)ts.tv_nsec / 1000000ULL;
+    return (uint64_t)bb_time_monotonic_ms();
 }
 
 bb_runtime_t *bb_runtime_default(void)
@@ -67,6 +65,11 @@ bb_runtime_t *bb_runtime_default(void)
 bb_runtime_t *bb_runtime_create(void)
 {
     _init_signals();
+
+    #ifdef _WIN32
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2,2), &wsa);
+    #endif
 
     bb_runtime_t *runtime = calloc(1, sizeof(bb_runtime_t));
 
@@ -103,6 +106,10 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     {
         return;
     }
+
+    #ifdef _WIN32
+    WSACleanup();
+    #endif
 
     bb_scheduler_destroy(runtime->scheduler);
 
@@ -511,7 +518,7 @@ bb_task_t *bb_runtime_set_timeout(bb_runtime_t *runtime, uint64_t timeout_ms, bb
     timer->task = task;
     runtime->timer_count++;
 
-    return 0;
+    return task;
 }
 
 bool bb_runtime_is_empty(bb_runtime_t *runtime)
