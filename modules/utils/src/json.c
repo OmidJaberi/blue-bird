@@ -1087,11 +1087,11 @@ int bb_json_compare(bb_json_t *json_a, bb_json_t *json_b)
     }
 }
 
-int bb_json_load(bb_json_t **json, const char *path)
+bb_json_t *bb_json_load(const char *path)
 {
     FILE *f = fopen(path, "rb");
     
-    if (!f) return 1;
+    if (!f) return NULL;
     
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
@@ -1101,35 +1101,40 @@ int bb_json_load(bb_json_t **json, const char *path)
     if (!buffer)
     {
         fclose(f);
-        return 1;
+        return NULL;
     }
 
     fread(buffer, 1, size, f);
     buffer[size] = '\0';
     fclose(f);
 
-    int res = bb_json_parse(json, buffer);
+    bb_json_t *json = bb_json_create(BB_JSON_NULL);
+
+    int res = bb_json_parse(&json, buffer);
     free(buffer);
-    return res < 0 ? -1 : 0;
+    return res < 0 ? NULL : json;
 }
 
-int bb_json_dump(bb_json_t *json, const char *path)
+bb_error_t bb_json_dump(bb_json_t *json, const char *path)
 {
     FILE *f = fopen(path, "wb");
 
-    if (!f) return 1;
+    if (!f)
+    {
+        return BB_ERROR(BB_ERR_IO, "File can't be opened.");
+    }
 
     int size;
     char *buffer;
     if (bb_json_serialize_indented(json, &buffer, &size) != 0)
     {
         if (buffer) free(buffer);
-        return 1;
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to serialize.");
     }
     if (size > 0)
         fwrite(buffer, 1, size, f);
 
     free(buffer);
     fclose(f);
-    return 0;
+    return BB_SUCCESS();
 }

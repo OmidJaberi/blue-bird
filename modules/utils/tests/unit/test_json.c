@@ -530,7 +530,7 @@ void test_compare_complex_equal_jsons(void)
 void test_dump_and_bb_json_load(void)
 {
     printf("\tTesting JSON file load and dump...\n");
-    bb_json_t *json_1, *json_2 = NULL;
+    bb_json_t *json_1;
     json_1 = bb_json_create(BB_JSON_ARRAY);
     for (int i = 0; i < 10; i++)
     {
@@ -538,8 +538,8 @@ void test_dump_and_bb_json_load(void)
         bb_json_set_value_integer(child, i);
         bb_json_array_push(json_1, child);
     }
-    bb_json_dump(json_1, "test_file.json");
-    bb_json_load(&json_2, "test_file.json");
+    assert(!BB_FAILED(bb_json_dump(json_1, "test_file.json")));
+    bb_json_t *json_2 = bb_json_load("test_file.json");
     char *buf;
     int size;
     bb_json_serialize(json_2, &buf, &size);

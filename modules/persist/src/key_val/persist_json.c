@@ -41,15 +41,16 @@ static int json_save(bb_persist_kv_handle_t *h, const char *key,
     if (h->json)
     {
         bb_json_destroy(h->json);
-        h->json = bb_json_new_object();
     }
-    bb_json_load(&h->json, h->jsonpath);
+    h->json = bb_json_load(h->jsonpath);
+    if (!h->json)
+    {
+        h->json = bb_json_create(BB_JSON_OBJECT);
+    }
     bb_json_t *value = bb_json_create(BB_JSON_TEXT);
     bb_json_set_value_text(value, data);
     bb_json_object_set_value(h->json, key, value); // non str data?
-    bb_json_dump(h->json, h->jsonpath);
-
-    return 0;
+    return BB_FAILED(bb_json_dump(h->json, h->jsonpath)) ? 1 : 0;
 }
 
 static int json_load(bb_persist_kv_handle_t *h, const char *key,
@@ -60,9 +61,8 @@ static int json_load(bb_persist_kv_handle_t *h, const char *key,
     if (h->json)
     {
         bb_json_destroy(h->json);
-        h->json = bb_json_new_object();
     }
-    bb_json_load(&h->json, h->jsonpath);
+    h->json = bb_json_load(h->jsonpath);
     bb_json_t *val_json = bb_json_object_get_value(h->json, key);
     if (val_json)
     {
@@ -84,12 +84,10 @@ static int json_remove(bb_persist_kv_handle_t *h, const char *key)
     if (h->json)
     {
         bb_json_destroy(h->json);
-        h->json = bb_json_new_object();
     }
-    bb_json_load(&h->json, h->jsonpath);
+    h->json = bb_json_load(h->jsonpath);
     bb_json_object_remove_key(h->json, key);
-    bb_json_dump(h->json, h->jsonpath);
-    return 0;
+    return BB_FAILED(bb_json_dump(h->json, h->jsonpath)) ? 1 : 0;
 }
 
 static const bb_persist_kv_api_t json_api = {

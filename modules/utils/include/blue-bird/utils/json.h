@@ -67,8 +67,8 @@ int bb_json_parse(bb_json_t **json, char *buffer);
 int bb_json_compare(bb_json_t *json_a, bb_json_t *json_b); // 0 for equal, -1 for not equal
 
 // File
-int bb_json_load(bb_json_t **json, const char *path);
-int bb_json_dump(bb_json_t *json, const char *path);
+bb_json_t *bb_json_load(const char *path);
+bb_error_t bb_json_dump(bb_json_t *json, const char *path);
 
 static inline bb_json_t *bb_json_new_null(void)
 {
