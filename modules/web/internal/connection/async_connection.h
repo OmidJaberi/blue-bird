@@ -55,4 +55,6 @@ void bb_async_connection_close(bb_async_connection_t *async_conn);
 bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata);
 bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_conn, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata);
 
+void bb_async_connection_pause_read(bb_async_connection_t *async_conn);
+
 #endif // BB_CONNECTION_ASYNC_TASKS_H

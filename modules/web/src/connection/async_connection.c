@@ -192,6 +192,17 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
     }
 }
 
+void bb_async_connection_pause_read(bb_async_connection_t *async_conn)
+{
+    if (!async_conn || !async_conn->read_task)
+    {
+        return;
+    }
+
+    bb_runtime_cancel_task(async_conn->runtime, async_conn->read_task);
+    async_conn->read_task = NULL;
+}
+
 bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_conn, bb_read_step_fn read_step, bb_read_error_fn read_error, void *userdata)
 {
     if (!async_conn || !async_conn->connection)

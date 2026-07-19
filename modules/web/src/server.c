@@ -207,6 +207,8 @@ static bb_read_status_t _server_read_step(void *userdata)
 
     async_conn->connection->state = BB_CONNECTION_WRITING;
 
+    bb_async_connection_pause_read(async_conn);
+
     if (_server_create_write_task(data))
     {
         return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Couldn't schedule write task.") };
