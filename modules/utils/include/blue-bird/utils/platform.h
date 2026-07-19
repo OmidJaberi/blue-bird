@@ -5,43 +5,51 @@
 extern "C" {
 #endif
 
-
 #include <errno.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+
+/* --------------------------------------------------------------------- */
+/* Platform-specific includes, types, and macros                         */
+/* --------------------------------------------------------------------- */
 
 #if defined(_WIN32)
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
-
 #include <BaseTsd.h>
+
 typedef SSIZE_T ssize_t;
+typedef SOCKET  bb_socket_t;
+
+#define BB_INVALID_SOCKET INVALID_SOCKET
+#define BB_SOCKET_ERROR    SOCKET_ERROR
+#define MSG_NOSIGNAL       0
 
 #define strcasecmp  _stricmp
 #define strncasecmp _strnicmp
 
-typedef SOCKET bb_socket_t;
-#define BB_INVALID_SOCKET INVALID_SOCKET
-#define BB_SOCKET_ERROR   SOCKET_ERROR
-#define MSG_NOSIGNAL      0
-
 #else /* POSIX */
 
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 typedef int bb_socket_t;
+
 #define BB_INVALID_SOCKET (-1)
 #define BB_SOCKET_ERROR   (-1)
 
 #endif
+
+/* --------------------------------------------------------------------- */
+/* Lifecycle                                                              */
+/* --------------------------------------------------------------------- */
 
 /*
  * Must be called once before any socket API is used (no-op on POSIX,
@@ -54,6 +62,10 @@ int bb_platform_net_init(void);
  * on Windows).
  */
 void bb_platform_net_cleanup(void);
+
+/* --------------------------------------------------------------------- */
+/* Socket helpers                                                         */
+/* --------------------------------------------------------------------- */
 
 /* Closes a socket handle. Wraps close()/closesocket(). */
 int bb_socket_close(bb_socket_t sock);
@@ -71,98 +83,13 @@ int bb_socket_set_nonblocking(bb_socket_t sock);
  */
 int bb_socket_last_error(void);
 
-/*
- * Sleeps for the specified number of microseconds.
- * Wraps usleep() on POSIX and Sleep() (or a high-resolution wait)
- * on Windows.
- */
-void bb_usleep(unsigned int usec);
-
 /* True if `sock` is not a valid socket handle. */
 static inline int bb_socket_is_invalid(bb_socket_t sock)
 {
     return sock == BB_INVALID_SOCKET;
 }
 
-static inline char *bb_strndup(const char *s, size_t n)
-{
-#if defined(_WIN32)
-    size_t len = strnlen(s, n);
-    char *copy = malloc(len + 1);
-    if (!copy) return NULL;
-    memcpy(copy, s, len);
-    copy[len] = '\0';
-    return copy;
-#else /* POSIX */
-    return strndup(s, n);
-#endif
-}
-
-#if defined(_WIN32)
-static inline int socketpair(int domain, int type, int protocol, int sv[2])
-{
-    (void)domain;
-    (void)protocol;
-
-    static int wsa_ready = 0;
-    if (!wsa_ready)
-    {
-        if (bb_platform_net_init() != 0)
-        {
-            return -1;
-        }
-        wsa_ready = 1;
-    }
-
-    SOCKET listener = socket(AF_INET, type, 0);
-    if (listener == INVALID_SOCKET)
-    {
-        return -1;
-    }
-
-    struct sockaddr_in addr = {0};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    addr.sin_port = 0;
-
-    if (bind(listener, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR ||
-        listen(listener, 1) == SOCKET_ERROR)
-    {
-        closesocket(listener);
-        return -1;
-    }
-
-    int len = sizeof(addr);
-    if (getsockname(listener, (struct sockaddr*)&addr, &len) == SOCKET_ERROR)
-    {
-        closesocket(listener);
-        return -1;
-    }
-
-    SOCKET client = socket(AF_INET, type, 0);
-    if (client == INVALID_SOCKET ||
-        connect(client, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
-    {
-        closesocket(listener);
-        if (client != INVALID_SOCKET) closesocket(client);
-        return -1;
-    }
-
-    SOCKET accepted = accept(listener, NULL, NULL);
-    closesocket(listener);
-
-    if (accepted == INVALID_SOCKET)
-    {
-        closesocket(client);
-        return -1;
-    }
-
-    sv[0] = (int)client;
-    sv[1] = (int)accepted;
-    return 0;
-}
-#endif
-
+/* True if the last socket error indicates a would-block condition. */
 static inline int bb_socket_would_block(void)
 {
 #if defined(_WIN32)
@@ -173,6 +100,35 @@ static inline int bb_socket_would_block(void)
 #endif
 }
 
+/* --------------------------------------------------------------------- */
+/* Misc helpers                                                           */
+/* --------------------------------------------------------------------- */
+
+/*
+ * Sleeps for the specified number of microseconds.
+ * Wraps usleep() on POSIX and Sleep() (or a high-resolution wait)
+ * on Windows.
+ */
+void bb_usleep(unsigned int usec);
+
+/*
+ * strndup() is not available on all platforms (notably MSVC), so we
+ * provide a portable version. Behaves like POSIX strndup().
+ */
+char *bb_strndup(const char *s, size_t n);
+
+/* --------------------------------------------------------------------- */
+/* Compatibility shims                                                    */
+/* --------------------------------------------------------------------- */
+
+#if defined(_WIN32)
+/*
+ * Minimal socketpair() replacement for Windows, sufficient for
+ * loopback-only use within this codebase. `domain` and `protocol`
+ * are ignored; only AF_INET pairs are created, over loopback.
+ */
+int socketpair(int domain, int type, int protocol, int sv[2]);
+#endif
 
 #ifdef __cplusplus
 }
