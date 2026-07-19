@@ -127,7 +127,7 @@ static void async_connection_close_test(void)
     BB_ASSERT(conn->read_task == NULL);
     BB_ASSERT(conn->write_task == NULL);
 
-    close(fds[1]);
+    bb_socket_close(fds[1]);
 
     bb_async_connection_destroy(conn);
     bb_runtime_destroy(runtime);

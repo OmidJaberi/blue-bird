@@ -27,7 +27,7 @@ static void connection_create_test(void)
     BB_ASSERT(conn->write_pending == false);
 
     bb_connection_destroy(conn);
-    close(fds[1]);
+    bb_socket_close(fds[1]);
 }
 
 static void connection_buffer_add_test(void)
@@ -51,7 +51,7 @@ static void connection_buffer_add_test(void)
     BB_ASSERT(conn->write_data->next == NULL);
 
     bb_connection_destroy(conn);
-    close(fds[1]);
+    bb_socket_close(fds[1]);
 }
 
 static void connection_multiple_buffers_test(void)
@@ -83,7 +83,7 @@ static void connection_multiple_buffers_test(void)
     BB_ASSERT(conn->write_data->next->next->next == NULL);
 
     bb_connection_destroy(conn);
-    close(fds[1]);
+    bb_socket_close(fds[1]);
 }
 
 static void connection_zero_length_buffer_test(void)
@@ -99,7 +99,7 @@ static void connection_zero_length_buffer_test(void)
     BB_ASSERT(conn->write_data == NULL);
 
     bb_connection_destroy(conn);
-    close(fds[1]);
+    bb_socket_close(fds[1]);
 }
 
 static void connection_invalid_buffer_test(void)

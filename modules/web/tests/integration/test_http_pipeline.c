@@ -788,7 +788,7 @@ void test_partial_request(void)
 
     BB_ASSERT(strstr(buffer, "Hello, Blue-Bird :)") != NULL);
 
-    close(fd);
+    bb_socket_close(fd);
 }
 
 void test_many_requests(void)
