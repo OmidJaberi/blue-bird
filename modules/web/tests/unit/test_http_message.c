@@ -70,6 +70,7 @@ void test_message_large_body(void)
     BB_ASSERT(strstr(buffer, "Content-Length: 50000") != NULL);
     BB_ASSERT(buffer[size - 2] == 'A');
 
+    free(large_body);
     free(buffer);
     bb_message_destroy(msg);
 }

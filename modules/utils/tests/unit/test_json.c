@@ -330,6 +330,7 @@ void test_parse_large_json(void)
             BB_ASSERT(bb_json_get_value_integer(sub_child) == (int)j);
         }
     }
+    free(large_buffer);
     bb_json_destroy(json);
 }
 
@@ -471,10 +472,12 @@ void test_serialize_with_non_empty_buffer(void)
     {
         buffer[i] = '#';
     }
+    char *prev_buffer = buffer;
     int size;
     bb_json_serialize(json, &buffer, &size);
     BB_ASSERT(strcasecmp(buffer, "[0, 1, 2, 3]") == 0);
     free(buffer);
+    free(prev_buffer);
     bb_json_destroy(json);
 }
 

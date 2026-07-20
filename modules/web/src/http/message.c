@@ -109,7 +109,16 @@ void bb_message_set_header(bb_http_message_t *msg, const char *name, const char 
 
     msg->headers = tmp;
     msg->headers[msg->header_count].name = strdup(name);
+    if (!msg->headers[msg->header_count].name)
+    {
+        return;
+    }
     msg->headers[msg->header_count].value = strdup(value);
+    if (!msg->headers[msg->header_count].value)
+    {
+        free(msg->headers[msg->header_count].name);
+        return;
+    }
     msg->header_count++;
 }
 
@@ -234,6 +243,8 @@ int bb_message_parse(const char *raw, bb_http_message_t *msg)
 {
     if (!raw || !msg) return -1;
 
+    bb_message_reset(msg);
+
     // Parse start line
     const char *line_end = strstr(raw, "\r\n");
     if (!line_end) return -1;
@@ -278,7 +289,7 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
 
     int body_len = msg->body ? (int)strlen(msg->body) : 0;
 
-    needed += strlen(msg->start_line) + 2; // \r\n
+    needed += msg->start_line ? strlen(msg->start_line) + 2 : 2; // \r\n
 
     // Content_Length added here:
     char len_buf[256];
@@ -299,7 +310,7 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
         return 0;
     }
 
-    *buffer = malloc(needed);
+    *buffer = malloc(needed + 1);
     if (!*buffer)
         return -1;
 
@@ -342,5 +353,6 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
     }
 
     *buffer_size = (size_t)(p - *buffer);
+    (*buffer)[*buffer_size] = '\0';
     return 0;
 }

@@ -728,11 +728,16 @@ bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
     {
         return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
     }
-    *buffer = (char*)malloc((*size + 1) * sizeof(char));
-    if (!*buffer)
+    char *new_buf = (char*)malloc((*size + 1) * sizeof(char));
+    if (!new_buf)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Buffer allocation failed.");
     }
+    if (*buffer)
+    {
+        free(*buffer);
+    }
+    *buffer = new_buf;
     serialize_json_with_indent(json, *buffer, 0);
     return BB_SUCCESS();
 }
@@ -747,17 +752,29 @@ static bool is_substr(char *buffer, const char *str)
 
 static int parse_json_str_null(bb_json_t **json, char *buffer)
 {
-    *json = bb_json_create(BB_JSON_NULL);
     if (!is_substr(buffer, "null"))
+    {
         return -1;
+    }
+    *json = bb_json_create(BB_JSON_NULL);
+    if (!(*json))
+    {
+        return -1;
+    }
     return 4;
 }
 
 static int parse_json_str_true(bb_json_t **json, char *buffer)
 {
-    *json = bb_json_create(BB_JSON_BOOL);
     if (!is_substr(buffer, "true"))
+    {
         return -1;
+    }
+    *json = bb_json_create(BB_JSON_BOOL);
+    if (!(*json))
+    {
+        return -1;
+    }
     (*json)->type = BB_JSON_BOOL;
     (*json)->bool_val = true;
     return 4;
@@ -765,9 +782,15 @@ static int parse_json_str_true(bb_json_t **json, char *buffer)
 
 static int parse_json_str_false(bb_json_t **json, char *buffer)
 {
-    *json = bb_json_create(BB_JSON_BOOL);
     if (!is_substr(buffer, "false"))
+    {
         return -1;
+    }
+    *json = bb_json_create(BB_JSON_BOOL);
+    if (!(*json))
+    {
+        return -1;
+    }
     (*json)->type = BB_JSON_BOOL;
     (*json)->bool_val = false;
     return 5;
@@ -775,7 +798,12 @@ static int parse_json_str_false(bb_json_t **json, char *buffer)
 
 static int parse_json_str_number(bb_json_t **json, char *buffer)
 {
+    bool is_correct = false;
     (*json) = bb_json_create(BB_JSON_INT);
+    if (!(*json))
+    {
+        return -1;
+    }
     int index = 0;
     if (buffer[index] == '-')
     {
@@ -783,9 +811,16 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
     }
     while ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '.' && (*json)->type == BB_JSON_INT))
     {
+        is_correct = true;
         if (buffer[index] == '.')
             (*json)->type = BB_JSON_REAL;
         index++;
+    }
+    if (!is_correct)
+    {
+        bb_json_destroy(*json);
+        *json = NULL;
+        return -1;
     }
     char num_buff[128];
     memcpy(num_buff, buffer, index);
@@ -809,10 +844,19 @@ static int parse_json_str_text(bb_json_t **json, char *buffer)
 {
     BB_ASSERT_MSG(buffer[0] == '"', "Invalid str quotation.");
     (*json) = bb_json_create(BB_JSON_TEXT);
+    if (!(*json))
+    {
+        return -1;
+    }
 
     int len = strlen(buffer);
     char *out = malloc(len); // maximum possible length
-    if (!out) return -1;
+    if (!out)
+    {
+        bb_json_destroy(*json);
+        *json = NULL;
+        return -1;
+    }
 
     int i = 1; // input index (skip opening quote)
     int j = 0; // output index
@@ -835,22 +879,21 @@ static int parse_json_str_text(bb_json_t **json, char *buffer)
                 case 'u':
                 {
                     // parse \uXXXX
-                    if (i + 4 >= len) { free(out); return -1; }
+                    if (i + 4 >= len) { goto failure; }
                     int value = 0;
                     for (int k = 1; k <= 4; k++)
                     {
                         int digit = hex_char_to_int(buffer[i + k]);
-                        if (digit < 0) { free(out); return -1; }
+                        if (digit < 0) { goto failure; }
                         value = (value << 4) | digit;
                     }
                     i += 4;
-                    if (value > 0xFF) { free(out); return -1; } // simple one-byte support
+                    if (value > 0xFF) { goto failure; } // simple one-byte support
                     out[j++] = (char)value;
                     break;
                 }
                 default:
-                    free(out);
-                    return -1; // invalid escape
+                    goto failure; // invalid escape
             }
             i++;
         }
@@ -860,13 +903,18 @@ static int parse_json_str_text(bb_json_t **json, char *buffer)
         }
     }
 
-    if (buffer[i] != '"') { free(out); return -1; }
+    if (buffer[i] != '"') { goto failure; }
 
     out[j] = '\0';
     (*json)->text_val = out;
     (*json)->size = j;
 
     return i + 1; // number of characters consumed including quotes
+failure:
+    bb_json_destroy(*json);
+    *json = NULL;
+    free(out);
+    return -1;
 }
 
 static bool white_space(char c)
@@ -888,7 +936,10 @@ static int parse_json_str_array(bb_json_t **json, char *buffer)
             return index + 1;
         bb_json_t *child;
         int res = parse_json_str_partial(&child, buffer + index);
-        if (res < 0) return -1;
+        if (res < 0)
+        {
+            goto failure;
+        }
         bb_json_array_push(*json, child);
         index += res;
         while (white_space(buffer[index])) index++;
@@ -898,10 +949,13 @@ static int parse_json_str_array(bb_json_t **json, char *buffer)
         }
         else if (buffer[index] != ']')
         {
-            return -1;
+            goto failure;
         }
         while (white_space(buffer[index])) index++;
     }
+failure:
+    bb_json_destroy(*json);
+    *json = NULL;
     return -1;
 }
 
@@ -931,6 +985,7 @@ static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
     char *key = malloc(key_end);
     if (!key)
     {
+        bb_json_destroy(value);
         return -1;
     }
     memcpy(key, buffer + 1, key_end - 1);
@@ -951,7 +1006,7 @@ static int parse_json_str_object(bb_json_t **json, char *buffer)
         if (buffer[index] == '}')
             return index + 1;
         int res = parse_and_add_json_object_pair(*json, buffer + index);
-        if (res < 0) return -1;
+        if (res < 0) goto failure;
         index += res;
         while (white_space(buffer[index])) index++;
         if (buffer[index] == ',')
@@ -960,10 +1015,13 @@ static int parse_json_str_object(bb_json_t **json, char *buffer)
         }
         else if (buffer[index] != '}')
         {
-            return -1;
+            goto failure;
         }
         while (white_space(buffer[index])) index++;
     }
+failure:
+    bb_json_destroy(*json);
+    *json = NULL;
     return -1;
 }
 
@@ -1007,7 +1065,15 @@ bb_json_t *bb_json_parse(char *buffer)
 {
     bb_json_t *json = NULL;
     int res = parse_json_str_partial(&json, buffer);
-    if ((size_t)res != strlen(buffer))
+    if (res < 1)
+    {
+        return NULL;
+    }
+    while (white_space(buffer[res]))
+    {
+        res++;
+    }
+    if (buffer[res] != '\0')
     {
         bb_json_destroy(json);
         json = NULL;
@@ -1155,7 +1221,7 @@ bb_error_t bb_json_dump(bb_json_t *json, const char *path)
     }
 
     int size;
-    char *buffer;
+    char *buffer = NULL;
     if (BB_FAILED(bb_json_serialize_indented(json, &buffer, &size)))
     {
         if (buffer) free(buffer);
