@@ -24,7 +24,6 @@ bb_template_node_t *bb_template_node_create(bb_template_node_type_t type, const 
 
     node->children = NULL;
     node->next = NULL;
-    node->next_list = NULL;
 
     return node;
 }
@@ -58,7 +57,6 @@ void bb_template_node_list_append(bb_template_node_list_t *list, bb_template_nod
     {
         return;
     }
-    node->next_list = NULL;
 
     if (!list->head)
     {
@@ -66,7 +64,7 @@ void bb_template_node_list_append(bb_template_node_list_t *list, bb_template_nod
         return;
     }
 
-    list->tail->next_list = node;
+    list->tail->next = node;
     list->tail = node;
 }
 
@@ -101,7 +99,7 @@ void bb_template_node_list_destroy(bb_template_node_list_t *list)
     bb_template_node_t *node = list->head;
     while (node)
     {
-        bb_template_node_t *next = node->next_list;
+        bb_template_node_t *next = node->next;
         bb_template_node_destroy(node);
         node = next;
     }

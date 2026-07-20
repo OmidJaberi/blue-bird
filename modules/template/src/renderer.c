@@ -157,7 +157,7 @@ static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_
             case BB_TEMPLATE_NODE_COMMENT:
                 break;
         }
-        node = node->next_list;
+        node = node->next;
     }
     return 0;
 }
