@@ -48,17 +48,25 @@ void test_scheduler(void)
     bb_scheduler_schedule(scheduler, t2);
     bb_scheduler_schedule(scheduler, t3);
 
-    bb_task_execute(bb_scheduler_next(scheduler));
+    bb_task_t *task;
 
-    bb_task_execute(bb_scheduler_next(scheduler));
+    task = bb_scheduler_next(scheduler);
+    bb_task_execute(task);
+    bb_task_destroy(task);
 
-    bb_task_execute(bb_scheduler_next(scheduler));
+    task = bb_scheduler_next(scheduler);
+    bb_task_execute(task);
+    bb_task_destroy(task);
+
+    task = bb_scheduler_next(scheduler);
+    bb_task_execute(task);
+    bb_task_destroy(task);
+
+    bb_scheduler_destroy(scheduler);
 
     BB_ASSERT(order[0] == 1);
     BB_ASSERT(order[1] == 2);
     BB_ASSERT(order[2] == 3);
-
-    bb_scheduler_destroy(scheduler);
 }
 
 int main(void)
