@@ -22,6 +22,10 @@ bb_template_node_t *bb_template_node_create(bb_template_node_type_t type, const 
         return NULL;
     }
 
+    node->children = NULL;
+    node->next = NULL;
+    node->next_list = NULL;
+
     return node;
 }
 
