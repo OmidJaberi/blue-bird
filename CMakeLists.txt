@@ -15,6 +15,22 @@ option(BUILD_TESTS "Build tests" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
 option(BLUEBIRD_INSTALL "Install Blue-Bird" OFF)
 
+option(BB_ENABLE_SANITIZERS "Enable sanitizers" OFF)
+
+if(BB_ENABLE_SANITIZERS)
+    add_compile_options(
+        -fsanitize=address
+        -fsanitize=undefined
+        -fno-omit-frame-pointer
+        -g
+    )
+
+    add_link_options(
+        -fsanitize=address
+        -fsanitize=undefined
+    )
+endif()
+
 # Thread library
 if(WIN32)
     find_package(PThreads4W REQUIRED)
