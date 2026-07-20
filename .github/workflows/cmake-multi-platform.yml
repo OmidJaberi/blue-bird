@@ -7,35 +7,51 @@ on:
 
 jobs:
   build-test:
-    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - name: Ubuntu / GCC / Debug
+            os: ubuntu-latest
             compiler: gcc
             cc: gcc
             cxx: g++
             build_type: Debug
+            sanitizers: OFF
 
-          - os: ubuntu-latest
+          - name: Ubuntu / GCC / Release
+            os: ubuntu-latest
             compiler: gcc
             cc: gcc
             cxx: g++
             build_type: Release
+            sanitizers: OFF
 
-          - os: ubuntu-latest
+          - name: Ubuntu / Clang / Debug
+            os: ubuntu-latest
             compiler: clang
             cc: clang
             cxx: clang++
             build_type: Debug
+            sanitizers: OFF
 
-          - os: windows-latest
+          - name: Ubuntu / Clang / Sanitizers
+            os: ubuntu-latest
+            compiler: clang
+            cc: clang
+            cxx: clang++
+            build_type: Debug
+            sanitizers: ON
+
+          - name: Windows / MSVC / Release
+            os: windows-latest
             compiler: msvc
             cc: cl
             build_type: Release
+            sanitizers: OFF
 
     steps:
       - uses: actions/checkout@v4
@@ -59,9 +75,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}-${{ github.sha }}
+          key: ccache-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}-${{ matrix.sanitizers }}-${{ github.sha }}
           restore-keys: |
-            ccache-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}-
+            ccache-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}-${{ matrix.sanitizers }}-
 
       - name: Configure (Linux)
         if: runner.os == 'Linux'
@@ -72,6 +88,7 @@ jobs:
           -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DBB_ENABLE_SANITIZERS=${{ matrix.sanitizers }}
         env:
           CCACHE_DIR: ~/.ccache
 
@@ -103,6 +120,7 @@ jobs:
         run: >
           cmake -B build -S .
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DBB_ENABLE_SANITIZERS=OFF
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       # ---------- Shared ----------
