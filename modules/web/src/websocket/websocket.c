@@ -748,7 +748,10 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
     }
     else
     {
-        memcpy(out + pos, frame->payload, frame->payload_length);
+        if (frame->payload_length > 0)
+        {
+            memcpy(out + pos, frame->payload, frame->payload_length);
+        }
         pos += frame->payload_length;
     }
 
