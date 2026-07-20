@@ -255,6 +255,8 @@ void bb_runtime_tick(bb_runtime_t *runtime)
 
     while ((task = bb_scheduler_next(runtime->scheduler)))
     {
+        task->state &= ~BB_TASK_SCHEDULED;
+
         if (!(task->state & BB_TASK_CANCELLED))
         {
             bb_task_execute(task);
