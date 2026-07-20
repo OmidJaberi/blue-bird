@@ -61,6 +61,7 @@ void bb_connection_destroy(bb_connection_t *connection)
     while (connection->write_data)
     {
         write_buffer_t *next = connection->write_data->next;
+        free(connection->write_data->write_buffer);
         free(connection->write_data);
         connection->write_data = next;
     }

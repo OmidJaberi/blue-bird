@@ -169,11 +169,11 @@ void bb_message_set_body(bb_http_message_t *msg, const char *body)
 
 static int _parse_header(const char **raw, char **name_buf, char **value_buf)
 {
-    const char *colon = strchr(*raw, ':');
-    if (!colon) return -1;  // Malformed Header (missing ':')
-
     const char *end = strstr(*raw, "\r\n");
     if (!end) return -1;    // Malformed Header (no CRLF)
+
+    const char *colon = memchr(*raw, ':', (size_t)(end - *raw));
+    if (!colon) return -1;  // Malformed Header (missing ':' on this line)
 
     size_t name_len = colon - *raw;
     size_t value_len = end - (colon + 1);

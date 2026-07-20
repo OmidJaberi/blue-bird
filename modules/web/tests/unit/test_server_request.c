@@ -108,6 +108,8 @@ void test_malformed_request(void)
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     BB_ASSERT(result == -1);
+
+    bb_server_request_destroy(&req);
 }
 
 void test_request_with_invalid_header(void)
@@ -121,6 +123,8 @@ void test_request_with_invalid_header(void)
     bb_server_request_init(&req);
     int result = bb_server_request_parse(raw, &req);
     BB_ASSERT(result == -1);
+
+    bb_server_request_destroy(&req);
 }
 
 void test_request_with_query_params(void)
