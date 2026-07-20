@@ -29,6 +29,7 @@ bb_connection_t *bb_connection_create(int fd)
 
     connection->buffer_length = 0;
     connection->buffer_capacity = BB_CONNECTION_INITIAL_BUFFER_SIZE;
+    connection->buffer[0] = '\0';
 
     // Write buffer
     connection->write_data = NULL;
@@ -258,7 +259,7 @@ ssize_t bb_connection_read(bb_connection_t *connection)
     while (1)
     {
         // Ensure space
-        if (connection->buffer_length == connection->buffer_capacity)
+        if (connection->buffer_length + 1 >= connection->buffer_capacity)
         {
             size_t new_capacity = connection->buffer_capacity * 2;
             char *tmp = realloc(connection->buffer, new_capacity);
@@ -276,13 +277,14 @@ ssize_t bb_connection_read(bb_connection_t *connection)
                 connection->buffer +
                 connection->buffer_length,
                 connection->buffer_capacity -
-                connection->buffer_length,
+                connection->buffer_length - 1,
                 0
             );
 
         if (n > 0)
         {
             connection->buffer_length += n;
+            connection->buffer[connection->buffer_length] = '\0';
             total += n;
             continue;
         }

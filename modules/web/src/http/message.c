@@ -190,8 +190,20 @@ static int parse_body(bb_http_message_t *msg, const char *raw)
     if (!body_start) return 0;
 
     body_start += 4; // skip "\r\n\r\n"
+    size_t available = strlen(body_start);
+
     const char *content_length = bb_message_get_header(msg, "Content-Length");
-    size_t body_len = content_length ? (size_t)atoi(content_length) : strlen(body_start);
+    size_t body_len = available;
+
+    if (content_length)
+    {
+        long declared = atol(content_length);
+        if (declared < 0)
+            return -1; // malformed Content-Length
+
+        // Never trust a declared length beyond what we actually received.
+        body_len = (size_t)declared < available ? (size_t)declared : available;
+    }
 
     if (body_len <= 0)
         return 0;
