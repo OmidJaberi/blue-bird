@@ -27,7 +27,7 @@ void test_response_basic(void)
 
 void test_response_multiple_headers(void)
 {
-    bb_response_t *res = bb_response_create();;
+    bb_response_t *res = bb_response_create();
     char *buffer;
     size_t size;
 
@@ -88,6 +88,7 @@ void test_response_large_body(void)
     BB_ASSERT(buffer[size - 2] == 'A');
 
     free(buffer);
+    free(large_body);
     bb_response_destroy(res);
 }
 

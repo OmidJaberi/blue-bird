@@ -103,6 +103,19 @@ const char *bb_message_get_header(bb_http_message_t *msg, const char *name)
 
 void bb_message_set_header(bb_http_message_t *msg, const char *name, const char *value)
 {
+    for (int i = 0; i < msg->header_count; i++)
+    {
+        if (strcmp(msg->headers[i].name, name) == 0)
+        {
+            char *new_value = strdup(value);
+            if (!new_value)
+                return;
+
+            free(msg->headers[i].value);
+            msg->headers[i].value = new_value;
+            return;
+        }
+    }
     void *tmp = realloc(msg->headers, (msg->header_count + 1)* sizeof(*msg->headers));
     if (!tmp)
         return;
@@ -287,13 +300,13 @@ int bb_message_serialize(bb_http_message_t *msg, char **buffer, size_t *buffer_s
 {
     size_t needed = 0;
 
-    int body_len = msg->body ? (int)strlen(msg->body) : 0;
+    size_t body_len = msg->body_len;
 
     needed += msg->start_line ? strlen(msg->start_line) + 2 : 2; // \r\n
 
     // Content_Length added here:
     char len_buf[256];
-    snprintf(len_buf, 256, "%d", body_len);
+    snprintf(len_buf, 256, "%zu", body_len);
     bb_message_set_header(msg, "Content-Length", len_buf);
 
     for (int i = 0; i < msg->header_count; i++)
