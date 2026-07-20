@@ -475,6 +475,7 @@ void test_serialize_with_non_empty_buffer(void)
     bb_json_serialize(json, &buffer, &size);
     BB_ASSERT(strcasecmp(buffer, "[0, 1, 2, 3]") == 0);
     free(buffer);
+    bb_json_destroy(json);
 }
 
 void test_compare_equal_jsons(void)
@@ -547,8 +548,15 @@ void test_dump_and_bb_json_load(void)
     BB_ASSERT(bb_json_get_type(json_1) == bb_json_get_type(json_2));
     BB_ASSERT(bb_json_get_size(json_1) == bb_json_get_size(json_2));
     for (unsigned int i = 0; i < bb_json_get_size(json_1); i++)
-        BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(json_1, i)) == bb_json_get_value_integer(bb_json_array_get_index(json_2, i)));
-    
+    {
+        BB_ASSERT(
+            bb_json_get_value_integer(bb_json_array_get_index(json_1, i))
+                ==
+            bb_json_get_value_integer(bb_json_array_get_index(json_2, i))
+        );
+    }
+
+    free(buf);
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
 }
@@ -575,6 +583,7 @@ void test_json_dsl_macros(void)
     int size;
     bb_json_serialize(doc, &buf, &size);
     BB_ASSERT(strcmp(buf, "{\"name\": \"Alice\", \"age\": 30, \"admin\": false, \"scores\": [10, 20, 30], \"misc\": null, \"nested\": {\"pi\": 3.14, \"ok\": true}}") == 0);
+    free(buf);
     bb_json_destroy(doc);
 }
 
