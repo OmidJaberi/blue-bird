@@ -259,6 +259,13 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
     ws->async_conn = async_conn;
 
     _bb_ws_client_task_data_t *data = calloc(1, sizeof(*data));
+    if (!data)
+    {
+        connect_callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Out of memory"), userdata);
+        free(host);
+        free(path);
+        return;  /* tear down async_conn? */
+    }
 
     data->ws = ws;
     data->connect_cb = connect_callback;
@@ -272,6 +279,10 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
     char *key = bb_base64_encode(nonce, sizeof(nonce));
     if (!key)
     {
+        connect_callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Base64 encode failed"), userdata);
+        free(host);
+        free(path);
+        free(data);
         return;
     }
 
@@ -295,6 +306,9 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
     free(key);
 
     bb_connection_buffer_add(async_conn->connection, strdup(request), strlen(request));
+
+    free(host);
+    free(path);
 
     bb_async_connection_create_write_task(ws->async_conn, _bb_ws_handshake_write_done, _bb_ws_handshake_write_failed, data);
 }
