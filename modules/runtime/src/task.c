@@ -56,6 +56,7 @@ int bb_task_cancel(bb_task_t *task)
     }
 
     task->state |= BB_TASK_CANCELLED;
+    task->state &= ~BB_TASK_PERSISTENT;
 
     return 0;
 }

@@ -173,6 +173,8 @@ int bb_runtime_cancel_task(bb_runtime_t *runtime, bb_task_t *task)
 
     _bb_runtime_remove_timers(runtime, task);
 
+    bb_scheduler_schedule(runtime->scheduler, task); // Schedule to be destroyed
+
     return 0;
 }
 
@@ -261,11 +263,7 @@ void bb_runtime_tick(bb_runtime_t *runtime)
         {
             bb_task_execute(task);
         }
-        if (task->state & BB_TASK_PERSISTENT)
-        {
-            continue;
-        }
-        if (!(task->state & BB_TASK_SCHEDULED))
+        if (!(task->state & BB_TASK_SCHEDULED || task->state & BB_TASK_PERSISTENT))
         {
             bb_task_destroy(task);
         }
