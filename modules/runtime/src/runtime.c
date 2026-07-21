@@ -95,11 +95,43 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
         return;
     }
 
-    bb_platform_net_cleanup();
+    // Clean-up scheduler:
+    bb_task_t *task;
+    while ((task = bb_scheduler_next(runtime->scheduler)))
+    {
+        bb_runtime_cancel_task(runtime, task);
+        bb_task_destroy(task);
+    }
 
+    // Clean-up watchers
+    // Anything still here was never (re)scheduled above, so it hasn't
+    // been destroyed yet. Unregister from the poller and free the task.
+    for (int i = 0; i < runtime->watcher_count; i++)
+    {
+        _bb_runtime_watcher_t *watcher = &runtime->watchers[i];
+
+        bb_poller_unregister(runtime->poller, watcher->fd, watcher->events);
+        bb_task_cancel(watcher->task);
+        bb_task_destroy(watcher->task);
+    }
+    runtime->watcher_count = 0;
+
+    // Clean-up timers
+    for (int i = 0; i < runtime->timer_count; i++)
+    {
+        _bb_runtime_timer_t *timer = &runtime->timers[i];
+
+        bb_task_cancel(timer->task);
+        bb_task_destroy(timer->task);
+    }
+    runtime->timer_count = 0;
+
+    // Clean-up scheduler
     bb_scheduler_destroy(runtime->scheduler);
 
     bb_poller_destroy(runtime->poller);
+
+    bb_platform_net_cleanup();
 
     free(runtime);
 }
