@@ -227,7 +227,10 @@ static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *
     data->ws = NULL;
 
     if (BB_FAILED(bb_async_connection_create_read_task(async_conn, _server_read_step, _server_read_error, data)))
+    {
+        free(data);
         return 1;
+    }
     return 0;
 }
 
