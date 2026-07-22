@@ -495,7 +495,7 @@ bb_error_t bb_json_object_remove_key(bb_json_t *obj, const char *key_to_remove)
 }
 
 // Serializer
-static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer);
+static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer, size_t buffer_size);
 
 static int serialize_null_json(bb_json_t *json, char *buffer)
 {
@@ -514,12 +514,11 @@ static int serialize_bool_json(bb_json_t *json, char *buffer)
     return size;
 }
 
-static int serialize_int_json(bb_json_t *json, char *buffer)
+static int serialize_int_json(bb_json_t *json, char *buffer, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_INT, "Invalid JSON type.");
-    // Unsafe
     if (buffer)
-        return sprintf(buffer, "%d", json->int_val);
+        return snprintf(buffer, buffer_size, "%d", json->int_val);
     int val = json->int_val, len = 0;
     if (val < 0)
     {
@@ -534,50 +533,56 @@ static int serialize_int_json(bb_json_t *json, char *buffer)
     return len == 0 ? 1 : len;
 }
 
-static int serialize_real_json(bb_json_t *json, char *buffer)
+static int serialize_real_json(bb_json_t *json, char *buffer, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_REAL, "Invalid JSON type.");
-    // Unsafe
     char s[128];
-    int index = sprintf(s, "%f", json->real_val) - 1;
-    while (s[index] == '0')
+    int index = snprintf(s, sizeof(s), "%f", json->real_val) - 1;
+    while (index >= 0 && s[index] == '0')
     {
         s[index] = '\0';
         index--;
     }
     index++;
     if (buffer)
-        memcpy(buffer, s, (index + 1) * sizeof(char));
+    {
+        size_t copy_len = (size_t)(index + 1) < buffer_size ? (size_t)(index + 1) : buffer_size;
+        if (copy_len > 0)
+        {
+            memcpy(buffer, s, copy_len);
+            buffer[copy_len - 1] = '\0';
+        }
+    }
     return index;
 }
 
-static int serialize_text_json(bb_json_t *json, char *buffer)
+static int serialize_text_json(bb_json_t *json, char *buffer, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_TEXT, "Invalid JSON type.");
-    // Unsafe
-    char *s = (char*)malloc((json->size * 6 + 3) * sizeof(char));
+    size_t alloc_size = json->size * 6 + 3;
+    char *s = (char*)malloc(alloc_size * sizeof(char));
     if (!s)
         return -1;
     int index = 0;
-    index += sprintf(s + index, "\"");
+    index += snprintf(s + index, alloc_size - (size_t)index, "\"");
 
     for (unsigned int i = 0; i < json->size; i++)
     {
         char c = json->text_val[i];
         switch (c)
         {
-            case '\\': index += sprintf(s + index, "\\\\"); break;
-            case '\"': index += sprintf(s + index, "\\\""); break;
-            case '\n': index += sprintf(s + index, "\\n"); break;
-            case '\t': index += sprintf(s + index, "\\t"); break;
-            case '\r': index += sprintf(s + index, "\\r"); break;
-            case '\b': index += sprintf(s + index, "\\b"); break;
-            case '\f': index += sprintf(s + index, "\\f"); break;
+            case '\\': index += snprintf(s + index, alloc_size - (size_t)index, "\\\\"); break;
+            case '\"': index += snprintf(s + index, alloc_size - (size_t)index, "\\\""); break;
+            case '\n': index += snprintf(s + index, alloc_size - (size_t)index, "\\n"); break;
+            case '\t': index += snprintf(s + index, alloc_size - (size_t)index, "\\t"); break;
+            case '\r': index += snprintf(s + index, alloc_size - (size_t)index, "\\r"); break;
+            case '\b': index += snprintf(s + index, alloc_size - (size_t)index, "\\b"); break;
+            case '\f': index += snprintf(s + index, alloc_size - (size_t)index, "\\f"); break;
             default:
                 if (c < 0x20)
                 {
                     // control char → \u00XX
-                    index += sprintf(s + index, "\\u%04x", c);
+                    index += snprintf(s + index, alloc_size - (size_t)index, "\\u%04x", c);
                 }
                 else
                 {
@@ -586,73 +591,82 @@ static int serialize_text_json(bb_json_t *json, char *buffer)
         }
     }
 
-    index += sprintf(s + index, "\"");
+    index += snprintf(s + index, alloc_size - (size_t)index, "\"");
     s[index] = '\0';
     if (buffer)
-        memcpy(buffer, s, (index + 1) * sizeof(char));
+    {
+        size_t copy_len = (size_t)(index + 1) < buffer_size ? (size_t)(index + 1) : buffer_size;
+        if (copy_len > 0)
+        {
+            memcpy(buffer, s, copy_len);
+            buffer[copy_len - 1] = '\0';
+        }
+    }
     free(s);
     return index;
 }
 
-static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent);
+static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent, size_t buffer_size);
 
-static int serialize_array_json(bb_json_t *json, char *buffer, int indent, bool has_indent)
+static int serialize_array_json(bb_json_t *json, char *buffer, int indent, bool has_indent, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_ARRAY, "Invalid JSON type.");
     int len = 0;
-    len += buffer ? sprintf(buffer, "[") : 1;
+    len += buffer ? snprintf(buffer, buffer_size, "[") : 1;
     if (has_indent)
-        len += buffer ? sprintf(buffer + len, "\n") : 1;
+        len += buffer ? snprintf(buffer + len, buffer_size > (size_t)len ? buffer_size - (size_t)len : 0, "\n") : 1;
     for (unsigned int i = 0; i < json->size; i++)
     {
         for (int j = 0; has_indent && j < indent + 1; j++)
-            len += buffer ? sprintf(buffer + len, "\t") : 1;
+            len += buffer ? snprintf(buffer + len, buffer_size > (size_t)len ? buffer_size - (size_t)len : 0, "\t") : 1;
         char *child_buffer = buffer ? buffer + len : NULL;
-        int serialize_child = has_indent ? serialize_json_with_indent(json->dynamic_array.array[i], child_buffer, indent + 1) : serialize_json_to_allocated_buffer(json->dynamic_array.array[i], child_buffer);
+        size_t child_buffer_size = buffer_size > (size_t)len ? buffer_size - (size_t)len : 0;
+        int serialize_child = has_indent ? serialize_json_with_indent(json->dynamic_array.array[i], child_buffer, indent + 1, child_buffer_size) : serialize_json_to_allocated_buffer(json->dynamic_array.array[i], child_buffer, child_buffer_size);
         if (serialize_child < 0) return -1;
         len += serialize_child;
-        len += buffer ? sprintf(buffer + len, (i + 1) < json->size ? ", " : "") : ((i + 1) < json->size ? 2 : 0);
+        len += buffer ? snprintf(buffer + len, buffer_size > (size_t)len ? buffer_size - (size_t)len : 0, (i + 1) < json->size ? ", " : "") : ((i + 1) < json->size ? 2 : 0);
         if (has_indent)
-            len += buffer ? sprintf(buffer + len, "\n") : 1;
+            len += buffer ? snprintf(buffer + len, buffer_size > (size_t)len ? buffer_size - (size_t)len : 0, "\n") : 1;
     }
     for (int j = 0; has_indent && j < indent; j++)
-        len += buffer ? sprintf(buffer + len, "\t") : 1;
-    len += buffer ? sprintf(buffer + len, "]") : 1;
+        len += buffer ? snprintf(buffer + len, buffer_size > (size_t)len ? buffer_size - (size_t)len : 0, "\t") : 1;
+    len += buffer ? snprintf(buffer + len, buffer_size > (size_t)len ? buffer_size - (size_t)len : 0, "]") : 1;
     return len;
 }
 
-static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool has_indent)
+static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool has_indent, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_OBJECT, "Invalid JSON type.");
     size_t len = 0;
-    len += buffer ? sprintf(buffer, "{") : 1;
+    len += buffer ? (size_t)snprintf(buffer, buffer_size, "{") : 1;
     bool first = true;
     _bb_hash_table_node_t *node = json->object.order_head;
     while (node != NULL)
     {
         if (!first)
         {
-            len += buffer ? sprintf(buffer + len, ", ") : 2;
+            len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, ", ") : 2;
         }
-        if (has_indent) len += buffer ? sprintf(buffer + len, "\n") : 1;
+        if (has_indent) len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\n") : 1;
         first = false;
         for (int j = 0; has_indent && j < indent + 1; j++)
-        len += buffer ? sprintf(buffer + len, "\t") : 1;
-        len += buffer ? (size_t)sprintf(buffer + len, "\"%s\": ", node->key) : strlen(node->key) + 4;
+            len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\t") : 1;
+        len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\"%s\": ", node->key) : strlen(node->key) + 4;
         char *child_buffer = buffer ? buffer + len : NULL;
-        int serialize_child = has_indent ? serialize_json_with_indent(node->value, child_buffer, indent + 1) : serialize_json_to_allocated_buffer(node->value, child_buffer);
+        size_t child_buffer_size = buffer_size > len ? buffer_size - len : 0;
+        int serialize_child = has_indent ? serialize_json_with_indent(node->value, child_buffer, indent + 1, child_buffer_size) : serialize_json_to_allocated_buffer(node->value, child_buffer, child_buffer_size);
         if (serialize_child < 0) return -1;
         len += serialize_child;
         node = node->order_next;
     }
-    if (has_indent) len += buffer ? sprintf(buffer + len, "\n") : 1;
+    if (has_indent) len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\n") : 1;
     for (int j = 0; has_indent && j < indent; j++)
-        len += buffer ? sprintf(buffer + len, "\t") : 1;
-    len += buffer ? sprintf(buffer + len, "}") : 1;
+        len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\t") : 1;
+    len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "}") : 1;
     return len;
 }
 
-static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer)
+static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer, size_t buffer_size)
 {
     if (!json) return -1;
     switch (json->type)
@@ -664,19 +678,19 @@ static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer)
             return serialize_bool_json(json, buffer);
             break;
         case BB_JSON_INT:
-            return serialize_int_json(json, buffer);
+            return serialize_int_json(json, buffer, buffer_size);
             break;
         case BB_JSON_REAL:
-            return serialize_real_json(json, buffer);
+            return serialize_real_json(json, buffer, buffer_size);
             break;
         case BB_JSON_TEXT:
-            return serialize_text_json(json, buffer);
+            return serialize_text_json(json, buffer, buffer_size);
             break;
         case BB_JSON_ARRAY:
-            return serialize_array_json(json, buffer, 0, false);
+            return serialize_array_json(json, buffer, 0, false, buffer_size);
             break;
         case BB_JSON_OBJECT:
-            return serialize_object_json(json, buffer, 0, false);
+            return serialize_object_json(json, buffer, 0, false, buffer_size);
             break;
         default:
             return -1;
@@ -684,12 +698,12 @@ static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer)
     }
 }
 
-static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent)
+static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent, size_t buffer_size)
 {
     if (!json) return -1;
     if (json->type == BB_JSON_OBJECT)
     {
-        return serialize_object_json(json, buffer, indent, true);
+        return serialize_object_json(json, buffer, indent, true, buffer_size);
     }
     if (json->type == BB_JSON_ARRAY)
     {
@@ -700,14 +714,14 @@ static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent)
             indented = indented || (child->type == BB_JSON_ARRAY || child->type == BB_JSON_OBJECT);
         }
         if (indented)
-            return serialize_array_json(json, buffer, indent, true);
+            return serialize_array_json(json, buffer, indent, true, buffer_size);
     }
-    return serialize_json_to_allocated_buffer(json, buffer);
+    return serialize_json_to_allocated_buffer(json, buffer, buffer_size);
 }
 
 bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size)
 {
-    *size = serialize_json_to_allocated_buffer(json, NULL);
+    *size = serialize_json_to_allocated_buffer(json, NULL, 0);
     if (!buffer)
     {
         return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
@@ -717,13 +731,13 @@ bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Buffer allocation failed.");
     }
-    serialize_json_to_allocated_buffer(json, *buffer);
+    serialize_json_to_allocated_buffer(json, *buffer, (size_t)(*size + 1));
     return BB_SUCCESS();
 }
 
 bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
 {
-    *size = serialize_json_with_indent(json, NULL, 0);
+    *size = serialize_json_with_indent(json, NULL, 0, 0);
     if (!buffer)
     {
         return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
@@ -738,7 +752,7 @@ bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
         free(*buffer);
     }
     *buffer = new_buf;
-    serialize_json_with_indent(json, *buffer, 0);
+    serialize_json_with_indent(json, *buffer, 0, (size_t)(*size + 1));
     return BB_SUCCESS();
 }
 
