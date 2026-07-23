@@ -9,13 +9,6 @@
 #include <string.h>
 
 
-typedef struct {
-    bb_server_t *server;
-    bb_async_connection_t *async_conn;
-    bb_websocket_t *ws;
-} bb_server_task_data_t;
-
-
 static bb_error_t default_404(bb_request_t *req, bb_response_t *res)
 {
     (void) req;
@@ -60,6 +53,7 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     server->pre_middleware_list = bb_middleware_list_create();
     server->post_middleware_list = bb_middleware_list_create();
     server->accept_task = NULL;
+    server->accept_task_data = NULL;
 
     BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return server;
@@ -263,6 +257,9 @@ void bb_server_start(bb_server_t *server)
 
     data->server = server;
     data->async_conn = server->async_conn;
+    data->ws = NULL;
+
+    server->accept_task_data = data;
 
     server->accept_task = bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _server_accept_task, data);
 
@@ -276,15 +273,28 @@ void bb_server_destroy(bb_server_t *server)
         return;
     }
 
-    if (server->async_conn)
-    {
-        bb_async_connection_destroy(server->async_conn);
-    }
-
     if (server->accept_task)
     {
         bb_runtime_cancel_task(server->runtime, server->accept_task);
+        server->accept_task = NULL;
     }
+
+    if (server->async_conn)
+    {
+        bb_async_connection_destroy(server->async_conn);
+        server->async_conn = NULL;
+    }
+
+    if (server->accept_task_data)
+    {
+        if (server->accept_task_data->ws)
+        {
+            bb_websocket_destroy(server->accept_task_data->ws);
+        }
+        free(server->accept_task_data);
+        server->accept_task_data = NULL;
+    }
+
 
     bb_route_list_destroy(server->route_list);
     bb_middleware_list_destroy(server->pre_middleware_list);
