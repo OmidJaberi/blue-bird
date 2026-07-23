@@ -386,7 +386,7 @@ static int _watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t 
 
         if (old_task != task)
         {
-            bb_task_cancel(old_task); /* see destroy caveat below */
+            bb_runtime_cancel_task(runtime, old_task); //cancelled AND re-enqueued for destruction
         }
         return 0;
     }
