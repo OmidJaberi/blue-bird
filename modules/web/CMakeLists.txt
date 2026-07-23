@@ -7,6 +7,7 @@ add_library(bluebird_web
 
     src/connection/connection.c
     src/connection/async_connection.c
+    src/connection/conn_list.c
 
     src/http/message.c
     src/http/request.c

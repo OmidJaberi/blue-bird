@@ -54,9 +54,34 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     server->post_middleware_list = bb_middleware_list_create();
     server->accept_task = NULL;
     server->accept_task_data = NULL;
+    server->conn_list = bb_conn_list_create();
 
     BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return server;
+}
+
+static void _server_task_data_cleanup(bb_server_task_data_t *data)
+{
+    if (!data)
+    {
+        return;
+    }
+
+    if (data->server && data->server->conn_list)
+    {
+        bb_conn_list_remove(data->server->conn_list, data->conn_node);
+    }
+
+    if (data->ws)
+    {
+        bb_websocket_destroy(data->ws);
+    }
+    else
+    {
+        bb_async_connection_destroy(data->async_conn);
+    }
+
+    free(data);
 }
 
 static void _server_after_write(bb_task_t *task, void *userdata)
@@ -74,20 +99,22 @@ static void _server_after_write(bb_task_t *task, void *userdata)
         {
             bb_websocket_destroy(data->ws);
         }
+
+        if (data->server && data->server->conn_list)
+        {
+            bb_conn_list_remove(data->server->conn_list, data->conn_node);
+        }
         free(data);
         return;
     }
-    bb_async_connection_destroy(data->async_conn);
 
-    free(data);
+    _server_task_data_cleanup(data);
 }
 
 static void _server_write_error(bb_task_t *task, void *userdata)
 {
     (void) task;
-    bb_server_task_data_t *data = userdata;
-    bb_async_connection_destroy(data->async_conn);
-    free(data);
+    _server_task_data_cleanup((bb_server_task_data_t *) userdata);
 }
 
 static int _server_create_write_task(bb_server_task_data_t *data)
@@ -106,8 +133,7 @@ static void _server_read_error(bb_error_t err, void *userdata)
         BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
     }
 
-    bb_async_connection_destroy(data->async_conn);
-    free(data);
+    _server_task_data_cleanup(data);
 }
 
 static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_request_t *req, bb_response_t *res)
@@ -220,12 +246,19 @@ static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *
     data->server = server;
     data->async_conn = async_conn;
     data->ws = NULL;
+    data->conn_node = NULL;
 
     if (BB_FAILED(bb_async_connection_create_read_task(async_conn, _server_read_step, _server_read_error, data)))
     {
         free(data);
         return 1;
     }
+
+    if (server->conn_list)
+    {
+        data->conn_node = bb_conn_list_add(server->conn_list, data);
+    }
+
     return 0;
 }
 
@@ -258,12 +291,29 @@ void bb_server_start(bb_server_t *server)
     data->server = server;
     data->async_conn = server->async_conn;
     data->ws = NULL;
+    data->conn_node = NULL; // not a per-connection object; not tracked in conn_list
 
     server->accept_task_data = data;
 
     server->accept_task = bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _server_accept_task, data);
 
     BB_LOG_INFO("Blue-Bird async server started.\n");
+}
+
+static void _server_conn_cleanup(void *userdata)
+{
+    bb_server_task_data_t *data = userdata;
+
+    if (data->ws)
+    {
+        bb_websocket_destroy(data->ws);
+    }
+    else
+    {
+        bb_async_connection_destroy(data->async_conn);
+    }
+
+    free(data);
 }
 
 void bb_server_destroy(bb_server_t *server)
@@ -279,6 +329,12 @@ void bb_server_destroy(bb_server_t *server)
         server->accept_task = NULL;
     }
 
+    if (server->conn_list)
+    {
+        bb_conn_list_destroy_all(server->conn_list, _server_conn_cleanup);
+        server->conn_list = NULL;
+    }
+
     if (server->async_conn)
     {
         bb_async_connection_destroy(server->async_conn);
@@ -287,14 +343,9 @@ void bb_server_destroy(bb_server_t *server)
 
     if (server->accept_task_data)
     {
-        if (server->accept_task_data->ws)
-        {
-            bb_websocket_destroy(server->accept_task_data->ws);
-        }
         free(server->accept_task_data);
         server->accept_task_data = NULL;
     }
-
 
     bb_route_list_destroy(server->route_list);
     bb_middleware_list_destroy(server->pre_middleware_list);
