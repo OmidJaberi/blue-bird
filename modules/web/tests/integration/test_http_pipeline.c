@@ -985,6 +985,7 @@ void test_async_many_clients(void)
     {
         bb_client_destroy(client_list[i]);
     }
+    free(client_list);
 }
 
 int main(void)
