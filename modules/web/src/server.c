@@ -105,11 +105,12 @@ static int _server_create_write_task(bb_server_task_data_t *data)
 
 static void _server_read_error(bb_error_t err, void *userdata)
 {
-    (void)err;
-
     bb_server_task_data_t *data = userdata;
 
-    BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
+    if (err.code != BB_ERR_EOF)
+    {
+        BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
+    }
 
     bb_async_connection_destroy(data->async_conn);
     free(data);

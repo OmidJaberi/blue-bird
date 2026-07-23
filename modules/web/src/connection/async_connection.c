@@ -1,6 +1,7 @@
 #include "blue-bird/log/log.h"
 
 #include "connection/async_connection.h"
+#include "blue-bird/web/error.h"
 
 bb_async_connection_t *bb_async_connection_create(bb_runtime_t *runtime)
 {
@@ -183,8 +184,7 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
         async_conn->read_task = NULL;
         if (async_conn->read_error)
         {
-            //BB_ERR_EOF?
-            async_conn->read_error(BB_ERROR(BB_ERR_IO, "Connection closed"), async_conn->read_userdata);
+            async_conn->read_error(BB_ERROR(BB_ERR_EOF, "Connection closed"), async_conn->read_userdata);
         }
         return;
     }
