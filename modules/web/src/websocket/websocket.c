@@ -194,10 +194,7 @@ static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
-    if (data->ws->async_conn->connection)
-    {
-        bb_connection_destroy(data->ws->async_conn->connection); // Close?
-    }
+    bb_async_connection_destroy(data->ws->async_conn);
 
     data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
 
@@ -264,6 +261,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         connect_callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Out of memory"), userdata);
         free(host);
         free(path);
+        bb_async_connection_destroy(async_conn);
         return;  /* tear down async_conn? */
     }
 
@@ -283,6 +281,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         free(host);
         free(path);
         free(data);
+        bb_async_connection_destroy(async_conn);
         return;
     }
 
@@ -435,13 +434,13 @@ bb_websocket_t *bb_websocket_accept(bb_async_connection_t *async_conn, bb_reques
     }
 
     bb_websocket_t *ws = bb_websocket_create_with_type(async_conn, BB_WEBSOCKET_SERVER);
-    ws->handler = handler;
-
     if (!ws)
     {
         return NULL;
         // return BB_ERROR(BB_ERR_ALLOC, "Failed to create websocket.");
     }
+    ws->handler = handler;
+
     return ws;
 }
 
