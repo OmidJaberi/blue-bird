@@ -222,7 +222,7 @@ void test_serialize_large_json(void)
     for (int i = 0; i < n; i++)
     {
         char key[4];
-        sprintf(key, "%d", i);
+        snprintf(key, sizeof(key), "%d", i);
         bb_json_t *value = bb_json_create(BB_JSON_ARRAY);
         for (int j = 0; j < i; j++)
         {
@@ -234,16 +234,16 @@ void test_serialize_large_json(void)
     }
     
     char *expected = (char *)malloc(sizeof(char) * 20000);
-    int index = sprintf(expected, "{");
+    int index = snprintf(expected, 20000, "{");
     for (int i = 0; i < n; i++)
     {
-        index += sprintf(expected + index, "\"%d\": ", i);
-        index += sprintf(expected + index, "[");
+        index += snprintf(expected + index, 20000 - index, "\"%d\": ", i);
+        index += snprintf(expected + index, 20000 - index, "[");
         for (int j = 0; j < i; j++)
-            index += sprintf(expected + index, "%d%s", j, j < i - 1 ? ", " : "");
-        index += sprintf(expected + index, "]%s", i < n - 1 ? ", " : "");
+            index += snprintf(expected + index, 20000 - index, "%d%s", j, j < i - 1 ? ", " : "");
+        index += snprintf(expected + index, 20000 - index, "]%s", i < n - 1 ? ", " : "");
     }
-    index += sprintf(expected + index, "}");
+    index += snprintf(expected + index, 20000 - index, "}");
 
     char *buffer;
     int size;
@@ -303,22 +303,22 @@ void test_parse_large_json(void)
     printf("\tTesting large JSON parsing...\n");
     unsigned int n = 100;
     char *large_buffer = (char *)malloc(sizeof(char) * 20000);
-    int index = sprintf(large_buffer, "{");
+    int index = snprintf(large_buffer, 20000, "{");
     for (unsigned int i = 0; i < n; i++)
     {
-        index += sprintf(large_buffer + index, "\"%d\": ", i);
-        index += sprintf(large_buffer + index, "[");
+        index += snprintf(large_buffer + index, 20000 - index, "\"%d\": ", i);
+        index += snprintf(large_buffer + index, 20000 - index, "[");
         for (unsigned int j = 0; j < i; j++)
-            index += sprintf(large_buffer + index, "%d%s", j, (j + 1) < i ? ", " : "");
-        index += sprintf(large_buffer + index, "]%s", (i + 1) < n ? ", " : "");
+            index += snprintf(large_buffer + index, 20000 - index, "%d%s", j, (j + 1) < i ? ", " : "");
+        index += snprintf(large_buffer + index, 20000 - index, "]%s", (i + 1) < n ? ", " : "");
     }
-    index += sprintf(large_buffer + index, "}");
+    index += snprintf(large_buffer + index, 20000 - index, "}");
     bb_json_t *json = bb_json_parse(large_buffer);
     BB_ASSERT(bb_json_get_size(json) == n);
     for (unsigned int i = 0; i < n; i++)
     {
         char key[4];
-        sprintf(key, "%d", i);
+        snprintf(key, sizeof(key), "%d", i);
         bb_json_t *child = bb_json_object_get_value(json, key);
         BB_ASSERT(child);
         BB_ASSERT(bb_json_get_type(child) == BB_JSON_ARRAY);

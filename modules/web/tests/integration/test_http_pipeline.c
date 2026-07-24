@@ -23,7 +23,7 @@ bb_error_t request_param_handler(bb_request_t *req, bb_response_t *res)
     const char *name = bb_request_get_param(req, "name");
     bb_response_set_header(res, "Content-Type", "text/plain");
     char msg[512];
-    sprintf(msg, "name: %s", name);
+    snprintf(msg, sizeof(msg), "name: %s", name);
     bb_response_set_body(res, msg);
     return BB_SUCCESS();
 }
@@ -34,7 +34,7 @@ bb_error_t multi_request_param_handler(bb_request_t *req, bb_response_t *res)
     const char *p_2 = bb_request_get_param(req, "param_2");
     bb_response_set_header(res, "Content-Type", "text/plain");
     char msg[512];
-    sprintf(msg, "%s and %s", p_1, p_2);
+    snprintf(msg, sizeof(msg), "%s and %s", p_1, p_2);
     bb_response_set_body(res, msg);
     return BB_SUCCESS();
 }
@@ -49,7 +49,7 @@ bb_error_t request_query_param_handler(bb_request_t *req, bb_response_t *res)
     }
     bb_response_set_header(res, "Content-Type", "text/plain");
     char msg[512];
-    sprintf(msg, "val: %s", value);
+    snprintf(msg, sizeof(msg), "val: %s", value);
     bb_response_set_body(res, msg);
     return BB_SUCCESS();
 }
@@ -65,7 +65,7 @@ bb_error_t request_multi_query_param_handler(bb_request_t *req, bb_response_t *r
     }
     bb_response_set_header(res, "Content-Type", "text/plain");
     char msg[512];
-    sprintf(msg, "%s-%s", value_1, value_2);
+    snprintf(msg, sizeof(msg), "%s-%s", value_1, value_2);
     bb_response_set_body(res, msg);
     return BB_SUCCESS();
 }
@@ -75,7 +75,7 @@ bb_error_t request_body_handler(bb_request_t *req, bb_response_t *res)
     bb_http_message_t *http_msg = bb_request_get_message(req);
     bb_response_set_header(res, "Content-Type", "text/plain");
     char *msg = malloc(bb_message_get_body_len(http_msg) + 10);
-    sprintf(msg, "body: %s", bb_message_get_body(http_msg) ? bb_message_get_body(http_msg) : "");
+    snprintf(msg, sizeof(msg), "body: %s", bb_message_get_body(http_msg) ? bb_message_get_body(http_msg) : "");
     bb_response_set_body(res, msg);
     free(msg);
     return BB_SUCCESS();
@@ -280,7 +280,7 @@ void test_max_length_param(void)
     long_name[sizeof(long_name)-1] = '\0';
 
     char url[6000];
-    sprintf(url, "http://127.0.0.1:8080/param/%s", long_name);
+    snprintf(url, sizeof(url), "http://127.0.0.1:8080/param/%s", long_name);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
@@ -291,7 +291,7 @@ void test_max_length_param(void)
 
     /* ---- validate ---- */
     char expected[6000];
-    sprintf(expected, "name: %s", long_name);
+    snprintf(expected, sizeof(expected), "name: %s", long_name);
     BB_ASSERT(bb_response_get_status(res) == 200);
     BB_ASSERT(strcmp(bb_response_get_body(res), expected) == 0);
 
@@ -313,7 +313,7 @@ void test_over_sized_param(void)
     long_name[sizeof(long_name)-1] = '\0';
 
     char url[6000];
-    sprintf(url, "http://127.0.0.1:8080/param/%s", long_name);
+    snprintf(url, sizeof(url), "http://127.0.0.1:8080/param/%s", long_name);
 
     bb_request_set_method(req, "GET");
     bb_request_set_url(req, url);
@@ -411,7 +411,7 @@ void test_too_many_query_params(void)
     strcpy(big_query, "http://127.0.0.1:8080/q_param?");
     for (int i = 0; i < 100; i++) {
         char frag[50];
-        sprintf(frag, "val%d=%d&", i, i);
+        snprintf(frag, sizeof(frag), "val%d=%d&", i, i);
         strcat(big_query, frag);
     }
 
