@@ -75,7 +75,7 @@ bb_error_t request_body_handler(bb_request_t *req, bb_response_t *res)
     bb_http_message_t *http_msg = bb_request_get_message(req);
     bb_response_set_header(res, "Content-Type", "text/plain");
     char *msg = malloc(bb_message_get_body_len(http_msg) + 10);
-    snprintf(msg, sizeof(msg), "body: %s", bb_message_get_body(http_msg) ? bb_message_get_body(http_msg) : "");
+    snprintf(msg, (bb_message_get_body_len(http_msg) + 10), "body: %s", bb_message_get_body(http_msg) ? bb_message_get_body(http_msg) : "");
     bb_response_set_body(res, msg);
     free(msg);
     return BB_SUCCESS();
