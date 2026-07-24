@@ -262,6 +262,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         free(host);
         free(path);
         bb_async_connection_destroy(async_conn);
+        ws->async_conn = NULL;
         return;  /* tear down async_conn? */
     }
 
@@ -771,6 +772,7 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
     int rc = bb_connection_buffer_add(conn, (char *)buffer, pos);
     if (rc != 0)
     {
+        free(buffer);
         return BB_ERROR(BB_ERR_ALLOC, "Allocation failed.");
     }
 
@@ -1024,6 +1026,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
                 if (BB_FAILED(err))
                 {
+                    bb_ws_message_destroy(&msg);
                     bb_ws_frame_destroy(&frame);
                     return (bb_read_status_t){ BB_READ_ERROR, err }; // Next frames ignored?
                 }
@@ -1032,6 +1035,7 @@ static bb_read_status_t _websocket_read_step(void *userdata)
                 {
                     ws->handler(ws, &msg);
                 }
+                bb_ws_message_destroy(&msg);
 
                 break;
             }
