@@ -55,6 +55,7 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     server->accept_task = NULL;
     server->accept_task_data = NULL;
     server->conn_list = bb_conn_list_create();
+    server->websocket_count = 0;
 
     BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return server;
@@ -88,16 +89,26 @@ static void _server_after_write(bb_task_t *task, void *userdata)
 {
     (void) task;
     bb_server_task_data_t *data = userdata;
+    bb_server_t *server = data->server;
     if (data->ws)
     {
-        /*
-        * Now websocket session owns the connection.
-        */
-        data->async_conn = NULL;
-        bb_error_t err = bb_websocket_create_read_task(data->ws);
-        if (BB_FAILED(err))
+        if (server->websocket_count >= MAX_WEBSOCKETS)
         {
             bb_websocket_destroy(data->ws);
+        }
+        else
+        {
+            server->websockets[server->websocket_count] = data->ws;
+            server->websocket_count++;
+            /*
+            * Now websocket session owns the connection.
+            */
+            data->async_conn = NULL;
+            bb_error_t err = bb_websocket_create_read_task(data->ws);
+            if (BB_FAILED(err))
+            {
+                bb_websocket_destroy(data->ws);
+            }
         }
 
         if (data->server && data->server->conn_list)
@@ -345,6 +356,11 @@ void bb_server_destroy(bb_server_t *server)
     {
         free(server->accept_task_data);
         server->accept_task_data = NULL;
+    }
+
+    for (int i = 0; i < server->websocket_count; i++)
+    {
+        bb_websocket_destroy(server->websockets[i]);
     }
 
     bb_route_list_destroy(server->route_list);
