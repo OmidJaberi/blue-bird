@@ -177,9 +177,9 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 
     conn->buffer_length = 0;
 
-    data->connect_cb(data->ws, BB_SUCCESS(), data->connect_userdata);
-
     bb_websocket_create_read_task(data->ws);
+    
+    data->connect_cb(data->ws, BB_SUCCESS(), data->connect_userdata);
 
     free(data);
 
@@ -218,7 +218,8 @@ static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
 
     if (data->ws->async_conn->connection)
     {
-        bb_connection_destroy(data->ws->async_conn->connection); // Close?
+        bb_async_connection_destroy(data->ws->async_conn);
+        data->ws->async_conn = NULL;
     }
 
     data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
