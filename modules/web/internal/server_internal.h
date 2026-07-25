@@ -3,6 +3,7 @@
 
 #include "blue-bird/web/server.h"
 #include "websocket/websocket_internal.h"
+#include "websocket/websocket_list.h"
 #include "connection/async_connection.h"
 #include "connection/conn_list.h"
 #include "router.h"
@@ -16,16 +17,6 @@ typedef struct {
     bb_conn_node_t *conn_node;
 } bb_server_task_data_t;
 
-typedef struct ws_node {
-    bb_websocket_t *ws;
-    struct ws_node *next;
-} ws_node_t;
-
-typedef struct {
-    ws_node_t *head;
-    ws_node_t *tail;
-} ws_list_t;
-
 struct bb_server {
     bb_async_connection_t *async_conn;
     bb_runtime_t *runtime;
@@ -36,7 +27,7 @@ struct bb_server {
     bb_middleware_list_t *post_middleware_list; // Runs after the handler
 
     bb_conn_list_t *conn_list;
-    ws_list_t ws_list;
+    bb_ws_list_t *ws_list;
 };
 
 #endif //BB_SERVER_INTERNAL_H
