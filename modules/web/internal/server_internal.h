@@ -8,8 +8,6 @@
 #include "router.h"
 #include "middleware.h"
 
-#define MAX_WEBSOCKETS 10000
-
 typedef struct {
     bb_server_t *server;
     bb_async_connection_t *async_conn;
@@ -17,6 +15,16 @@ typedef struct {
 
     bb_conn_node_t *conn_node;
 } bb_server_task_data_t;
+
+typedef struct ws_node {
+    bb_websocket_t *ws;
+    struct ws_node *next;
+} ws_node_t;
+
+typedef struct {
+    ws_node_t *head;
+    ws_node_t *tail;
+} ws_list_t;
 
 struct bb_server {
     bb_async_connection_t *async_conn;
@@ -28,8 +36,7 @@ struct bb_server {
     bb_middleware_list_t *post_middleware_list; // Runs after the handler
 
     bb_conn_list_t *conn_list;
-    bb_websocket_t *websockets[MAX_WEBSOCKETS]; // Temporary
-    int websocket_count;
+    ws_list_t ws_list;
 };
 
 #endif //BB_SERVER_INTERNAL_H

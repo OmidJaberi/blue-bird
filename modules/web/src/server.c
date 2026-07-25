@@ -55,7 +55,9 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     server->accept_task = NULL;
     server->accept_task_data = NULL;
     server->conn_list = bb_conn_list_create();
-    server->websocket_count = 0;
+
+    server->ws_list.head = NULL;
+    server->ws_list.tail = NULL;
 
     BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
     return server;
@@ -92,14 +94,23 @@ static void _server_after_write(bb_task_t *task, void *userdata)
     bb_server_t *server = data->server;
     if (data->ws)
     {
-        if (server->websocket_count >= MAX_WEBSOCKETS)
+        ws_node_t *node = calloc(1, sizeof(*node));
+        if (node == NULL)
         {
             bb_websocket_destroy(data->ws);
         }
         else
         {
-            server->websockets[server->websocket_count] = data->ws;
-            server->websocket_count++;
+            node->ws = data->ws;
+            if (server->ws_list.head == NULL)
+            {
+                server->ws_list.head = node;
+            }
+            else
+            {
+                server->ws_list.tail->next = node;
+            }
+            server->ws_list.tail = node;
             /*
             * Now websocket session owns the connection.
             */
@@ -358,9 +369,13 @@ void bb_server_destroy(bb_server_t *server)
         server->accept_task_data = NULL;
     }
 
-    for (int i = 0; i < server->websocket_count; i++)
+    ws_node_t *node = server->ws_list.head;
+    while (node != NULL)
     {
-        bb_websocket_destroy(server->websockets[i]);
+        bb_websocket_destroy(node->ws);
+        ws_node_t *next = node->next;
+        free(node);
+        node = next;
     }
 
     bb_route_list_destroy(server->route_list);
