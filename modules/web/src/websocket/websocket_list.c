@@ -20,6 +20,7 @@ int bb_ws_list_add(bb_ws_list_t *list, bb_websocket_t *ws)
         return -1;
     }
     node->ws = ws;
+    node->prev = list->head;
     if (list->head == NULL)
     {
         list->head = node;
@@ -30,6 +31,26 @@ int bb_ws_list_add(bb_ws_list_t *list, bb_websocket_t *ws)
     }
     list->tail = node;
     return 0;
+}
+
+int bb_ws_list_remove(bb_ws_list_t *list, bb_websocket_t *ws)
+{
+    for (bb_ws_node_t *node = list->head; node != NULL; node = node->next)
+    {
+        if (node->ws == ws)
+        {
+            if (node->prev)
+            {
+                node->prev->next = node->next;
+            }
+            if (node->next)
+            {
+                node->next->prev = node->prev;
+            }
+            return 0;
+        }
+    }
+    return -1;
 }
 
 void bb_ws_list_destroy(bb_ws_list_t *list)

@@ -6,6 +6,7 @@
 typedef struct bb_ws_node {
     bb_websocket_t *ws;
     struct bb_ws_node *next;
+    struct bb_ws_node *prev;
 } bb_ws_node_t;
 
 typedef struct {
@@ -15,6 +16,7 @@ typedef struct {
 
 bb_ws_list_t *bb_ws_list_create(void);
 int bb_ws_list_add(bb_ws_list_t *list, bb_websocket_t *ws);
+int bb_ws_list_remove(bb_ws_list_t *list, bb_websocket_t *ws);
 void bb_ws_list_destroy(bb_ws_list_t *list);
 
 #endif //BB_WEBSOCKET_LIST_H
