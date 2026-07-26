@@ -161,14 +161,14 @@ bb_error_t bb_client_receive(bb_client_t *client)
 
     while (!bb_http_message_complete(conn->buffer, conn->buffer_length))
     {
-        ssize_t n = bb_connection_read(conn);
+        bb_error_t err = bb_connection_read(conn);
 
-        if (n < 0)
+        if (err.code == BB_ERR_IO)
         {
             return BB_ERROR(BB_ERR_IO, "Read failed");
         }
 
-        if (n == 0)
+        if (err.code == BB_ERR_CONNECTION_CLOSED)
             break;
     }
 

@@ -1,4 +1,5 @@
 #include <blue-bird/utils/platform.h>
+#include "blue-bird/web/error.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -248,25 +249,28 @@ bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char 
     return connection;
 }
 
-ssize_t bb_connection_read(bb_connection_t *connection)
+bb_error_t bb_connection_read(bb_connection_t *connection)
 {
     if (!connection)
     {
-        return -1;
+        return BB_ERROR(BB_ERR_NULL, "Null connection.");
     }
 
-    ssize_t total = 0;
+    if (connection->state == BB_CONNECTION_CLOSED)
+    {
+        return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
+    }
 
     while (1)
     {
-        // Ensure space
+        /* Ensure space for incoming data and terminating '\0'. */
         if (connection->buffer_length + 1 >= connection->buffer_capacity)
         {
             size_t new_capacity = connection->buffer_capacity * 2;
             char *tmp = realloc(connection->buffer, new_capacity);
             if (!tmp)
             {
-                return -1;
+                return BB_ERROR(BB_ERR_ALLOC, "Failed to grow connection buffer.");
             }
             connection->buffer = tmp;
             connection->buffer_capacity = new_capacity;
@@ -284,25 +288,26 @@ ssize_t bb_connection_read(bb_connection_t *connection)
 
         if (n > 0)
         {
-            connection->buffer_length += n;
+            connection->buffer_length += (size_t)n;
             connection->buffer[connection->buffer_length] = '\0';
-            total += n;
             continue;
         }
 
+        /* Peer performed an orderly shutdown (EOF). */
         if (n == 0)
         {
-            // Peer closed connection
-            return total;
+            connection->state = BB_CONNECTION_CLOSED;
+            return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
         }
 
+        /* No more data available on a non-blocking socket. */
         if (bb_socket_would_block())
         {
             break;
         }
-        return -1;
+        return BB_ERROR(BB_ERR_IO, "A fatal socket error occurred.");
     }
-    return total;
+    return BB_SUCCESS();
 }
 
 ssize_t bb_connection_write(bb_connection_t *connection)

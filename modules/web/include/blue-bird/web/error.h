@@ -10,6 +10,7 @@ extern "C" {
 
 enum {
     BB_ERR_BAD_REQUEST = BB_ERR_WEB + 1,
+    BB_ERR_CONNECTION_CLOSED,
     BB_ERR_NETWORK,
     BB_ERR_EOF,
 };

@@ -1,6 +1,7 @@
 #include "connection/connection.h"
 
 #include <blue-bird/error/assert.h>
+#include <blue-bird/error/error.h>
 #include <blue-bird/utils/platform.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -125,9 +126,8 @@ static void connection_read_write_test(void)
     BB_ASSERT(bb_connection_buffer_add(writer, msg, 6) == 0);
     BB_ASSERT(bb_connection_write(writer) == 1);
 
-    ssize_t n = bb_connection_read(reader);
-
-    BB_ASSERT(n == 6);
+    
+    BB_ASSERT(!BB_FAILED(bb_connection_read(reader)));
     BB_ASSERT(reader->buffer_length == 6);
     BB_ASSERT(memcmp(reader->buffer, "hello", 6) == 0);
 

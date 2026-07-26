@@ -166,8 +166,8 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
         return;
     }
 
-    int n = bb_connection_read(async_conn->connection);
-    if (n < 0)
+    bb_error_t err = bb_connection_read(async_conn->connection);
+    if (err.code == BB_ERR_IO)
     {
         bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->read_task = NULL;
@@ -177,7 +177,7 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
         }
         return;
     }
-    if (n == 0 && async_conn->connection->buffer_length == 0)
+    if (err.code == BB_ERR_CONNECTION_CLOSED && async_conn->connection->buffer_length == 0)
     {
         // closed
         bb_runtime_cancel_task(async_conn->runtime, task);
