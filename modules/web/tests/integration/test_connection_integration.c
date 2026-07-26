@@ -79,7 +79,7 @@ static void client_to_server_test(void)
     memcpy(msg, "hello", 6);
 
     BB_ASSERT(bb_connection_buffer_add(client, msg, 6) == 0);
-    BB_ASSERT(bb_connection_write(client) == 1);
+    BB_ASSERT(!BB_FAILED(bb_connection_write(client)));
 
     while (server->buffer_length < 6)
     {
@@ -114,7 +114,7 @@ static void server_to_client_test(void)
     memcpy(msg, "world", 6);
 
     BB_ASSERT(bb_connection_buffer_add(server, msg, 6) == 0);
-    BB_ASSERT(bb_connection_write(server) == 1);
+    BB_ASSERT(!BB_FAILED(bb_connection_write(server)));
 
     while (client->buffer_length < 6)
     {
@@ -152,7 +152,7 @@ static void large_transfer_test(void)
     memset(buffer, 'A', LARGE_SIZE);
 
     BB_ASSERT(bb_connection_buffer_add(client, buffer, LARGE_SIZE) == 0);
-    BB_ASSERT(bb_connection_write(client) == 1);
+    BB_ASSERT(!BB_FAILED(bb_connection_write(client)));
 
     while (server->buffer_length < LARGE_SIZE)
     {

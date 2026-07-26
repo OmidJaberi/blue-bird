@@ -124,7 +124,7 @@ static void connection_read_write_test(void)
     memcpy(msg, "hello", 6);
 
     BB_ASSERT(bb_connection_buffer_add(writer, msg, 6) == 0);
-    BB_ASSERT(bb_connection_write(writer) == 1);
+    BB_ASSERT(!BB_FAILED(bb_connection_write(writer)));
 
     
     BB_ASSERT(!BB_FAILED(bb_connection_read(reader)));

@@ -53,7 +53,7 @@ bb_connection_t *bb_connection_accept(int server_fd);
 bb_connection_t *bb_connection_connect(const char *host, const char *port_str);
 bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char *port_str);
 bb_error_t bb_connection_read(bb_connection_t *connection);
-ssize_t bb_connection_write(bb_connection_t *connection);
+bb_error_t bb_connection_write(bb_connection_t *connection);
 
 
 #ifdef __cplusplus

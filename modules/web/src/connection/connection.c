@@ -318,11 +318,16 @@ bb_error_t bb_connection_read(bb_connection_t *connection)
     return BB_SUCCESS();
 }
 
-ssize_t bb_connection_write(bb_connection_t *connection)
+bb_error_t bb_connection_write(bb_connection_t *connection)
 {
     if (!connection)
     {
-        return -1;
+        return BB_ERROR(BB_ERR_NULL, "Null connection.");
+    }
+
+    if (connection->state == BB_CONNECTION_CLOSED)
+    {
+        return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
     }
 
     while (connection->write_data != NULL)
@@ -337,23 +342,31 @@ ssize_t bb_connection_write(bb_connection_t *connection)
             );
             if (n > 0)
             {
-                connection->write_data->write_offset += n;
+                connection->write_data->write_offset += (size_t)n;
                 continue;
             }
-            if (n < 0 && (bb_socket_would_block()))
+            /* Send buffer is full on a non-blocking socket. */
+            if (bb_socket_would_block())
             {
-                return 0;
+                return BB_SUCCESS();
             }
-            return -1;
-        }
-        free(connection->write_data->write_buffer);
-        connection->write_data->write_buffer = NULL;
-        connection->write_data->write_length = 0;
-        connection->write_data->write_offset = 0;
+            /* Peer disconnected. */
+            if (bb_socket_connection_closed())
+            {
+                connection->state = BB_CONNECTION_CLOSED;
+                return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
+            }
 
-        write_buffer_t *next = connection->write_data->next;
-        free(connection->write_data);
-        connection->write_data = next;
+            return BB_ERROR(BB_ERR_IO, "Socket write failed.");
+        }
+
+        /* Finished writing the current buffer. */
+        write_buffer_t *completed = connection->write_data;
+        connection->write_data = completed->next;
+
+        free(completed->write_buffer);
+        free(completed);
     }
-    return 1;
+
+    return BB_SUCCESS();
 }

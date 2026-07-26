@@ -873,7 +873,7 @@ bb_error_t bb_websocket_send_text(bb_websocket_t *ws, const char *text)
         return err;
     }
 
-    if (bb_connection_write(ws->async_conn->connection) < 0)
+    if (BB_FAILED(bb_connection_write(ws->async_conn->connection)))
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -895,7 +895,7 @@ bb_error_t bb_websocket_send_binary(bb_websocket_t *ws, const void *data, size_t
         return err;
     }
 
-    if (bb_connection_write(ws->async_conn->connection) < 0)
+    if (BB_FAILED(bb_connection_write(ws->async_conn->connection)))
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -917,7 +917,7 @@ static bb_error_t bb_websocket_send_pong(bb_websocket_t *ws, const void *payload
         return err;
     }
 
-    if (bb_connection_write(ws->async_conn->connection) < 0)
+    if (BB_FAILED(bb_connection_write(ws->async_conn->connection)))
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -939,7 +939,7 @@ bb_error_t bb_websocket_send_ping(bb_websocket_t *ws, const void *payload, size_
         return err;
     }
 
-    if (bb_connection_write(ws->async_conn->connection) < 0)
+    if (BB_FAILED(bb_connection_write(ws->async_conn->connection)))
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }
@@ -961,7 +961,7 @@ bb_error_t bb_websocket_send_close(bb_websocket_t *ws, uint16_t code, const char
         return err;
     }
 
-    if (bb_connection_write(ws->async_conn->connection) < 0)
+    if (BB_FAILED(bb_connection_write(ws->async_conn->connection)))
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }

@@ -141,8 +141,8 @@ bb_error_t bb_client_send(bb_client_t *client)
     size_t length;
     bb_request_serialize(client->req, &buffer, &length);
     bb_connection_buffer_add(client->connection, buffer, length);
-    ssize_t rc = bb_connection_write(client->connection);
-    if (rc < 0)
+    bb_error_t err = bb_connection_write(client->connection);
+    if (BB_FAILED(err))
     {
         return BB_ERROR(BB_ERR_IO, "Write failed");
     }

@@ -100,7 +100,7 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
         return;
     }
     bb_connection_t *conn = async_conn->connection;
-    if (bb_connection_write(conn) < 0)
+    if (BB_FAILED(bb_connection_write(conn)))
     {
         bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->write_task = NULL;
