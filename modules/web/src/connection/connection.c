@@ -305,7 +305,15 @@ bb_error_t bb_connection_read(bb_connection_t *connection)
         {
             break;
         }
-        return BB_ERROR(BB_ERR_IO, "A fatal socket error occurred.");
+
+        /* Fatal socket error. */
+        if (bb_socket_connection_closed())
+        {
+            connection->state = BB_CONNECTION_CLOSED;
+            return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
+        }
+
+        return BB_ERROR(BB_ERR_IO, "Socket read failed.");
     }
     return BB_SUCCESS();
 }
