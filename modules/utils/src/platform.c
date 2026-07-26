@@ -64,6 +64,35 @@ int bb_socket_last_error(void)
 #endif
 }
 
+bool bb_socket_connection_closed(void)
+{
+#ifdef _WIN32
+    switch (WSAGetLastError())
+    {
+        case WSAECONNRESET:
+        case WSAECONNABORTED:
+        case WSAENOTCONN:
+        case WSAESHUTDOWN:
+            return true;
+
+        default:
+            return false;
+    }
+#else
+    switch (errno)
+    {
+        case ECONNRESET:
+        case ECONNABORTED:
+        case ENOTCONN:
+        case EPIPE:
+            return true;
+
+        default:
+            return false;
+    }
+#endif
+}
+
 /* --------------------------------------------------------------------- */
 /* Misc helpers                                                           */
 /* --------------------------------------------------------------------- */

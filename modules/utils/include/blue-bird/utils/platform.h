@@ -8,6 +8,7 @@ extern "C" {
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 /* --------------------------------------------------------------------- */
 /* Platform-specific includes, types, and macros                         */
@@ -82,6 +83,12 @@ int bb_socket_set_nonblocking(bb_socket_t sock);
  * (errno on POSIX, WSAGetLastError() on Windows).
  */
 int bb_socket_last_error(void);
+
+/**
+ * Returns true if the last socket error indicates that the peer has
+ * disconnected and the connection can no longer be used.
+ */
+bool bb_socket_connection_closed(void);
 
 /* True if `sock` is not a valid socket handle. */
 static inline int bb_socket_is_invalid(bb_socket_t sock)
