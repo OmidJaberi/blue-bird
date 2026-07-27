@@ -86,7 +86,10 @@ int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t l
     }
     *write_data = calloc(1, sizeof(write_buffer_t));
     if (!*write_data)
-        return 1; // handle allocation failure appropriately
+    {
+        free(buffer);
+        return 1;
+    }
     
     (*write_data)->write_buffer = buffer;
     (*write_data)->write_length = length;

@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if !defined(_WIN32)
+#include <sys/select.h>
+#endif
+
 static void connection_create_test(void)
 {
     printf("\tTesting connection creation...\n");
@@ -154,6 +158,30 @@ static void connection_read_closed_test(void)
     bb_connection_destroy(reader);
 }
 
+/*
+ * On POSIX, socketpair() gives two ends that share kernel state directly,
+ * so closing one end is immediately visible to the other. On Windows,
+ * socketpair() is emulated with a real TCP loopback connection (see
+ * platform.c), where closing the peer only queues a FIN/RST that the
+ * local stack processes asynchronously. Without this, a write performed
+ * right after closing the peer can race ahead of that processing and
+ * spuriously succeed. Waiting for the fd to become readable blocks until
+ * the close has actually been observed locally, before we go on to test
+ * writing to it.
+ */
+static void wait_for_peer_close(bb_socket_t fd)
+{
+    fd_set rfds;
+    struct timeval tv;
+
+    FD_ZERO(&rfds);
+    FD_SET(fd, &rfds);
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+
+    select((int)fd + 1, &rfds, NULL, NULL, &tv);
+}
+
 static void connection_write_closed_test(void)
 {
     printf("\tTesting write detects peer close...\n");
@@ -164,6 +192,7 @@ static void connection_write_closed_test(void)
     bb_connection_t *writer = bb_connection_create(fds[0]);
 
     bb_socket_close(fds[1]);
+    wait_for_peer_close((bb_socket_t)fds[0]);
 
     char *msg = strdup("hello");
 
