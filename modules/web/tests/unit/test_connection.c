@@ -11,7 +11,7 @@ static void connection_create_test(void)
 {
     printf("\tTesting connection creation...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *conn = bb_connection_create(fds[0]);
@@ -35,7 +35,7 @@ static void connection_buffer_add_test(void)
 {
     printf("\tTesting write buffer enqueue...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *conn = bb_connection_create(fds[0]);
@@ -59,7 +59,7 @@ static void connection_multiple_buffers_test(void)
 {
     printf("\tTesting multiple queued write buffers...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *conn = bb_connection_create(fds[0]);
@@ -91,7 +91,7 @@ static void connection_zero_length_buffer_test(void)
 {
     printf("\tTesting zero-length buffer...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *conn = bb_connection_create(fds[0]);
@@ -114,7 +114,7 @@ static void connection_read_write_test(void)
 {
     printf("\tTesting local socket read/write...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *reader = bb_connection_create_non_blocking(fds[0]);
@@ -139,7 +139,7 @@ static void connection_read_closed_test(void)
 {
     printf("\tTesting read detects peer close...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *reader = bb_connection_create_non_blocking(fds[0]);
@@ -158,7 +158,7 @@ static void connection_write_closed_test(void)
 {
     printf("\tTesting write detects peer close...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *writer = bb_connection_create(fds[0]);
@@ -181,7 +181,7 @@ static void connection_closed_is_sticky_test(void)
 {
     printf("\tTesting closed state is sticky...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_connection_t *conn = bb_connection_create(fds[0]);
