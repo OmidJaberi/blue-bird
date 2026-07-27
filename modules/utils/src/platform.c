@@ -73,6 +73,7 @@ bool bb_socket_connection_closed(void)
         case WSAECONNABORTED:
         case WSAENOTCONN:
         case WSAESHUTDOWN:
+        case WSAETIMEDOUT:
             return true;
 
         default:
@@ -85,6 +86,7 @@ bool bb_socket_connection_closed(void)
         case ECONNABORTED:
         case ENOTCONN:
         case EPIPE:
+        case ETIMEDOUT:
             return true;
 
         default:
