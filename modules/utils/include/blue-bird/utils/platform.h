@@ -134,7 +134,7 @@ char *bb_strndup(const char *s, size_t n);
  * loopback-only use within this codebase. `domain` and `protocol`
  * are ignored; only AF_INET pairs are created, over loopback.
  */
-int socketpair(int domain, int type, int protocol, int sv[2]);
+int socketpair(int domain, int type, int protocol, bb_socket_t sv[2]);
 #endif
 
 #ifdef __cplusplus

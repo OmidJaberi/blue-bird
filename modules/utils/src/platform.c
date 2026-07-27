@@ -132,7 +132,7 @@ char *bb_strndup(const char *s, size_t n)
 /* --------------------------------------------------------------------- */
 
 #if defined(_WIN32)
-int socketpair(int domain, int type, int protocol, int sv[2])
+int socketpair(int domain, int type, int protocol, bb_socket_t sv[2])
 {
     (void)domain;
     (void)protocol;
@@ -198,8 +198,8 @@ int socketpair(int domain, int type, int protocol, int sv[2])
         return -1;
     }
 
-    sv[0] = (int)client;
-    sv[1] = (int)accepted;
+    sv[0] = client;
+    sv[1] = accepted;
     return 0;
 }
 #endif
