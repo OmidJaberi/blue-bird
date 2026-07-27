@@ -297,7 +297,7 @@ bb_error_t bb_connection_read(bb_connection_t *connection)
         if (n == 0)
         {
             connection->state = BB_CONNECTION_CLOSED;
-            return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
+            return BB_SUCCESS();
         }
 
         /* No more data available on a non-blocking socket. */

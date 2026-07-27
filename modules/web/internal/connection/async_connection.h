@@ -5,6 +5,9 @@
 #include "blue-bird/error/error.h"
 #include "connection.h"
 
+//Disconnect
+typedef void (*bb_async_close_fn)(void *userdata);
+
 //Write
 typedef void (*bb_async_callback_t)(bb_task_t *, void *);
 
@@ -27,6 +30,7 @@ typedef struct bb_async_connection {
     bb_runtime_t *runtime;
     bb_connection_t *connection;
 
+    bool disconnected;
 
     bb_task_t *write_task;
 
@@ -42,10 +46,16 @@ typedef struct bb_async_connection {
     bb_read_error_fn read_error;
 
     void *read_userdata;
+
+    bb_async_close_fn disconnect;
+    void *disconnect_userdata;
+
 } bb_async_connection_t;
 
 bb_async_connection_t *bb_async_connection_create(bb_runtime_t *runtime);
 void bb_async_connection_destroy(bb_async_connection_t *async_conn);
+
+void bb_async_connection_set_disconnect_callback(bb_async_connection_t *async_conn, bb_async_close_fn callback, void *userdata);
 
 bb_async_connection_t *bb_async_connection_serve(bb_runtime_t *runtime, int port);
 bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, int server_fd);

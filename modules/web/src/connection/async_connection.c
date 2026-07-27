@@ -13,6 +13,7 @@ bb_async_connection_t *bb_async_connection_create(bb_runtime_t *runtime)
         return NULL;
 
     async_conn->runtime = runtime;
+    async_conn->disconnected = false;
     return async_conn;
 }
 
@@ -20,6 +21,48 @@ void bb_async_connection_destroy(bb_async_connection_t *async_conn)
 {
     bb_async_connection_close(async_conn);
     free(async_conn);
+}
+
+void bb_async_connection_set_disconnect_callback(bb_async_connection_t *async_conn, bb_async_close_fn callback, void *userdata)
+{
+    if (!async_conn)
+    {
+        return;
+    }
+    async_conn->disconnect = callback;
+    async_conn->disconnect_userdata = userdata;
+}
+
+static void _bb_async_connection_handle_disconnect(bb_async_connection_t *async_conn)
+{
+    if (!async_conn || async_conn->disconnected)
+    {
+        return;
+    }
+
+    async_conn->disconnected = true;
+
+    if (async_conn->read_task)
+    {
+        bb_runtime_cancel_task(async_conn->runtime, async_conn->read_task);
+        async_conn->read_task = NULL;
+    }
+
+    if (async_conn->write_task)
+    {
+        bb_runtime_cancel_task(async_conn->runtime, async_conn->write_task);
+        async_conn->write_task = NULL;
+    }
+
+    if (async_conn->connection)
+    {
+        async_conn->connection->write_pending = false;
+    }
+
+    if (async_conn->disconnect)
+    {
+        async_conn->disconnect(async_conn->disconnect_userdata);
+    }
 }
 
 bb_async_connection_t *bb_async_connection_serve(bb_runtime_t *runtime, int port)
@@ -76,14 +119,11 @@ void bb_async_connection_close(bb_async_connection_t *async_conn)
     {
         return;
     }
-    bb_runtime_cancel_task(async_conn->runtime, async_conn->read_task);
-    async_conn->read_task = NULL;
-
-    bb_runtime_cancel_task(async_conn->runtime, async_conn->write_task);
-    async_conn->write_task = NULL;
 
     bb_connection_destroy(async_conn->connection);
     async_conn->connection = NULL;
+
+    _bb_async_connection_handle_disconnect(async_conn);
 }
 
 static void _bb_write_task(bb_task_t *task, void *userdata)
@@ -100,13 +140,22 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
         return;
     }
     bb_connection_t *conn = async_conn->connection;
-    if (BB_FAILED(bb_connection_write(conn)))
+    bb_error_t err = bb_connection_write(conn);
+    if (BB_FAILED(err))
     {
         bb_runtime_cancel_task(async_conn->runtime, task);
         async_conn->write_task = NULL;
         conn->write_pending = false;
+
+        if (err.code == BB_ERR_CONNECTION_CLOSED)
+        {
+            _bb_async_connection_handle_disconnect(async_conn);
+        }
+
         if (async_conn->write_failure)
+        {
             async_conn->write_failure(task, async_conn->write_userdata);
+        }
         return;
     }
 
@@ -155,7 +204,6 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
     if (!async_conn)
     {
-        // bb_runtime_cancel_task(async_conn->runtime, task);
         return;
     }
 
@@ -167,24 +215,25 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
     }
 
     bb_error_t err = bb_connection_read(async_conn->connection);
-    if (err.code == BB_ERR_IO)
+    if (BB_FAILED(err))
     {
-        bb_runtime_cancel_task(async_conn->runtime, task);
-        async_conn->read_task = NULL;
-        if (async_conn->read_error)
+        switch (err.code)
         {
-            async_conn->read_error(BB_ERROR(BB_ERR_IO, "Read failed"), async_conn->read_userdata);
-        }
-        return;
-    }
-    if (err.code == BB_ERR_CONNECTION_CLOSED && async_conn->connection->buffer_length == 0)
-    {
-        // closed
-        bb_runtime_cancel_task(async_conn->runtime, task);
-        async_conn->read_task = NULL;
-        if (async_conn->read_error)
-        {
-            async_conn->read_error(BB_ERROR(BB_ERR_EOF, "Connection closed"), async_conn->read_userdata);
+            case BB_ERR_CONNECTION_CLOSED:
+            {
+                _bb_async_connection_handle_disconnect(async_conn);
+                break;
+            }
+            case BB_ERR_IO:
+            {
+                bb_runtime_cancel_task(async_conn->runtime, task);
+                async_conn->read_task = NULL;
+                if (async_conn->read_error)
+                {
+                    async_conn->read_error(err, async_conn->read_userdata);
+                }
+                break;
+            }
         }
         return;
     }
