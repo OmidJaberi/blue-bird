@@ -45,6 +45,7 @@ static void *server_thread(void *arg)
 static volatile int read_called = 0;
 static volatile int write_called = 0;
 static volatile int error_called = 0;
+static volatile int disconnect_called = 0;
 
 static bb_read_status_t read_done(void *userdata)
 {
@@ -101,6 +102,20 @@ static void write_failure(bb_task_t *task, void *userdata)
     (void)userdata;
 
     BB_ASSERT(0 && "unexpected write failure");
+}
+
+static void disconnect_callback(void *userdata)
+{
+    (void)userdata;
+    disconnect_called++;
+}
+
+static void write_failure_callback(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    error_called = 1;
 }
 
 /* ============================================================
@@ -260,6 +275,104 @@ static void async_read_more_test(void)
     bb_runtime_destroy(runtime);
 }
 
+static void async_remote_disconnect_test(void)
+{
+    printf("\tTesting remote disconnect callback...\n");
+
+    disconnect_called = 0;
+    error_called = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
+
+    BB_ASSERT(client);
+
+    bb_async_connection_t *server = NULL;
+
+    while (!server)
+    {
+        server = bb_async_connection_accept(runtime, listener->connection->fd);
+        bb_runtime_tick(runtime);
+    }
+
+    bb_async_connection_set_disconnect_callback(
+        server,
+        disconnect_callback,
+        NULL);
+
+    BB_ASSERT(!BB_FAILED(bb_async_connection_create_read_task(server, read_more, read_error, server)));
+
+    /* Simulate peer disappearing. */
+    bb_async_connection_destroy(client);
+
+    while (!disconnect_called)
+    {
+        bb_runtime_tick(runtime);
+        bb_usleep(1000);
+    }
+
+    BB_ASSERT(disconnect_called == 1);
+    BB_ASSERT(error_called == 0);
+
+    bb_async_connection_destroy(server);
+    bb_runtime_destroy(runtime);
+}
+
+static void async_write_disconnect_test(void)
+{
+    printf("\tTesting write after remote disconnect...\n");
+
+    disconnect_called = 0;
+    error_called = 0;
+    write_called = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
+
+    BB_ASSERT(client);
+
+    bb_async_connection_t *server = NULL;
+
+    while (!server)
+    {
+        server = bb_async_connection_accept(runtime, listener->connection->fd);
+
+        bb_runtime_tick(runtime);
+    }
+
+    bb_async_connection_set_disconnect_callback(client, disconnect_callback, NULL);
+
+    /* Close the remote endpoint. */
+    bb_async_connection_destroy(server);
+
+    while (client->connection->state != BB_CONNECTION_CLOSED)
+    {
+        bb_connection_read(client->connection);
+        bb_usleep(1000);
+    }
+
+    char *msg = strdup("hello");
+
+    BB_ASSERT(bb_connection_buffer_add(client->connection, msg, 6) == 0);
+
+    BB_ASSERT(!BB_FAILED(bb_async_connection_create_write_task(client, write_success, write_failure_callback, NULL)));
+
+    while (!disconnect_called && !error_called)
+    {
+        bb_runtime_tick(runtime);
+        bb_usleep(1000);
+    }
+
+    BB_ASSERT(disconnect_called == 1);
+    BB_ASSERT(error_called == 1);
+    BB_ASSERT(write_called == 0);
+
+    bb_async_connection_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -281,6 +394,8 @@ int main(void)
     async_write_callback_test();
     async_read_callback_test();
     async_read_more_test();
+    async_remote_disconnect_test();
+    async_write_disconnect_test();
 
     finished = 1;
 
