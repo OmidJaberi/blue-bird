@@ -135,6 +135,67 @@ static void connection_read_write_test(void)
     bb_connection_destroy(writer);
 }
 
+static void connection_read_closed_test(void)
+{
+    printf("\tTesting read detects peer close...\n");
+
+    int fds[2];
+    BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+
+    bb_connection_t *reader = bb_connection_create_non_blocking(fds[0]);
+
+    bb_socket_close(fds[1]);
+
+    bb_error_t err = bb_connection_read(reader);
+
+    BB_ASSERT(err.code == BB_OK);
+    BB_ASSERT(reader->state == BB_CONNECTION_CLOSED);
+
+    bb_connection_destroy(reader);
+}
+
+static void connection_write_closed_test(void)
+{
+    printf("\tTesting write detects peer close...\n");
+
+    int fds[2];
+    BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+
+    bb_connection_t *writer = bb_connection_create(fds[0]);
+
+    bb_socket_close(fds[1]);
+
+    char *msg = strdup("hello");
+
+    BB_ASSERT(bb_connection_buffer_add(writer, msg, 6) == 0);
+
+    bb_error_t err = bb_connection_write(writer);
+
+    BB_ASSERT(err.code == BB_ERR_CONNECTION_CLOSED);
+    BB_ASSERT(writer->state == BB_CONNECTION_CLOSED);
+
+    bb_connection_destroy(writer);
+}
+
+static void connection_closed_is_sticky_test(void)
+{
+    printf("\tTesting closed state is sticky...\n");
+
+    int fds[2];
+    BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+
+    bb_connection_t *conn = bb_connection_create(fds[0]);
+
+    conn->state = BB_CONNECTION_CLOSED;
+
+    BB_ASSERT(bb_connection_read(conn).code == BB_ERR_CONNECTION_CLOSED);
+
+    BB_ASSERT(bb_connection_write(conn).code == BB_ERR_CONNECTION_CLOSED);
+
+    bb_connection_destroy(conn);
+    bb_socket_close(fds[1]);
+}
+
 int main(void)
 {
     printf("Running connection unit tests...\n");
@@ -145,6 +206,9 @@ int main(void)
     connection_zero_length_buffer_test();
     connection_invalid_buffer_test();
     connection_read_write_test();
+    connection_read_closed_test();
+    connection_write_closed_test();
+    connection_closed_is_sticky_test();
 
     printf("All connection tests passed.\n");
 

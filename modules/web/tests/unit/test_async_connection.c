@@ -26,6 +26,14 @@ static void dummy_callback(bb_task_t *task, void *userdata)
     (void)userdata;
 }
 
+static volatile int disconnect_called;
+
+static void disconnect_callback(void *userdata)
+{
+    (void)userdata;
+    disconnect_called++;
+}
+
 static void async_connection_create_test(void)
 {
     printf("\tTesting async connection creation...\n");
@@ -133,6 +141,52 @@ static void async_connection_close_test(void)
     bb_runtime_destroy(runtime);
 }
 
+static void async_disconnect_callback_test(void)
+{
+    printf("\tTesting disconnect callback...\n");
+
+    disconnect_called = 0;
+
+    bb_runtime_t *runtime =
+        bb_runtime_create();
+
+    bb_async_connection_t *conn =
+        bb_async_connection_create(runtime);
+
+    bb_async_connection_set_disconnect_callback(
+        conn,
+        disconnect_callback,
+        NULL);
+
+    bb_async_connection_close(conn);
+
+    BB_ASSERT(disconnect_called == 1);
+
+    bb_async_connection_destroy(conn);
+    bb_runtime_destroy(runtime);
+}
+
+static void async_disconnect_only_once_test(void)
+{
+    printf("\tTesting disconnect callback fires once...\n");
+
+    disconnect_called = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_async_connection_t *conn = bb_async_connection_create(runtime);
+
+    bb_async_connection_set_disconnect_callback(conn, disconnect_callback, NULL);
+
+    bb_async_connection_close(conn);
+    bb_async_connection_close(conn);
+
+    BB_ASSERT(disconnect_called == 1);
+
+    bb_async_connection_destroy(conn);
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Running async connection unit tests...\n");
@@ -143,6 +197,8 @@ int main(void)
     async_connection_write_task_invalid_test();
     async_connection_read_task_invalid_test();
     async_connection_close_test();
+    async_disconnect_callback_test();
+    async_disconnect_only_once_test();
 
     printf("All async connection tests passed.\n");
 
