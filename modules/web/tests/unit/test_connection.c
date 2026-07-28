@@ -213,6 +213,7 @@ static void connection_closed_is_sticky_test(void)
 
 int main(void)
 {
+    bb_platform_net_init(); // Ignore SIGPIPE
     printf("Running connection unit tests...\n");
 
     connection_create_test();
