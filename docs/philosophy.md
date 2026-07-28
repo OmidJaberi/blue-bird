@@ -18,8 +18,11 @@ The framework avoids:
 # Modular Over Monolithic
 
 The framework is organized into independent modules:
+- runtime
 - web
 - persist
+- template
+- security
 - utils
 - log
 - error
