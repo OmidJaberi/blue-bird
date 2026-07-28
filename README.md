@@ -9,7 +9,7 @@
 
 ## Overview
 
-Blue-Bird is a lightweight, modular framework for building backend applications and web services in C.
+Blue-Bird is a modular framework for building backend applications and web services in C.
 
 The project focuses on:
 
