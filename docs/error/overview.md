@@ -14,7 +14,7 @@ It is designed around a few core principles:
 - **Framework-wide consistency**
 
 The module uses:
-- an enum (`bb_error_code_t`) for standardized error codes,
+- `bb_error_code_t` (an integer type) for standardized error codes,
 - a small struct (`bb_error_t`) for optional contextual messages,
 - and helper macros for ergonomic usage.
 
@@ -46,35 +46,66 @@ This distinction keeps the framework:
 
 # Error Codes
 
-The module defines a standard set of framework-wide error codes.
+The core error module defines common framework-wide error codes together with reserved ranges for module-specific errors.
 
 ```c
-typedef enum {
+typedef int bb_error_code_t;
+```
+
+```c
+enum {
+    // Common errors
     BB_OK = 0,
     BB_ERR_ALLOC,
     BB_ERR_NULL,
-    BB_ERR_BAD_REQUEST,
     BB_ERR_NOT_FOUND,
     BB_ERR_INTERNAL,
     BB_ERR_IO,
-    BB_ERR_UNKNOWN
-} bb_error_code_t;
+    BB_ERR_UNKNOWN,
+
+    // Module ranges
+    BB_ERR_RUNTIME  = 1000,
+    BB_ERR_WEB      = 2000,
+    BB_ERR_PERSIST  = 3000,
+    BB_ERR_TEMPLATE = 4000,
+    BB_ERR_SECURITY = 5000,
+    BB_ERR_LOG      = 6000,
+    BB_ERR_UTILS    = 7000,
+};
 ```
 
 ---
 
-## Error Code Reference
+## Common Error Code Reference
 
 | Error Code | Description |
 |------------|-------------|
 | `BB_OK` | Operation succeeded |
 | `BB_ERR_ALLOC` | Memory allocation failed |
 | `BB_ERR_NULL` | Null pointer or invalid reference |
-| `BB_ERR_BAD_REQUEST` | Invalid request or malformed input |
 | `BB_ERR_NOT_FOUND` | Resource could not be found |
 | `BB_ERR_INTERNAL` | Internal framework failure |
 | `BB_ERR_IO` | Input/output failure |
 | `BB_ERR_UNKNOWN` | Unknown or unspecified error |
+
+## Module-specific Errors
+
+Each module may define its own error codes starting from its reserved range.
+
+Example:
+
+```c
+// blue-bird/web/error.h
+
+enum {
+    BB_ERR_BAD_REQUEST = BB_ERR_WEB + 1,
+    BB_ERR_CONNECTION_CLOSED,
+    BB_ERR_NETWORK,
+    BB_ERR_EOF,
+};
+```
+
+This keeps error codes unique across the framework while allowing each module to expose errors that are meaningful for its domain.
 
 ---
 
