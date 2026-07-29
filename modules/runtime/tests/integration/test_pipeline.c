@@ -17,7 +17,7 @@ static void task_c_cb(bb_task_t *task, void *userdata)
 
     execution_order[execution_index++] = 3;
 
-    printf("Task C executed\n");
+    printf("\t\tTask C executed\n");
 
     bb_runtime_stop(ctx->runtime);
 }
@@ -29,7 +29,7 @@ static void task_b_cb(bb_task_t *task, void *userdata)
 
     execution_order[execution_index++] = 2;
 
-    printf("Task B executed\n");
+    printf("\t\tTask B executed\n");
 
     BB_ASSERT(bb_runtime_schedule(ctx->runtime, task_c_cb, ctx) != NULL);
 }
@@ -41,13 +41,14 @@ static void task_a_cb(bb_task_t *task, void *userdata)
 
     execution_order[execution_index++] = 1;
 
-    printf("Task A executed\n");
+    printf("\t\tTask A executed\n");
 
     BB_ASSERT(bb_runtime_schedule(ctx->runtime, task_b_cb, ctx) != NULL);
 }
 
 void test_runtime_chain(void)
 {
+    printf("\tTest Runtime chain...\n");
     bb_runtime_t *runtime = bb_runtime_create();
 
     BB_ASSERT(runtime != NULL);
@@ -71,10 +72,49 @@ void test_runtime_chain(void)
     bb_runtime_destroy(runtime);
 }
 
+// State for the stress test
+static int stress_counter = 0;
+
+static void stress_task_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+    stress_counter++;
+}
+
+static void test_massive_task_scheduling(void)
+{
+    printf("\tRunning test_massive_task_scheduling...\n");
+    stress_counter = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Schedule 10,000 tasks
+    const int NUM_TASKS = 10000;
+    for (int i = 0; i < NUM_TASKS; i++)
+    {
+        bb_runtime_schedule(runtime, stress_task_cb, NULL);
+    }
+
+    // Since these aren't chaining, they should all execute in one run pass.
+    // We tick until empty.
+    while (!bb_runtime_is_empty(runtime))
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(stress_counter == NUM_TASKS);
+    
+    bb_runtime_destroy(runtime);
+    printf("test_massive_task_scheduling passed.\n");
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
     test_runtime_chain();
+    test_massive_task_scheduling();
     printf("Runtime integration test passed.\n");
     return 0;
 }
