@@ -139,12 +139,50 @@ static void test_timeout_scheduling(void)
     bb_runtime_destroy(runtime);
 }
 
+// State for cancellation test
+bb_runtime_t *cancellation_runtime;
+static int cancel_target_executed = 0;
+
+static void cancel_target_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+    cancel_target_executed++;
+}
+
+static void test_task_cancellation(void)
+{
+    printf("\tRunning test_task_cancellation...\n");
+    cancel_target_executed = 0;
+
+    cancellation_runtime = bb_runtime_create();
+    BB_ASSERT(cancellation_runtime != NULL);
+
+    // Schedule a task, but keep its reference to cancel it
+    bb_task_t *target_task = bb_runtime_schedule(cancellation_runtime, cancel_target_cb, NULL);
+
+    // Cancel the target task before it gets a chance to run
+    bb_runtime_cancel_task(cancellation_runtime, target_task);
+
+    while (!bb_runtime_is_empty(cancellation_runtime))
+    {
+        bb_runtime_tick(cancellation_runtime);
+    }
+
+    // Target should be cancelled
+    BB_ASSERT(cancel_target_executed == 0);
+    BB_ASSERT(bb_task_is_cancelled(target_task) == 1);
+
+    bb_runtime_destroy(cancellation_runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
     test_runtime_chain();
     test_massive_task_scheduling();
     test_timeout_scheduling();
+    test_task_cancellation();
     printf("Runtime integration test passed.\n");
     return 0;
 }
