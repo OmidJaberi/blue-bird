@@ -107,7 +107,36 @@ static void test_massive_task_scheduling(void)
     BB_ASSERT(stress_counter == NUM_TASKS);
     
     bb_runtime_destroy(runtime);
-    printf("test_massive_task_scheduling passed.\n");
+}
+
+// State for timeout test
+static int timeout_executed = 0;
+
+static void timeout_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    bb_runtime_t *runtime = (bb_runtime_t *)userdata;
+    timeout_executed++;
+    bb_runtime_stop(runtime);
+}
+
+static void test_timeout_scheduling(void)
+{
+    printf("\tRunning test_timeout_scheduling...\n");
+    timeout_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Schedule a task to run after 50ms
+    bb_runtime_set_timeout(runtime, 50, timeout_cb, runtime);
+
+    // Run the loop. It should block/wait until the timeout expires.
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(timeout_executed == 1);
+
+    bb_runtime_destroy(runtime);
 }
 
 int main(void)
@@ -115,6 +144,7 @@ int main(void)
     printf("Starting runtime integration test...\n");
     test_runtime_chain();
     test_massive_task_scheduling();
+    test_timeout_scheduling();
     printf("Runtime integration test passed.\n");
     return 0;
 }
