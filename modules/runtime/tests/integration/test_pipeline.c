@@ -163,6 +163,7 @@ static void test_task_cancellation(void)
 
     // Cancel the target task before it gets a chance to run
     bb_runtime_cancel_task(cancellation_runtime, target_task);
+    BB_ASSERT(bb_task_is_cancelled(target_task) == 1);
 
     while (!bb_runtime_is_empty(cancellation_runtime))
     {
@@ -171,7 +172,6 @@ static void test_task_cancellation(void)
 
     // Target should be cancelled
     BB_ASSERT(cancel_target_executed == 0);
-    BB_ASSERT(bb_task_is_cancelled(target_task) == 1);
 
     bb_runtime_destroy(cancellation_runtime);
 }
