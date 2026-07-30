@@ -20,7 +20,7 @@ int bb_ws_list_add(bb_ws_list_t *list, bb_websocket_t *ws)
         return -1;
     }
     node->ws = ws;
-    node->prev = list->head;
+    node->prev = list->tail;
     if (list->head == NULL)
     {
         list->head = node;
@@ -43,10 +43,21 @@ int bb_ws_list_remove(bb_ws_list_t *list, bb_websocket_t *ws)
             {
                 node->prev->next = node->next;
             }
+            else
+            {
+                list->head = node->next;
+            }
+
             if (node->next)
             {
                 node->next->prev = node->prev;
             }
+            else
+            {
+                list->tail = node->prev;
+            }
+
+            free(node);
             return 0;
         }
     }
