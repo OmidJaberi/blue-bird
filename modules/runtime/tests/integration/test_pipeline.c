@@ -109,36 +109,6 @@ static void test_massive_task_scheduling(void)
     bb_runtime_destroy(runtime);
 }
 
-// State for timeout test
-static int timeout_executed = 0;
-
-static void timeout_cb(bb_task_t *task, void *userdata)
-{
-    (void)task;
-    bb_runtime_t *runtime = (bb_runtime_t *)userdata;
-    timeout_executed++;
-    bb_runtime_stop(runtime);
-}
-
-static void test_timeout_scheduling(void)
-{
-    printf("\tRunning test_timeout_scheduling...\n");
-    timeout_executed = 0;
-
-    bb_runtime_t *runtime = bb_runtime_create();
-    BB_ASSERT(runtime != NULL);
-
-    // Schedule a task to run after 50ms
-    bb_runtime_set_timeout(runtime, 50, timeout_cb, runtime);
-
-    // Run the loop. It should block/wait until the timeout expires.
-    bb_runtime_run(runtime);
-
-    BB_ASSERT(timeout_executed == 1);
-
-    bb_runtime_destroy(runtime);
-}
-
 // State for cancellation test
 bb_runtime_t *cancellation_runtime;
 static int cancel_target_executed = 0;
@@ -176,13 +146,81 @@ static void test_task_cancellation(void)
     bb_runtime_destroy(cancellation_runtime);
 }
 
+// State for timeout test
+static int timeout_executed = 0;
+
+static void timeout_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    bb_runtime_t *runtime = (bb_runtime_t *)userdata;
+    timeout_executed++;
+    bb_runtime_stop(runtime);
+}
+
+static void test_timeout_scheduling(void)
+{
+    printf("\tRunning test_timeout_scheduling...\n");
+    timeout_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Schedule a task to run after 50ms
+    bb_runtime_set_timeout(runtime, 50, timeout_cb, runtime);
+
+    // Run the loop. It should block/wait until the timeout expires.
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(timeout_executed == 1);
+
+    bb_runtime_destroy(runtime);
+}
+
+// Interval Timer test
+static int interval_counter = 0;
+static bb_task_t *interval_task_ref = NULL;
+
+static void interval_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    bb_runtime_t *runtime = (bb_runtime_t *)userdata;
+    interval_counter++;
+    
+    // Stop the interval after 5 executions
+    if (interval_counter >= 5)
+    {
+        bb_runtime_cancel_task(runtime, interval_task_ref);
+        bb_runtime_stop(runtime);
+    }
+}
+
+static void test_interval_scheduling(void)
+{
+    printf("\tRunning test_interval_scheduling...\n");
+    interval_counter = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Schedule a task to run every 10ms
+    interval_task_ref = bb_runtime_set_interval(runtime, 10, interval_cb, runtime);
+
+    // Run the loop until the callback stops it
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(interval_counter == 5);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
     test_runtime_chain();
     test_massive_task_scheduling();
-    test_timeout_scheduling();
     test_task_cancellation();
+    test_timeout_scheduling();
+    test_interval_scheduling();
     printf("Runtime integration test passed.\n");
     return 0;
 }
