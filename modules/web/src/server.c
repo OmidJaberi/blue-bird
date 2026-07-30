@@ -61,6 +61,19 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     return server;
 }
 
+static void _server_ws_closed(bb_websocket_t *ws, void *userdata)
+{
+    bb_server_t *server = userdata;
+
+    if (!server || !server->ws_list)
+    {
+        return;
+    }
+
+    bb_ws_list_remove(server->ws_list, ws);
+    bb_websocket_destroy(ws);
+}
+
 static void _server_task_data_cleanup(bb_server_task_data_t *data)
 {
     if (!data)
@@ -102,6 +115,7 @@ static void _server_after_write(bb_task_t *task, void *userdata)
             * Now websocket session owns the connection.
             */
             data->async_conn = NULL;
+            bb_websocket_set_close_callback(data->ws, _server_ws_closed, server);
             bb_error_t err = bb_websocket_create_read_task(data->ws);
             if (BB_FAILED(err))
             {
