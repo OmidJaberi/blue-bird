@@ -717,6 +717,52 @@ static void websocket_dead_connection_test(void)
     check_server();
 }
 
+#define DEAD_CONNECTION_COUNT 10
+
+static volatile int dead_conns_connected = 0;
+
+static void _dead_conns_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)ws;
+    (void)userdata;
+
+    BB_ASSERT(!BB_FAILED(err));
+
+    dead_conns_connected++;
+}
+
+static void websocket_multiple_dead_connections_test(void)
+{
+    printf("\tTesting WebSocket Multiple Dead Connections Cleanup...\n");
+
+    dead_conns_connected = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+
+    bb_websocket_t *clients[DEAD_CONNECTION_COUNT];
+
+    for (int i = 0; i < DEAD_CONNECTION_COUNT; i++)
+    {
+        clients[i] = bb_websocket_create_on_runtime(runtime);
+        bb_websocket_connect(clients[i], "ws://127.0.0.1:8081/echo", _dead_conns_connect_cb, NULL);
+    }
+
+    while (dead_conns_connected < DEAD_CONNECTION_COUNT)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    /* Kill every connection abruptly, no close handshake on any of them. */
+    for (int i = 0; i < DEAD_CONNECTION_COUNT; i++)
+    {
+        bb_websocket_destroy(clients[i]);
+    }
+
+    bb_runtime_destroy(runtime);
+
+    check_server();
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -745,6 +791,7 @@ int main(void)
     websocket_ping_pong_test();
     websocket_close_test();
     websocket_dead_connection_test();
+    websocket_multiple_dead_connections_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
