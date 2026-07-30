@@ -213,6 +213,44 @@ static void test_interval_scheduling(void)
     bb_runtime_destroy(runtime);
 }
 
+// Deep Task Chaining (Recursive Scheduling) test
+static int chain_depth = 0;
+#define MAX_CHAIN_DEPTH 5000
+
+static void chain_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    bb_runtime_t *runtime = (bb_runtime_t *)userdata;
+    chain_depth++;
+    
+    // Reschedule itself until the max depth is reached
+    if (chain_depth < MAX_CHAIN_DEPTH)
+    {
+        bb_runtime_schedule(runtime, chain_cb, runtime);
+    }
+}
+
+static void test_deep_task_chaining(void)
+{
+    printf("\tRunning test_deep_task_chaining...\n");
+    chain_depth = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Kick off the chain
+    bb_runtime_schedule(runtime, chain_cb, runtime);
+
+    while (!bb_runtime_is_empty(runtime))
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(chain_depth == MAX_CHAIN_DEPTH);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -221,6 +259,7 @@ int main(void)
     test_task_cancellation();
     test_timeout_scheduling();
     test_interval_scheduling();
+    test_deep_task_chaining();
     printf("Runtime integration test passed.\n");
     return 0;
 }
