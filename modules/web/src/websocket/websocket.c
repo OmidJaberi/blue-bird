@@ -227,6 +227,21 @@ static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
     free(data);
 }
 
+static void _bb_websocket_handle_disconnect(void *userdata)
+{
+    bb_websocket_t *ws = userdata;
+
+    if (!ws)
+    {
+        return;
+    }
+
+    if (ws->close_cb)
+    {
+        ws->close_cb(ws, ws->close_userdata);
+    }
+}
+
 void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb connect_callback, void *userdata)
 {
     char *host = NULL;
@@ -255,6 +270,8 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         return;
     }
     ws->async_conn = async_conn;
+
+    bb_async_connection_set_disconnect_callback(async_conn, _bb_websocket_handle_disconnect, ws);
 
     _bb_ws_client_task_data_t *data = calloc(1, sizeof(*data));
     if (!data)
@@ -463,6 +480,10 @@ bb_websocket_t *bb_websocket_create_with_type(bb_async_connection_t *async_conn,
     ws->runtime = async_conn->runtime;
     ws->async_conn = async_conn;
     ws->mode = mode;
+    ws->close_cb = NULL;
+    ws->close_userdata = NULL;
+
+    bb_async_connection_set_disconnect_callback(async_conn, _bb_websocket_handle_disconnect, ws);
 
     return ws;
 }
@@ -485,6 +506,8 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
     ws->runtime = runtime;
     ws->async_conn = NULL;
     ws->mode = BB_WEBSOCKET_CLIENT;
+    ws->close_cb = NULL;
+    ws->close_userdata = NULL;
 
     return ws;
 }
@@ -492,6 +515,13 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
 void bb_websocket_destroy(bb_websocket_t *ws)
 {
     if (!ws) return;
+
+    if (ws->async_conn)
+    {
+        /* Explicit destroy shouldn't re-trigger the close callback. */
+        bb_async_connection_set_disconnect_callback(ws->async_conn, NULL, NULL);
+    }
+
     bb_async_connection_destroy(ws->async_conn);
     free(ws);
 }
@@ -516,6 +546,17 @@ void bb_websocket_set_pong_callback(bb_websocket_t *ws, bb_ws_pong_cb callback, 
 
     ws->pong_cb = callback;
     ws->pong_userdata = userdata;
+}
+
+void bb_websocket_set_close_callback(bb_websocket_t *ws, bb_ws_close_cb callback, void *userdata)
+{
+    if (!ws)
+    {
+        return;
+    }
+
+    ws->close_cb = callback;
+    ws->close_userdata = userdata;
 }
 
 bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)

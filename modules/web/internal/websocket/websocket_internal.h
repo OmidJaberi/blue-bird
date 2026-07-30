@@ -23,6 +23,8 @@ typedef struct bb_websocket {
     void *message_userdata;
     bb_ws_pong_cb pong_cb;
     void *pong_userdata;
+    bb_ws_close_cb close_cb;
+    void *close_userdata;
 } bb_websocket_t;
 
 // Accept

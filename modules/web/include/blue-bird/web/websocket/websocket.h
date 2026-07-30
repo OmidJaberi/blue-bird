@@ -16,6 +16,7 @@ typedef struct bb_websocket bb_websocket_t;
 typedef bb_error_t (*bb_ws_handler_cb)(bb_websocket_t *ws, const bb_ws_message_t *message);
 typedef void (*bb_ws_connect_cb)(bb_websocket_t *ws, bb_error_t err, void *userdata);
 typedef void (*bb_ws_pong_cb)(bb_websocket_t *ws, const void *payload, size_t length, void *userdata);
+typedef void (*bb_ws_close_cb)(bb_websocket_t *ws, void *userdata);
 
 // Lifecycle
 bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime);
@@ -46,6 +47,13 @@ static inline bb_error_t bb_websocket_close(bb_websocket_t *ws)
 // Callbacks
 void bb_websocket_set_message_callback(bb_websocket_t *ws, bb_ws_handler_cb callback, void *userdata);
 void bb_websocket_set_pong_callback(bb_websocket_t *ws, bb_ws_pong_cb callback, void *userdata);
+
+/*
+ * Invoked when the underlying connection closes/disconnects (e.g. remote peer
+ * dropped the connection, or a read/write error tore it down). Not invoked
+ * as a result of an explicit bb_websocket_destroy() call.
+ */
+void bb_websocket_set_close_callback(bb_websocket_t *ws, bb_ws_close_cb callback, void *userdata);
 
 
 #ifdef __cplusplus
