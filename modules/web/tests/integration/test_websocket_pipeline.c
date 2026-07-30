@@ -10,12 +10,12 @@
 
 #define TEST_PORT 8081
 
-static volatile int started = 0;
-static volatile int finished = 0;
-
 /* ============================================================
  * Server
  * ============================================================ */
+
+ bb_runtime_t *server_runtime = NULL;
+ bb_server_t *server = NULL;
 
 static bb_error_t echo_handler(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
@@ -35,22 +35,18 @@ static void *server_thread(void *arg)
 {
     (void)arg;
 
-    bb_runtime_t *runtime = bb_runtime_create();
+    server_runtime = bb_runtime_create();
 
-    bb_server_t *server = bb_server_create_on_runtime(runtime, TEST_PORT);
+    server = bb_server_create_on_runtime(server_runtime, TEST_PORT);
 
     bb_server_add_websocket(server, "/echo", echo_handler);
 
     bb_server_start(server);
 
-    started = 1;
-    while (!finished)
-    {
-        bb_runtime_tick(runtime);
-    }
+    bb_runtime_run(server_runtime);
 
     bb_server_destroy(server);
-    bb_runtime_destroy(runtime);
+    bb_runtime_destroy(server_runtime);
 
     return NULL;
 }
@@ -674,7 +670,7 @@ int main(void)
 
     BB_ASSERT(pthread_create(&thread, NULL, server_thread, NULL) == 0);
 
-    while (!started)
+    while (!server)
     {
         bb_usleep(10000);
     }
@@ -692,7 +688,7 @@ int main(void)
     websocket_ping_pong_test();
     websocket_close_test();
 
-    finished = 1;
+    bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
 
     pthread_join(thread, NULL);
