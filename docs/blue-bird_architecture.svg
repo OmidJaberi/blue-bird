@@ -2,8 +2,8 @@
 
   <defs>
     <style>
-      .title { font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; fill: currentColor; }
-      .layerTitle { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: currentColor; }
+      .title { font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; fill: #24292f; }
+      .layerTitle { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #24292f; }
       .moduleTitle { font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; fill: white; }
       .moduleText { font-family: Arial, sans-serif; font-size: 14px; fill: white; }
       .layer { fill: none; stroke-width: 2; rx: 24; }
@@ -11,6 +11,11 @@
       .frameworkLayer { stroke: #64748b; }
       .applicationLayer { stroke: #334155; }
       .module { stroke-width: 1; }
+      @media (prefers-color-scheme: dark) {
+        .title .layerTitle {
+          fill: #f0f6fc; /* GitHub default dark mode text color */
+        }
+      }
     </style>
   </defs>
 
