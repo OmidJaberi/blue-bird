@@ -2,8 +2,8 @@
 
   <defs>
     <style>
-      .title { font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; fill: #1f2937; }
-      .layerTitle { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #374151; }
+      .title { font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; fill: currentColor; }
+      .layerTitle { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: currentColor; }
       .moduleTitle { font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; fill: white; }
       .moduleText { font-family: Arial, sans-serif; font-size: 14px; fill: white; }
       .layer { fill: none; stroke-width: 2; rx: 24; }
