@@ -681,6 +681,8 @@ static void websocket_close_test(void)
     bb_runtime_destroy(runtime);
 }
 
+// Dead Connection test
+
 static volatile int dead_conn_connected = 0;
 
 static void _dead_conn_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
@@ -716,6 +718,8 @@ static void websocket_dead_connection_test(void)
 
     check_server();
 }
+
+// Multiple Dead Connections test
 
 #define DEAD_CONNECTION_COUNT 10
 
@@ -763,6 +767,52 @@ static void websocket_multiple_dead_connections_test(void)
     check_server();
 }
 
+// Silent Dead Connection test
+
+static void _silent_dead_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)ws;
+    volatile int *connected = userdata;
+    BB_ASSERT(!BB_FAILED(err));
+    *connected = 1;
+}
+
+static void websocket_silent_dead_connection_test(void)
+{
+    printf("\tTesting WebSocket Silent Dead Connection...\n");
+
+    const uint32_t interval_ms = 50;
+    const uint32_t max_missed = 2;
+
+    bb_server_set_websocket_heartbeat(server, interval_ms, max_missed);
+
+    volatile int connected = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _silent_dead_connect_cb, (void *)&connected);
+
+    while (!connected)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    /*
+     * Simulate a frozen/vanished client: stop ticking its runtime
+     * entirely. It never reads the server's pings, never sends a
+     * pong, and its socket is never explicitly closed either.
+     */
+
+    check_server(); // waits up to 5s for ws_list->head == NULL
+
+    /* Restore default (disabled) so later tests aren't affected. */
+    bb_server_set_websocket_heartbeat(server, 0, 0);
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -792,6 +842,7 @@ int main(void)
     websocket_close_test();
     websocket_dead_connection_test();
     websocket_multiple_dead_connections_test();
+    websocket_silent_dead_connection_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
