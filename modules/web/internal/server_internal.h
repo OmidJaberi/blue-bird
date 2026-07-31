@@ -28,6 +28,9 @@ struct bb_server {
 
     bb_conn_list_t *conn_list;
     bb_ws_list_t *ws_list;
+
+    uint32_t ws_heartbeat_interval_ms;
+    uint32_t ws_heartbeat_max_missed_pongs;
 };
 
 #endif //BB_SERVER_INTERNAL_H

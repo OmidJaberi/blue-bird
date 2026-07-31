@@ -116,6 +116,12 @@ static void _server_after_write(bb_task_t *task, void *userdata)
             */
             data->async_conn = NULL;
             bb_websocket_set_close_callback(data->ws, _server_ws_closed, server);
+
+            if (server->ws_heartbeat_max_missed_pongs > 0)
+            {
+                bb_websocket_set_heartbeat(data->ws, server->ws_heartbeat_interval_ms, server->ws_heartbeat_max_missed_pongs);
+            }
+
             bb_error_t err = bb_websocket_create_read_task(data->ws);
             if (BB_FAILED(err))
             {
@@ -386,6 +392,17 @@ void bb_server_add_route(bb_server_t *server, const char *method, const char *pa
 void bb_server_add_websocket(bb_server_t *server, const char *path, bb_ws_handler_cb handler)
 {
     bb_route_list_add_websocket(server->route_list, path, handler);
+}
+
+void bb_server_set_websocket_heartbeat(bb_server_t *server, uint32_t interval_ms, uint32_t max_missed_pongs)
+{
+    if (!server)
+    {
+        return;
+    }
+
+    server->ws_heartbeat_interval_ms = interval_ms;
+    server->ws_heartbeat_max_missed_pongs = max_missed_pongs;
 }
 
 void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw)
