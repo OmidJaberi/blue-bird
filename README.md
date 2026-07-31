@@ -9,6 +9,8 @@
 
 ## Overview
 
+![Blue-Bird Architecture](docs/blue-bird_architecture.svg)
+
 Blue-Bird is a modular framework for building backend applications and web services in C.
 
 The project focuses on:

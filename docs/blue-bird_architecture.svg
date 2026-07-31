@@ -1,0 +1,315 @@
+<svg width="1000" height="760" viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <style>
+      .title { font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; fill: #1f2937; }
+      .layerTitle { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #374151; }
+      .moduleTitle { font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; fill: white; }
+      .moduleText { font-family: Arial, sans-serif; font-size: 14px; fill: white; }
+      .layer { fill: none; stroke-width: 2; rx: 24; }
+      .baseLayer { stroke: #94a3b8; }
+      .frameworkLayer { stroke: #64748b; }
+      .applicationLayer { stroke: #334155; }
+      .module { stroke-width: 1; }
+    </style>
+  </defs>
+
+
+  <!-- Title -->
+  <text x="500" y="45" text-anchor="middle" class="title">
+    Blue-Bird Framework
+  </text>
+
+
+  <!-- ================= Application Layer ================= -->
+  <g transform="translate(60,80)">
+
+    <rect width="880" height="140" class="layer applicationLayer"/>
+
+    <text x="30" y="30" class="layerTitle">
+      Application Layer
+    </text>
+
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/examples/README.md" target="_blank">
+      <g transform="translate(190,45)">
+
+        <rect width="500" height="75" rx="14"
+              fill="#2563eb" class="module"/>
+
+        <text x="250" y="28"
+              text-anchor="middle"
+              class="moduleTitle">
+          Applications
+        </text>
+
+        <text x="250" y="58"
+              text-anchor="middle"
+              class="moduleText">
+          REST APIs • MVC • CLI • Services
+        </text>
+
+      </g>
+    </a>
+
+  </g>
+
+
+
+  <!-- ================= Framework Layer ================= -->
+  <g transform="translate(60,250)">
+
+    <rect width="880" height="250" class="layer frameworkLayer"/>
+
+    <text x="30" y="30" class="layerTitle">
+      Framework Modules
+    </text>
+
+
+    <!-- Web -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/web" target="_blank">
+      <g transform="translate(50,60)">
+
+        <rect width="170" height="130" rx="18"
+              fill="#0ea5e9" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Web
+        </text>
+
+        <text x="85" y="65"
+              text-anchor="middle"
+              class="moduleText">
+          HTTP
+        </text>
+
+        <text x="85" y="85"
+              text-anchor="middle"
+              class="moduleText">
+          WebSocket
+        </text>
+
+        <text x="85" y="105"
+              text-anchor="middle"
+              class="moduleText">
+          Routing
+        </text>
+
+      </g>
+    </a>
+
+
+    <!-- Security -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/security" target="_blank">
+      <g transform="translate(250,60)">
+
+        <rect width="170" height="130" rx="18"
+              fill="#8b5cf6" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Security
+        </text>
+
+        <text x="85" y="75"
+              text-anchor="middle"
+              class="moduleText">
+          Authentication
+        </text>
+
+        <text x="85" y="95"
+              text-anchor="middle"
+              class="moduleText">
+          Sessions
+        </text>
+
+      </g>
+    </a>
+
+
+    <!-- Persist -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/persist" target="_blank">
+      <g transform="translate(450,60)">
+
+        <rect width="170" height="130" rx="18"
+              fill="#10b981" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Persist
+        </text>
+
+        <text x="85" y="65"
+              text-anchor="middle"
+              class="moduleText">
+          Key / Value
+        </text>
+
+        <text x="85" y="85"
+              text-anchor="middle"
+              class="moduleText">
+          Models
+        </text>
+
+        <text x="85" y="105"
+              text-anchor="middle"
+              class="moduleText">
+          Repositories
+        </text>
+
+      </g>
+    </a>
+
+
+    <!-- Template -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/template" target="_blank">
+      <g transform="translate(650,60)">
+
+        <rect width="170" height="130" rx="18"
+              fill="#f97316" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Template
+        </text>
+
+        <text x="85" y="65"
+              text-anchor="middle"
+              class="moduleText">
+          Rendering
+        </text>
+
+        <text x="85" y="85"
+              text-anchor="middle"
+              class="moduleText">
+          Views
+        </text>
+
+        <text x="85" y="105"
+              text-anchor="middle"
+              class="moduleText">
+          Layouts
+        </text>
+
+      </g>
+    </a>
+
+  </g>
+
+
+
+  <!-- ================= Core Layer ================= -->
+  <g transform="translate(60,530)">
+
+    <rect width="880" height="210" class="layer baseLayer"/>
+
+    <text x="30" y="30" class="layerTitle">
+      Core Infrastructure
+    </text>
+
+
+    <!-- Error -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/error" target="_blank">
+      <g transform="translate(50,65)">
+
+        <rect width="170" height="90" rx="18"
+              fill="#ef4444" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Error
+        </text>
+
+        <text x="85" y="70"
+              text-anchor="middle"
+              class="moduleText">
+          Codes • Handling
+        </text>
+
+      </g>
+    </a>
+
+
+    <!-- Utils -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/utils" target="_blank">
+      <g transform="translate(250,65)">
+
+        <rect width="170" height="90" rx="18"
+              fill="#64748b" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Utils
+        </text>
+
+        <text x="85" y="60"
+              text-anchor="middle"
+              class="moduleText">
+          JSON • Time • Platform
+        </text>
+
+        <text x="85" y="80"
+              text-anchor="middle"
+              class="moduleText">
+          etc.
+        </text>
+
+      </g>
+    </a>
+
+
+    <!-- Runtime -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/runtime" target="_blank">
+      <g transform="translate(450,65)">
+
+        <rect width="170" height="90" rx="18"
+              fill="#eab308" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Runtime
+        </text>
+
+        <text x="85" y="70"
+              text-anchor="middle"
+              class="moduleText">
+          Event Loop • Scheduler
+        </text>
+
+      </g>
+    </a>
+
+
+    <!-- Log -->
+    <a href="https://github.com/OmidJaberi/blue-bird/tree/main/docs/log" target="_blank">
+      <g transform="translate(650,65)">
+
+        <rect width="170" height="90" rx="18"
+              fill="#14b8a6" class="module"/>
+
+        <text x="85" y="35"
+              text-anchor="middle"
+              class="moduleTitle">
+          Log
+        </text>
+
+        <text x="85" y="70"
+              text-anchor="middle"
+              class="moduleText">
+          Logger • Backends
+        </text>
+
+      </g>
+    </a>
+
+
+  </g>
+
+</svg>
