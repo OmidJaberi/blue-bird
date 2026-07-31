@@ -55,6 +55,15 @@ void bb_websocket_set_pong_callback(bb_websocket_t *ws, bb_ws_pong_cb callback, 
  */
 void bb_websocket_set_close_callback(bb_websocket_t *ws, bb_ws_close_cb callback, void *userdata);
 
+/*
+ * Enables a periodic ping heartbeat on this websocket. Every interval_ms,
+ * if no frame (of any kind) has been received since the last ping was
+ * sent, a ping is sent; after max_missed_pongs consecutive intervals with
+ * no reply, the connection is treated as dead and torn down exactly like
+ * a real disconnect (close callback fires).
+ */
+void bb_websocket_set_heartbeat(bb_websocket_t *ws, uint32_t interval_ms, uint32_t max_missed_pongs);
+
 
 #ifdef __cplusplus
 }

@@ -25,6 +25,12 @@ typedef struct bb_websocket {
     void *pong_userdata;
     bb_ws_close_cb close_cb;
     void *close_userdata;
+
+    bb_task_t *heartbeat_task;
+    uint32_t heartbeat_interval_ms;
+    uint32_t max_missed_pongs;
+    uint32_t missed_pongs;
+    bool waiting_for_pong;
 } bb_websocket_t;
 
 // Accept

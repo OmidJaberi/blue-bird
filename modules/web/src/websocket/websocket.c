@@ -482,6 +482,11 @@ bb_websocket_t *bb_websocket_create_with_type(bb_async_connection_t *async_conn,
     ws->mode = mode;
     ws->close_cb = NULL;
     ws->close_userdata = NULL;
+    ws->heartbeat_task = NULL;
+    ws->heartbeat_interval_ms = 0;
+    ws->max_missed_pongs = 0;
+    ws->missed_pongs = 0;
+    ws->waiting_for_pong = false;
 
     bb_async_connection_set_disconnect_callback(async_conn, _bb_websocket_handle_disconnect, ws);
 
@@ -508,6 +513,11 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
     ws->mode = BB_WEBSOCKET_CLIENT;
     ws->close_cb = NULL;
     ws->close_userdata = NULL;
+    ws->heartbeat_task = NULL;
+    ws->heartbeat_interval_ms = 0;
+    ws->max_missed_pongs = 0;
+    ws->missed_pongs = 0;
+    ws->waiting_for_pong = false;
 
     return ws;
 }
@@ -515,6 +525,12 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
 void bb_websocket_destroy(bb_websocket_t *ws)
 {
     if (!ws) return;
+
+    if (ws->heartbeat_task)
+    {
+        bb_runtime_cancel_task(ws->runtime, ws->heartbeat_task);
+        ws->heartbeat_task = NULL;
+    }
 
     if (ws->async_conn)
     {
@@ -557,6 +573,60 @@ void bb_websocket_set_close_callback(bb_websocket_t *ws, bb_ws_close_cb callback
 
     ws->close_cb = callback;
     ws->close_userdata = userdata;
+}
+
+static void _bb_websocket_heartbeat_tick(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    bb_websocket_t *ws = userdata;
+
+    if (!ws || !ws->async_conn)
+    {
+        return;
+    }
+
+    if (ws->waiting_for_pong)
+    {
+        ws->missed_pongs++;
+
+        if (ws->missed_pongs >= ws->max_missed_pongs)
+        {
+            /*
+             * No FIN/RST ever arrived here -- force the same teardown
+             * path a real disconnect takes, so close_cb / server
+             * auto-clean still runs.
+             */
+            bb_async_connection_close(ws->async_conn);
+            return;
+        }
+    }
+
+    ws->waiting_for_pong = true;
+    bb_websocket_send_ping(ws, NULL, 0);
+}
+
+void bb_websocket_set_heartbeat(bb_websocket_t *ws, uint32_t interval_ms, uint32_t max_missed_pongs)
+{
+    if (!ws)
+    {
+        return;
+    }
+
+    if (ws->heartbeat_task)
+    {
+        bb_runtime_cancel_task(ws->runtime, ws->heartbeat_task);
+        ws->heartbeat_task = NULL;
+    }
+
+    ws->heartbeat_interval_ms = interval_ms;
+    ws->max_missed_pongs = max_missed_pongs;
+    ws->missed_pongs = 0;
+    ws->waiting_for_pong = false;
+
+    if (max_missed_pongs > 0 && interval_ms > 0)
+    {
+        ws->heartbeat_task = bb_runtime_set_interval(ws->runtime, interval_ms, _bb_websocket_heartbeat_tick, ws);
+    }
 }
 
 bb_error_t bb_websocket_read_frames(bb_websocket_t *ws, bb_ws_frame_t *frame)
@@ -1057,6 +1127,9 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     for (bb_ws_frame_t *current = &frame; current; current = current->next)
     {
+        ws->waiting_for_pong = false;
+        ws->missed_pongs = 0;
+
         switch (current->opcode)
         {
             case BB_WS_TEXT:
