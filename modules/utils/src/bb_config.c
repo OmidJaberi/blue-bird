@@ -1,185 +1,201 @@
 #include "blue-bird/utils/bb_config.h"
-#include "blue-bird/utils/platform.h"
 
+#include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <ctype.h>
 
-#define INITIAL_CAPACITY 16
-
-/* ---------- Internal ---------- */
-
-typedef struct {
-    char *key;
-    char *value;
-} bb_config_pair_t;
-
-struct bb_config {
-    bb_config_pair_t *pairs;
-    size_t count;
-    size_t capacity;
-};
-
-static int ensure_capacity(bb_config_t *cfg)
+static char *trim(char *s)
 {
-    if (cfg->count < cfg->capacity)
-        return 0;
-
-    size_t newcap = cfg->capacity * 2;
-    bb_config_pair_t *newpairs =
-        realloc(cfg->pairs, newcap * sizeof(bb_config_pair_t));
-    if (!newpairs)
-        return 1;
-
-    cfg->pairs = newpairs;
-    cfg->capacity = newcap;
-    return 0;
-}
-
-static int find_index(bb_config_t *cfg, const char *key)
-{
-    for (size_t i = 0; i < cfg->count; i++)
+    while (isspace((unsigned char)*s))
     {
-        if (strcmp(cfg->pairs[i].key, key) == 0)
-            return (int)i;
-    }
-    return -1;
-}
-
-bb_config_t *bb_config_new(void)
-{
-    bb_config_t *cfg = malloc(sizeof(bb_config_t));
-    if (!cfg)
-        return NULL;
-
-    cfg->capacity = INITIAL_CAPACITY;
-    cfg->count = 0;
-    cfg->pairs = calloc(cfg->capacity, sizeof(bb_config_pair_t));
-
-    if (!cfg->pairs)
-    {
-        free(cfg);
-        return NULL;
+        s++;
     }
 
-    return cfg;
-}
-
-void bb_config_free(bb_config_t *cfg)
-{
-    if (!cfg)
-        return;
-
-    for (size_t i = 0; i < cfg->count; i++)
+    if (*s == '\0')
     {
-        free(cfg->pairs[i].key);
-        free(cfg->pairs[i].value);
+        return s;
     }
 
-    free(cfg->pairs);
-    free(cfg);
-}
+    char *end = s + strlen(s) - 1;
 
-int bb_config_set(bb_config_t *cfg,
-                  const char *key,
-                  const char *value)
-{
-    if (!cfg || !key || !value)
-        return 1;
-
-    int idx = find_index(cfg, key);
-
-    if (idx >= 0)
+    while (end > s && isspace((unsigned char)*end))
     {
-        free(cfg->pairs[idx].value);
-        cfg->pairs[idx].value = strdup(value);
-        return 0;
+        *end-- = '\0';
     }
 
-    if (ensure_capacity(cfg) != 0)
-        return 1;
-
-    cfg->pairs[cfg->count].key = strdup(key);
-    cfg->pairs[cfg->count].value = strdup(value);
-
-    if (!cfg->pairs[cfg->count].key ||
-        !cfg->pairs[cfg->count].value)
-        return 1;
-
-    cfg->count++;
-    return 0;
+    return s;
 }
 
-const char *bb_config_get(bb_config_t *cfg,
-                          const char *key)
+static void strip_quotes(char *s)
 {
-    if (!cfg || !key)
-        return NULL;
+    size_t len = strlen(s);
 
-    int idx = find_index(cfg, key);
-    return (idx >= 0) ? cfg->pairs[idx].value : NULL;
-}
-
-const char *bb_config_get_default(bb_config_t *cfg,
-                                  const char *key,
-                                  const char *def)
-{
-    const char *v = bb_config_get(cfg, key);
-    return v ? v : def;
-}
-
-int bb_config_get_int(bb_config_t *cfg,
-                      const char *key,
-                      int def)
-{
-    const char *v = bb_config_get(cfg, key);
-    return v ? atoi(v) : def;
-}
-
-int bb_config_get_bool(bb_config_t *cfg,
-                       const char *key,
-                       int def)
-{
-    const char *v = bb_config_get(cfg, key);
-    if (!v)
-        return def;
-
-    if (strcasecmp(v, "true") == 0 ||
-        strcmp(v, "1") == 0)
-        return 1;
-
-    if (strcasecmp(v, "false") == 0 ||
-        strcmp(v, "0") == 0)
-        return 0;
-
-    return def;
-}
-
-int bb_config_load_env(bb_config_t *cfg, const char *path)
-{
-    FILE *f = fopen(path, "r");
-    if (!f)
-        return 1;
-
-    char line[512];
-
-    while (fgets(line, sizeof(line), f))
+    if (len >= 2)
     {
-        char *eq = strchr(line, '=');
-        if (!eq)
+        if ((s[0] == '"' && s[len - 1] == '"') || (s[0] == '\'' && s[len - 1] == '\''))
+        {
+            memmove(s, s + 1, len - 2);
+            s[len - 2] = '\0';
+        }
+    }
+}
+
+static bb_json_t *parse_value(const char *value)
+{
+    if (strcasecmp(value, "true") == 0)
+    {
+        return bb_json_new_bool(true);
+    }
+
+    if (strcasecmp(value, "false") == 0)
+    {
+        return bb_json_new_bool(false);
+    }
+
+    if (strcasecmp(value, "null") == 0)
+    {
+        return bb_json_new_null();
+    }
+
+    char *end;
+
+    long iv = strtol(value, &end, 10);
+
+    // Add 'end != value' to prevent empty strings from parsing as 0
+    if (*end == '\0' && end != value)
+    {
+        return bb_json_new_int((int)iv);
+    }
+
+    float fv = strtof(value, &end);
+
+    if (*end == '\0' && end != value)
+    {
+        return bb_json_new_real(fv);
+    }
+
+    return bb_json_new_text(value);
+}
+
+bb_error_t bb_config_load_env(bb_json_t *config, const char *path)
+{
+    if (!config)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL config.");
+    }
+
+    if (!path)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL path.");
+    }
+
+    if (bb_json_get_type(config) != BB_JSON_OBJECT)
+    {
+        return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Config must be a JSON object.");
+    }
+
+    FILE *fp = fopen(path, "r");
+
+    if (!fp)
+    {
+        return BB_ERROR(BB_ERR_IO, "Failed to open file.");
+    }
+
+    char line[1024];
+
+    while (fgets(line, sizeof(line), fp))
+    {
+        char *p = trim(line);
+
+        if (*p == '\0')
+        {
             continue;
+        }
+
+        if (*p == '#')
+        {
+            continue;
+        }
+
+        if (strncmp(p, "export ", 7) == 0)
+        {
+            p += 7;
+        }
+
+        char *eq = strchr(p, '=');
+
+        if (!eq)
+        {
+            continue;
+        }
 
         *eq = '\0';
 
-        char *key = line;
-        char *value = eq + 1;
+        char *key = trim(p);
+        char *value = trim(eq + 1);
 
-        value[strcspn(value, "\r\n")] = 0;
+        value[strcspn(value, "\r\n")] = '\0';
 
-        bb_config_set(cfg, key, value);
+        strip_quotes(value);
+
+        bb_json_t *node = parse_value(value);
+
+        if (!node)
+        {
+            fclose(fp);
+            return BB_ERROR(BB_ERR_ALLOC, "Allocation failed.");
+        }
+
+        bb_error_t err = bb_json_object_set_value(config, key, node);
+
+        if (BB_FAILED(err))
+        {
+            bb_json_destroy(node);
+            fclose(fp);
+            return err;
+        }
     }
 
-    fclose(f);
-    return 0;
+    fclose(fp);
+
+    return BB_SUCCESS();
+}
+
+bb_error_t bb_config_load_json(bb_json_t *config, const char *path)
+{
+    if (!config)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL config.");
+    }
+
+    if (!path)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL path.");
+    }
+
+    if (bb_json_get_type(config) != BB_JSON_OBJECT)
+    {
+        return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Config must be a JSON object.");
+    }
+
+    bb_json_t *tmp = bb_json_load(path);
+
+    if (!tmp)
+    {
+        return BB_ERROR(BB_ERR_IO, "Failed to load JSON.");
+    }
+
+    if (bb_json_get_type(tmp) != BB_JSON_OBJECT)
+    {
+        bb_json_destroy(tmp);
+
+        return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Root JSON value must be an object.");
+    }
+
+    bb_error_t err = bb_json_object_merge(config, tmp);
+
+    bb_json_destroy(tmp);
+
+    return err;
 }

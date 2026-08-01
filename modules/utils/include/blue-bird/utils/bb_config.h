@@ -6,45 +6,25 @@ extern "C" {
 #endif
 
 
-#include <stddef.h>
+#include <blue-bird/error/error.h>
+#include "json.h"
 
-typedef struct bb_config bb_config_t;
+/*
+ * Load a .env file into an existing JSON object.
+ *
+ * The destination must be a JSON object.
+ * Existing keys are overwritten.
+ */
+bb_error_t bb_config_load_env(bb_json_t *config,
+                              const char *path);
 
-/* ---------- Lifecycle ---------- */
-
-bb_config_t *bb_config_new(void);
-void bb_config_free(bb_config_t *cfg);
-
-/* ---------- Loaders ---------- */
-
-/* Load KEY=VALUE .env file */
-int bb_config_load_env(bb_config_t *cfg, const char *path);
-
-/* Load JSON file (flat object only) */
-int bb_config_load_json(bb_config_t *cfg, const char *path);
-
-/* ---------- Setters ---------- */
-
-int bb_config_set(bb_config_t *cfg,
-                  const char *key,
-                  const char *value);
-
-/* ---------- Getters ---------- */
-
-const char *bb_config_get(bb_config_t *cfg,
-                          const char *key);
-
-const char *bb_config_get_default(bb_config_t *cfg,
-                                  const char *key,
-                                  const char *def);
-
-int bb_config_get_int(bb_config_t *cfg,
-                      const char *key,
-                      int def);
-
-int bb_config_get_bool(bb_config_t *cfg,
-                       const char *key,
-                       int def);
+/*
+ * Load a JSON configuration file into an existing JSON object.
+ *
+ * The destination must be a JSON object.
+ * Existing keys are overwritten.
+ */
+bb_error_t bb_config_load_json(bb_json_t *config, const char *path);
 
 
 #ifdef __cplusplus
