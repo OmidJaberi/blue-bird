@@ -20,6 +20,7 @@ extern "C" {
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <BaseTsd.h>
+#include <direct.h>
 
 typedef SSIZE_T ssize_t;
 typedef SOCKET  bb_socket_t;
@@ -39,6 +40,7 @@ typedef SOCKET  bb_socket_t;
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 typedef int bb_socket_t;
@@ -47,6 +49,16 @@ typedef int bb_socket_t;
 #define BB_SOCKET_ERROR   (-1)
 
 #endif
+
+
+static inline void bb_mkdir(const char *path)
+{
+    #ifdef _WIN32
+        _mkdir(path);
+    #else
+        mkdir(path, 0755);
+    #endif
+}
 
 /* --------------------------------------------------------------------- */
 /* Lifecycle                                                              */

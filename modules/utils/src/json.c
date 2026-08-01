@@ -697,7 +697,7 @@ static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool
     for (int j = 0; has_indent && j < indent; j++)
         len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\t") : 1;
     len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "}") : 1;
-    return len;
+    return (int)len;
 }
 
 static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer, size_t buffer_size)
@@ -876,7 +876,7 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
     if ((*json)->type == BB_JSON_INT)
         (*json)->int_val = atoi(num_buff);
     else
-        (*json)->real_val = atof(num_buff);
+        (*json)->real_val = (float)atof(num_buff);
     return index;
 }
 
@@ -897,7 +897,7 @@ static int parse_json_str_text(bb_json_t **json, char *buffer)
         return -1;
     }
 
-    int len = strlen(buffer);
+    int len = (int)strlen(buffer);
     char *out = malloc(len); // maximum possible length
     if (!out)
     {

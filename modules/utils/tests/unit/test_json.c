@@ -58,7 +58,7 @@ void test_json_array_multi_remove_at_index(void)
     }
     while (bb_json_get_size(arr) > 20)
     {
-        bb_json_array_remove_at_index(arr, bb_json_get_size(arr) - 1);
+        bb_json_array_remove_at_index(arr, (unsigned int)bb_json_get_size(arr) - 1);
     }
     for (int i = 19; i > 0; i -= 2)
     {
@@ -374,7 +374,7 @@ void test_serialize_json_size(void)
     int size, null_size, str_size;
     bb_json_serialize(json, &buffer, &size);
     bb_json_serialize(json, NULL, &null_size);
-    str_size = strlen(buffer);
+    str_size = (int)strlen(buffer);
     BB_ASSERT(size == str_size);
     BB_ASSERT(null_size == str_size);
     free(buffer);
@@ -664,7 +664,7 @@ void test_json_dsl_macros(void)
             KEY("misc", NULLV()),
             KEY("nested",
                 OBJ(
-                    KEY("pi", REALV(3.14)),
+                    KEY("pi", REALV((float)3.14)),
                     KEY("ok", BOOLV(true))
                 )
             )

@@ -128,7 +128,7 @@ static int bb_template_render_nodes(bb_template_node_t *node, bb_render_context_
                 if (value && bb_json_get_type(value) == BB_JSON_ARRAY)
                 {
                     size_t count = bb_json_get_size(value);
-                    for (size_t i = 0; i < count; i++)
+                    for (unsigned int i = 0; i < (unsigned int)count; i++)
                     {
                         bb_json_t *item = bb_json_array_get_index(value, i);
                         bb_render_context_t child_ctx = {

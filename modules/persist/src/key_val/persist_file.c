@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include "blue-bird/persist/key_val.h"
 #include "blue-bird/persist/key_val/persist_file.h"
 #include "blue-bird/utils/platform.h"
@@ -20,11 +19,7 @@ static bb_persist_kv_handle_t *file_open(const char *uri)
     h->basepath = bb_strdup(uri);
     if (!h->basepath) { free(h); return NULL; }
 
-#ifdef _WIN32
-    _mkdir(uri);
-#else
-    mkdir(uri, 0755);
-#endif
+    bb_mkdir(uri);
 
     return h;
 }
