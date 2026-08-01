@@ -14,6 +14,10 @@ target_include_directories(bluebird_utils
         include
 )
 
+if(WIN32)
+    target_link_libraries(bluebird_utils PUBLIC ws2_32)
+endif()
+
 target_link_libraries(bluebird_utils
     PUBLIC
         bluebird_error
