@@ -56,6 +56,7 @@ bb_error_t bb_json_array_remove_at_index(bb_json_t *json_array, unsigned int ind
 bb_error_t bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_json_t *value);
 bb_json_t *bb_json_object_get_value(bb_json_t *json_object, const char *key);
 bb_error_t bb_json_object_remove_key(bb_json_t *obj, const char *key);
+bb_error_t bb_json_object_merge(bb_json_t *dst, bb_json_t *src);
 
 // Serializer
 bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size);

@@ -494,6 +494,39 @@ bb_error_t bb_json_object_remove_key(bb_json_t *obj, const char *key_to_remove)
     return BB_SUCCESS();
 }
 
+bb_error_t bb_json_object_merge(bb_json_t *dst, bb_json_t *src)
+{
+    if (!dst || !src)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL JSON.");
+    }
+
+    if (dst->type != BB_JSON_OBJECT || src->type != BB_JSON_OBJECT)
+    {
+        return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "JSON object expected.");
+    }
+
+    for (_bb_hash_table_node_t *node = src->object.order_head; node; node = node->order_next)
+    {
+        bb_json_t *copy = bb_json_clone(node->value);
+
+        if (!copy)
+        {
+            return BB_ERROR(BB_ERR_ALLOC, "Allocation failed.");
+        }
+
+        bb_error_t err = bb_json_object_set_value(dst, node->key, copy);
+
+        if (BB_FAILED(err))
+        {
+            bb_json_destroy(copy);
+            return err;
+        }
+    }
+
+    return BB_SUCCESS();
+}
+
 // Serializer
 static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer, size_t buffer_size);
 
