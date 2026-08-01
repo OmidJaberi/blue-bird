@@ -9,9 +9,9 @@
 
 ## Overview
 
-![Blue-Bird Architecture](docs/blue-bird_architecture.svg)
-
 Blue-Bird is a modular framework for building backend applications and web services in C.
+
+![Blue-Bird Architecture](docs/blue-bird_architecture.svg)
 
 The project focuses on:
 
@@ -21,39 +21,63 @@ The project focuses on:
 - composable infrastructure
 - minimal dependencies
 
-Rather than being just an HTTP server library, Blue-Bird provides a growing ecosystem of backend infrastructure components including:
+---
 
-- HTTP server and client
-- Websockets as server and client
-- routing and middleware
-- authentication and session management
-- JSON parsing and serialization
-- key-value persistence
-- schema-driven object-model persistence
-- repositories
-- Templating
-- Async Runtime
-- logging
-- UUID and time utilities
-- testing infrastructure
+# Example: Minimal HTTP Server
 
-Blue-Bird is designed for developers who want lower-level control and transparency without sacrificing structure and maintainability.
+```c
+#include <blue-bird/web/server.h>
+
+bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
+{
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "Hello, Blue-Bird :)");
+    return BB_SUCCESS();
+}
+
+int main(void)
+{
+    bb_server_t *server = bb_server_create(8080);
+
+    bb_server_add_route(server, "GET", "/", root_handler);
+    
+    bb_server_start(server);
+    bb_runtime_run_default();
+    return 0;
+}
+```
 
 ---
 
-## Why C
+# Example: JSON DSL
 
-C forces every abstraction to be explicit — there's no framework magic hiding
-allocation, control flow, or lifetime behind the scenes. Blue-Bird is built in
-C because that transparency is the point: every module's behavior should be
-traceable and predictable, and every dependency should be a deliberate choice,
-not a transitive one. Practically, it also means no runtime to bundle, no GC
-pauses, and portability to anywhere a C compiler runs — embedded targets,
-older systems, constrained environments included.
+```c
+bb_json_t *obj = BB_JSON(
+    OBJ(
+        KEY("name", TEXTV("Bob")),
+        KEY("age", INTV(24)),
+        KEY("active", BOOLV(true))
+    )
+);
+```
+
+---
+
+# Examples
+
+For examples, checkout [here](examples/README.md). Currently the following examples are available:
+| Example | What it adds | Modules used |
+|---|---|---|
+| [`hello`](examples/hello/README.md) | Routing, request/response basics | `web` |
+| [`async_sample`](examples/async_sample/README.md) | The event loop underneath everything else (no HTTP) | `runtime` |
+| [`todo`](examples/todo/README.md) | Persistence (SQLite-backed repos), templating, middleware | `web`, `persist`, `template`, `log` |
+| [`chat`](examples/chat/README.md) | Auth/sessions, websockets, a real frontend | `web`, `persist`, `security`, `log` |
 
 ---
 
 # Features
+
+Rather than being just an HTTP server library, Blue-Bird provides a growing ecosystem of backend infrastructure components including:
 
 ## Async Runtime
 
@@ -179,48 +203,9 @@ Or run test binaries directly from the generated `build/tests/` directory.
 
 ---
 
-# Example: Minimal HTTP Server
-
-```c
-#include <blue-bird/runtime/runtime.h>
-#include <blue-bird/web/server.h>
-
-bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
-{
-    bb_response_set_header(res, "Content-Type", "text/plain");
-    bb_response_set_body(res, "Hello, Blue-Bird :)");
-    return BB_SUCCESS();
-}
-
-int main(void)
-{
-    bb_server_t *server = bb_server_create(8080);
-
-    bb_server_add_route(server, "GET", "/", root_handler);
-    
-    bb_server_start(server);
-    bb_runtime_run_default();
-    return 0;
-}
-```
-
----
-
-# Example: JSON DSL
-
-```c
-bb_json_t *obj = BB_JSON(
-    OBJ(
-        KEY("name", TEXTV("Bob")),
-        KEY("age", INTV(24)),
-        KEY("active", BOOLV(true))
-    )
-);
-```
-
----
-
 # Design Philosophy
+
+Blue-Bird is designed for developers who want lower-level control and transparency without sacrificing structure and maintainability.
 
 Blue-Bird emphasizes:
 
@@ -232,6 +217,18 @@ Blue-Bird emphasizes:
 - backend-focused architecture
 
 The project aims to provide a clean and understandable backend framework ecosystem in C while remaining lightweight and extensible.
+
+---
+
+## Why C
+
+C forces every abstraction to be explicit — there's no framework magic hiding
+allocation, control flow, or lifetime behind the scenes. Blue-Bird is built in
+C because that transparency is the point: every module's behavior should be
+traceable and predictable, and every dependency should be a deliberate choice,
+not a transitive one. Practically, it also means no runtime to bundle, no GC
+pauses, and portability to anywhere a C compiler runs — embedded targets,
+older systems, constrained environments included.
 
 ---
 
@@ -252,18 +249,6 @@ The framework already includes:
 - examples and tests
 
 However, APIs may still evolve as the architecture matures.
-
----
-
-# Examples
-
-For examples, checkout [here](examples/README.md). Currently the following examples are available:
-| Example | What it adds | Modules used |
-|---|---|---|
-| [`hello`](examples/hello/README.md) | Routing, request/response basics | `web` |
-| [`async_sample`](examples/async_sample/README.md) | The event loop underneath everything else (no HTTP) | `runtime` |
-| [`todo`](examples/todo/README.md) | Persistence (SQLite-backed repos), templating, middleware | `web`, `persist`, `template`, `log` |
-| [`chat`](examples/chat/README.md) | Auth/sessions, websockets, a real frontend | `web`, `persist`, `security`, `log` |
 
 ---
 
