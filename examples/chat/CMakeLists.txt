@@ -14,11 +14,7 @@ target_include_directories(example_chat
 
 target_link_libraries(example_chat
     PRIVATE
-        bluebird_web
-        bluebird_persist
-        bluebird_log
-        bluebird_security
-        bluebird_utils
+        bluebird
 )
 
 bb_add_assets(

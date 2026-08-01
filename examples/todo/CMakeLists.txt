@@ -13,10 +13,7 @@ target_include_directories(example_todo
 
 target_link_libraries(example_todo
     PRIVATE
-        bluebird_web
-        bluebird_persist
-        bluebird_log
-        bluebird_template
+        bluebird
 )
 
 bb_add_assets(
