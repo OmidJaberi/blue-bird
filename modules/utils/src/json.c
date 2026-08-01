@@ -1199,6 +1199,96 @@ int bb_json_compare(bb_json_t *json_a, bb_json_t *json_b)
     }
 }
 
+bb_json_t *bb_json_clone(bb_json_t *json)
+{
+    if (!json)
+    {
+        return NULL;
+    }
+
+    bb_json_t *copy = bb_json_create(json->type);
+    if (!copy)
+    {
+        return NULL;
+    }
+
+    switch (json->type)
+    {
+        case BB_JSON_NULL:
+            break;
+
+        case BB_JSON_BOOL:
+            copy->bool_val = json->bool_val;
+            break;
+
+        case BB_JSON_INT:
+            copy->int_val = json->int_val;
+            break;
+
+        case BB_JSON_REAL:
+            copy->real_val = json->real_val;
+            break;
+
+        case BB_JSON_TEXT:
+        {
+            if (BB_FAILED(bb_json_set_value_text(copy, json->text_val)))
+            {
+                bb_json_destroy(copy);
+                return NULL;
+            }
+            break;
+        }
+
+        case BB_JSON_ARRAY:
+        {
+            for (size_t i = 0; i < json->size; i++)
+            {
+                bb_json_t *child = bb_json_clone(json->dynamic_array.array[i]);
+                if (!child)
+                {
+                    bb_json_destroy(copy);
+                    return NULL;
+                }
+
+                if (BB_FAILED(bb_json_array_push(copy, child)))
+                {
+                    bb_json_destroy(child);
+                    bb_json_destroy(copy);
+                    return NULL;
+                }
+            }
+            break;
+        }
+
+        case BB_JSON_OBJECT:
+        {
+            for (_bb_hash_table_node_t *node = json->object.order_head; node; node = node->order_next)
+            {
+                bb_json_t *child = bb_json_clone(node->value);
+                if (!child)
+                {
+                    bb_json_destroy(copy);
+                    return NULL;
+                }
+
+                if (BB_FAILED(bb_json_object_set_value(copy, node->key, child)))
+                {
+                    bb_json_destroy(child);
+                    bb_json_destroy(copy);
+                    return NULL;
+                }
+            }
+            break;
+        }
+
+        default:
+            bb_json_destroy(copy);
+            return NULL;
+    }
+
+    return copy;
+}
+
 bb_json_t *bb_json_load(const char *path)
 {
     FILE *f = fopen(path, "rb");
