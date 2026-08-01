@@ -531,6 +531,94 @@ void test_compare_complex_equal_jsons(void)
     bb_json_destroy(json_2);
 }
 
+void test_json_clone(void)
+{
+    printf("\tTesting JSON clone...\n");
+
+    bb_json_t *json = bb_json_parse("{\"name\": \"Alice\", \"age\": 30, \"scores\": [10, 20, 30], \"nested\": {\"enabled\": true}}");
+
+    bb_json_t *clone = bb_json_clone(json);
+
+    BB_ASSERT(clone != NULL);
+    BB_ASSERT(bb_json_compare(json, clone) == 0);
+
+    bb_json_destroy(json);
+    bb_json_destroy(clone);
+}
+
+void test_json_clone_independence(void)
+{
+    printf("\tTesting JSON clone independence...\n");
+
+    bb_json_t *json = bb_json_parse("{\"x\": 1, \"nested\": {\"y\": 2}}");
+
+    bb_json_t *clone = bb_json_clone(json);
+
+    bb_json_set_value_integer(bb_json_object_get_value(clone, "x"), 100);
+
+    bb_json_set_value_integer(bb_json_object_get_value(bb_json_object_get_value(clone, "nested"), "y"), 200);
+
+    BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(json, "x")) == 1);
+
+    BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(bb_json_object_get_value(json, "nested"), "y")) == 2);
+
+    bb_json_destroy(json);
+    bb_json_destroy(clone);
+}
+
+void test_json_object_merge(void)
+{
+    printf("\tTesting JSON object merge...\n");
+
+    bb_json_t *dst = bb_json_parse("{\"a\": 1, \"b\": 2}");
+
+    bb_json_t *src = bb_json_parse("{\"b\": 20, \"c\": 30}");
+
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+
+    char *buffer;
+    int size;
+
+    bb_json_serialize(dst, &buffer, &size);
+
+    BB_ASSERT(strcmp(buffer, "{\"a\": 1, \"b\": 20, \"c\": 30}") == 0);
+
+    free(buffer);
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+}
+
+void test_json_object_merge_independence(void)
+{
+    printf("\tTesting JSON object merge independence...\n");
+
+    bb_json_t *dst = bb_json_parse("{\"config\": {\"port\": 8080}}");
+
+    bb_json_t *src = bb_json_parse("{\"config\": {\"port\": 9000}}");
+
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+
+    bb_json_set_value_integer(bb_json_object_get_value(bb_json_object_get_value(src, "config"), "port"), 1234);
+
+    BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(bb_json_object_get_value(dst, "config"), "port")) == 9000);
+
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+}
+
+void test_json_object_merge_invalid_type(void)
+{
+    printf("\tTesting JSON object merge invalid type...\n");
+
+    bb_json_t *dst = bb_json_new_array();
+    bb_json_t *src = bb_json_new_object();
+
+    BB_ASSERT(BB_FAILED(bb_json_object_merge(dst, src)));
+
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+}
+
 void test_dump_and_bb_json_load(void)
 {
     printf("\tTesting JSON file load and dump...\n");
@@ -633,6 +721,12 @@ int main(void)
     test_compare_jsons_missing_key();
     test_compare_jsons_extra_key();
     test_compare_complex_equal_jsons();
+
+    test_json_clone();
+    test_json_clone_independence();
+    test_json_object_merge();
+    test_json_object_merge_independence();
+    test_json_object_merge_invalid_type();
 
     test_dump_and_bb_json_load();
 
