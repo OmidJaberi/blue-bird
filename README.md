@@ -11,7 +11,7 @@
 
 Blue-Bird is a modular framework for building backend applications and web services in C.
 
-![Blue-Bird Architecture](docs/blue-bird_architecture.svg)
+![Blue-Bird Architecture](docs/assets/blue-bird_architecture.svg)
 
 The project focuses on:
 
@@ -81,6 +81,8 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 
 ## Async Runtime
 
+![Runtime](docs/assets/runtime_architecture.svg)
+
 - cooperative task scheduling
 - event loop execution
 - file descriptor readiness watching
@@ -90,6 +92,8 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - nonblocking transport integration
 
 ## Web Framework
+
+![Web](docs/assets/web_architecture.svg)
 
 - Server supporting HTTP + Websockets
 - HTTP client
@@ -101,6 +105,8 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - Async Request handling
 
 ## Persistence
+
+![Object Persist](docs/assets/object-persist.svg)
 
 - Key-value persistence
 - Schema-driven object persistence
@@ -132,7 +138,9 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - Full JSON parser and serializer
 - UUID utilities
 - Time utilities
-- Encoding utilities
+- Encoding and Hash utilities
+- Static Assets utilities
+- Platform specific abstractions
 - Configuration helpers
 
 ## Infrastructure

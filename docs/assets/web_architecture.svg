@@ -1,0 +1,115 @@
+<svg width="1000" height="780" viewBox="0 0 1000 780" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <style>
+            .title { font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; fill:#faf6fc; }
+            .moduleTitle { font-family: Arial, sans-serif; font-size:20px; font-weight:bold; fill:white; }
+            .moduleText { font-family: Arial, sans-serif; font-size:14px; fill:white; }
+            .internalTitle { font-family: Arial, sans-serif; font-size:18px; font-weight:bold; fill:#faf6fc; }
+            .arrow { stroke:#64748b; stroke-width:2.5; fill:none; stroke-linecap:round; marker-end:url(#arrow); }
+            .dashed { stroke-dasharray:8 6; }
+        </style>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+        </marker>
+    </defs>
+    <rect width="1000" height="780" fill="#0d1117"/>
+    <text x="500" y="45" text-anchor="middle" class="title">
+        Web Module Architecture
+    </text>
+    <!-- ================================================= -->
+    <!-- Connections -->
+    <!-- ================================================= -->
+    <path d="M195 205 L195 260 L450 610" class="arrow dashed"/>
+    <path d="M500 205 L500 610" class="arrow dashed"/>
+    <path d="M805 205 L805 260 L550 610" class="arrow dashed"/>
+    <!-- ================================================= -->
+    <!-- Application Interfaces -->
+    <!-- ================================================= -->
+    <text x="500" y="85" text-anchor="middle" class="internalTitle">
+        Application Interfaces
+    </text>
+    <!-- HTTP Client -->
+    <g transform="translate(80,110)">
+        <rect width="230" height="95" rx="18" fill="#0ea5e9"/>
+        <text x="115" y="35" text-anchor="middle" class="moduleTitle">
+            HTTP Client
+        </text>
+        <text x="115" y="63" text-anchor="middle" class="moduleText">
+            Outgoing Requests
+        </text>
+    </g>
+    <!-- Websocket -->
+    <g transform="translate(690,110)">
+        <rect width="230" height="95" rx="18" fill="#8b5cf6"/>
+        <text x="115" y="35" text-anchor="middle" class="moduleTitle">
+            WebSocket
+        </text>
+        <text x="115" y="63" text-anchor="middle" class="moduleText">
+            Client Connections
+        </text>
+    </g>
+    <!-- Server -->
+    <g transform="translate(385,110)">
+        <rect width="230" height="95" rx="18" fill="#10b981"/>
+        <text x="115" y="35" text-anchor="middle" class="moduleTitle">
+            HTTP Server
+        </text>
+        <text x="115" y="63" text-anchor="middle" class="moduleText">
+            Async Request Handling
+        </text>
+    </g>
+    <!-- ================================================= -->
+    <!-- Server pipeline -->
+    <!-- ================================================= -->
+    <text x="500" y="245" text-anchor="middle" class="internalTitle">
+        Server Pipeline
+    </text>
+    <!-- Middleware -->
+    <g transform="translate(385,270)">
+        <rect width="230" height="70" rx="16" fill="#f97316"/>
+        <text x="115" y="30" text-anchor="middle" class="moduleTitle">
+            Middleware
+        </text>
+        <text x="115" y="52" text-anchor="middle" class="moduleText">
+            Pre • Post
+        </text>
+    </g>
+    <!-- Router -->
+    <g transform="translate(385,370)">
+        <rect width="230" height="70" rx="16" fill="#2563eb"/>
+        <text x="115" y="30" text-anchor="middle" class="moduleTitle">
+            Router
+        </text>
+        <text x="115" y="52" text-anchor="middle" class="moduleText">
+            HTTP Routes
+        </text>
+    </g>
+    <!-- WS Routes -->
+    <g transform="translate(385,470)">
+        <rect width="230" height="70" rx="16" fill="#14b8a6"/>
+        <text x="115" y="30" text-anchor="middle" class="moduleTitle">
+            WebSocket Routes
+        </text>
+        <text x="115" y="52" text-anchor="middle" class="moduleText">
+            Server Connections
+        </text>
+    </g>
+    <!-- ================================================= -->
+    <!-- Async Core -->
+    <!-- ================================================= -->
+    <g transform="translate(220,610)">
+        <rect width="560" height="90" rx="20" fill="#64748b"/>
+        <text x="280" y="35" text-anchor="middle" class="moduleTitle">
+            Async Connection Layer
+        </text>
+        <text x="280" y="63" text-anchor="middle" class="moduleText">
+            Internal Networking • Connections • Event Handling
+        </text>
+    </g>
+    <!-- ================================================= -->
+    <!-- Caption -->
+    <!-- ================================================= -->
+    <text x="500" y="745" text-anchor="middle" class="internalTitle">
+        Public APIs share a common asynchronous networking core.
+    </text>
+</svg>

@@ -4,6 +4,8 @@
 
 The Blue-Bird Runtime module provides the foundational event-driven execution system used by asynchronous infrastructure inside the framework.
 
+![Runtime](../assets/runtime_architecture.svg)
+
 The runtime is designed as:
 
 - a lightweight cooperative execution engine

@@ -1,0 +1,115 @@
+<svg width="1000" height="750" viewBox="0 0 1000 750" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <style>
+            .title { font-family: Arial, sans-serif; font-size: 32px; font-weight: bold; fill: #faf6fc; }
+            .layerTitle { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; fill: #faf6fc; }
+            .moduleTitle { font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; fill: white; }
+            .moduleText { font-family: Arial, sans-serif; font-size: 14px; fill: white; }
+            .layer { fill:none; stroke:#334155; stroke-width:2; rx:24; }
+            .module { stroke-width:1; }
+            .arrow { stroke:#64748b; stroke-width:2.5; fill:none; stroke-linecap:round; stroke-linejoin:round; marker-end:url(#arrow); }
+        </style>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+        </marker>
+    </defs>
+    <rect width="1000" height="750" fill="#0d1117"/>
+    <text x="500" y="45" text-anchor="middle" class="title">
+        Object Persist Architecture
+    </text>
+    <!-- ================================================= -->
+    <!-- Application -->
+    <!-- ================================================= -->
+    <g transform="translate(250,90)">
+        <rect width="500" height="95" rx="18" fill="#2563eb" class="module"/>
+        <text x="250" y="36" text-anchor="middle" class="moduleTitle">
+            Application
+        </text>
+        <text x="250" y="64" text-anchor="middle" class="moduleText">
+            (Repositories / Business Logic)
+        </text>
+    </g>
+    <!-- arrow -->
+    <line x1="500" y1="185" x2="500" y2="235" class="arrow"/>
+    <!-- ================================================= -->
+    <!-- Repository -->
+    <!-- ================================================= -->
+    <g transform="translate(250,235)">
+        <rect width="500" height="95" rx="18" fill="#10b981" class="module"/>
+        <text x="250" y="36" text-anchor="middle" class="moduleTitle">
+            Repository API
+        </text>
+        <text x="250" y="64" text-anchor="middle" class="moduleText">
+            save() • load() • update() • delete()
+        </text>
+    </g>
+    <!-- arrow -->
+    <line x1="500" y1="330" x2="500" y2="380" class="arrow"/>
+    <!-- ================================================= -->
+    <!-- Models -->
+    <!-- ================================================= -->
+    <g transform="translate(250,380)">
+        <rect width="500" height="105" rx="18" fill="#8b5cf6" class="module"/>
+        <text x="250" y="36" text-anchor="middle" class="moduleTitle">
+            Models &amp; Schemas
+        </text>
+        <text x="250" y="62" text-anchor="middle" class="moduleText">
+            Struct Mapping • Serialization
+        </text>
+        <text x="250" y="84" text-anchor="middle" class="moduleText">
+            Validation • Metadata
+        </text>
+    </g>
+    <!-- fan-out arrows -->
+    <path d="M500 485 L500 540" class="arrow"/>
+    <path d="M500 485 C500 550 300 450 230 540" class="arrow"/>
+    <path d="M500 485 C500 550 700 450 770 540" class="arrow"/>
+    <!-- ================================================= -->
+    <!-- Backends -->
+    <!-- ================================================= -->
+    <!-- SQLite -->
+    <g transform="translate(100,540)">
+        <rect width="220" height="110" rx="18" fill="#0ea5e9"/>
+        <text x="110" y="38" text-anchor="middle" class="moduleTitle">
+            SQLite
+        </text>
+        <text x="110" y="68" text-anchor="middle" class="moduleText">
+            Transactions
+        </text>
+        <text x="110" y="90" text-anchor="middle" class="moduleText">
+            Indexes
+        </text>
+    </g>
+    <!-- JSON -->
+    <g transform="translate(390,540)">
+        <rect width="220" height="110" rx="18" fill="#f97316"/>
+        <text x="110" y="38" text-anchor="middle" class="moduleTitle">
+            JSON
+        </text>
+        <text x="110" y="68" text-anchor="middle" class="moduleText">
+            Human Readable
+        </text>
+        <text x="110" y="90" text-anchor="middle" class="moduleText">
+            Portable
+        </text>
+    </g>
+    <!-- Custom -->
+    <g transform="translate(680,540)">
+        <rect width="220" height="110" rx="18" fill="#64748b"/>
+        <text x="110" y="38" text-anchor="middle" class="moduleTitle">
+            Custom Backend
+        </text>
+        <text x="110" y="68" text-anchor="middle" class="moduleText">
+            File • Memory
+        </text>
+        <text x="110" y="90" text-anchor="middle" class="moduleText">
+            User Defined
+        </text>
+    </g>
+    <!-- ================================================= -->
+    <!-- Caption -->
+    <!-- ================================================= -->
+    <text x="500" y="720" text-anchor="middle" class="layerTitle">
+        One repository interface, multiple interchangeable storage backends.
+    </text>
+</svg>

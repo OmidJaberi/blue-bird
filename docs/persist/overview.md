@@ -48,6 +48,8 @@ The key-value system provides simple storage APIs for:
 
 # Object Persistence
 
+![Object Persist](../assets/object-persist.svg)
+
 The object-model persistence system uses schemas to persist structured entities.
 
 This enables:

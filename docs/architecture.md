@@ -24,6 +24,8 @@ Each module exposes a public API through its `include/` directory while keeping 
 
 # Module Overview
 
+![Blue-Bird Architecture](assets/blue-bird_architecture.svg)
+
 ## Error
 
 The `error` module provides framework-wide error handling primitives.
@@ -59,6 +61,8 @@ This module intentionally has very few dependencies and serves as common infrast
 
 ## Runtime
 
+![Runtime](assets/runtime_architecture.svg)
+
 The `runtime` module provides Blue-Bird's asynchronous execution engine.
 
 It implements:
@@ -74,6 +78,8 @@ The runtime is transport-agnostic and can be used independently of the web frame
 ---
 
 ## Persist
+
+![Object Persist](assets/object-persist.svg)
 
 The `persist` module provides storage abstractions for backend applications.
 
@@ -144,6 +150,8 @@ The module is storage-agnostic and can be integrated with different persistence 
 ---
 
 ## Web
+
+![Web](assets/web_architecture.svg)
 
 The `web` module provides networking and application-layer infrastructure.
 

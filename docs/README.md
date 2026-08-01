@@ -2,6 +2,8 @@
 
 Welcome to the official documentation for Blue-Bird.
 
+![Blue-Bird Architecture](assets/blue-bird_architecture.svg)
+
 Blue-Bird is a modular backend and web framework written in C, focused on:
 - explicit architecture
 - low overhead

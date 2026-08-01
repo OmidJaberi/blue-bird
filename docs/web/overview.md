@@ -2,6 +2,8 @@
 
 The Blue-Bird web module provides lightweight HTTP server and client functionality for building networked applications in C.
 
+![Web](../assets/web_architecture.svg)
+
 It includes:
 - HTTP server support
 - HTTP client support
