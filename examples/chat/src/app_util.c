@@ -2,6 +2,7 @@
 #include "app_repo.h"
 
 #include <blue-bird/utils/json.h>
+#include "blue-bird/utils/platform.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -109,7 +110,7 @@ bb_json_t *app_parse_body_json(bb_request_t *req)
         return NULL;
     }
 
-    char *copy = strdup(body);
+    char *copy = bb_strdup(body);
     if (!copy)
     {
         return NULL;

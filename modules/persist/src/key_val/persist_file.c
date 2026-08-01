@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include "blue-bird/persist/key_val.h"
 #include "blue-bird/persist/key_val/persist_file.h"
+#include "blue-bird/utils/platform.h"
 
 struct bb_persist_kv_handle_t {
     char *basepath;
@@ -16,7 +17,7 @@ static bb_persist_kv_handle_t *file_open(const char *uri)
     bb_persist_kv_handle_t *h = calloc(1, sizeof(*h));
     if (!h) return NULL;
 
-    h->basepath = strdup(uri);
+    h->basepath = bb_strdup(uri);
     if (!h->basepath) { free(h); return NULL; }
 
 #ifdef _WIN32

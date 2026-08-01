@@ -3,13 +3,14 @@
 #include "string_builder.h"
 
 #include "blue-bird/utils/json.h"
+#include "blue-bird/utils/platform.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 static bb_json_t *bb_template_lookup(bb_render_context_t *ctx, const char *path)
 {
-    char *copy = strdup(path);
+    char *copy = bb_strdup(path);
     if (!copy)
     {
         return NULL;

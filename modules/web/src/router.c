@@ -1,4 +1,5 @@
 #include "router.h"
+#include "blue-bird/utils/platform.h"
 #include "blue-bird/error/assert.h"
 #include <string.h>
 #include <stdio.h>
@@ -84,7 +85,7 @@ bb_error_t bb_route_list_add_http(bb_route_list_t *route_list, const char *metho
     
     // Add the route
     new_route->type = BB_ROUTE_HTTP;
-    new_route->method = strdup(method);
+    new_route->method = bb_strdup(method);
     new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->http_handler = handler;
     
@@ -105,7 +106,7 @@ bb_error_t bb_route_list_add_websocket(bb_route_list_t *route_list, const char *
     
     // Add the route
     new_route->type = BB_ROUTE_WEBSOCKET;
-    new_route->method = strdup("GET");
+    new_route->method = bb_strdup("GET");
     new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->websocket_handler = handler;
     

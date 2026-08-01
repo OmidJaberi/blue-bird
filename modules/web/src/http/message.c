@@ -107,7 +107,7 @@ void bb_message_set_header(bb_http_message_t *msg, const char *name, const char 
     {
         if (strcmp(msg->headers[i].name, name) == 0)
         {
-            char *new_value = strdup(value);
+            char *new_value = bb_strdup(value);
             if (!new_value)
                 return;
 
@@ -121,12 +121,12 @@ void bb_message_set_header(bb_http_message_t *msg, const char *name, const char 
         return;
 
     msg->headers = tmp;
-    msg->headers[msg->header_count].name = strdup(name);
+    msg->headers[msg->header_count].name = bb_strdup(name);
     if (!msg->headers[msg->header_count].name)
     {
         return;
     }
-    msg->headers[msg->header_count].value = strdup(value);
+    msg->headers[msg->header_count].value = bb_strdup(value);
     if (!msg->headers[msg->header_count].value)
     {
         free(msg->headers[msg->header_count].name);

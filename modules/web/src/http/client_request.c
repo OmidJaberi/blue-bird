@@ -1,6 +1,8 @@
 #include "http/client_request.h"
 #include "blue-bird/web/http/message.h"
 
+#include "blue-bird/utils/platform.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,7 +16,7 @@ static void _bb_replace_string(char **dst, const char *src)
 
     if (src)
     {
-        *dst = strdup(src);
+        *dst = bb_strdup(src);
     }
 }
 
@@ -99,7 +101,7 @@ void bb_client_request_set_method(bb_client_request_t *req, const char *method)
 
     if (!method) return;
 
-    req->method = strdup(method);
+    req->method = bb_strdup(method);
 }
 
 void bb_client_request_set_url(bb_client_request_t *req, const char *url)
@@ -133,7 +135,7 @@ void bb_client_request_set_url(bb_client_request_t *req, const char *url)
      */
     if (url[0] == '/')
     {
-        req->path = strdup(url);
+        req->path = bb_strdup(url);
         return;
     }
 
@@ -141,7 +143,7 @@ void bb_client_request_set_url(bb_client_request_t *req, const char *url)
 
     if (!scheme_end)
     {
-        req->path = strdup(url);
+        req->path = bb_strdup(url);
         return;
     }
 
@@ -174,11 +176,11 @@ void bb_client_request_set_url(bb_client_request_t *req, const char *url)
     {
         path_start = authority + strlen(authority);
 
-        req->path = strdup("/");
+        req->path = bb_strdup("/");
     }
     else
     {
-        req->path = strdup(path_start);
+        req->path = bb_strdup(path_start);
     }
 
     /*

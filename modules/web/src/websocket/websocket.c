@@ -53,12 +53,12 @@ static int _parse_ws_url(const char *url, char **host, int *port, char **path)
 
     if (slash)
     {
-        *path = strdup(slash);
+        *path = bb_strdup(slash);
     }
     else
     {
         slash = authority + strlen(authority);
-        *path = strdup("/");
+        *path = bb_strdup("/");
     }
 
     if (!*path)
@@ -323,7 +323,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
     
     free(key);
 
-    bb_connection_buffer_add(async_conn->connection, strdup(request), strlen(request));
+    bb_connection_buffer_add(async_conn->connection, bb_strdup(request), strlen(request));
 
     free(host);
     free(path);

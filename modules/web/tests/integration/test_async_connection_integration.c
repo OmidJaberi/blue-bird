@@ -172,7 +172,7 @@ static void async_write_callback_test(void)
         bb_runtime_tick(runtime);
     }
 
-    char *msg = strdup("hello");
+    char *msg = bb_strdup("hello");
 
     bb_connection_buffer_add(client->connection, msg, 6);
 
@@ -216,7 +216,7 @@ static void async_read_callback_test(void)
 
     BB_ASSERT(!BB_FAILED(err));
 
-    char *msg = strdup("hello");
+    char *msg = bb_strdup("hello");
 
     bb_connection_buffer_add(client->connection, msg, 6);
     bb_connection_write(client->connection);
@@ -257,7 +257,7 @@ static void async_read_more_test(void)
 
     bb_async_connection_create_read_task(server, read_more, read_error, server);
 
-    char *msg = strdup("hello");
+    char *msg = bb_strdup("hello");
 
     bb_connection_buffer_add(client->connection, msg, 6);
     bb_connection_write(client->connection);
@@ -353,7 +353,7 @@ static void async_write_disconnect_test(void)
         bb_usleep(1000);
     }
 
-    char *msg = strdup("hello");
+    char *msg = bb_strdup("hello");
 
     BB_ASSERT(bb_connection_buffer_add(client->connection, msg, 6) == 0);
 

@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "blue-bird/utils/platform.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +15,7 @@ bb_template_node_t *bb_template_node_create(bb_template_node_type_t type, const 
 
     node->type = type;
 
-    node->value = strdup(value ? value : "");
+    node->value = bb_strdup(value ? value : "");
 
     if (!node->value)
     {

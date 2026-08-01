@@ -43,6 +43,7 @@ endif()
 # Global warnings
 if(MSVC)
     add_compile_options(/W4)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_compile_options(
         -Wall

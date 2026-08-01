@@ -5,6 +5,7 @@
 #include "blue-bird/persist/key_val.h"
 #include "blue-bird/persist/key_val/persist_json.h"
 #include "blue-bird/utils/json.h"
+#include "blue-bird/utils/platform.h"
 
 struct bb_persist_kv_handle_t {
     char *jsonpath;
@@ -18,7 +19,7 @@ static bb_persist_kv_handle_t *json_open(const char *uri)
     bb_persist_kv_handle_t *h = calloc(1, sizeof(*h));
     if (!h) return NULL;
 
-    h->jsonpath = strdup(uri);
+    h->jsonpath = bb_strdup(uri);
     h->json = bb_json_new_object();
 
     return h;

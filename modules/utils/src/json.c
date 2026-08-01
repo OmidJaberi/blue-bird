@@ -1,4 +1,5 @@
 #include "blue-bird/utils/json.h"
+#include "blue-bird/utils/platform.h"
 #include "blue-bird/error/assert.h"
 
 #include <stdlib.h>
@@ -390,7 +391,7 @@ bb_error_t bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_
         return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
     }
 
-    node->key = strdup(key);
+    node->key = bb_strdup(key);
     node->value = value;
 
     // Insert into bucket chain

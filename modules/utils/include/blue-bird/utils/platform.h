@@ -123,6 +123,7 @@ void bb_usleep(unsigned int usec);
  * provide a portable version. Behaves like POSIX strndup().
  */
 char *bb_strndup(const char *s, size_t n);
+char *bb_strdup(const char *s);
 
 /* --------------------------------------------------------------------- */
 /* Compatibility shims                                                    */

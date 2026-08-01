@@ -127,6 +127,11 @@ char *bb_strndup(const char *s, size_t n)
 #endif
 }
 
+char *bb_strdup(const char *s)
+{
+    return bb_strndup(s, strlen(s));
+}
+
 /* --------------------------------------------------------------------- */
 /* Compatibility shims                                                    */
 /* --------------------------------------------------------------------- */
@@ -152,7 +157,7 @@ int socketpair(int domain, int type, int protocol, bb_socket_t sv[2])
         wsa_ready = 1;
     }
 
-    SOCKET listener = socket(AF_INET, type, 0);
+    SOCKET listener = socket(AF_INET, SOCK_STREAM, 0);
     if (listener == INVALID_SOCKET)
     {
         return -1;

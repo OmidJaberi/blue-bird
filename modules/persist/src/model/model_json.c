@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "blue-bird/utils/json.h"
+#include "blue-bird/utils/platform.h"
 #include "blue-bird/persist/model/model_json.h"
 #include "blue-bird/persist/serialization/entity_json.h"
 
@@ -84,7 +85,7 @@ static bb_model_handle_t *json_open(const char *uri)
     BB_ModelJSONHandle *h = malloc(sizeof(*h));
     if (!h) return NULL;
 
-    h->path = strdup(uri);
+    h->path = bb_strdup(uri);
     if (!h->path)
     {
         free(h);
