@@ -16,7 +16,7 @@
 static bb_runtime_t *g_runtime = NULL;
 
 typedef struct {
-    int fd;
+    bb_socket_t fd;
     int events;
     bb_watch_mode_t mode;
     bb_task_t *task;
@@ -336,7 +336,7 @@ bool bb_runtime_is_running(bb_runtime_t *runtime)
     return runtime->running;
 }
 
-static int _bb_runtime_find_watcher_exact(bb_runtime_t *runtime, int fd, int events)
+static int _bb_runtime_find_watcher_exact(bb_runtime_t *runtime, bb_socket_t fd, int events)
 {
     for (int i = 0; i < runtime->watcher_count; i++)
     {
@@ -348,7 +348,7 @@ static int _bb_runtime_find_watcher_exact(bb_runtime_t *runtime, int fd, int eve
     return -1;
 }
 
-static int _bb_runtime_fd_registered_mask(bb_runtime_t *runtime, int fd)
+static int _bb_runtime_fd_registered_mask(bb_runtime_t *runtime, bb_socket_t fd)
 {
     int mask = 0;
 
@@ -362,7 +362,7 @@ static int _bb_runtime_fd_registered_mask(bb_runtime_t *runtime, int fd)
     return mask;
 }
 
-static int _watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_t *task)
+static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch_mode_t mode, bb_task_t *task)
 {
     if (!runtime || !task)
     {
@@ -435,7 +435,7 @@ static int _watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t 
     return 0;
 }
 
-bb_task_t *bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_watch_mode_t mode, bb_task_cb callback, void *userdata)
+bb_task_t *bb_runtime_watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch_mode_t mode, bb_task_cb callback, void *userdata)
 {
     if (!runtime)
     {
@@ -458,7 +458,7 @@ bb_task_t *bb_runtime_watch_fd(bb_runtime_t *runtime, int fd, int events, bb_wat
     return task;
 }
 
-int bb_runtime_unwatch_fd(bb_runtime_t *runtime, int fd)
+int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
 {
     if (!runtime)
     {

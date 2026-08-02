@@ -58,7 +58,7 @@ void bb_async_connection_destroy(bb_async_connection_t *async_conn);
 void bb_async_connection_set_disconnect_callback(bb_async_connection_t *async_conn, bb_async_close_fn callback, void *userdata);
 
 bb_async_connection_t *bb_async_connection_serve(bb_runtime_t *runtime, int port);
-bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, int server_fd);
+bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, bb_socket_t server_fd);
 bb_async_connection_t *bb_async_connection_connect(bb_runtime_t *runtime, const char *host, const char *port_str);
 void bb_async_connection_close(bb_async_connection_t *async_conn);
 

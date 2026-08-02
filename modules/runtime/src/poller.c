@@ -18,7 +18,7 @@
 #define BB_POLLER_MAX_FDS 1024
 
 typedef struct {
-    int fd;
+    bb_socket_t fd;
     int events;
 } _bb_poll_fd_t;
 
@@ -51,7 +51,7 @@ void bb_poller_destroy(bb_poller_t *poller)
     free(poller);
 }
 
-int bb_poller_register(bb_poller_t *poller, int fd, int events)
+int bb_poller_register(bb_poller_t *poller, bb_socket_t fd, int events)
 {
     if (!poller)
     {
@@ -80,7 +80,7 @@ int bb_poller_register(bb_poller_t *poller, int fd, int events)
     return 0;
 }
 
-int bb_poller_unregister(bb_poller_t *poller, int fd, int events)
+int bb_poller_unregister(bb_poller_t *poller, bb_socket_t fd, int events)
 {
     if (!poller)
     {
@@ -123,7 +123,7 @@ int bb_poller_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events,
 
     for (int i = 0; i < poller->count; i++)
     {
-        int fd = poller->fds[i].fd;
+        bb_socket_t fd = poller->fds[i].fd;
 
         if (poller->fds[i].events & BB_EVENT_READ)
         {
@@ -166,7 +166,7 @@ int bb_poller_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events,
 
         int triggered = 0;
 
-        int fd = poller->fds[i].fd;
+        bb_socket_t fd = poller->fds[i].fd;
 
         if (FD_ISSET(fd, &readfds))
         {

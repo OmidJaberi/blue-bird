@@ -8,7 +8,7 @@
 
 #define BB_CONNECTION_INITIAL_BUFFER_SIZE 4096
 
-bb_connection_t *bb_connection_create(int fd)
+bb_connection_t *bb_connection_create(bb_socket_t fd)
 {
     bb_connection_t *connection = malloc(sizeof(bb_connection_t));
 
@@ -39,7 +39,7 @@ bb_connection_t *bb_connection_create(int fd)
     return connection;
 }
 
-bb_connection_t *bb_connection_create_non_blocking(int fd)
+bb_connection_t *bb_connection_create_non_blocking(bb_socket_t fd)
 {
     bb_connection_t *conn = bb_connection_create(fd);
     if (conn)
@@ -100,7 +100,7 @@ int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t l
 
 bb_connection_t *bb_connection_serve(int port)
 {
-    int server_fd = -1;
+    bb_socket_t server_fd = -1;
     struct sockaddr_in address;
     int opt = 1;
 
@@ -145,13 +145,13 @@ bb_connection_t *bb_connection_serve(int port)
     return connection;
 }
 
-bb_connection_t *bb_connection_accept(int server_fd)
+bb_connection_t *bb_connection_accept(bb_socket_t server_fd)
 {
     struct sockaddr_in address;
 
     socklen_t addrlen = sizeof(address);
 
-    int client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen);
+    bb_socket_t client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen);
 
     if (client_fd < 0)
     {
@@ -191,7 +191,7 @@ static int _connect(const char *host, const char *port_str)
         return -1;
     }
 
-    int fd = -1;
+    bb_socket_t fd = -1;
 
     for (struct addrinfo *p = res; p != NULL; p = p->ai_next)
     {
@@ -215,7 +215,7 @@ static int _connect(const char *host, const char *port_str)
 
 bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
 {
-    int fd = _connect(host, port_str);
+    bb_socket_t fd = _connect(host, port_str);
 
     if (fd < 0)
     {
@@ -232,7 +232,7 @@ bb_connection_t *bb_connection_connect(const char *host, const char *port_str)
 
 bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char *port_str)
 {
-    int fd = _connect(host, port_str);
+    bb_socket_t fd = _connect(host, port_str);
 
     if (fd < 0)
     {

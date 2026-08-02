@@ -42,14 +42,14 @@ typedef struct bb_connection {
     void *userdata;
 } bb_connection_t;
 
-bb_connection_t *bb_connection_create(int client_fd);
-bb_connection_t *bb_connection_create_non_blocking(int fd);
+bb_connection_t *bb_connection_create(bb_socket_t client_fd);
+bb_connection_t *bb_connection_create_non_blocking(bb_socket_t fd);
 void bb_connection_destroy(bb_connection_t *connection);
 
 int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t length);
 
 bb_connection_t *bb_connection_serve(int port);
-bb_connection_t *bb_connection_accept(int server_fd);
+bb_connection_t *bb_connection_accept(bb_socket_t server_fd);
 bb_connection_t *bb_connection_connect(const char *host, const char *port_str);
 bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char *port_str);
 bb_error_t bb_connection_read(bb_connection_t *connection);

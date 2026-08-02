@@ -1,4 +1,5 @@
 #include "blue-bird/utils/uuid.h"
+#include "blue-bird/utils/platform.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +23,7 @@ static int bb_uuid_random_bytes(uint8_t *buf, size_t len)
            ? 0
            : 1;
 #else
-    int fd = open("/dev/urandom", O_RDONLY);
+    bb_socket_t fd = open("/dev/urandom", O_RDONLY);
     if (fd < 0)
         return 1;
 

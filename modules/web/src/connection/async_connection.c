@@ -81,7 +81,7 @@ bb_async_connection_t *bb_async_connection_serve(bb_runtime_t *runtime, int port
     return async_conn;
 }
 
-bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, int server_fd)
+bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, bb_socket_t server_fd)
 {
     bb_async_connection_t *async_conn = bb_async_connection_create(runtime);
     if (!async_conn)

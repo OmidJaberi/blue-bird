@@ -15,7 +15,6 @@ target_include_directories(bluebird_runtime
 target_link_libraries(bluebird_runtime
     PUBLIC
         bluebird_error
-    PRIVATE
         bluebird_utils
 )
 

@@ -6,6 +6,8 @@ extern "C" {
 #endif
 
 
+#include "blue-bird/utils/platform.h"
+
 typedef enum {
     BB_EVENT_READ  = 1 << 0,
     BB_EVENT_WRITE = 1 << 1
@@ -17,7 +19,7 @@ typedef enum {
 } bb_watch_mode_t;
 
 typedef struct {
-    int fd;
+    bb_socket_t fd;
     int events;
 } bb_poll_event_t;
 

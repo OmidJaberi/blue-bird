@@ -757,7 +757,7 @@ void test_partial_request(void)
 {
     printf("Testing partial request reads...\n");
 
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    bb_socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
 
     struct sockaddr_in addr;
 

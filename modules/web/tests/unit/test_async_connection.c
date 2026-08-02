@@ -119,7 +119,7 @@ static void async_connection_close_test(void)
 {
     printf("\tTesting async connection close...\n");
 
-    int fds[2];
+    bb_socket_t fds[2];
     BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
 
     bb_runtime_t *runtime = bb_runtime_create();
