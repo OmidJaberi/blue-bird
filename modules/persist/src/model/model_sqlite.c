@@ -115,7 +115,7 @@ static int sqlite_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *e
         switch (f->type)
         {
             case BB_FIELD_INT:
-                sqlite3_bind_int(stmt, i + 1, *(int *)field_ptr);
+                sqlite3_bind_int(stmt, (int)i + 1, *(int *)field_ptr);
                 break;
 
             case BB_FIELD_STRING:

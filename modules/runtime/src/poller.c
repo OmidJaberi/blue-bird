@@ -119,7 +119,7 @@ int bb_poller_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events,
     FD_ZERO(&readfds);
     FD_ZERO(&writefds);
 
-    int maxfd = 0;
+    bb_socket_t maxfd = 0;
 
     for (int i = 0; i < poller->count; i++)
     {
@@ -147,7 +147,7 @@ int bb_poller_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events,
     tv.tv_usec = (timeout_ms % 1000) * 1000;
 
     int ready = select(
-        maxfd + 1,
+        (int)maxfd + 1,
         &readfds,
         &writefds,
         NULL,
