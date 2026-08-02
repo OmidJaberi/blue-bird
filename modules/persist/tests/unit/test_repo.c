@@ -33,7 +33,7 @@ static bb_field_t fields[] = {
     }
 };
 
-static bb_schema_t schema = {
+static bb_schema_t users_schema = {
     .name = "users",
     .fields = fields,
     .field_count = 2,
@@ -237,7 +237,7 @@ static void test_repo_insert_and_find(void)
     bb_model_handle_t *h = mock_api.open("ignored");
 
     bb_repo_t repo;
-    bb_repo_init(&repo, &mock_api, h, &schema);
+    bb_repo_init(&repo, &mock_api, h, &users_schema);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
@@ -260,7 +260,7 @@ static void test_repo_update(void)
     bb_model_handle_t *h = mock_api.open("ignored");
 
     bb_repo_t repo;
-    bb_repo_init(&repo, &mock_api, h, &schema);
+    bb_repo_init(&repo, &mock_api, h, &users_schema);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
@@ -285,7 +285,7 @@ static void test_repo_remove(void)
     bb_model_handle_t *h = mock_api.open("ignored");
 
     bb_repo_t repo;
-    bb_repo_init(&repo, &mock_api, h, &schema);
+    bb_repo_init(&repo, &mock_api, h, &users_schema);
 
     User u = { .id = 1 };
     strncpy(u.name, "Alice", sizeof(u.name));
@@ -306,7 +306,7 @@ static void test_repo_error_propagation(void)
     bb_model_handle_t *h = mock_api.open("ignored");
 
     bb_repo_t repo;
-    bb_repo_init(&repo, &mock_api, h, &schema);
+    bb_repo_init(&repo, &mock_api, h, &users_schema);
 
     User u1 = { .id = 1 };
     strncpy(u1.name, "Alice", sizeof(u1.name));
@@ -334,7 +334,7 @@ static void test_repo_filter(void)
         &repo,
         &mock_api,
         h,
-        &schema
+        &users_schema
     );
 
     User u1 = { .id = 1 };
