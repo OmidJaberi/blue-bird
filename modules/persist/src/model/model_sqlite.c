@@ -120,15 +120,15 @@ static int sqlite_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *e
 
             case BB_FIELD_STRING:
             case BB_FIELD_UUID:
-                sqlite3_bind_text(stmt, i + 1,
+                sqlite3_bind_text(stmt, (int)i + 1,
                                   (char *)field_ptr,
                                   -1, SQLITE_STATIC);
                 break;
 
             case BB_FIELD_BLOB:
-                sqlite3_bind_blob(stmt, i + 1,
+                sqlite3_bind_blob(stmt, (int)i + 1,
                                   field_ptr,
-                                  f->size,
+                                  (int)f->size,
                                   SQLITE_STATIC);
                 break;
         }
@@ -170,7 +170,7 @@ static int sqlite_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, voi
             break;
 
         case BB_FIELD_BLOB:
-            sqlite3_bind_blob(stmt, 1, key, pk->size, SQLITE_STATIC);
+            sqlite3_bind_blob(stmt, 1, key, (int)pk->size, SQLITE_STATIC);
             break;
     }
 
@@ -189,13 +189,13 @@ static int sqlite_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, voi
         switch (f->type)
         {
             case BB_FIELD_INT:
-                *(int *)field_ptr = sqlite3_column_int(stmt, i);
+                *(int *)field_ptr = sqlite3_column_int(stmt, (int)i);
                 break;
 
             case BB_FIELD_STRING:
             case BB_FIELD_UUID:
             {
-                const unsigned char *text = sqlite3_column_text(stmt, i);
+                const unsigned char *text = sqlite3_column_text(stmt, (int)i);
                 if (text)
                     strncpy((char *)field_ptr, (const char *)text, f->size);
                 break;
@@ -203,7 +203,7 @@ static int sqlite_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, voi
 
             case BB_FIELD_BLOB:
                 memcpy(field_ptr,
-                       sqlite3_column_blob(stmt, i),
+                       sqlite3_column_blob(stmt, (int)i),
                        f->size);
                 break;
         }
@@ -280,7 +280,7 @@ static int sqlite_update(bb_model_handle_t *handle,
             case BB_FIELD_BLOB:
                 sqlite3_bind_blob(stmt, bind_index++,
                                   field_ptr,
-                                  f->size,
+                                  (int)f->size,
                                   SQLITE_TRANSIENT);
                 break;
         }
@@ -301,7 +301,7 @@ static int sqlite_update(bb_model_handle_t *handle,
             break;
 
         case BB_FIELD_BLOB:
-            sqlite3_bind_blob(stmt, bind_index, pk_ptr, pk->size, SQLITE_TRANSIENT);
+            sqlite3_bind_blob(stmt, bind_index, pk_ptr, (int)pk->size, SQLITE_TRANSIENT);
             break;
     }
 
@@ -346,7 +346,7 @@ static int sqlite_remove(bb_model_handle_t *handle, bb_schema_t *schema, const v
             break;
 
         case BB_FIELD_BLOB:
-            sqlite3_bind_blob(stmt, 1, key, pk->size, SQLITE_STATIC);
+            sqlite3_bind_blob(stmt, 1, key, (int)pk->size, SQLITE_STATIC);
             break;
     }
 
@@ -413,13 +413,13 @@ static int sqlite_find_all(bb_model_handle_t *handle,
             switch (f->type)
             {
                 case BB_FIELD_INT:
-                    *(int *)field_ptr = sqlite3_column_int(stmt, i);
+                    *(int *)field_ptr = sqlite3_column_int(stmt, (int)i);
                     break;
 
                 case BB_FIELD_STRING:
                 case BB_FIELD_UUID:
                 {
-                    const unsigned char *text = sqlite3_column_text(stmt, i);
+                    const unsigned char *text = sqlite3_column_text(stmt, (int)i);
                     if (text)
                         strncpy((char *)field_ptr, (const char *)text, f->size);
                     break;
@@ -427,7 +427,7 @@ static int sqlite_find_all(bb_model_handle_t *handle,
 
                 case BB_FIELD_BLOB:
                     memcpy(field_ptr,
-                           sqlite3_column_blob(stmt, i),
+                           sqlite3_column_blob(stmt, (int)i),
                            f->size);
                     break;
             }
@@ -514,14 +514,14 @@ static int sqlite_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *sc
         {
             case BB_FIELD_INT:
                 *(int *)field_ptr =
-                    sqlite3_column_int(stmt, i);
+                    sqlite3_column_int(stmt, (int)i);
                 break;
 
             case BB_FIELD_STRING:
             case BB_FIELD_UUID:
             {
                 const unsigned char *text =
-                    sqlite3_column_text(stmt, i);
+                    sqlite3_column_text(stmt, (int)i);
 
                 if (text)
                 {

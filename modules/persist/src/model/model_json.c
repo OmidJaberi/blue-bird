@@ -267,7 +267,7 @@ static int json_find_all(bb_model_handle_t *handle, bb_schema_t *schema, void **
 
     for (size_t i = 0; i < count; i++)
     {
-        bb_json_t *obj = bb_json_array_get_index(arr, i);
+        bb_json_t *obj = bb_json_array_get_index(arr, (unsigned int)i);
 
         if (!obj || bb_json_get_type(obj) != BB_JSON_OBJECT)
             continue;
