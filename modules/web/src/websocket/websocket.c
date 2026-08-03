@@ -1136,22 +1136,18 @@ static bb_read_status_t _websocket_read_step(void *userdata)
             case BB_WS_TEXT:
             case BB_WS_BINARY:
             {
-                bb_ws_message_t msg;
-
-                err = bb_ws_frame_to_message(current, &msg);
-
-                if (BB_FAILED(err))
+                bb_ws_message_t *msg = bb_ws_frame_to_message(current);
+                if (!msg)
                 {
-                    bb_ws_message_destroy(&msg);
                     bb_ws_frame_destroy(&frame);
                     return (bb_read_status_t){ BB_READ_ERROR, err }; // Next frames ignored?
                 }
 
                 if (ws->handler)
                 {
-                    ws->handler(ws, &msg);
+                    ws->handler(ws, msg);
                 }
-                bb_ws_message_destroy(&msg);
+                bb_ws_message_destroy(msg);
 
                 break;
             }

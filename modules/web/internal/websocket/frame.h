@@ -30,7 +30,7 @@ typedef struct bb_ws_frame {
     struct bb_ws_frame *next;
 } bb_ws_frame_t;
 
-bb_error_t bb_ws_frame_to_message(const bb_ws_frame_t *frame, bb_ws_message_t *message);
+bb_ws_message_t *bb_ws_frame_to_message(const bb_ws_frame_t *frame);
 void bb_ws_frame_destroy(bb_ws_frame_t *frame);
 
 #endif

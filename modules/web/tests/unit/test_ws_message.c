@@ -8,24 +8,22 @@ void test_message_init_text(void)
 {
     printf("\tTesting text message initialization...\n");
 
-    bb_ws_message_t message;
-
     const char *text = "hello";
 
-    bb_ws_message_init(&message, BB_WS_MESSAGE_TEXT, text, strlen(text));
+    bb_ws_message_t *message = bb_ws_message_create(BB_WS_MESSAGE_TEXT, text, strlen(text));
 
-    BB_ASSERT(message.type == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(message->type == BB_WS_MESSAGE_TEXT);
 
-    BB_ASSERT(message.data == text);
+    BB_ASSERT(memcmp(message->data, text, strlen(text)) == 0);
 
-    BB_ASSERT(message.length == strlen(text));
+    BB_ASSERT(message->length == strlen(text));
+
+    bb_ws_message_destroy(message);
 }
 
 void test_message_init_binary(void)
 {
     printf("\tTesting binary message initialization...\n");
-
-    bb_ws_message_t message;
 
     unsigned char data[] =
     {
@@ -34,31 +32,15 @@ void test_message_init_binary(void)
         0x03
     };
 
-    bb_ws_message_init(&message, BB_WS_MESSAGE_BINARY, data, sizeof(data));
+    bb_ws_message_t *message = bb_ws_message_create(BB_WS_MESSAGE_BINARY, data, sizeof(data));
 
-    BB_ASSERT(message.type == BB_WS_MESSAGE_BINARY);
+    BB_ASSERT(message->type == BB_WS_MESSAGE_BINARY);
 
-    BB_ASSERT(message.data == data);
+    BB_ASSERT(memcmp(message->data, data, sizeof(data)) == 0);
 
-    BB_ASSERT(message.length == sizeof(data));
-}
+    BB_ASSERT(message->length == sizeof(data));
 
-void test_message_destroy(void)
-{
-    printf("\tTesting message destroy...\n");
-
-    bb_ws_message_t message;
-
-    bb_ws_message_init(&message, BB_WS_MESSAGE_TEXT, "hello", 5);
-
-    bb_ws_message_destroy(&message);
-
-    /*
-     * Currently a no-op.
-     * This test exists so future
-     * ownership changes don't
-     * break silently.
-     */
+    bb_ws_message_destroy(message);
 }
 
 int main(void)
@@ -68,8 +50,6 @@ int main(void)
     test_message_init_text();
 
     test_message_init_binary();
-
-    test_message_destroy();
 
     printf("All tests passed.\n");
 

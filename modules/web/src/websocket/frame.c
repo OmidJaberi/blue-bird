@@ -1,42 +1,42 @@
 #include "websocket/frame.h"
+#include "websocket/message_internal.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-bb_error_t bb_ws_frame_to_message(const bb_ws_frame_t *frame, bb_ws_message_t *message)
+bb_ws_message_t *bb_ws_frame_to_message(const bb_ws_frame_t *frame)
 {
-    if (!frame || !message)
+    if (!frame)
     {
-        return BB_ERROR(BB_ERR_INTERNAL, "Invalid arguments");
+        return NULL;
     }
+    bb_ws_message_type_t msg_type;
     switch (frame->opcode)
     {
         case BB_WS_TEXT:
-            message->type = BB_WS_MESSAGE_TEXT;
+            msg_type = BB_WS_MESSAGE_TEXT;
             break;
 
         case BB_WS_BINARY:
-            message->type = BB_WS_MESSAGE_BINARY;
+            msg_type = BB_WS_MESSAGE_BINARY;
             break;
 
         case BB_WS_CLOSE:
-            message->type = BB_WS_MESSAGE_CLOSE;
+            msg_type = BB_WS_MESSAGE_CLOSE;
             break;
 
         case BB_WS_PING:
-            message->type = BB_WS_MESSAGE_PING;
+            msg_type = BB_WS_MESSAGE_PING;
             break;
 
         case BB_WS_PONG:
-            message->type = BB_WS_MESSAGE_PONG;
+            msg_type = BB_WS_MESSAGE_PONG;
             break;
 
-        default:
-            return BB_ERROR(BB_ERR_INTERNAL, "Unsupported opcode");
+        default: // BB_WS_CONTINUATION ...
+            return NULL;
     }
-    message->data = frame->payload;
-    message->length = frame->payload_length;
-    return BB_SUCCESS();
+    return bb_ws_message_create(msg_type, frame->payload, frame->payload_length);
 }
 
 void bb_ws_frame_destroy(bb_ws_frame_t *frame)
