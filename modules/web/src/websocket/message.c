@@ -1,4 +1,4 @@
-#include "blue-bird/web/websocket/message.h"
+#include "websocket/message_internal.h"
 
 void bb_ws_message_init(bb_ws_message_t *message, bb_ws_message_type_t type, const void *data, size_t length)
 {

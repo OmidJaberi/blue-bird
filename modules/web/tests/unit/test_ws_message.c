@@ -1,4 +1,4 @@
-#include "blue-bird/web/websocket/message.h"
+#include "websocket/message_internal.h"
 
 #include <blue-bird/error/assert.h>
 #include <stdio.h>

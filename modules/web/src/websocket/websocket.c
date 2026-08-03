@@ -1,5 +1,6 @@
 #include "blue-bird/web/websocket/websocket.h"
 #include "websocket/websocket_internal.h"
+#include "websocket/message_internal.h"
 #include "connection/async_connection.h"
 
 #include "blue-bird/runtime/event.h"
