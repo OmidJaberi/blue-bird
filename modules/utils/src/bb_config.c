@@ -44,17 +44,17 @@ static void strip_quotes(char *s)
 
 static bb_json_t *parse_value(const char *value)
 {
-    if (strcasecmp(value, "true") == 0)
+    if (bb_strcasecmp(value, "true") == 0)
     {
         return bb_json_new_bool(true);
     }
 
-    if (strcasecmp(value, "false") == 0)
+    if (bb_strcasecmp(value, "false") == 0)
     {
         return bb_json_new_bool(false);
     }
 
-    if (strcasecmp(value, "null") == 0)
+    if (bb_strcasecmp(value, "null") == 0)
     {
         return bb_json_new_null();
     }

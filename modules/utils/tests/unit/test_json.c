@@ -475,7 +475,7 @@ void test_serialize_with_non_empty_buffer(void)
     char *prev_buffer = buffer;
     int size;
     bb_json_serialize(json, &buffer, &size);
-    BB_ASSERT(strcasecmp(buffer, "[0, 1, 2, 3]") == 0);
+    BB_ASSERT(bb_strcasecmp(buffer, "[0, 1, 2, 3]") == 0);
     free(buffer);
     free(prev_buffer);
     bb_json_destroy(json);

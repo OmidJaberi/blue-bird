@@ -31,7 +31,7 @@ static size_t parse_content_length(const char *buf, size_t header_len)
             break;
 
         size_t line_len = line_end - p;
-        if (line_len >= 15 && strncasecmp(p, "Content-Length:", 15) == 0)
+        if (line_len >= 15 && bb_strncasecmp(p, "Content-Length:", 15) == 0)
         {
             const char *v = p + 15;
             while (v < line_end && (*v == ' ' || *v == '\t'))

@@ -237,7 +237,7 @@ static int parse_body(bb_http_message_t *msg, const char *raw)
     body_buf[body_len] = '\0';
 
     const char *ctype = bb_message_get_header(msg, "Content-Type");
-    if (ctype && strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
+    if (ctype && bb_strcasecmp(ctype, "application/x-www-form-urlencoded") == 0)
         bb_decode_percent(body_buf, 1);
 
     // Store into message

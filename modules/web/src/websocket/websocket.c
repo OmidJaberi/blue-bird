@@ -351,7 +351,7 @@ bool _is_upgrade_request(bb_request_t *req)
         return false;
     }
 
-    if (strcasecmp(upgrade, "websocket") != 0)
+    if (bb_strcasecmp(upgrade, "websocket") != 0)
     {
         return false;
     }

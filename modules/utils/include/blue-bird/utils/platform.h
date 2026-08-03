@@ -29,9 +29,6 @@ typedef SOCKET  bb_socket_t;
 #define BB_SOCKET_ERROR    SOCKET_ERROR
 #define MSG_NOSIGNAL       0
 
-#define strcasecmp  _stricmp
-#define strncasecmp _strnicmp
-
 #else /* POSIX */
 
 #include <arpa/inet.h>
@@ -51,14 +48,6 @@ typedef int bb_socket_t;
 #endif
 
 
-static inline void bb_mkdir(const char *path)
-{
-    #ifdef _WIN32
-        _mkdir(path);
-    #else
-        mkdir(path, 0755);
-    #endif
-}
 
 /* --------------------------------------------------------------------- */
 /* Lifecycle                                                              */
@@ -120,7 +109,7 @@ static inline int bb_socket_would_block(void)
 }
 
 /* --------------------------------------------------------------------- */
-/* Misc helpers                                                           */
+/* Misc helpers                                                          */
 /* --------------------------------------------------------------------- */
 
 /*
@@ -136,6 +125,33 @@ void bb_usleep(unsigned int usec);
  */
 char *bb_strndup(const char *s, size_t n);
 char *bb_strdup(const char *s);
+
+static inline int bb_strcasecmp(const char *s1, const char *s2)
+{
+#ifdef _WIN32
+    return _stricmp(s1, s2);
+#else
+    return strcasecmp(s1, s2);
+#endif
+}
+
+static inline int bb_strncasecmp(const char *s1, const char *s2, size_t n)
+{
+#ifdef _WIN32
+    return _strnicmp(s1, s2, n);
+#else
+    return strncasecmp(s1, s2, n);
+#endif
+}
+
+static inline void bb_mkdir(const char *path)
+{
+    #ifdef _WIN32
+        _mkdir(path);
+    #else
+        mkdir(path, 0755);
+    #endif
+}
 
 /* --------------------------------------------------------------------- */
 /* Compatibility shims                                                    */
