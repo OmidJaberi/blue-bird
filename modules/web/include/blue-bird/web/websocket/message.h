@@ -16,12 +16,11 @@ typedef enum {
     BB_WS_MESSAGE_PONG,
 } bb_ws_message_type_t;
 
-typedef struct bb_ws_message {
-    bb_ws_message_type_t type;
+typedef struct bb_ws_message bb_ws_message_t;
 
-    void *data;
-    size_t length;
-} bb_ws_message_t;
+bb_ws_message_type_t bb_ws_message_get_type(const bb_ws_message_t *message);
+void *bb_ws_message_get_data(const bb_ws_message_t *message);
+size_t bb_ws_message_get_length(const bb_ws_message_t *message);
 
 
 #ifdef __cplusplus

@@ -44,3 +44,18 @@ void bb_ws_message_destroy(bb_ws_message_t *message)
     }
     free(message);
 }
+
+bb_ws_message_type_t bb_ws_message_get_type(const bb_ws_message_t *message)
+{
+    return message->type;
+}
+
+void *bb_ws_message_get_data(const bb_ws_message_t *message)
+{
+    return message->data;
+}
+
+size_t bb_ws_message_get_length(const bb_ws_message_t *message)
+{
+    return message->length;
+}

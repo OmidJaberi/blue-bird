@@ -268,12 +268,12 @@ static void handle_chat_message(bb_websocket_t *ws, bb_json_t *json)
 
 bb_error_t chat_ws_handler(bb_websocket_t *ws, const bb_ws_message_t *message)
 {
-    if (message->type != BB_WS_MESSAGE_TEXT)
+    if (bb_ws_message_get_type(message) != BB_WS_MESSAGE_TEXT)
     {
         return BB_SUCCESS();
     }
 
-    char *raw = bb_strndup((const char *) message->data, message->length);
+    char *raw = bb_strndup((const char *) bb_ws_message_get_data(message), bb_ws_message_get_length(message));
     if (!raw)
     {
         return BB_ERROR(BB_ERR_ALLOC, "allocation failed");

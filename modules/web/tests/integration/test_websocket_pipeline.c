@@ -20,13 +20,13 @@
 
 static bb_error_t echo_handler(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
-    if (msg->type == BB_WS_MESSAGE_TEXT)
+    if (bb_ws_message_get_type(msg) == BB_WS_MESSAGE_TEXT)
     {
-        return bb_websocket_send_text(ws, msg->data);
+        return bb_websocket_send_text(ws, bb_ws_message_get_data(msg));
     }
-    if (msg->type == BB_WS_MESSAGE_BINARY)
+    if (bb_ws_message_get_type(msg) == BB_WS_MESSAGE_BINARY)
     {
-        return bb_websocket_send_binary(ws, msg->data, msg->length);
+        return bb_websocket_send_binary(ws, bb_ws_message_get_data(msg), bb_ws_message_get_length(msg));
     }
 
     return BB_SUCCESS();
@@ -95,9 +95,9 @@ bb_error_t _echo_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void) ws;
 
-    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
-    BB_ASSERT(msg->length == 5);
-    BB_ASSERT(memcmp(msg->data, "hello", 5) == 0);
+    BB_ASSERT(bb_ws_message_get_type(msg) == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(bb_ws_message_get_length(msg) == 5);
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), "hello", 5) == 0);
 
     echo_finished = 1;
     return BB_SUCCESS();
@@ -146,20 +146,20 @@ bb_error_t _multi_messages_message_cb(bb_websocket_t *ws, const bb_ws_message_t 
 
     messages++;
 
-    // printf("Message %d: %s\n", messages, (char *)msg->data);
+    // printf("Message %d: %s\n", messages, (char *)bb_ws_message_get_data(msg));
 
     switch(messages)
     {
         case 1:
-            BB_ASSERT(strcmp(msg->data, "one") == 0);
+            BB_ASSERT(strcmp(bb_ws_message_get_data(msg), "one") == 0);
             break;
 
         case 2:
-            BB_ASSERT(strcmp(msg->data, "two") == 0);
+            BB_ASSERT(strcmp(bb_ws_message_get_data(msg), "two") == 0);
             break;
 
         case 3:
-            BB_ASSERT(strcmp(msg->data, "three") == 0);
+            BB_ASSERT(strcmp(bb_ws_message_get_data(msg), "three") == 0);
             break;
     }
 
@@ -212,9 +212,9 @@ bb_error_t _large_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void)ws;
 
-    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
-    BB_ASSERT(msg->length == LARGE_MESSAGE_SIZE);
-    BB_ASSERT(memcmp(msg->data, large_message, LARGE_MESSAGE_SIZE) == 0);
+    BB_ASSERT(bb_ws_message_get_type(msg) == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(bb_ws_message_get_length(msg) == LARGE_MESSAGE_SIZE);
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), large_message, LARGE_MESSAGE_SIZE) == 0);
 
     large_finished = 1;
 
@@ -278,9 +278,9 @@ bb_error_t _binary_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void)ws;
 
-    BB_ASSERT(msg->type == BB_WS_MESSAGE_BINARY);
-    BB_ASSERT(msg->length == BINARY_MESSAGE_SIZE);
-    BB_ASSERT(memcmp(msg->data, binary_message, BINARY_MESSAGE_SIZE) == 0);
+    BB_ASSERT(bb_ws_message_get_type(msg) == BB_WS_MESSAGE_BINARY);
+    BB_ASSERT(bb_ws_message_get_length(msg) == BINARY_MESSAGE_SIZE);
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), binary_message, BINARY_MESSAGE_SIZE) == 0);
 
     binary_finished = 1;
 
@@ -339,9 +339,9 @@ bb_error_t _large_binary_message_cb(bb_websocket_t *ws, const bb_ws_message_t *m
 {
     (void)ws;
 
-    BB_ASSERT(msg->type == BB_WS_MESSAGE_BINARY);
-    BB_ASSERT(msg->length == LARGE_BINARY_SIZE);
-    BB_ASSERT(memcmp(msg->data, large_binary, LARGE_BINARY_SIZE) == 0);
+    BB_ASSERT(bb_ws_message_get_type(msg) == BB_WS_MESSAGE_BINARY);
+    BB_ASSERT(bb_ws_message_get_length(msg) == LARGE_BINARY_SIZE);
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), large_binary, LARGE_BINARY_SIZE) == 0);
 
     large_binary_finished = 1;
 
@@ -402,9 +402,9 @@ bb_error_t _sequential_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg
 {
     (void)ws;
 
-    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
-    BB_ASSERT(msg->length == 4);
-    BB_ASSERT(memcmp(msg->data, "ping", 4) == 0);
+    BB_ASSERT(bb_ws_message_get_type(msg) == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(bb_ws_message_get_length(msg) == 4);
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), "ping", 4) == 0);
 
     sequential_finished = 1;
 
@@ -469,7 +469,7 @@ bb_error_t _clients_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
 
     for (int i = 0; i < CLIENT_COUNT; i++)
     {
-        if (strcmp(msg->data, client_messages[i]) == 0)
+        if (strcmp(bb_ws_message_get_data(msg), client_messages[i]) == 0)
         {
             clients_finished++;
             return BB_SUCCESS();
@@ -536,9 +536,9 @@ bb_error_t _many_messages_message_cb(bb_websocket_t *ws, const bb_ws_message_t *
 {
     (void)ws;
 
-    BB_ASSERT(msg->type == BB_WS_MESSAGE_TEXT);
-    BB_ASSERT(msg->length == 4);
-    BB_ASSERT(memcmp(msg->data, "ping", 4) == 0);
+    BB_ASSERT(bb_ws_message_get_type(msg) == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(bb_ws_message_get_length(msg) == 4);
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), "ping", 4) == 0);
 
     many_messages_received++;
 

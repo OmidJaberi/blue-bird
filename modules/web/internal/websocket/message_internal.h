@@ -4,6 +4,13 @@
 
 #include "blue-bird/web/websocket/message.h"
 
+struct bb_ws_message {
+    bb_ws_message_type_t type;
+
+    void *data;
+    size_t length;
+};
+
 /*
  * Creates a message structure.
  */
