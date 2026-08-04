@@ -66,7 +66,7 @@ bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
 bb_json_t *bb_json_parse(char *buffer);
 
 // Compare
-int bb_json_compare(bb_json_t *json_a, bb_json_t *json_b); // 0 for equal, -1 for not equal
+bool bb_json_equal(bb_json_t *json_a, bb_json_t *json_b);
 bb_json_t *bb_json_clone(bb_json_t *json);
 
 // File

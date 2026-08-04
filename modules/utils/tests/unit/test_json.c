@@ -486,7 +486,7 @@ void test_compare_equal_jsons(void)
     printf("\tTesting comparison of equal JSONs...\n");
     bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
     bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
-    BB_ASSERT(bb_json_compare(json_1, json_2) == 0);
+    BB_ASSERT(bb_json_equal(json_1, json_2));
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
 }
@@ -496,7 +496,7 @@ void test_compare_equal_jsons_different_order(void)
     printf("\tTesting comparison of equal JSONs with different order...\n");
     bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
     bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"three\": 3, \"two\": 2}");
-    BB_ASSERT(bb_json_compare(json_1, json_2) == 0);
+    BB_ASSERT(bb_json_equal(json_1, json_2));
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
 }
@@ -506,7 +506,7 @@ void test_compare_jsons_missing_key(void)
     printf("\tTesting comparison of JSONs: missing key...\n");
     bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
     bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"two\": 2}");
-    BB_ASSERT(bb_json_compare(json_1, json_2) != 0);
+    BB_ASSERT(!bb_json_equal(json_1, json_2));
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
 }
@@ -516,7 +516,7 @@ void test_compare_jsons_extra_key(void)
     printf("\tTesting comparison of JSONs: extra key...\n");
     bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2}");
     bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3}");
-    BB_ASSERT(bb_json_compare(json_1, json_2) != 0);
+    BB_ASSERT(!bb_json_equal(json_1, json_2));
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
 }
@@ -526,7 +526,7 @@ void test_compare_complex_equal_jsons(void)
     printf("\tTesting comparison of complex equal JSONs...\n");
     bb_json_t *json_1 = bb_json_parse("{\"one\": 1, \"two\": 2, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}]}");
     bb_json_t *json_2 = bb_json_parse("{\"one\": 1, \"three\": 3, \"list\": [1, \"two\", 3.14, null, true, false, {\"name\": \"Alice\", \"age\": 30}], \"two\": 2}");
-    BB_ASSERT(bb_json_compare(json_1, json_2) == 0);
+    BB_ASSERT(bb_json_equal(json_1, json_2));
     bb_json_destroy(json_1);
     bb_json_destroy(json_2);
 }
@@ -540,7 +540,7 @@ void test_json_clone(void)
     bb_json_t *clone = bb_json_clone(json);
 
     BB_ASSERT(clone != NULL);
-    BB_ASSERT(bb_json_compare(json, clone) == 0);
+    BB_ASSERT(bb_json_equal(json, clone));
 
     bb_json_destroy(json);
     bb_json_destroy(clone);

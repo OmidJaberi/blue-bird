@@ -1129,57 +1129,57 @@ bb_json_t *bb_json_parse(char *buffer)
     return json;
 }
 
-int bb_json_compare(bb_json_t *json_a, bb_json_t *json_b)
+bool bb_json_equal(bb_json_t *json_a, bb_json_t *json_b)
 {
     if (!json_a || !json_b)
     {
-        return -1;
+        return false;
     }
     if (json_a->type != json_b->type)
     {
-        return -1;
+        return false;
     }
     switch (json_a->type)
     {
         case BB_JSON_NULL:
-            return 0;
+            return true;
         case BB_JSON_BOOL:
-            return json_a->bool_val == json_b->bool_val ? 0 : 1;
+            return json_a->bool_val == json_b->bool_val;
         case BB_JSON_INT:
-            return json_a->int_val == json_b->int_val ? 0 : 1;
+            return json_a->int_val == json_b->int_val;
         case BB_JSON_REAL:
-            return json_a->real_val == json_b->real_val ? 0 : 1;
+            return json_a->real_val == json_b->real_val;
         case BB_JSON_TEXT:
-            return strcmp(json_a->text_val, json_b->text_val) == 0 ? 0 : 1;
+            return strcmp(json_a->text_val, json_b->text_val) == 0;
         case BB_JSON_ARRAY:
             if (json_a->size != json_b->size)
             {
-                return -1;
+                return false;
             }
             for (unsigned int i = 0; i < json_a->size; i++)
             {
-                if (bb_json_compare(json_a->dynamic_array.array[i], json_b->dynamic_array.array[i]) != 0)
+                if (!bb_json_equal(json_a->dynamic_array.array[i], json_b->dynamic_array.array[i]))
                 {
-                    return -1;
+                    return false;
                 }
             }
-            return 0;
+            return true;
         case BB_JSON_OBJECT:
             if (json_a->size != json_b->size)
             {
-                return -1;
+                return false;
             }
             for (_bb_hash_table_node_t *node = json_a->object.order_head; node != NULL; node = node->order_next)
             {
                 bb_json_t *value_in_b = bb_json_object_get_value(json_b, node->key);
-                if (bb_json_compare(node->value, value_in_b) != 0)
+                if (!bb_json_equal(node->value, value_in_b))
                 {
-                    return -1;
+                    return false;
                 }
             }
-            return 0;
+            return true;
         default:
-            return -1;
+            return false;
     }
 }
 
