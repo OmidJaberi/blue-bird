@@ -707,28 +707,20 @@ static int serialize_json_to_allocated_buffer(bb_json_t *json, char *buffer, siz
     {
         case BB_JSON_NULL:
             return serialize_null_json(json, buffer);
-            break;
         case BB_JSON_BOOL:
             return serialize_bool_json(json, buffer);
-            break;
         case BB_JSON_INT:
             return serialize_int_json(json, buffer, buffer_size);
-            break;
         case BB_JSON_REAL:
             return serialize_real_json(json, buffer, buffer_size);
-            break;
         case BB_JSON_TEXT:
             return serialize_text_json(json, buffer, buffer_size);
-            break;
         case BB_JSON_ARRAY:
             return serialize_array_json(json, buffer, 0, false, buffer_size);
-            break;
         case BB_JSON_OBJECT:
             return serialize_object_json(json, buffer, 0, false, buffer_size);
-            break;
         default:
             return -1;
-            break;
     }
 }
 
@@ -815,7 +807,6 @@ static int parse_json_str_true(bb_json_t **json, char *buffer)
     {
         return -1;
     }
-    (*json)->type = BB_JSON_BOOL;
     (*json)->bool_val = true;
     return 4;
 }
@@ -831,7 +822,6 @@ static int parse_json_str_false(bb_json_t **json, char *buffer)
     {
         return -1;
     }
-    (*json)->type = BB_JSON_BOOL;
     (*json)->bool_val = false;
     return 5;
 }
