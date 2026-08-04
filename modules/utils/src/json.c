@@ -790,17 +790,9 @@ bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
     return BB_SUCCESS();
 }
 
-static bool is_substr(char *buffer, const char *str)
-{
-    for (size_t i = 0; i < strlen(str); i++)
-        if (buffer[i] != str[i])
-            return false;
-    return true;
-}
-
 static int parse_json_str_null(bb_json_t **json, char *buffer)
 {
-    if (!is_substr(buffer, "null"))
+    if (memcmp(buffer, "null", 4) != 0)
     {
         return -1;
     }
@@ -814,7 +806,7 @@ static int parse_json_str_null(bb_json_t **json, char *buffer)
 
 static int parse_json_str_true(bb_json_t **json, char *buffer)
 {
-    if (!is_substr(buffer, "true"))
+    if (memcmp(buffer, "true", 4) != 0)
     {
         return -1;
     }
@@ -830,7 +822,7 @@ static int parse_json_str_true(bb_json_t **json, char *buffer)
 
 static int parse_json_str_false(bb_json_t **json, char *buffer)
 {
-    if (!is_substr(buffer, "false"))
+    if (memcmp(buffer, "false", 5) != 0)
     {
         return -1;
     }
