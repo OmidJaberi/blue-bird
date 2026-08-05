@@ -8,10 +8,10 @@ extern "C" {
 
 typedef enum
 {
-    BB_TASK_COMPLETED,
-    BB_TASK_ERROR,
-    BB_TASK_CANCELLED,
-    BB_TASK_SHUTDOWN,
+    BB_TASK_RES_COMPLETED,
+    BB_TASK_RES_ERROR,
+    BB_TASK_RES_CANCELLED,
+    BB_TASK_RES_SHUTDOWN,
 } bb_task_result_t;
 
 typedef struct bb_task bb_task_t;
