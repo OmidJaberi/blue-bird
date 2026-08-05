@@ -16,8 +16,10 @@ bb_task_t *bb_task_create(bb_task_cb callback, void *userdata)
         return NULL;
     }
 
-    task->callback = callback;
-    task->userdata = userdata;
+    task->config = (bb_task_config_t) {
+        .run = callback,
+        .userdata = userdata
+    };
     task->state = BB_TASK_IDLE;
 
     return task;
@@ -35,7 +37,7 @@ void bb_task_destroy(bb_task_t *task)
 
 void bb_task_execute(bb_task_t *task)
 {
-    if (!task || !task->callback)
+    if (!task || !task->config.run)
     {
         return;
     }
@@ -43,7 +45,7 @@ void bb_task_execute(bb_task_t *task)
     task->state &= ~BB_TASK_SCHEDULED;
     task->state |= BB_TASK_RUNNING;
 
-    task->callback(task, task->userdata);
+    task->config.run(task, task->config.userdata);
 
     task->state &= ~BB_TASK_RUNNING;
 }

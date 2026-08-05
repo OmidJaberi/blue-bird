@@ -11,9 +11,9 @@ typedef enum {
     BB_TASK_PERSISTENT = 1 << 3
 } bb_task_state_t;
 
-struct bb_task {
-    bb_task_cb callback;
-    void *userdata;
+struct bb_task
+{
+    bb_task_config_t config;
 
     unsigned state;
 };
