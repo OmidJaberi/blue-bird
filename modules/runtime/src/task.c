@@ -29,6 +29,11 @@ void bb_task_destroy(bb_task_t *task)
         return;
     }
 
+    if (task->config.cleanup)
+    {
+        task->config.cleanup(task, task->config.userdata, BB_TASK_RES_COMPLETED); // Temporary: BB_TASK_RES_COMPLETED
+    }
+
     free(task);
 }
 
