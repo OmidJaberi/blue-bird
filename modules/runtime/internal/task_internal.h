@@ -18,7 +18,7 @@ struct bb_task
     unsigned state;
 };
 
-bb_task_t *bb_task_create(bb_task_cb callback, void *userdata);
+bb_task_t *bb_task_create(const bb_task_config_t *config);
 
 void bb_task_destroy(bb_task_t *task);
 

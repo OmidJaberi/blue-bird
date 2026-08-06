@@ -2,24 +2,21 @@
 
 #include "task_internal.h"
 
-bb_task_t *bb_task_create(bb_task_cb callback, void *userdata)
+bb_task_t *bb_task_create(const bb_task_config_t *config)
 {
-    if (!callback)
+    if (!config || !config->run)
     {
         return NULL;
     }
 
-    bb_task_t *task = malloc(sizeof(bb_task_t));
+    bb_task_t *task = calloc(1, sizeof(*task));
 
     if (!task)
     {
         return NULL;
     }
 
-    task->config = (bb_task_config_t) {
-        .run = callback,
-        .userdata = userdata
-    };
+    task->config = *config;
     task->state = BB_TASK_IDLE;
 
     return task;

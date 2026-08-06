@@ -38,11 +38,11 @@ void test_scheduler(void)
 
     BB_ASSERT(scheduler != NULL);
 
-    bb_task_t *t1 = bb_task_create(task1_cb, NULL);
+    bb_task_t *t1 = bb_task_create(&(bb_task_config_t) {.run = task1_cb});
 
-    bb_task_t *t2 = bb_task_create(task2_cb, NULL);
+    bb_task_t *t2 = bb_task_create(&(bb_task_config_t) {.run = task2_cb});
 
-    bb_task_t *t3 = bb_task_create(task3_cb, NULL);
+    bb_task_t *t3 = bb_task_create(&(bb_task_config_t) {.run = task3_cb});
 
     bb_scheduler_schedule(scheduler, t1);
     bb_scheduler_schedule(scheduler, t2);

@@ -16,7 +16,7 @@ static void test_task_cb(bb_task_t *task, void *userdata)
 
 void test_task(void)
 {
-    bb_task_t *task = bb_task_create(test_task_cb, NULL);
+    bb_task_t *task = bb_task_create(&(bb_task_config_t) {.run = test_task_cb});
 
     BB_ASSERT(task != NULL);
 
