@@ -119,6 +119,14 @@ static void counter_task(bb_task_t *task, void *userdata)
     printf("counter: %d\n", app->counter++);
 }
 
+static void counter_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    (void) task;
+    (void) userdata;
+    (void) result;
+    printf("Counter stopped.\n");
+}
+
 int main(void)
 {
     enable_raw_mode();
@@ -130,7 +138,11 @@ int main(void)
         .counter = 0
     };
 
-    bb_task_t *counter = bb_runtime_set_interval(runtime, 1000, counter_task, &app);
+    bb_task_t *counter = bb_runtime_set_interval_ex(runtime, 1000, &(bb_task_config_t) {
+        .run = counter_task,
+        .userdata = &app,
+        .cleanup = counter_cleanup
+    });
     (void) counter;
 
 #if defined(_WIN32)
@@ -138,12 +150,15 @@ int main(void)
     bb_task_t *stdin_watcher = bb_runtime_set_interval(runtime, 50, stdin_poll_task, runtime);
     (void) stdin_watcher;
 #else
-    bb_task_t *stdin_watcher = bb_runtime_watch_fd(
+    bb_task_t *stdin_watcher = bb_runtime_watch_fd_ex(
         runtime,
         STDIN_FILENO,
         BB_EVENT_READ,
         BB_WATCH_PERSISTENT,
-        stdin_task, runtime
+        &(bb_task_config_t) {
+            .run = stdin_task,
+            .userdata = runtime
+        }
     );
     (void) stdin_watcher;
 #endif
