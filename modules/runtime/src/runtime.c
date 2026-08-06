@@ -136,14 +136,14 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     free(runtime);
 }
 
-bb_task_t *bb_runtime_schedule(bb_runtime_t *runtime, bb_task_cb callback, void *userdata)
+bb_task_t *bb_runtime_schedule_ex(bb_runtime_t *runtime, const bb_task_config_t *config)
 {
     if (!runtime)
     {
         return NULL;
     }
 
-    bb_task_t *task = bb_task_create(callback, userdata);
+    bb_task_t *task = bb_task_create(config);
 
     if (!task)
     {
@@ -435,14 +435,14 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
     return 0;
 }
 
-bb_task_t *bb_runtime_watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch_mode_t mode, bb_task_cb callback, void *userdata)
+bb_task_t *bb_runtime_watch_fd_ex(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch_mode_t mode, const bb_task_config_t *config)
 {
     if (!runtime)
     {
         return NULL;
     }
 
-    bb_task_t *task = bb_task_create(callback, userdata);
+    bb_task_t *task = bb_task_create(config);
 
     if (!task)
     {
@@ -484,14 +484,14 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
     return 0;
 }
 
-bb_task_t *bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, bb_task_cb callback, void *userdata)
+bb_task_t *bb_runtime_set_interval_ex(bb_runtime_t *runtime, uint64_t interval_ms, const bb_task_config_t *config)
 {
     if (!runtime)
     {
         return NULL;
     }
 
-    bb_task_t *task = bb_task_create(callback, userdata);
+    bb_task_t *task = bb_task_create(config);
 
     if (!task)
     {
@@ -517,14 +517,14 @@ bb_task_t *bb_runtime_set_interval(bb_runtime_t *runtime, uint64_t interval_ms, 
     return task;
 }
 
-bb_task_t *bb_runtime_set_timeout(bb_runtime_t *runtime, uint64_t timeout_ms, bb_task_cb callback, void *userdata)
+bb_task_t *bb_runtime_set_timeout_ex(bb_runtime_t *runtime, uint64_t timeout_ms, const bb_task_config_t *config)
 {
     if (!runtime)
     {
         return NULL;
     }
 
-    bb_task_t *task = bb_task_create(callback, userdata);
+    bb_task_t *task = bb_task_create(config);
 
     if (!task)
     {
