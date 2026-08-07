@@ -251,6 +251,46 @@ static void test_deep_task_chaining(void)
     bb_runtime_destroy(runtime);
 }
 
+// Runtime Reuse
+static int reuse_counter = 0;
+
+static void reuse_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    reuse_counter++;
+    bb_runtime_stop(runtime);
+}
+
+static void test_runtime_reuse(void)
+{
+    printf("\tRunning test_runtime_reuse...\n");
+
+    reuse_counter = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, reuse_cb, runtime) != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(reuse_counter == 1);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    // Schedule another task after the first run completed.
+    BB_ASSERT(bb_runtime_schedule(runtime, reuse_cb, runtime) != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(reuse_counter == 2);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -260,6 +300,7 @@ int main(void)
     test_timeout_scheduling();
     test_interval_scheduling();
     test_deep_task_chaining();
+    test_runtime_reuse();
     printf("Runtime integration test passed.\n");
     return 0;
 }
