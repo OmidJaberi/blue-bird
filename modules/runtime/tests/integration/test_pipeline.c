@@ -291,6 +291,53 @@ static void test_runtime_reuse(void)
     bb_runtime_destroy(runtime);
 }
 
+// Scheduling in Timer
+static int timer_to_task_stage = 0;
+
+static void timer_to_task_task_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    BB_ASSERT(timer_to_task_stage == 1);
+
+    timer_to_task_stage = 2;
+
+    bb_runtime_stop(runtime);
+}
+
+static void timer_to_task_timer_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    BB_ASSERT(timer_to_task_stage == 0);
+
+    timer_to_task_stage = 1;
+
+    BB_ASSERT(bb_runtime_schedule(runtime, timer_to_task_task_cb, runtime) != NULL);
+}
+
+static void test_timer_to_task_scheduling(void)
+{
+    printf("\tRunning test_timer_to_task_scheduling...\n");
+
+    timer_to_task_stage = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_set_timeout(runtime, 10, timer_to_task_timer_cb, runtime ) != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(timer_to_task_stage == 2);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -301,6 +348,7 @@ int main(void)
     test_interval_scheduling();
     test_deep_task_chaining();
     test_runtime_reuse();
+    test_timer_to_task_scheduling();
     printf("Runtime integration test passed.\n");
     return 0;
 }
