@@ -338,6 +338,64 @@ static void test_timer_to_task_scheduling(void)
     bb_runtime_destroy(runtime);
 }
 
+// Timer order
+static int timer_order[3];
+static int timer_order_index = 0;
+
+static void timer_order_cb_1(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    timer_order[timer_order_index++] = 1;
+}
+
+static void timer_order_cb_2(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    timer_order[timer_order_index++] = 2;
+}
+
+static void timer_order_cb_3(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    timer_order[timer_order_index++] = 3;
+
+    bb_runtime_stop(runtime);
+}
+
+static void test_timer_order(void)
+{
+    printf("\tRunning test_timer_order...\n");
+
+    timer_order_index = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Schedule deliberately different deadlines.
+    BB_ASSERT(bb_runtime_set_timeout(runtime, 30, timer_order_cb_3, runtime) != NULL);
+
+    BB_ASSERT(bb_runtime_set_timeout(runtime, 10, timer_order_cb_1, runtime) != NULL);
+
+    BB_ASSERT(bb_runtime_set_timeout(runtime, 20, timer_order_cb_2, runtime) != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(timer_order_index == 3);
+
+    BB_ASSERT(timer_order[0] == 1);
+    BB_ASSERT(timer_order[1] == 2);
+    BB_ASSERT(timer_order[2] == 3);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -349,6 +407,7 @@ int main(void)
     test_deep_task_chaining();
     test_runtime_reuse();
     test_timer_to_task_scheduling();
+    test_timer_order();
     printf("Runtime integration test passed.\n");
     return 0;
 }
