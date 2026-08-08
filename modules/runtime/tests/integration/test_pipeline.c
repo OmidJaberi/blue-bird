@@ -441,6 +441,47 @@ static void test_task_fanout(void)
     bb_runtime_destroy(runtime);
 }
 
+// Timer cancellation
+static int cancelled_timeout_executed = 0;
+
+static void cancelled_timeout_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    cancelled_timeout_executed++;
+}
+
+static void test_timeout_cancellation(void)
+{
+    printf("\tRunning test_timeout_cancellation...\n");
+
+    cancelled_timeout_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_task_t *timeout_task = bb_runtime_set_timeout(runtime, 50, cancelled_timeout_cb, NULL);
+
+    BB_ASSERT(timeout_task != NULL);
+
+    bb_runtime_cancel_task(runtime, timeout_task);
+
+    BB_ASSERT(bb_task_is_cancelled(timeout_task) == 1);
+
+    /*
+     * The runtime should process the cancelled timer and eventually
+     * become empty without invoking its callback.
+     */
+    while (!bb_runtime_is_empty(runtime))
+        bb_runtime_tick(runtime);
+
+    BB_ASSERT(cancelled_timeout_executed == 0);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -454,6 +495,7 @@ int main(void)
     test_timer_to_task_scheduling();
     test_timer_order();
     test_task_fanout();
+    test_timeout_cancellation();
     printf("Runtime integration test passed.\n");
     return 0;
 }
