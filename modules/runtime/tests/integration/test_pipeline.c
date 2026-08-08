@@ -396,6 +396,51 @@ static void test_timer_order(void)
     bb_runtime_destroy(runtime);
 }
 
+// Task Fanout
+
+#define FANOUT_TASKS 1000
+
+static int fanout_counter = 0;
+
+static void fanout_leaf_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    fanout_counter++;
+}
+
+static void fanout_root_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    for (int i = 0; i < FANOUT_TASKS; i++)
+    {
+        BB_ASSERT(bb_runtime_schedule(runtime, fanout_leaf_cb, NULL) != NULL);
+    }
+}
+
+static void test_task_fanout(void)
+{
+    printf("\tRunning test_task_fanout...\n");
+
+    fanout_counter = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, fanout_root_cb, runtime) != NULL);
+
+    while (!bb_runtime_is_empty(runtime))
+        bb_runtime_tick(runtime);
+
+    BB_ASSERT(fanout_counter == FANOUT_TASKS);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -408,6 +453,7 @@ int main(void)
     test_runtime_reuse();
     test_timer_to_task_scheduling();
     test_timer_order();
+    test_task_fanout();
     printf("Runtime integration test passed.\n");
     return 0;
 }
