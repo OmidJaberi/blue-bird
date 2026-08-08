@@ -199,7 +199,10 @@ int bb_runtime_cancel_task(bb_runtime_t *runtime, bb_task_t *task)
         return -1;
     }
 
-    bb_task_cancel(task);
+    if (bb_task_cancel(task) != 0)
+    {
+        return -1;
+    }
 
     _bb_runtime_remove_watchers(runtime, task);
 
