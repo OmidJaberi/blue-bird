@@ -215,6 +215,11 @@ int bb_runtime_cancel_task(bb_runtime_t *runtime, bb_task_t *task)
 
 static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
 {
+    if (!runtime)
+    {
+        return;
+    }
+
     bb_poll_event_t events[64];
 
     int ready = bb_poller_wait(runtime->poller, events, 64, timeout_ms);
@@ -248,20 +253,13 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
     }
 }
 
-void bb_runtime_tick(bb_runtime_t *runtime)
+static void _bb_runtime_update_timers(bb_runtime_t *runtime)
 {
     if (!runtime)
     {
         return;
     }
 
-    // Schedule FD Events
-    _bb_runtime_wait(runtime, 10);
-
-
-    /*
-     * Timers
-     */
     uint64_t now = _bb_runtime_now_ms();
 
     for (int i = 0; i < runtime->timer_count;)
@@ -288,10 +286,23 @@ void bb_runtime_tick(bb_runtime_t *runtime)
             i++;
         }
     }
+}
 
-    /*
-     * Execute scheduled tasks
-     */
+void bb_runtime_tick(bb_runtime_t *runtime)
+{
+    if (!runtime)
+    {
+        return;
+    }
+
+    // Schedule FD Events
+    _bb_runtime_wait(runtime, 10);
+
+
+    // Schedule Timers
+    _bb_runtime_update_timers(runtime);
+
+    // Execute scheduled tasks
     bb_task_t *task;
 
     while ((task = bb_scheduler_next(runtime->scheduler)))
