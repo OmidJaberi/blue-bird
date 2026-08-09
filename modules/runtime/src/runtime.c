@@ -213,20 +213,12 @@ int bb_runtime_cancel_task(bb_runtime_t *runtime, bb_task_t *task)
     return 0;
 }
 
-void bb_runtime_tick(bb_runtime_t *runtime)
+static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
 {
-    if (!runtime)
-    {
-        return;
-    }
-
     bb_poll_event_t events[64];
 
-    int ready = bb_poller_wait(runtime->poller, events, 64, 10);
+    int ready = bb_poller_wait(runtime->poller, events, 64, timeout_ms);
 
-    /*
-     * FD Events
-     */
     for (int i = 0; i < ready; i++)
     {
         for (int j = 0; j < runtime->watcher_count; j++)
@@ -254,6 +246,18 @@ void bb_runtime_tick(bb_runtime_t *runtime)
             }
         }
     }
+}
+
+void bb_runtime_tick(bb_runtime_t *runtime)
+{
+    if (!runtime)
+    {
+        return;
+    }
+
+    // Schedule FD Events
+    _bb_runtime_wait(runtime, 10);
+
 
     /*
      * Timers
