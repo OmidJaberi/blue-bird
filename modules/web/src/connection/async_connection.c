@@ -170,6 +170,8 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
 
 static void _bb_write_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
 {
+    (void) task;
+    (void) result;
     bb_async_connection_t *async_conn = userdata;
     async_conn->write_task = NULL;
     if (async_conn->connection)
@@ -256,6 +258,8 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
 static void _bb_read_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
 {
+    (void) task;
+    (void) result;
     bb_async_connection_t *async_conn = userdata;
     async_conn->read_task = NULL;
 }
