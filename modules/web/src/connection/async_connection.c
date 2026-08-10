@@ -45,18 +45,11 @@ static void _bb_async_connection_handle_disconnect(bb_async_connection_t *async_
     if (async_conn->read_task)
     {
         bb_runtime_cancel_task(async_conn->runtime, async_conn->read_task);
-        async_conn->read_task = NULL;
     }
 
     if (async_conn->write_task)
     {
         bb_runtime_cancel_task(async_conn->runtime, async_conn->write_task);
-        async_conn->write_task = NULL;
-    }
-
-    if (async_conn->connection)
-    {
-        async_conn->connection->write_pending = false;
     }
 
     if (async_conn->disconnect)
