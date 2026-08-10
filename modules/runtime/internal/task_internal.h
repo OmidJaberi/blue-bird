@@ -8,7 +8,8 @@ typedef enum {
     BB_TASK_SCHEDULED  = 1 << 0,
     BB_TASK_RUNNING    = 1 << 1,
     BB_TASK_CANCELLED  = 1 << 2,
-    BB_TASK_PERSISTENT = 1 << 3
+    BB_TASK_PERSISTENT = 1 << 3,
+    BB_TASK_FINALIZED  = 1 << 4
 } bb_task_state_t;
 
 struct bb_task

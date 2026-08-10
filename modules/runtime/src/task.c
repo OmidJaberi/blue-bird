@@ -22,6 +22,18 @@ bb_task_t *bb_task_create(const bb_task_config_t *config)
     return task;
 }
 
+static void _bb_task_finalize(bb_task_t *task, bb_task_result_t result)
+{
+    if (!task || (task->state & BB_TASK_FINALIZED)) return;
+
+    task->state |= BB_TASK_FINALIZED;
+
+    if (task->config.cleanup)
+    {
+        task->config.cleanup(task, task->config.userdata, result);
+    }
+}
+
 void bb_task_destroy(bb_task_t *task)
 {
     if (!task)
@@ -29,11 +41,7 @@ void bb_task_destroy(bb_task_t *task)
         return;
     }
 
-    if (task->config.cleanup)
-    {
-        task->config.cleanup(task, task->config.userdata, BB_TASK_RES_COMPLETED); // Temporary: BB_TASK_RES_COMPLETED
-    }
-
+    _bb_task_finalize(task, BB_TASK_RES_COMPLETED);   // no-op if cancel already finalized it
     free(task);
 }
 
@@ -61,6 +69,8 @@ int bb_task_cancel(bb_task_t *task)
 
     task->state |= BB_TASK_CANCELLED;
     task->state &= ~BB_TASK_PERSISTENT;
+
+    _bb_task_finalize(task, BB_TASK_RES_CANCELLED);   // <-- fires immediately, not on destroy
 
     return 0;
 }
