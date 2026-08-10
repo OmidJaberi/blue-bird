@@ -136,7 +136,6 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     if (!async_conn->connection)
     {
         bb_runtime_cancel_task(async_conn->runtime, task);
-        async_conn->write_task = NULL;
         return;
     }
     bb_connection_t *conn = async_conn->connection;
@@ -144,8 +143,6 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     if (BB_FAILED(err))
     {
         bb_runtime_cancel_task(async_conn->runtime, task);
-        async_conn->write_task = NULL;
-        conn->write_pending = false;
 
         if (err.code == BB_ERR_CONNECTION_CLOSED)
         {
@@ -165,11 +162,19 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     }
 
     bb_runtime_cancel_task(async_conn->runtime, task);
-    async_conn->write_task = NULL;
-    conn->write_pending = false;
     if (async_conn->write_success)
     {
         async_conn->write_success(task, async_conn->write_userdata);
+    }
+}
+
+static void _bb_write_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    bb_async_connection_t *async_conn = userdata;
+    async_conn->write_task = NULL;
+    if (async_conn->connection)
+    {
+        async_conn->connection->write_pending = false;
     }
 }
 
@@ -185,7 +190,12 @@ bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_co
     async_conn->write_failure = failure;
     async_conn->write_userdata = userdata;
 
-    bb_task_t *task = bb_runtime_watch_fd(async_conn->runtime, async_conn->connection->fd, BB_EVENT_WRITE, BB_WATCH_PERSISTENT, _bb_write_task, async_conn);
+    bb_task_t *task = bb_runtime_watch_fd_ex(async_conn->runtime, async_conn->connection->fd, BB_EVENT_WRITE, BB_WATCH_PERSISTENT, &(bb_task_config_t) {
+        .run = _bb_write_task,
+        .userdata = async_conn,
+        .cleanup = _bb_write_task_cleanup
+    });
+
     if (!task)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Failed to create task.");
