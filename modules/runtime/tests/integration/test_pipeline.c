@@ -564,6 +564,20 @@ static void test_zero_timeout(void)
     bb_runtime_destroy(runtime);
 }
 
+// Empty runtime Destruction
+
+static void test_empty_runtime_destroy(void)
+{
+    printf("\tRunning test_empty_runtime_destroy...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -580,6 +594,7 @@ int main(void)
     test_timeout_cancellation();
     test_interval_cancellation();
     test_zero_timeout();
+    test_empty_runtime_destroy();
     printf("Runtime integration test passed.\n");
     return 0;
 }
