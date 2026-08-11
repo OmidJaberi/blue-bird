@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "blue-bird/runtime/runtime.h"
+#include "runtime_internal.h"
 
 static int execution_order[10];
 static int execution_index = 0;
@@ -99,6 +100,7 @@ static void test_massive_task_scheduling(void)
 
     // Since these aren't chaining, they should all execute in one run pass.
     // We tick until empty.
+    runtime->running = true;
     while (!bb_runtime_is_empty(runtime))
     {
         bb_runtime_tick(runtime);
@@ -135,6 +137,7 @@ static void test_task_cancellation(void)
     bb_runtime_cancel_task(cancellation_runtime, target_task);
     BB_ASSERT(bb_task_is_cancelled(target_task) == 1);
 
+    cancellation_runtime->running = true;
     while (!bb_runtime_is_empty(cancellation_runtime))
     {
         bb_runtime_tick(cancellation_runtime);
@@ -241,6 +244,7 @@ static void test_deep_task_chaining(void)
     // Kick off the chain
     bb_runtime_schedule(runtime, chain_cb, runtime);
 
+    runtime->running = true;
     while (!bb_runtime_is_empty(runtime))
     {
         bb_runtime_tick(runtime);
@@ -479,6 +483,7 @@ static void test_task_fanout(void)
 
     BB_ASSERT(bb_runtime_schedule(runtime, fanout_root_cb, runtime) != NULL);
 
+    runtime->running = true;
     while (!bb_runtime_is_empty(runtime))
         bb_runtime_tick(runtime);
 
@@ -519,6 +524,7 @@ static void test_timeout_cancellation(void)
      * The runtime should process the cancelled timer and eventually
      * become empty without invoking its callback.
      */
+    runtime->running = true;
     while (!bb_runtime_is_empty(runtime))
         bb_runtime_tick(runtime);
 
@@ -562,6 +568,7 @@ static void test_interval_cancellation(void)
 
     BB_ASSERT(bb_task_is_cancelled(interval) == 1);
 
+    runtime->running = true;
     while (!bb_runtime_is_empty(runtime))
         bb_runtime_tick(runtime);
 
