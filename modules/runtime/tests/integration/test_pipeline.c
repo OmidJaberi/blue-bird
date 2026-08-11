@@ -251,6 +251,52 @@ static void test_deep_task_chaining(void)
     bb_runtime_destroy(runtime);
 }
 
+// Runtime Stop
+
+static int stop_test_first_executed = 0;
+static int stop_test_second_executed = 0;
+
+static void stop_test_first_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    stop_test_first_executed++;
+
+    bb_runtime_stop(runtime);
+}
+
+static void stop_test_second_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    stop_test_second_executed++;
+}
+
+static void test_runtime_stop(void)
+{
+    printf("\tRunning test_runtime_stop...\n");
+
+    stop_test_first_executed = 0;
+    stop_test_second_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, stop_test_first_cb, runtime) != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, stop_test_second_cb, runtime) != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(stop_test_first_executed == 1);
+    BB_ASSERT(stop_test_second_executed == 0);
+
+    bb_runtime_destroy(runtime);
+}
+
 // Runtime Reuse
 static int reuse_counter = 0;
 
@@ -587,6 +633,7 @@ int main(void)
     test_timeout_scheduling();
     test_interval_scheduling();
     test_deep_task_chaining();
+    test_runtime_stop();
     test_runtime_reuse();
     test_timer_to_task_scheduling();
     test_timer_order();
