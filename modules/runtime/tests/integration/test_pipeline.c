@@ -524,6 +524,46 @@ static void test_interval_cancellation(void)
     bb_runtime_destroy(runtime);
 }
 
+// Zero delay timeout
+
+static int zero_timeout_executed = 0;
+
+static void zero_timeout_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    zero_timeout_executed++;
+
+    bb_runtime_stop(runtime);
+}
+
+static void test_zero_timeout(void)
+{
+    printf("\tRunning test_zero_timeout...\n");
+
+    zero_timeout_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(
+        bb_runtime_set_timeout(
+            runtime,
+            0,
+            zero_timeout_cb,
+            runtime
+        ) != NULL
+    );
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(zero_timeout_executed == 1);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -539,6 +579,7 @@ int main(void)
     test_task_fanout();
     test_timeout_cancellation();
     test_interval_cancellation();
+    test_zero_timeout();
     printf("Runtime integration test passed.\n");
     return 0;
 }
