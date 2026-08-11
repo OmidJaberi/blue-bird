@@ -110,6 +110,7 @@ static void websocket_echo_test(void)
     echo_finished = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -173,6 +174,7 @@ static void websocket_multi_message_test(void)
     echo_finished = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -231,6 +233,7 @@ static void websocket_large_message_test(void)
     large_message[LARGE_MESSAGE_SIZE] = '\0';
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -294,6 +297,7 @@ static void websocket_binary_message_test(void)
     binary_finished = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -360,6 +364,7 @@ static void websocket_large_binary_test(void)
     }
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -416,6 +421,7 @@ static void websocket_sequential_connections_test(void)
     printf("\tTesting WebSocket Sequential Connections...\n");
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     for (int i = 0; i < SEQUENTIAL_CONNECTIONS; i++)
     {
@@ -488,6 +494,7 @@ static void websocket_multiple_clients_test(void)
     clients_finished = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *clients[CLIENT_COUNT];
 
@@ -552,6 +559,7 @@ static void websocket_many_messages_test(void)
     many_messages_received = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -605,6 +613,7 @@ static void websocket_ping_pong_test(void)
     pong_received = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -662,6 +671,7 @@ static void websocket_close_test(void)
     message_after_close = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -702,6 +712,7 @@ static void websocket_dead_connection_test(void)
     dead_conn_connected = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
@@ -742,6 +753,7 @@ static void websocket_multiple_dead_connections_test(void)
     dead_conns_connected = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_websocket_t *clients[DEAD_CONNECTION_COUNT];
 
@@ -789,6 +801,7 @@ static void websocket_silent_dead_connection_test(void)
     volatile int connected = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
     bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
 
     bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _silent_dead_connect_cb, (void *)&connected);

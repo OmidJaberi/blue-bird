@@ -305,6 +305,16 @@ void bb_runtime_run(bb_runtime_t *runtime)
     }
 }
 
+void bb_runtime_set_running(bb_runtime_t *runtime)
+{
+    if (!runtime)
+    {
+        return;
+    }
+
+    runtime->running = true;
+}
+
 void bb_runtime_stop(bb_runtime_t *runtime)
 {
     if (!runtime)

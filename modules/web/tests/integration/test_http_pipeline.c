@@ -942,6 +942,7 @@ void test_async_get(void)
 
     bb_client_get_async(client, "http://127.0.0.1:8080/", async_get_cb, NULL);
 
+    bb_runtime_set_running(bb_runtime_default());
     while (!async_done)
     {
         bb_runtime_tick(bb_runtime_default());

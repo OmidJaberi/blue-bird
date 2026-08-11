@@ -25,6 +25,8 @@ void bb_runtime_destroy(bb_runtime_t *runtime);
 
 void bb_runtime_run(bb_runtime_t *runtime);
 
+void bb_runtime_set_running(bb_runtime_t *runtime); // For direct tick control
+
 void bb_runtime_stop(bb_runtime_t *runtime);
 
 bool bb_runtime_is_running(bb_runtime_t *runtime);

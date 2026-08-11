@@ -23,6 +23,7 @@ static void *server_thread(void *arg)
     (void)arg;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     listener = bb_async_connection_serve(runtime, TEST_PORT);
     BB_ASSERT(listener);
@@ -127,6 +128,7 @@ static void async_connect_accept_test(void)
     printf("\tTesting async connect/accept...\n");
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
@@ -158,6 +160,7 @@ static void async_write_callback_test(void)
     write_called = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
@@ -198,6 +201,7 @@ static void async_read_callback_test(void)
     read_called = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
@@ -241,6 +245,7 @@ static void async_read_more_test(void)
     read_called = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
@@ -283,6 +288,7 @@ static void async_remote_disconnect_test(void)
     error_called = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
@@ -328,6 +334,7 @@ static void async_write_disconnect_test(void)
     write_called = 0;
 
     bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
 
     bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
 
