@@ -305,7 +305,7 @@ void bb_runtime_tick(bb_runtime_t *runtime)
     // Execute scheduled tasks
     bb_task_t *task;
 
-    while ((task = bb_scheduler_next(runtime->scheduler)))
+    while (runtime->running && (task = bb_scheduler_next(runtime->scheduler)))
     {
         task->state &= ~BB_TASK_SCHEDULED;
 
