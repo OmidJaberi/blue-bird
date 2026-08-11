@@ -482,6 +482,48 @@ static void test_timeout_cancellation(void)
     bb_runtime_destroy(runtime);
 }
 
+// Interval canecellation before first execution
+static int cancelled_interval_executed = 0;
+
+static void cancelled_interval_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    cancelled_interval_executed++;
+}
+
+static void test_interval_cancellation(void)
+{
+    printf("\tRunning test_interval_cancellation...\n");
+
+    cancelled_interval_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_task_t *interval =
+        bb_runtime_set_interval(
+            runtime,
+            10,
+            cancelled_interval_cb,
+            NULL
+        );
+
+    BB_ASSERT(interval != NULL);
+
+    bb_runtime_cancel_task(runtime, interval);
+
+    BB_ASSERT(bb_task_is_cancelled(interval) == 1);
+
+    while (!bb_runtime_is_empty(runtime))
+        bb_runtime_tick(runtime);
+
+    BB_ASSERT(cancelled_interval_executed == 0);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -496,6 +538,7 @@ int main(void)
     test_timer_order();
     test_task_fanout();
     test_timeout_cancellation();
+    test_interval_cancellation();
     printf("Runtime integration test passed.\n");
     return 0;
 }
