@@ -446,6 +446,52 @@ static void test_timer_order(void)
     bb_runtime_destroy(runtime);
 }
 
+// Cancel from other task:
+static int cross_cancel_target_executed = 0;
+static bb_task_t *cross_cancel_target = NULL;
+
+static void cross_cancel_target_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    cross_cancel_target_executed++;
+}
+
+static void cross_cancel_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    bb_runtime_cancel_task(runtime, cross_cancel_target);
+}
+
+static void test_cross_task_cancellation(void)
+{
+    printf("\tRunning test_cross_task_cancellation...\n");
+
+    cross_cancel_target_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, cross_cancel_cb, runtime) != NULL);
+
+    cross_cancel_target = bb_runtime_schedule(runtime, cross_cancel_target_cb, NULL);
+    BB_ASSERT(cross_cancel_target != NULL);
+
+    bb_runtime_set_running(runtime);
+    while (!bb_runtime_is_empty(runtime))
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(cross_cancel_target_executed == 0);
+
+    bb_runtime_destroy(runtime);
+}
+
 // Task Fanout
 
 #define FANOUT_TASKS 1000
@@ -644,6 +690,7 @@ int main(void)
     test_runtime_reuse();
     test_timer_to_task_scheduling();
     test_timer_order();
+    test_cross_task_cancellation();
     test_task_fanout();
     test_timeout_cancellation();
     test_interval_cancellation();
