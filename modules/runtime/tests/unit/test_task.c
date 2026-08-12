@@ -21,6 +21,7 @@ void test_task(void)
     BB_ASSERT(task != NULL);
 
     bb_task_execute(task);
+    bb_task_destroy(task);
 
     BB_ASSERT(executed == 1);
 }
