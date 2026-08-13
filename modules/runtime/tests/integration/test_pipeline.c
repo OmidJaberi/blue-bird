@@ -677,6 +677,45 @@ static void test_empty_runtime_destroy(void)
     bb_runtime_destroy(runtime);
 }
 
+// Self cancellation:
+static int self_cancel_executed = 0;
+static int self_cancel_after = 0;
+
+static void self_cancel_cb(bb_task_t *task, void *userdata)
+{
+    bb_runtime_t *runtime = userdata;
+
+    self_cancel_executed++;
+
+    bb_runtime_cancel_task(runtime, task);
+
+    self_cancel_after++;
+    bb_runtime_stop(runtime);
+}
+
+static void test_self_cancellation(void)
+{
+    printf("\tRunning test_self_cancellation...\n");
+
+    self_cancel_executed = 0;
+    self_cancel_after = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_task_t *task = bb_runtime_schedule(runtime, self_cancel_cb, runtime);
+
+    BB_ASSERT(task != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(self_cancel_executed == 1);
+    BB_ASSERT(self_cancel_after == 1);
+    BB_ASSERT(bb_task_is_cancelled(task) == 1);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -696,6 +735,7 @@ int main(void)
     test_interval_cancellation();
     test_zero_timeout();
     test_empty_runtime_destroy();
+    test_self_cancellation();
     printf("Runtime integration test passed.\n");
     return 0;
 }
