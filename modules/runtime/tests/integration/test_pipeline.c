@@ -716,6 +716,52 @@ static void test_self_cancellation(void)
     bb_runtime_destroy(runtime);
 }
 
+// Schedule then cancel
+static int scheduled_then_cancelled_executed = 0;
+
+static void scheduled_then_cancelled_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    scheduled_then_cancelled_executed++;
+}
+
+static void schedule_then_cancel_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    bb_task_t *new_task = bb_runtime_schedule(runtime, scheduled_then_cancelled_cb, NULL);
+
+    BB_ASSERT(new_task != NULL);
+
+    bb_runtime_cancel_task(runtime, new_task);
+    BB_ASSERT(bb_task_is_cancelled(new_task) == 1);
+}
+
+static void test_schedule_then_cancel(void)
+{
+    printf("\tRunning test_schedule_then_cancel...\n");
+
+    scheduled_then_cancelled_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, schedule_then_cancel_cb, runtime) != NULL);
+
+    runtime->running = true;
+
+    while (!bb_runtime_is_empty(runtime))
+        bb_runtime_tick(runtime);
+
+    BB_ASSERT(scheduled_then_cancelled_executed == 0);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -736,6 +782,7 @@ int main(void)
     test_zero_timeout();
     test_empty_runtime_destroy();
     test_self_cancellation();
+    test_schedule_then_cancel();
     printf("Runtime integration test passed.\n");
     return 0;
 }
