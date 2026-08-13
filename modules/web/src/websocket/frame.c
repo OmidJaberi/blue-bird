@@ -46,14 +46,16 @@ void bb_ws_frame_destroy(bb_ws_frame_t *frame)
         return;
     }
 
-    bb_ws_frame_t *next = frame->next;
-    if (next)
-    {
-        bb_ws_frame_destroy(next);
-        free(next);
-    }
-
+    bb_ws_frame_t *current = frame->next;
+    frame->next = NULL;
     free(frame->payload);
+    frame->payload = NULL;
 
-    memset(frame, 0, sizeof(*frame));
+    while (current)
+    {
+        bb_ws_frame_t *next = current->next;
+        free(current->payload);
+        free(current);
+        current = next;
+    }
 }
