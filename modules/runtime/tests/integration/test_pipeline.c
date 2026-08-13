@@ -876,6 +876,56 @@ static void test_interval_task_interaction(void)
     bb_runtime_destroy(runtime);
 }
 
+// Multi Fanout roots
+#define MULTI_FANOUT_ROOTS 100
+#define MULTI_FANOUT_PER_ROOT 100
+
+static int multi_fanout_counter = 0;
+
+static void multi_fanout_leaf_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    multi_fanout_counter++;
+}
+
+static void multi_fanout_root_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    for (int i = 0; i < MULTI_FANOUT_PER_ROOT; i++)
+    {
+        BB_ASSERT(bb_runtime_schedule(runtime, multi_fanout_leaf_cb, NULL) != NULL);
+    }
+}
+
+static void test_multi_task_fanout(void)
+{
+    printf("\tRunning test_multi_task_fanout...\n");
+
+    multi_fanout_counter = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    for (int i = 0; i < MULTI_FANOUT_ROOTS; i++)
+    {
+        BB_ASSERT(bb_runtime_schedule(runtime, multi_fanout_root_cb, runtime) != NULL);
+    }
+
+    runtime->running = true;
+
+    while (!bb_runtime_is_empty(runtime))
+        bb_runtime_tick(runtime);
+
+    BB_ASSERT(multi_fanout_counter == MULTI_FANOUT_ROOTS * MULTI_FANOUT_PER_ROOT);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -899,6 +949,7 @@ int main(void)
     test_schedule_then_cancel();
     test_selective_cancellation();
     test_interval_task_interaction();
+    test_multi_task_fanout();
     printf("Runtime integration test passed.\n");
     return 0;
 }
