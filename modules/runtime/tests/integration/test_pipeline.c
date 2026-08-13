@@ -826,6 +826,56 @@ static void test_selective_cancellation(void)
     bb_runtime_destroy(runtime);
 }
 
+// Mid-Interval Cancellation
+static int interval_spawn_counter = 0;
+static int interval_spawn_ticks = 0;
+
+static void interval_spawn_task_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    interval_spawn_counter++;
+}
+
+static void interval_spawn_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    interval_spawn_ticks++;
+
+    BB_ASSERT(bb_runtime_schedule(runtime, interval_spawn_task_cb, NULL) != NULL);
+
+    if (interval_spawn_ticks == 3)
+    {
+        bb_runtime_stop(runtime);
+    }
+}
+
+static void test_interval_task_interaction(void)
+{
+    printf("\tRunning test_interval_task_interaction...\n");
+
+    interval_spawn_counter = 0;
+    interval_spawn_ticks = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_task_t *interval = bb_runtime_set_interval(runtime, 10, interval_spawn_cb, runtime);
+
+    BB_ASSERT(interval != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(interval_spawn_counter == 2);
+    BB_ASSERT(interval_spawn_ticks == 3);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -848,6 +898,7 @@ int main(void)
     test_self_cancellation();
     test_schedule_then_cancel();
     test_selective_cancellation();
+    test_interval_task_interaction();
     printf("Runtime integration test passed.\n");
     return 0;
 }
