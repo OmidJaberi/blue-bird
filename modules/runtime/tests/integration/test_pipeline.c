@@ -762,6 +762,70 @@ static void test_schedule_then_cancel(void)
     bb_runtime_destroy(runtime);
 }
 
+// Selective Cancellation
+static int selective_cancel_counter = 0;
+static bb_task_t *selective_cancel_target = NULL;
+
+static void selective_cancel_target_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    selective_cancel_counter += 1000;
+}
+
+static void selective_cancel_normal_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    selective_cancel_counter++;
+}
+
+static void selective_cancel_controller_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    bb_runtime_cancel_task(runtime, selective_cancel_target);
+}
+
+static void test_selective_cancellation(void)
+{
+    printf("\tRunning test_selective_cancellation...\n");
+
+    selective_cancel_counter = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    /*
+     * Controller executes first and cancels the target.
+     */
+    BB_ASSERT(bb_runtime_schedule(runtime, selective_cancel_controller_cb, runtime) != NULL);
+
+    selective_cancel_target = bb_runtime_schedule(runtime, selective_cancel_target_cb, NULL);
+
+    BB_ASSERT(selective_cancel_target != NULL);
+
+    /*
+     * These should survive cancellation of the target.
+     */
+    BB_ASSERT(bb_runtime_schedule(runtime, selective_cancel_normal_cb, NULL) != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, selective_cancel_normal_cb, NULL) != NULL);
+
+    runtime->running = true;
+
+    while (!bb_runtime_is_empty(runtime))
+        bb_runtime_tick(runtime);
+
+    BB_ASSERT(selective_cancel_counter == 2);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -783,6 +847,7 @@ int main(void)
     test_empty_runtime_destroy();
     test_self_cancellation();
     test_schedule_then_cancel();
+    test_selective_cancellation();
     printf("Runtime integration test passed.\n");
     return 0;
 }
