@@ -130,34 +130,28 @@ bb_task_t *bb_runtime_schedule_ex(bb_runtime_t *runtime, const bb_task_config_t 
 
 static void _bb_runtime_remove_timers(bb_runtime_t *runtime, bb_task_t *task)
 {
-    for (int i = 0; i < runtime->timer_count;)
+    for (int i = 0; i < runtime->timer_count; i++)
     {
         if (runtime->timers[i].task == task)
         {
             runtime->timers[i] = runtime->timers[runtime->timer_count - 1];
 
             runtime->timer_count--;
-        }
-        else
-        {
-            i++;
+            i--;
         }
     }
 }
 
 static void _bb_runtime_remove_watchers(bb_runtime_t *runtime, bb_task_t *task)
 {
-    for (int i = 0; i < runtime->watcher_count;)
+    for (int i = 0; i < runtime->watcher_count; i++)
     {
         if (runtime->watchers[i].task == task)
         {
             bb_poller_unregister(runtime->poller, runtime->watchers[i].fd, runtime->watchers[i].events);
             runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
             runtime->watcher_count--;
-        }
-        else
-        {
-            i++;
+            i--;
         }
     }
 }
@@ -204,18 +198,12 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
             {
                 bb_scheduler_schedule(runtime->scheduler, watcher->task);
 
-                /*
-                 * One-shot watchers
-                 * auto-remove after fire
-                 */
+                // One-shot watchers, auto-remove after fire
                 if (watcher->mode == BB_WATCH_ONESHOT)
                 {
                     bb_runtime_cancel_task(runtime, watcher->task);
 
-                    /*
-                     * watcher array compacted,
-                     * so revisit current index
-                     */
+                    // watcher array compacted, so revisit current index
                     j--;
                 }
             }
@@ -232,7 +220,7 @@ static void _bb_runtime_update_timers(bb_runtime_t *runtime)
 
     uint64_t now = _bb_runtime_now_ms();
 
-    for (int i = 0; i < runtime->timer_count;)
+    for (int i = 0; i < runtime->timer_count; i++)
     {
         _bb_runtime_timer_t *timer = &runtime->timers[i];
 
@@ -243,17 +231,13 @@ static void _bb_runtime_update_timers(bb_runtime_t *runtime)
             if (timer->repeating)
             {
                 timer->next_fire_ms = now + timer->interval_ms;
-                i++;
             }
             else
             {
                 runtime->timers[i] = runtime->timers[runtime->timer_count - 1];
                 runtime->timer_count--;
+                i--;
             }
-        }
-        else
-        {
-            i++;
         }
     }
 }
@@ -367,10 +351,6 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
         return -1;
     }
 
-    /*
-     * Exact same (fd, events) watcher already exists -> this is a re-arm,
-     * swap the task, don't touch other event types on this fd.
-     */
     int idx = _bb_runtime_find_watcher_exact(runtime, fd, events);
 
     if (idx >= 0)
@@ -389,12 +369,6 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
         return 0;
     }
 
-    /*
-     * New watcher for this fd. It may be a brand-new fd, or a new event
-     * type layered onto an fd we already watch (e.g. adding WRITE to
-     * an fd we already watch for READ) -- either way, don't unregister
-     * events that other watchers on this fd still care about.
-     */
     if (runtime->watcher_count >= BB_RUNTIME_MAX_WATCHERS)
     {
         return -1;
@@ -441,7 +415,6 @@ bb_task_t *bb_runtime_watch_fd_ex(bb_runtime_t *runtime, bb_socket_t fd, int eve
     }
 
     bb_task_t *task = bb_task_create(config);
-
     if (!task)
     {
         return NULL;
@@ -465,17 +438,14 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
 
     bb_poller_unregister(runtime->poller, fd, BB_EVENT_READ | BB_EVENT_WRITE);
 
-    for (int i = 0; i < runtime->watcher_count;)
+    for (int i = 0; i < runtime->watcher_count; i++)
     {
         if (runtime->watchers[i].fd == fd)
         {
             bb_task_cancel(runtime->watchers[i].task);
             runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
             runtime->watcher_count--;
-        }
-        else
-        {
-            i++;
+            i--;
         }
     }
 
@@ -484,21 +454,14 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
 
 bb_task_t *bb_runtime_set_interval_ex(bb_runtime_t *runtime, uint64_t interval_ms, const bb_task_config_t *config)
 {
-    if (!runtime)
+    if (!runtime || runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
     {
         return NULL;
     }
 
     bb_task_t *task = bb_task_create(config);
-
     if (!task)
     {
-        return NULL;
-    }
-
-    if (runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
-    {
-        bb_task_destroy(task);
         return NULL;
     }
 
@@ -517,21 +480,14 @@ bb_task_t *bb_runtime_set_interval_ex(bb_runtime_t *runtime, uint64_t interval_m
 
 bb_task_t *bb_runtime_set_timeout_ex(bb_runtime_t *runtime, uint64_t timeout_ms, const bb_task_config_t *config)
 {
-    if (!runtime)
+    if (!runtime || runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
     {
         return NULL;
     }
 
     bb_task_t *task = bb_task_create(config);
-
     if (!task)
     {
-        return NULL;
-    }
-
-    if (runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
-    {
-        bb_task_destroy(task);
         return NULL;
     }
 
@@ -548,9 +504,5 @@ bb_task_t *bb_runtime_set_timeout_ex(bb_runtime_t *runtime, uint64_t timeout_ms,
 
 bool bb_runtime_is_empty(bb_runtime_t *runtime)
 {
-    if (runtime->watcher_count > 0 || runtime->timer_count > 0 || !bb_scheduler_is_empty(runtime->scheduler))
-    {
-        return false;
-    }
-    return true;
+    return runtime->watcher_count == 0 && runtime->timer_count == 0 && bb_scheduler_is_empty(runtime->scheduler);
 }
