@@ -1,20 +1,12 @@
 #include <stdlib.h>
-#include <time.h>
 
 #include "blue-bird/utils/time.h"
 #include "blue-bird/utils/platform.h"
 
-#include "blue-bird/runtime/runtime.h"
 #include "runtime_internal.h"
 
 
-
 static bb_runtime_t *g_runtime = NULL;
-
-static uint64_t _bb_runtime_now_ms(void)
-{
-    return (uint64_t)bb_time_monotonic_ms();
-}
 
 bb_runtime_t *bb_runtime_default(void)
 {
@@ -218,7 +210,7 @@ static void _bb_runtime_update_timers(bb_runtime_t *runtime)
         return;
     }
 
-    uint64_t now = _bb_runtime_now_ms();
+    uint64_t now = (uint64_t)bb_time_monotonic_ms();
 
     for (int i = 0; i < runtime->timer_count; i++)
     {
@@ -470,7 +462,7 @@ bb_task_t *bb_runtime_set_interval_ex(bb_runtime_t *runtime, uint64_t interval_m
     _bb_runtime_timer_t *timer = &runtime->timers[runtime->timer_count];
 
     timer->interval_ms = interval_ms;
-    timer->next_fire_ms = _bb_runtime_now_ms() + interval_ms;
+    timer->next_fire_ms = (uint64_t)bb_time_monotonic_ms() + interval_ms;
     timer->repeating = 1;
     timer->task = task;
     runtime->timer_count++;
@@ -494,7 +486,7 @@ bb_task_t *bb_runtime_set_timeout_ex(bb_runtime_t *runtime, uint64_t timeout_ms,
     _bb_runtime_timer_t *timer = &runtime->timers[runtime->timer_count];
 
     timer->interval_ms = timeout_ms;
-    timer->next_fire_ms = _bb_runtime_now_ms() + timeout_ms;
+    timer->next_fire_ms = (uint64_t)bb_time_monotonic_ms() + timeout_ms;
     timer->repeating = 0;
     timer->task = task;
     runtime->timer_count++;
