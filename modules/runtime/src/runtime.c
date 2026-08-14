@@ -189,15 +189,6 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
             if (watcher->fd == events[i].fd && (watcher->events & events[i].events))
             {
                 bb_scheduler_schedule(runtime->scheduler, watcher->task);
-
-                // One-shot watchers, auto-remove after fire
-                if (watcher->mode == BB_WATCH_ONESHOT)
-                {
-                    bb_runtime_cancel_task(runtime, watcher->task);
-
-                    // watcher array compacted, so revisit current index
-                    j--;
-                }
             }
         }
     }
@@ -243,7 +234,6 @@ void bb_runtime_tick(bb_runtime_t *runtime)
 
     // Schedule FD Events
     _bb_runtime_wait(runtime, 10);
-
 
     // Schedule Timers
     _bb_runtime_update_timers(runtime);
