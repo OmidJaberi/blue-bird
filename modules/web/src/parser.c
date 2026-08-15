@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <limits.h>
+#include <stdint.h>
 
 #include <blue-bird/utils/platform.h>
 
