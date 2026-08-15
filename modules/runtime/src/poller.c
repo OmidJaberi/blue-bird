@@ -1,18 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
-
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-#else
-
-#include <sys/select.h>
-#include <unistd.h>
-
-#endif
-
 #include "poller.h"
 
 #define BB_POLLER_MAX_FDS 1024
