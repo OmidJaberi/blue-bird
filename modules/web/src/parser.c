@@ -61,5 +61,9 @@ int bb_http_message_complete(const char *buf, size_t len)
     if (content_length == 0)
         return len >= header_len;
 
+    // Reject bodies that would overflow the size check
+    if (content_length == SIZE_MAX || content_length > SIZE_MAX - header_len)
+        return 0;
+
     return len >= header_len + content_length;
 }
