@@ -1,5 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
 
 #include <blue-bird/utils/platform.h>
 
@@ -36,7 +38,17 @@ static size_t parse_content_length(const char *buf, size_t header_len)
             const char *v = p + 15;
             while (v < line_end && (*v == ' ' || *v == '\t'))
                 v++;
-            return strtoul(v, NULL, 10);
+
+            if (v >= line_end || *v < '0' || *v > '9')
+                return 0; // malformed value, treat as absent
+
+            errno = 0;
+            char *num_end;
+            unsigned long long val = strtoull(v, &num_end, 10);
+            if (errno == ERANGE || val > SIZE_MAX)
+            return SIZE_MAX; // signal "invalid/too large" via sentinel
+
+            return (size_t)val;
         }
         p = line_end + 1;
     }
