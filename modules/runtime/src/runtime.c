@@ -176,9 +176,9 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
         return;
     }
 
-    bb_poll_event_t events[64];
+    bb_poll_event_t events[BB_RUNTIME_MAX_EVENTS];
 
-    int ready = bb_poller_wait(runtime->poller, events, 64, timeout_ms);
+    int ready = bb_poller_wait(runtime->poller, events, BB_RUNTIME_MAX_EVENTS, timeout_ms);
 
     for (int i = 0; i < ready; i++)
     {

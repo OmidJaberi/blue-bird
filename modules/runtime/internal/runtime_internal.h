@@ -12,6 +12,7 @@
 
 #define BB_RUNTIME_MAX_WATCHERS 1024
 #define BB_RUNTIME_MAX_TIMERS 1024
+#define BB_RUNTIME_MAX_EVENTS 64 // Max Event Batch
 
 typedef struct {
     bb_socket_t fd;
