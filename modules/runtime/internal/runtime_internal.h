@@ -13,7 +13,7 @@
 #define BB_RUNTIME_MAX_WATCHERS 1024
 #define BB_RUNTIME_MAX_TIMERS 1024
 #define BB_RUNTIME_MAX_EVENTS 64 // Max Event Batch
-#define BB_RUNTIME_IDLE_TIMEOUT_MS 100  // max time to block with nothing scheduled
+#define BB_RUNTIME_IDLE_TIMEOUT_MS 1000  // max time to block with nothing scheduled
 
 typedef struct {
     bb_socket_t fd;

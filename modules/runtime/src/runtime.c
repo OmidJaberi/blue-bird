@@ -260,8 +260,10 @@ void bb_runtime_tick(bb_runtime_t *runtime)
         return;
     }
 
+    int wait_timeout = bb_scheduler_is_empty(runtime->scheduler) ? _bb_runtime_next_timeout_ms(runtime) : 0;
+
     // Schedule FD Events
-    _bb_runtime_wait(runtime, _bb_runtime_next_timeout_ms(runtime));
+    _bb_runtime_wait(runtime, wait_timeout);
 
     // Schedule Timers
     _bb_runtime_update_timers(runtime);
