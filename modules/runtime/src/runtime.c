@@ -225,6 +225,34 @@ static void _bb_runtime_update_timers(bb_runtime_t *runtime)
     }
 }
 
+static int _bb_runtime_next_timeout_ms(bb_runtime_t *runtime)
+{
+    if (runtime->timer_count == 0)
+    {
+        return BB_RUNTIME_IDLE_TIMEOUT_MS;
+    }
+
+    uint64_t now = (uint64_t)bb_time_monotonic_ms();
+    uint64_t earliest = runtime->timers[0].next_fire_ms;
+
+    for (int i = 1; i < runtime->timer_count; i++)
+    {
+        if (runtime->timers[i].next_fire_ms < earliest)
+        {
+            earliest = runtime->timers[i].next_fire_ms;
+        }
+    }
+
+    if (earliest <= now)
+    {
+        return 0; // already due, don't block at all
+    }
+
+    uint64_t delta = earliest - now;
+    delta = delta > BB_RUNTIME_IDLE_TIMEOUT_MS ? BB_RUNTIME_IDLE_TIMEOUT_MS : delta;
+    return (int)delta;
+}
+
 void bb_runtime_tick(bb_runtime_t *runtime)
 {
     if (!runtime)
@@ -233,7 +261,7 @@ void bb_runtime_tick(bb_runtime_t *runtime)
     }
 
     // Schedule FD Events
-    _bb_runtime_wait(runtime, 10);
+    _bb_runtime_wait(runtime, _bb_runtime_next_timeout_ms(runtime));
 
     // Schedule Timers
     _bb_runtime_update_timers(runtime);
