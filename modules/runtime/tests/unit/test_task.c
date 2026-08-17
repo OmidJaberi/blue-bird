@@ -171,6 +171,36 @@ static void test_task_cancel_before_execute(void)
     bb_task_destroy(task);
 }
 
+
+// Scheduling state transitions
+static void test_task_state_transitions(void)
+{
+    printf("\tRunning test_task_state_transitions...\n");
+
+    bb_task_t *task = bb_task_create(&(bb_task_config_t) {
+        .run = test_task_cb
+    });
+
+    BB_ASSERT(task != NULL);
+
+    // Newly created tasks are idle.
+    BB_ASSERT(bb_task_is_scheduled(task) == 0);
+    BB_ASSERT(bb_task_is_cancelled(task) == 0);
+
+    // Simulate scheduler ownership.
+    task->state |= BB_TASK_SCHEDULED;
+
+    BB_ASSERT(bb_task_is_scheduled(task) == 1);
+
+    bb_task_execute(task);
+
+    // Execution clears the scheduled state.
+    BB_ASSERT(bb_task_is_scheduled(task) == 0);
+    BB_ASSERT((task->state & BB_TASK_RUNNING) == 0);
+
+    bb_task_destroy(task);
+}
+
 int main(void)
 {
     printf("Running Task tests...\n");
@@ -179,6 +209,7 @@ int main(void)
     test_task_cancel_cleanup();
     test_task_cleanup_once();
     test_task_cancel_before_execute();
+    test_task_state_transitions();
     printf("Task tests passed.\n");
     return 0;
 }
