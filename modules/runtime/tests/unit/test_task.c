@@ -104,12 +104,46 @@ static void test_task_cancel_cleanup(void)
     BB_ASSERT(cancel_cleanup_called == 1);
 }
 
+
+// Cleanup must only run once
+static int once_cleanup_called = 0;
+
+static void once_cleanup_cb(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    (void)task;
+    (void)userdata;
+    (void)result;
+
+    once_cleanup_called++;
+}
+
+static void test_task_cleanup_once(void)
+{
+    printf("\tRunning test_task_cleanup_once...\n");
+
+    once_cleanup_called = 0;
+
+    bb_task_t *task = bb_task_create(&(bb_task_config_t) {
+        .run = test_task_cb,
+        .cleanup = once_cleanup_cb
+    });
+
+    BB_ASSERT(task != NULL);
+
+    bb_task_execute(task);
+
+    bb_task_cancel(task);
+    bb_task_destroy(task);
+    BB_ASSERT(once_cleanup_called == 1);
+}
+
 int main(void)
 {
     printf("Running Task tests...\n");
     test_task();
     test_task_cleanup();
     test_task_cancel_cleanup();
+    test_task_cleanup_once();
     printf("Task tests passed.\n");
     return 0;
 }
