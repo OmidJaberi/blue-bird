@@ -47,7 +47,7 @@ void bb_task_destroy(bb_task_t *task)
 
 void bb_task_execute(bb_task_t *task)
 {
-    if (!task || !task->config.run)
+    if (!task || !task->config.run || (task->state & BB_TASK_CANCELLED))
     {
         return;
     }

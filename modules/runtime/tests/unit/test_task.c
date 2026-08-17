@@ -137,6 +137,40 @@ static void test_task_cleanup_once(void)
     BB_ASSERT(once_cleanup_called == 1);
 }
 
+
+// Cancellation before execution must prevent execution
+static int cancel_before_execute_called = 0;
+
+static void cancel_before_execute_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    cancel_before_execute_called++;
+}
+
+static void test_task_cancel_before_execute(void)
+{
+    printf("\tRunning test_task_cancel_before_execute...\n");
+
+    cancel_before_execute_called = 0;
+
+    bb_task_t *task = bb_task_create(&(bb_task_config_t) {
+        .run = cancel_before_execute_cb
+    });
+
+    BB_ASSERT(task != NULL);
+
+    BB_ASSERT(bb_task_cancel(task) == 0);
+    BB_ASSERT(bb_task_is_cancelled(task) == 1);
+
+    bb_task_execute(task);
+
+    BB_ASSERT(cancel_before_execute_called == 0);
+
+    bb_task_destroy(task);
+}
+
 int main(void)
 {
     printf("Running Task tests...\n");
@@ -144,6 +178,7 @@ int main(void)
     test_task_cleanup();
     test_task_cancel_cleanup();
     test_task_cleanup_once();
+    test_task_cancel_before_execute();
     printf("Task tests passed.\n");
     return 0;
 }
