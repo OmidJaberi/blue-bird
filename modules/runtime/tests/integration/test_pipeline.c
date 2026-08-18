@@ -623,6 +623,60 @@ static void test_interval_cancellation(void)
     bb_runtime_destroy(runtime);
 }
 
+// Interval canecellation cleanup
+static int cleanup_interval_counter = 0;
+static int cleanup_interval_called = 0;
+static bb_runtime_t *cleanup_interval_runtime;
+
+static void cleanup_interval_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    cleanup_interval_counter++;
+    if (cleanup_interval_counter == 3)
+    {
+        bb_runtime_cancel_task(cleanup_interval_runtime, task);
+    }
+}
+
+static void cleanup_interval_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    (void)task;
+    (void)userdata;
+    (void)result;
+
+    cleanup_interval_called = 1;
+}
+
+static void test_interval_cleanup(void)
+{
+    printf("\tRunning test_interval_cleanup...\n");
+
+    cleanup_interval_counter = 0;
+    cleanup_interval_called = 0;
+
+    cleanup_interval_runtime = bb_runtime_create();
+    BB_ASSERT(cleanup_interval_runtime != NULL);
+
+    bb_task_t *interval = bb_runtime_set_interval_ex(cleanup_interval_runtime, 10, &(bb_task_config_t) {
+        .run = cleanup_interval_cb,
+        .cleanup = cleanup_interval_cleanup,
+        .userdata = NULL,
+    });
+
+    BB_ASSERT(interval != NULL);
+
+    cleanup_interval_runtime->running = true;
+    while (!bb_runtime_is_empty(cleanup_interval_runtime))
+        bb_runtime_tick(cleanup_interval_runtime);
+
+    BB_ASSERT(cleanup_interval_counter == 3);
+    BB_ASSERT(cleanup_interval_called == 1);
+
+    bb_runtime_destroy(cleanup_interval_runtime);
+}
+
 // Zero delay timeout
 
 static int zero_timeout_executed = 0;
@@ -943,6 +997,7 @@ int main(void)
     test_task_fanout();
     test_timeout_cancellation();
     test_interval_cancellation();
+    test_interval_cleanup();
     test_zero_timeout();
     test_empty_runtime_destroy();
     test_self_cancellation();
