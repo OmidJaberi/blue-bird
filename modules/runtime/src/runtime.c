@@ -61,7 +61,6 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     bb_task_t *task;
     while ((task = bb_scheduler_next(runtime->scheduler)))
     {
-        bb_runtime_cancel_task(runtime, task);
         bb_task_destroy(task);
     }
 
@@ -73,7 +72,6 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
         _bb_runtime_watcher_t *watcher = &runtime->watchers[i];
 
         bb_poller_unregister(runtime->poller, watcher->fd, watcher->events);
-        bb_task_cancel(watcher->task);
         bb_task_destroy(watcher->task);
     }
     runtime->watcher_count = 0;
@@ -83,7 +81,6 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     {
         _bb_runtime_timer_t *timer = &runtime->timers[i];
 
-        bb_task_cancel(timer->task);
         bb_task_destroy(timer->task);
     }
     runtime->timer_count = 0;
