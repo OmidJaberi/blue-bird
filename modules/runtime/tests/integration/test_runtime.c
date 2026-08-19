@@ -1001,15 +1001,41 @@ static void test_oneshot_watch_fires_once(void)
     bb_runtime_t *runtime = bb_runtime_create();
     BB_ASSERT(runtime != NULL);
 
-    int pipefd[2];
-    BB_ASSERT(pipe(pipefd) == 0);
+    BB_ASSERT(bb_platform_net_init() == 0);
 
-    // Make the read end permanently readable by writing more than it will
-    // ever consume, so if the watcher is still registered on a later tick
-    // it WILL be reported ready again by select().
-    BB_ASSERT(write(pipefd[1], "x", 1) == 1);
+    bb_socket_t listener = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(listener != BB_INVALID_SOCKET);
 
-    bb_task_t *watch = bb_runtime_watch_fd(runtime, pipefd[0], BB_EVENT_READ, BB_WATCH_ONESHOT, oneshot_watch_cb, NULL);
+    int opt = 1;
+    BB_ASSERT(setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)) == 0);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+
+    BB_ASSERT(bind(listener, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+    BB_ASSERT(listen(listener, 1) == 0);
+
+    socklen_t addr_len = sizeof(addr);
+    BB_ASSERT(getsockname(listener, (struct sockaddr *)&addr, &addr_len) == 0);
+
+    bb_socket_t client = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(client != BB_INVALID_SOCKET);
+
+    BB_ASSERT(connect(client, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+    bb_socket_t server = accept(listener, NULL, NULL);
+    BB_ASSERT(server != BB_INVALID_SOCKET);
+
+    bb_socket_close(listener);
+
+    // Make the server socket readable and leave the data unread.
+    BB_ASSERT(send(client, "x", 1, 0) == 1);
+
+    bb_task_t *watch = bb_runtime_watch_fd(runtime, server, BB_EVENT_READ, BB_WATCH_ONESHOT, oneshot_watch_cb, NULL);
     BB_ASSERT(watch != NULL);
 
     // First tick: fd is readable, watcher should fire exactly once.
@@ -1026,10 +1052,12 @@ static void test_oneshot_watch_fires_once(void)
 
     BB_ASSERT(oneshot_fire_count == 1);
 
-    close(pipefd[0]);
-    close(pipefd[1]);
+    bb_socket_close(server);
+    bb_socket_close(client);
 
     bb_runtime_destroy(runtime);
+
+    bb_platform_net_cleanup();
 }
 
 int main(void)

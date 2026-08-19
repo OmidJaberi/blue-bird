@@ -1,6 +1,5 @@
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "poller.h"
 
