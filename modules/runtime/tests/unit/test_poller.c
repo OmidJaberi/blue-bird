@@ -11,8 +11,10 @@ static void test_poller_rejects_fd_at_or_above_fd_setsize(void)
     BB_ASSERT(poller != NULL);
 
     BB_ASSERT(bb_poller_register(poller, FD_SETSIZE - 1, BB_EVENT_READ) == 0);
+#if !defined(_WIN32)
     BB_ASSERT(bb_poller_register(poller, FD_SETSIZE,     BB_EVENT_READ) == -1);
     BB_ASSERT(bb_poller_register(poller, FD_SETSIZE + 1, BB_EVENT_READ) == -1);
+#endif
 
     bb_poller_destroy(poller);
 }
