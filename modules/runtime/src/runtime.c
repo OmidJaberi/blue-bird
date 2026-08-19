@@ -186,6 +186,13 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
             if (watcher->fd == events[i].fd && (watcher->events & events[i].events))
             {
                 bb_scheduler_schedule(runtime->scheduler, watcher->task);
+                if (watcher->mode == BB_WATCH_ONESHOT)
+                {
+                    bb_poller_unregister(runtime->poller, watcher->fd, watcher->events);
+                    runtime->watchers[j] = runtime->watchers[runtime->watcher_count - 1];
+                    runtime->watcher_count--;
+                    j--;
+                }
             }
         }
     }
@@ -369,7 +376,10 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
 
         watcher->mode = mode;
         watcher->task = task;
-        task->state |= BB_TASK_PERSISTENT;
+        if (mode == BB_WATCH_PERSISTENT)
+        {
+            task->state |= BB_TASK_PERSISTENT;
+        }
 
         if (old_task != task)
         {
@@ -402,7 +412,10 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
         }
     }
 
-    task->state |= BB_TASK_PERSISTENT;
+    if (mode == BB_WATCH_PERSISTENT)
+    {
+        task->state |= BB_TASK_PERSISTENT;
+    }
 
     _bb_runtime_watcher_t *watcher = &runtime->watchers[runtime->watcher_count];
 
