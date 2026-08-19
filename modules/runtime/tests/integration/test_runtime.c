@@ -1,5 +1,6 @@
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "blue-bird/runtime/runtime.h"
 #include "runtime_internal.h"
@@ -980,6 +981,58 @@ static void test_multi_task_fanout(void)
     bb_runtime_destroy(runtime);
 }
 
+// BB_WATCH_ONESHOT: watcher should fire once, then stop being invoked
+// even though the fd stays readable.
+static int oneshot_fire_count = 0;
+
+static void oneshot_watch_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    oneshot_fire_count++;
+}
+
+static void test_oneshot_watch_fires_once(void)
+{
+    printf("\tRunning test_oneshot_watch_fires_once...\n");
+
+    oneshot_fire_count = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    int pipefd[2];
+    BB_ASSERT(pipe(pipefd) == 0);
+
+    // Make the read end permanently readable by writing more than it will
+    // ever consume, so if the watcher is still registered on a later tick
+    // it WILL be reported ready again by select().
+    BB_ASSERT(write(pipefd[1], "x", 1) == 1);
+
+    bb_task_t *watch = bb_runtime_watch_fd(runtime, pipefd[0], BB_EVENT_READ, BB_WATCH_ONESHOT, oneshot_watch_cb, NULL);
+    BB_ASSERT(watch != NULL);
+
+    // First tick: fd is readable, watcher should fire exactly once.
+    runtime->running = true;
+    bb_runtime_tick(runtime);   // poll -> schedules the watch task
+    bb_runtime_tick(runtime);   // executes the watch task
+
+    BB_ASSERT(oneshot_fire_count == 1);
+
+    // Data is still sitting in the pipe (never read), so the fd is still
+    // readable. A correctly-implemented oneshot watch must NOT fire again.
+    bb_runtime_tick(runtime);
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(oneshot_fire_count == 1);
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -1005,6 +1058,7 @@ int main(void)
     test_selective_cancellation();
     test_interval_task_interaction();
     test_multi_task_fanout();
+    test_oneshot_watch_fires_once();
     printf("Runtime integration test passed.\n");
     return 0;
 }
