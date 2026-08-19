@@ -1,6 +1,5 @@
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "blue-bird/runtime/runtime.h"
 #include "runtime_internal.h"
