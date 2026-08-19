@@ -37,7 +37,7 @@ int bb_poller_register(bb_poller_t *poller, bb_socket_t fd, int events)
         return -1;
     }
 
-    if (fd < 0 || (unsigned)fd >= FD_SETSIZE)
+    if (bb_socket_is_invalid(fd) || (unsigned long long)fd >= FD_SETSIZE)
     {
         return -1;
     }
