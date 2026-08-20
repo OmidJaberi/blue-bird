@@ -37,17 +37,10 @@ int bb_poller_register(bb_poller_t *poller, bb_socket_t fd, int events)
         return -1;
     }
 
-    if (bb_socket_is_invalid(fd))
+    if (!bb_poller_fd_supported(fd))
     {
         return -1;
     }
-
-#if !defined(_WIN32)
-    if (fd >= FD_SETSIZE)
-    {
-        return -1;
-    }
-#endif
 
     for (int i = 0; i < poller->count; i++)
     {
