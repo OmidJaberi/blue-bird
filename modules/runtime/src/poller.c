@@ -130,6 +130,15 @@ int bb_poller_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events,
     tv.tv_sec = timeout_ms / 1000;
     tv.tv_usec = (timeout_ms % 1000) * 1000;
 
+    /*
+    Note:
+        select() is O(n) per wait and rebuilds the fd_set from scratch every call.
+        Fine for the current 1024-fd ceiling, but if this library is meant to scale,
+        epoll (Linux) / kqueue (BSD/macOS) / IOCP (Windows) with a portability shim
+        would be the natural next step, especially since internal/poller.h already
+        isolates the poller behind a clean interface — swapping backends should be
+        low-risk.
+    */
     int ready = select((int)maxfd + 1, &readfds, &writefds, NULL, &tv);
     if (ready <= 0)
     {
