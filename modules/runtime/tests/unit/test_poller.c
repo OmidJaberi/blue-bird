@@ -1,6 +1,10 @@
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
 
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 #include "poller.h"
 
 static void test_poller_rejects_fd_at_or_above_fd_setsize(void)
@@ -84,6 +88,38 @@ static void test_poller_unregister_partial_events_keeps_fd_registered(void)
     bb_poller_destroy(poller);
 }
 
+#if !defined(_WIN32)
+
+static void test_poller_register_merges_repeat_calls_into_one_entry(void)
+{
+    printf("\tRunning test_poller_register_merges_repeat_calls_into_one_entry...\n");
+
+    int pipefd[2];
+    BB_ASSERT(pipe(pipefd) == 0);
+
+    bb_poller_t *poller = bb_poller_create();
+    BB_ASSERT(poller != NULL);
+
+    // Registering the same fd for the same event twice must merge into a
+    // single tracked entry, not create a duplicate. If it didn't merge,
+    // bb_poller_wait would report this one ready fd twice.
+    BB_ASSERT(bb_poller_register(poller, pipefd[1], BB_EVENT_WRITE) == 0);
+    BB_ASSERT(bb_poller_register(poller, pipefd[1], BB_EVENT_WRITE) == 0);
+
+    bb_poll_event_t events[4];
+    int ready = bb_poller_wait(poller, events, 4, 1000);
+
+    BB_ASSERT(ready == 1); // <-- would be 2 if register() duplicated the entry
+    BB_ASSERT(events[0].fd == pipefd[1]);
+    BB_ASSERT(events[0].events & BB_EVENT_WRITE);
+
+    bb_poller_destroy(poller);
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
+#endif
+
 int main(void)
 {
     printf("Running Poller tests...\n");
@@ -92,6 +128,9 @@ int main(void)
     test_poller_wait_rejects_null_events_buffer();
     test_poller_unregister_unknown_fd_fails();
     test_poller_unregister_partial_events_keeps_fd_registered();
+#if !defined(_WIN32)
+    test_poller_register_merges_repeat_calls_into_one_entry();
+#endif
     printf("Poller tests passed.\n");
     return 0;
 }
