@@ -16,6 +16,10 @@ extern "C" {
 
 #if defined(_WIN32)
 
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600 /* Vista+, required for WSAPoll() */
+#endif
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -47,7 +51,27 @@ typedef int bb_socket_t;
 
 #endif
 
+/* --------------------------------------------------------------------- */
+/* Poller backend selection                                              */
+/* --------------------------------------------------------------------- */
 
+/*
+ * Selects which readiness-notification syscall the runtime poller (see
+ * runtime/internal/poller.h) is built against. Exactly one of these is
+ * defined. All three are readiness-based, like select() -- Windows'
+ * IOCP is deliberately not used here since it's completion-based and
+ * would need a different poller interface entirely, not a drop-in swap.
+ */
+#if defined(_WIN32)
+#define BB_POLLER_BACKEND_POLL 1 /* WSAPoll() */
+#elif defined(__linux__)
+#define BB_POLLER_BACKEND_EPOLL 1
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
+      defined(__OpenBSD__) || defined(__DragonFly__)
+#define BB_POLLER_BACKEND_KQUEUE 1
+#else
+#define BB_POLLER_BACKEND_POLL 1 /* generic POSIX poll() fallback */
+#endif
 
 /* --------------------------------------------------------------------- */
 /* Lifecycle                                                              */
