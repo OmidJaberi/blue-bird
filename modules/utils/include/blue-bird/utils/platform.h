@@ -121,13 +121,15 @@ static inline int bb_socket_is_invalid(bb_socket_t sock)
     return sock == BB_INVALID_SOCKET;
 }
 
+/*
+ * True if `fd` can be handed to the runtime poller. None of the current
+ * backends (epoll, kqueue, WSAPoll/poll) impose a numeric ceiling on the
+ * fd value the way select()'s fd_set bitmap does, so this only needs to
+ * reject invalid handles.
+ */
 static inline int bb_poller_fd_supported(bb_socket_t fd)
 {
-#if defined(_WIN32)
     return !bb_socket_is_invalid(fd);
-#else
-    return !bb_socket_is_invalid(fd) && fd < FD_SETSIZE;
-#endif
 }
 
 /* True if the last socket error indicates a would-block condition. */
