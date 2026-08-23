@@ -5,6 +5,21 @@ add_library(bluebird_runtime
     src/runtime.c
 )
 
+# Exactly one poller backend is compiled in, matching the single
+# BB_POLLER_BACKEND_* macro selected in blue-bird/utils/platform.h. Keep
+# this selection logic in sync with that file -- a mismatch here would
+# compile a backend file against a struct bb_poller that doesn't have the
+# field it expects (e.g. poller_epoll.c with no BB_POLLER_BACKEND_EPOLL).
+if(WIN32)
+    target_sources(bluebird_runtime PRIVATE src/poller_poll.c)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(bluebird_runtime PRIVATE src/poller_epoll.c)
+elseif(APPLE OR CMAKE_SYSTEM_NAME MATCHES "BSD")
+    target_sources(bluebird_runtime PRIVATE src/poller_kqueue.c)
+else()
+    target_sources(bluebird_runtime PRIVATE src/poller_poll.c)
+endif()
+
 target_include_directories(bluebird_runtime
     PUBLIC
         include

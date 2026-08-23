@@ -63,13 +63,17 @@ static void test_poller_register_rejects_invalid_fd(void)
     bb_poller_t *poller = bb_poller_create();
     BB_ASSERT(poller != NULL);
 
-    int pipefd[2];
-    BB_ASSERT(pipe(pipefd) == 0);
-    close(pipefd[0]);
-    close(pipefd[1]);
-
-    // pipefd[0] is now a closed, invalid fd.
-    BB_ASSERT(bb_poller_register(poller, pipefd[0], BB_EVENT_READ) == -1);
+    // -1 is rejected by the common bb_poller_fd_supported() check before
+    // any backend is ever consulted, so this holds regardless of backend.
+    //
+    // Note: a *closed-but-structurally-valid* fd (e.g. a pipe fd right
+    // after close()) is deliberately NOT tested here. epoll/kqueue
+    // validate against the kernel immediately at registration and would
+    // reject it, but poll()/WSAPoll have no kernel-side registration step
+    // at all -- they only discover it's invalid later, at wait() time, as
+    // POLLNVAL. That's a real, allowed difference in backend timing, not
+    // part of the shared contract, so a test can't assert on it without
+    // baking in one specific backend's behavior.
     BB_ASSERT(bb_poller_register(poller, -1, BB_EVENT_READ) == -1);
 
     bb_poller_destroy(poller);
