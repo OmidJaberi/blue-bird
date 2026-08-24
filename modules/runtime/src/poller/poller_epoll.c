@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "poller_internal.h"
+#include "poller_backend.h"
 
 static uint32_t _to_epoll_events(int events)
 {

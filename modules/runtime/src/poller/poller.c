@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "poller_internal.h"
+#include "poller_backend.h"
 
 /* ======================================================================= */
 /* Shared lookup helper                                                    */

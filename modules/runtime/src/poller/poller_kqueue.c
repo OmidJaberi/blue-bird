@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "poller_internal.h"
+#include "poller_backend.h"
 
 int _bb_poller_backend_create(bb_poller_t *poller)
 {

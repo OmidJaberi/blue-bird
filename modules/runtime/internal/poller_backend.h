@@ -1,5 +1,5 @@
-#ifndef BB_POLLER_INTERNAL_H
-#define BB_POLLER_INTERNAL_H
+#ifndef BB_POLLER_BACKEND_H
+#define BB_POLLER_BACKEND_H
 
 #include "poller.h"
 
