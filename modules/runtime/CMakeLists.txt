@@ -1,6 +1,6 @@
 add_library(bluebird_runtime
     src/task.c
-    src/poller/poller.c
+    src/poller.c
     src/scheduler.c
     src/runtime.c
 )
@@ -11,13 +11,13 @@ add_library(bluebird_runtime
 # compile a backend file against a struct bb_poller that doesn't have the
 # field it expects (e.g. poller_epoll.c with no BB_POLLER_BACKEND_EPOLL).
 if(WIN32)
-    target_sources(bluebird_runtime PRIVATE src/poller/poller_poll.c)
+    target_sources(bluebird_runtime PRIVATE src/poller_backend/poll.c)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_sources(bluebird_runtime PRIVATE src/poller/poller_epoll.c)
+    target_sources(bluebird_runtime PRIVATE src/poller_backend/epoll.c)
 elseif(APPLE OR CMAKE_SYSTEM_NAME MATCHES "BSD")
-    target_sources(bluebird_runtime PRIVATE src/poller/poller_kqueue.c)
+    target_sources(bluebird_runtime PRIVATE src/poller_backend/kqueue.c)
 else()
-    target_sources(bluebird_runtime PRIVATE src/poller/poller_poll.c)
+    target_sources(bluebird_runtime PRIVATE src/poller_backend/poll.c)
 endif()
 
 target_include_directories(bluebird_runtime
