@@ -45,6 +45,18 @@ bb_runtime_t *bb_runtime_create(void)
         return NULL;
     }
 
+    runtime->watchers = malloc(BB_RUNTIME_WATCHERS_INITIAL_CAPACITY * sizeof(*runtime->watchers));
+
+    if (!runtime->watchers)
+    {
+        bb_poller_destroy(runtime->poller);
+        bb_scheduler_destroy(runtime->scheduler);
+        free(runtime);
+        return NULL;
+    }
+
+    runtime->watcher_capacity = BB_RUNTIME_WATCHERS_INITIAL_CAPACITY;
+
     runtime->running = false;
 
     return runtime;
@@ -89,6 +101,8 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     bb_scheduler_destroy(runtime->scheduler);
 
     bb_poller_destroy(runtime->poller);
+
+    free(runtime->watchers);
 
     bb_platform_net_cleanup();
 
@@ -360,6 +374,22 @@ static int _bb_runtime_fd_registered_mask(bb_runtime_t *runtime, bb_socket_t fd)
     return mask;
 }
 
+static int _bb_runtime_grow_watchers(bb_runtime_t *runtime)
+{
+    int new_capacity = runtime->watcher_capacity * 2;
+    _bb_runtime_watcher_t *grown = realloc(runtime->watchers, (size_t)new_capacity * sizeof(*grown));
+
+    if (!grown)
+    {
+        return -1;
+    }
+
+    runtime->watchers = grown;
+    runtime->watcher_capacity = new_capacity;
+
+    return 0;
+}
+
 static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch_mode_t mode, bb_task_t *task)
 {
     if (!runtime || !task)
@@ -388,7 +418,7 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
         return 0;
     }
 
-    if (runtime->watcher_count >= BB_RUNTIME_MAX_WATCHERS)
+    if (runtime->watcher_count >= runtime->watcher_capacity && _bb_runtime_grow_watchers(runtime) != 0)
     {
         return -1;
     }

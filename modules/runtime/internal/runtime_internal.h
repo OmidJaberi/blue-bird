@@ -10,7 +10,7 @@
 #include "task_internal.h"
 
 
-#define BB_RUNTIME_MAX_WATCHERS 1024
+#define BB_RUNTIME_WATCHERS_INITIAL_CAPACITY 16
 #define BB_RUNTIME_MAX_TIMERS 1024
 #define BB_RUNTIME_MAX_EVENTS 64 // Max Event Batch
 #define BB_RUNTIME_IDLE_TIMEOUT_MS 1000  // max time to block with nothing scheduled
@@ -34,8 +34,9 @@ struct bb_runtime {
     bb_scheduler_t *scheduler;
     bb_poller_t *poller;
 
-    _bb_runtime_watcher_t watchers[BB_RUNTIME_MAX_WATCHERS];
+    _bb_runtime_watcher_t *watchers; // heap-allocated, grown as needed
     int watcher_count;
+    int watcher_capacity;
 
     _bb_runtime_timer_t timers[BB_RUNTIME_MAX_TIMERS];
     int timer_count;
