@@ -1,6 +1,7 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "poller_backend.h"
 
@@ -88,19 +89,22 @@ int _bb_poller_backend_unregister(bb_poller_t *poller, bb_socket_t fd, int event
 
 int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events, int timeout_ms)
 {
-    struct epoll_event epevents[BB_POLLER_MAX_FDS];
-    int cap = max_events < (int)(sizeof(epevents) / sizeof(epevents[0]))
-                  ? max_events
-                  : (int)(sizeof(epevents) / sizeof(epevents[0]));
+    struct epoll_event *epevents = malloc((size_t)max_events * sizeof(*epevents));
+
+    if (!epevents)
+    {
+        return -1;
+    }
 
     int n;
     do
     {
-        n = epoll_wait(poller->epfd, epevents, cap, timeout_ms);
+        n = epoll_wait(poller->epfd, epevents, max_events, timeout_ms);
     } while (n < 0 && errno == EINTR);
 
     if (n <= 0)
     {
+        free(epevents);
         return n;
     }
 
@@ -122,6 +126,8 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
             event_count++;
         }
     }
+
+    free(epevents);
 
     return event_count;
 }

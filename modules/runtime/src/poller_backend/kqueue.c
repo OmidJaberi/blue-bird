@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "poller_backend.h"
 
@@ -86,10 +87,12 @@ int _bb_poller_backend_unregister(bb_poller_t *poller, bb_socket_t fd, int event
 
 int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events, int timeout_ms)
 {
-    struct kevent evlist[BB_POLLER_MAX_FDS];
-    int cap = max_events < (int)(sizeof(evlist) / sizeof(evlist[0]))
-                  ? max_events
-                  : (int)(sizeof(evlist) / sizeof(evlist[0]));
+    struct kevent *evlist = malloc((size_t)max_events * sizeof(*evlist));
+
+    if (!evlist)
+    {
+        return -1;
+    }
 
     struct timespec ts;
     ts.tv_sec = timeout_ms / 1000;
@@ -98,11 +101,12 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
     int n;
     do
     {
-        n = kevent(poller->kq, NULL, 0, evlist, cap, &ts);
+        n = kevent(poller->kq, NULL, 0, evlist, max_events, &ts);
     } while (n < 0 && errno == EINTR);
 
     if (n <= 0)
     {
+        free(evlist);
         return n;
     }
 
@@ -110,7 +114,14 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
      * for the same fd, unlike epoll/poll's combined bitmask, so a fd
      * that's ready both ways can appear twice in evlist. Coalesce those
      * into one bb_poll_event_t per fd to match the shared contract. */
-    bb_poll_event_t coalesced[BB_POLLER_MAX_FDS];
+    bb_poll_event_t *coalesced = malloc((size_t)max_events * sizeof(*coalesced));
+
+    if (!coalesced)
+    {
+        free(evlist);
+        return -1;
+    }
+
     int event_count = 0;
 
     for (int i = 0; i < n; i++)
@@ -152,6 +163,9 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
     }
 
     memcpy(events, coalesced, (size_t)event_count * sizeof(bb_poll_event_t));
+
+    free(coalesced);
+    free(evlist);
 
     return event_count;
 }

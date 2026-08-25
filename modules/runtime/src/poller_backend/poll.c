@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "poller_backend.h"
 
 #if defined(_WIN32)
@@ -47,7 +49,17 @@ int _bb_poller_backend_unregister(bb_poller_t *poller, bb_socket_t fd, int event
 
 int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events, int timeout_ms)
 {
-    _bb_pollfd_t pfds[BB_POLLER_MAX_FDS];
+    if (poller->count == 0)
+    {
+        return 0;
+    }
+
+    _bb_pollfd_t *pfds = malloc((size_t)poller->count * sizeof(*pfds));
+
+    if (!pfds)
+    {
+        return -1;
+    }
 
     for (int i = 0; i < poller->count; i++)
     {
@@ -71,6 +83,7 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
 
     if (n <= 0)
     {
+        free(pfds);
         return n;
     }
 
@@ -95,6 +108,8 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
             event_count++;
         }
     }
+
+    free(pfds);
 
     return event_count;
 }
