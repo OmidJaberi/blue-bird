@@ -3,7 +3,7 @@
 
 #include "poller.h"
 
-#define BB_POLLER_MAX_FDS 1024
+#define BB_POLLER_INITIAL_CAPACITY 16
 
 /*
  * fd -> requested BB_EVENT_* mask. This is the single source of truth for
@@ -17,8 +17,9 @@ typedef struct {
 } _bb_poll_fd_t;
 
 struct bb_poller {
-    _bb_poll_fd_t fds[BB_POLLER_MAX_FDS];
+    _bb_poll_fd_t *fds; // heap-allocated, grown as needed
     int count;
+    int capacity;
 
 /*
  * OS-specific state, selected at compile time by whichever single

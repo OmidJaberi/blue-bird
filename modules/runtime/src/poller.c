@@ -34,8 +34,19 @@ bb_poller_t *bb_poller_create(void)
         return NULL;
     }
 
+    poller->fds = malloc(BB_POLLER_INITIAL_CAPACITY * sizeof(*poller->fds));
+
+    if (!poller->fds)
+    {
+        free(poller);
+        return NULL;
+    }
+
+    poller->capacity = BB_POLLER_INITIAL_CAPACITY;
+
     if (_bb_poller_backend_create(poller) != 0)
     {
+        free(poller->fds);
         free(poller);
         return NULL;
     }
@@ -51,7 +62,24 @@ void bb_poller_destroy(bb_poller_t *poller)
     }
 
     _bb_poller_backend_destroy(poller);
+    free(poller->fds);
     free(poller);
+}
+
+static int _bb_poller_grow(bb_poller_t *poller)
+{
+    int new_capacity = poller->capacity * 2;
+    _bb_poll_fd_t *grown = realloc(poller->fds, (size_t)new_capacity * sizeof(*grown));
+
+    if (!grown)
+    {
+        return -1;
+    }
+
+    poller->fds = grown;
+    poller->capacity = new_capacity;
+
+    return 0;
 }
 
 int bb_poller_register(bb_poller_t *poller, bb_socket_t fd, int events)
@@ -68,7 +96,7 @@ int bb_poller_register(bb_poller_t *poller, bb_socket_t fd, int events)
 
     int idx = _bb_find_fd(poller->fds, poller->count, fd);
 
-    if (idx < 0 && poller->count >= BB_POLLER_MAX_FDS)
+    if (idx < 0 && poller->count >= poller->capacity && _bb_poller_grow(poller) != 0)
     {
         return -1;
     }
