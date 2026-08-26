@@ -2,6 +2,7 @@ add_library(bluebird_runtime
     src/task.c
     src/poller.c
     src/scheduler.c
+    src/timer_heap.c
     src/runtime.c
 )
 
