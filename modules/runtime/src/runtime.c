@@ -57,6 +57,17 @@ bb_runtime_t *bb_runtime_create(void)
 
     runtime->watcher_capacity = BB_RUNTIME_WATCHERS_INITIAL_CAPACITY;
 
+    runtime->timers = bb_timer_heap_create();
+
+    if (!runtime->timers)
+    {
+        free(runtime->watchers);
+        bb_poller_destroy(runtime->poller);
+        bb_scheduler_destroy(runtime->scheduler);
+        free(runtime);
+        return NULL;
+    }
+
     runtime->running = false;
 
     return runtime;
@@ -89,13 +100,13 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     runtime->watcher_count = 0;
 
     // Clean-up timers
-    for (int i = 0; i < runtime->timer_count; i++)
+    for (int i = 0; i < bb_timer_heap_count(runtime->timers); i++)
     {
-        _bb_runtime_timer_t *timer = &runtime->timers[i];
+        bb_timer_t *timer = bb_timer_heap_at(runtime->timers, i);
 
         bb_task_destroy(timer->task);
     }
-    runtime->timer_count = 0;
+    bb_timer_heap_destroy(runtime->timers);
 
     // Clean-up scheduler
     bb_scheduler_destroy(runtime->scheduler);
@@ -133,16 +144,7 @@ bb_task_t *bb_runtime_schedule_ex(bb_runtime_t *runtime, const bb_task_config_t 
 
 static void _bb_runtime_remove_timers(bb_runtime_t *runtime, bb_task_t *task)
 {
-    for (int i = 0; i < runtime->timer_count; i++)
-    {
-        if (runtime->timers[i].task == task)
-        {
-            runtime->timers[i] = runtime->timers[runtime->timer_count - 1];
-
-            runtime->timer_count--;
-            i--;
-        }
-    }
+    bb_timer_heap_remove_task(runtime->timers, task);
 }
 
 static void _bb_runtime_remove_watchers(bb_runtime_t *runtime, bb_task_t *task)
@@ -221,52 +223,45 @@ static void _bb_runtime_update_timers(bb_runtime_t *runtime)
 
     uint64_t now = (uint64_t)bb_time_monotonic_ms();
 
-    for (int i = 0; i < runtime->timer_count; i++)
+    bb_timer_t *top;
+
+    // The heap root is always the next timer due to fire, so we only ever
+    // need to look at it: pop (or re-arm) it and see whether the new root
+    // is due too, instead of scanning every live timer on each tick.
+    while ((top = bb_timer_heap_peek(runtime->timers)) && now >= top->next_fire_ms)
     {
-        _bb_runtime_timer_t *timer = &runtime->timers[i];
+        bb_task_t *task = top->task;
 
-        if (now >= timer->next_fire_ms)
+        bb_scheduler_schedule(runtime->scheduler, task);
+
+        if (top->repeating)
         {
-            bb_scheduler_schedule(runtime->scheduler, timer->task);
-
-            if (timer->repeating)
-            {
-                timer->next_fire_ms = now + timer->interval_ms;
-            }
-            else
-            {
-                runtime->timers[i] = runtime->timers[runtime->timer_count - 1];
-                runtime->timer_count--;
-                i--;
-            }
+            bb_timer_heap_reschedule_top(runtime->timers, now + top->interval_ms);
+        }
+        else
+        {
+            bb_timer_heap_pop(runtime->timers);
         }
     }
 }
 
 static int _bb_runtime_next_timeout_ms(bb_runtime_t *runtime)
 {
-    if (runtime->timer_count == 0)
+    bb_timer_t *top = bb_timer_heap_peek(runtime->timers);
+
+    if (!top)
     {
         return BB_RUNTIME_IDLE_TIMEOUT_MS;
     }
 
     uint64_t now = (uint64_t)bb_time_monotonic_ms();
-    uint64_t earliest = runtime->timers[0].next_fire_ms;
 
-    for (int i = 1; i < runtime->timer_count; i++)
-    {
-        if (runtime->timers[i].next_fire_ms < earliest)
-        {
-            earliest = runtime->timers[i].next_fire_ms;
-        }
-    }
-
-    if (earliest <= now)
+    if (top->next_fire_ms <= now)
     {
         return 0; // already due, don't block at all
     }
 
-    uint64_t delta = earliest - now;
+    uint64_t delta = top->next_fire_ms - now;
     delta = delta > BB_RUNTIME_IDLE_TIMEOUT_MS ? BB_RUNTIME_IDLE_TIMEOUT_MS : delta;
     return (int)delta;
 }
@@ -506,7 +501,7 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
 
 bb_task_t *bb_runtime_set_interval_ex(bb_runtime_t *runtime, uint64_t interval_ms, const bb_task_config_t *config)
 {
-    if (!runtime || runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
+    if (!runtime)
     {
         return NULL;
     }
@@ -519,20 +514,20 @@ bb_task_t *bb_runtime_set_interval_ex(bb_runtime_t *runtime, uint64_t interval_m
 
     task->state |= BB_TASK_PERSISTENT;
 
-    _bb_runtime_timer_t *timer = &runtime->timers[runtime->timer_count];
+    uint64_t next_fire_ms = (uint64_t)bb_time_monotonic_ms() + interval_ms;
 
-    timer->interval_ms = interval_ms;
-    timer->next_fire_ms = (uint64_t)bb_time_monotonic_ms() + interval_ms;
-    timer->repeating = 1;
-    timer->task = task;
-    runtime->timer_count++;
+    if (bb_timer_heap_push(runtime->timers, next_fire_ms, interval_ms, 1, task) != 0)
+    {
+        bb_task_destroy(task);
+        return NULL;
+    }
 
     return task;
 }
 
 bb_task_t *bb_runtime_set_timeout_ex(bb_runtime_t *runtime, uint64_t timeout_ms, const bb_task_config_t *config)
 {
-    if (!runtime || runtime->timer_count >= BB_RUNTIME_MAX_TIMERS)
+    if (!runtime)
     {
         return NULL;
     }
@@ -543,18 +538,18 @@ bb_task_t *bb_runtime_set_timeout_ex(bb_runtime_t *runtime, uint64_t timeout_ms,
         return NULL;
     }
 
-    _bb_runtime_timer_t *timer = &runtime->timers[runtime->timer_count];
+    uint64_t next_fire_ms = (uint64_t)bb_time_monotonic_ms() + timeout_ms;
 
-    timer->interval_ms = timeout_ms;
-    timer->next_fire_ms = (uint64_t)bb_time_monotonic_ms() + timeout_ms;
-    timer->repeating = 0;
-    timer->task = task;
-    runtime->timer_count++;
+    if (bb_timer_heap_push(runtime->timers, next_fire_ms, timeout_ms, 0, task) != 0)
+    {
+        bb_task_destroy(task);
+        return NULL;
+    }
 
     return task;
 }
 
 bool bb_runtime_is_empty(bb_runtime_t *runtime)
 {
-    return runtime->watcher_count == 0 && runtime->timer_count == 0 && bb_scheduler_is_empty(runtime->scheduler);
+    return runtime->watcher_count == 0 && bb_timer_heap_is_empty(runtime->timers) && bb_scheduler_is_empty(runtime->scheduler);
 }
