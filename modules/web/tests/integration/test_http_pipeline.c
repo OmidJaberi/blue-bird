@@ -1039,6 +1039,9 @@ int main(void)
 
     printf("HTTP client and server integration tests passed.\n");
 
+    bb_runtime_stop(server_runtime);
+    pthread_join(thread_id, NULL);
+
     bb_runtime_destroy(server_runtime);
     bb_runtime_destroy(bb_runtime_default());
     return 0;
