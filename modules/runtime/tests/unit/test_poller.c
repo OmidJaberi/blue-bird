@@ -5,6 +5,7 @@
 
 #if !defined(_WIN32)
 #include <unistd.h>
+#include <sys/resource.h>
 #endif
 
 static void test_poller_null_poller_is_rejected_everywhere(void)
@@ -79,6 +80,40 @@ static void test_poller_register_rejects_invalid_fd(void)
     bb_poller_destroy(poller);
 }
 
+// dup2()-ing a real fd up to FD_SETSIZE + 16 can exceed the process's
+// default open-file *soft* limit (e.g. macOS defaults RLIMIT_NOFILE to
+// 256, right around FD_SETSIZE itself), which would fail the dup2() below
+// for reasons that have nothing to do with the poller under test. Raise
+// the soft limit far enough to fit `needed`, capped by whatever the hard
+// limit allows, and hand back the previous limit so the caller can
+// restore it -- we don't want to leave process-wide rlimit state changed
+// for tests that run after this one.
+//
+// Returns 0 if `needed` fds are available (whether or not a raise was
+// necessary), -1 if the hard limit won't allow it.
+static int _ensure_fd_limit(int needed, struct rlimit *previous)
+{
+    if (getrlimit(RLIMIT_NOFILE, previous) != 0)
+    {
+        return -1;
+    }
+
+    if (previous->rlim_cur > (rlim_t)needed)
+    {
+        return 0; // already enough headroom, nothing to do
+    }
+
+    if (previous->rlim_max != RLIM_INFINITY && previous->rlim_max <= (rlim_t)needed)
+    {
+        return -1; // hard limit won't let us get there
+    }
+
+    struct rlimit raised = *previous;
+    raised.rlim_cur = (rlim_t)needed + 1;
+
+    return setrlimit(RLIMIT_NOFILE, &raised);
+}
+
 // Historically select()'s fd_set imposed a hard FD_SETSIZE ceiling on the
 // numeric fd value; epoll/kqueue/poll have no such ceiling. This confirms
 // the fix: a real fd well past the old FD_SETSIZE boundary now registers
@@ -87,10 +122,18 @@ static void test_poller_supports_fd_above_legacy_fd_setsize(void)
 {
     printf("\tRunning test_poller_supports_fd_above_legacy_fd_setsize...\n");
 
+    int high_fd = FD_SETSIZE + 16;
+
+    struct rlimit previous_limit;
+    if (_ensure_fd_limit(high_fd, &previous_limit) != 0)
+    {
+        printf("\t\tskipped: RLIMIT_NOFILE hard limit is too low to open fd %d\n", high_fd);
+        return;
+    }
+
     int pipefd[2];
     BB_ASSERT(pipe(pipefd) == 0);
 
-    int high_fd = FD_SETSIZE + 16;
     BB_ASSERT(dup2(pipefd[0], high_fd) == high_fd);
 
     bb_poller_t *poller = bb_poller_create();
@@ -111,6 +154,8 @@ static void test_poller_supports_fd_above_legacy_fd_setsize(void)
     close(high_fd);
     close(pipefd[0]);
     close(pipefd[1]);
+
+    setrlimit(RLIMIT_NOFILE, &previous_limit); // best-effort restore
 }
 
 static void test_poller_unregister_partial_events_keeps_fd_registered(void)
