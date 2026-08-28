@@ -236,7 +236,14 @@ static void _bb_runtime_update_timers(bb_runtime_t *runtime)
 
         if (top->repeating)
         {
-            bb_timer_heap_reschedule_top(runtime->timers, now + top->interval_ms);
+            uint64_t next_fire_ms = now + top->interval_ms;
+
+            if (next_fire_ms <= now)
+            {
+                next_fire_ms = now + 1;
+            }
+
+            bb_timer_heap_reschedule_top(runtime->timers, next_fire_ms);
         }
         else
         {
