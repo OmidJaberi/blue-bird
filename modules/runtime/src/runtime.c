@@ -489,10 +489,14 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
     {
         if (runtime->watchers[i].fd == fd)
         {
-            bb_task_cancel(runtime->watchers[i].task);
+            bb_task_t *task = runtime->watchers[i].task;
+
+            bb_task_cancel(task);
             runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
             runtime->watcher_count--;
             i--;
+
+            bb_scheduler_schedule(runtime->scheduler, task); // Schedule for Destruction
         }
     }
 
