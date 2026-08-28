@@ -1152,6 +1152,92 @@ static void test_watch_fd_replace_cancels_old_task(void)
     bb_platform_net_cleanup();
 }
 
+// bb_runtime_unwatch_fd() removes a watcher's task from the poller/watcher
+// bookkeeping. A watcher task that has never fired is only ever referenced
+// from watchers[], so unwatch_fd() must itself route the task to
+// destruction (via the scheduler) -- otherwise it's cancelled but never
+// freed, i.e. leaked on every call.
+static int unwatch_destroyed_count = 0;
+
+static void unwatch_destroy_cb(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    (void)task;
+    (void)userdata;
+    (void)result;
+    unwatch_destroyed_count++;
+}
+
+static void unwatch_fd_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+    BB_ASSERT(false); // must never fire: unwatched before any tick runs
+}
+
+static void test_unwatch_fd_destroys_task(void)
+{
+    printf("\tRunning test_unwatch_fd_destroys_task...\n");
+
+    unwatch_destroyed_count = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    bb_socket_t listener = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(listener != BB_INVALID_SOCKET);
+
+    int opt = 1;
+    BB_ASSERT(setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)) == 0);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+
+    BB_ASSERT(bind(listener, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    BB_ASSERT(listen(listener, 1) == 0);
+
+    socklen_t addr_len = sizeof(addr);
+    BB_ASSERT(getsockname(listener, (struct sockaddr *)&addr, &addr_len) == 0);
+
+    bb_socket_t client = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(client != BB_INVALID_SOCKET);
+    BB_ASSERT(connect(client, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+    bb_socket_t server = accept(listener, NULL, NULL);
+    BB_ASSERT(server != BB_INVALID_SOCKET);
+
+    bb_socket_close(listener);
+
+    bb_task_t *task = bb_runtime_watch_fd_ex(runtime, server, BB_EVENT_READ, BB_WATCH_PERSISTENT,
+        &(bb_task_config_t) {.run = unwatch_fd_cb, .cleanup = unwatch_destroy_cb});
+    BB_ASSERT(task != NULL);
+    BB_ASSERT(runtime->watcher_count == 1);
+
+    BB_ASSERT(bb_runtime_unwatch_fd(runtime, server) == 0);
+
+    BB_ASSERT(runtime->watcher_count == 0);
+    BB_ASSERT(bb_task_is_cancelled(task) == 1);
+
+    // The cancelled task must reach bb_task_destroy() on its own, without
+    // ever having been readable/fired -- i.e. it must be routed through
+    // the scheduler by unwatch_fd() itself.
+    runtime->running = true;
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(unwatch_destroyed_count == 1);
+
+    bb_socket_close(server);
+    bb_socket_close(client);
+
+    bb_runtime_destroy(runtime);
+
+    bb_platform_net_cleanup();
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -1179,6 +1265,7 @@ int main(void)
     test_multi_task_fanout();
     test_oneshot_watch_fires_once();
     test_watch_fd_replace_cancels_old_task();
+    test_unwatch_fd_destroys_task();
     printf("Runtime integration test passed.\n");
     return 0;
 }
