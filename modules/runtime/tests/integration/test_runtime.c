@@ -717,6 +717,48 @@ static void test_zero_timeout(void)
     bb_runtime_destroy(runtime);
 }
 
+// Interval canecellation before first execution
+static int zero_interval_executed = 0;
+
+static void zero_interval_cb(bb_task_t *task, void *userdata)
+{
+    zero_interval_executed++;
+
+    if (zero_interval_executed == 5)
+    {
+        bb_runtime_t *runtime = userdata;
+        bb_runtime_cancel_task(runtime, task);
+    }
+}
+
+static void test_zero_interval(void)
+{
+    printf("\tRunning test_zero_interval...\n");
+
+    cancelled_interval_executed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_task_t *interval =
+        bb_runtime_set_interval(
+            runtime,
+            0,
+            zero_interval_cb,
+            runtime
+        );
+
+    BB_ASSERT(interval != NULL);
+
+    runtime->running = true;
+    while (!bb_runtime_is_empty(runtime))
+        bb_runtime_tick(runtime);
+
+    BB_ASSERT(zero_interval_executed == 5);
+
+    bb_runtime_destroy(runtime);
+}
+
 // Empty runtime Destruction
 
 static void test_empty_runtime_destroy(void)
@@ -1257,6 +1299,7 @@ int main(void)
     test_interval_cancellation();
     test_interval_cleanup();
     test_zero_timeout();
+    test_zero_interval();
     test_empty_runtime_destroy();
     test_self_cancellation();
     test_schedule_then_cancel();
