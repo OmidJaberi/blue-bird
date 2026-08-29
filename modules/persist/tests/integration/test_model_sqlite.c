@@ -332,6 +332,94 @@ static void test_sqlite_long_table_name_no_overflow(void)
     api->close(h);
 }
 
+#define BB_WIDE_FIELD_COUNT 40
+
+typedef struct {
+    int id;
+    int values[BB_WIDE_FIELD_COUNT];
+} WideEntity;
+
+static char wide_field_names[BB_WIDE_FIELD_COUNT][40];
+static bb_field_t wide_fields[BB_WIDE_FIELD_COUNT + 1];
+
+static void build_wide_schema(bb_schema_t *out_schema)
+{
+    wide_fields[0] = (bb_field_t){
+        .name = "id",
+        .type = BB_FIELD_INT,
+        .offset = offsetof(WideEntity, id),
+        .size = sizeof(int),
+        .flags = BB_FIELD_NONE
+    };
+
+    for (int i = 0; i < BB_WIDE_FIELD_COUNT; i++)
+    {
+        /* Long-ish but individually unremarkable field names; it's the
+         * accumulation across all of them that used to blow the
+         * 1024-byte stack buffer. */
+        snprintf(wide_field_names[i], sizeof(wide_field_names[i]),
+                 "a_reasonably_long_field_name_%02d", i);
+
+        wide_fields[i + 1] = (bb_field_t){
+            .name = wide_field_names[i],
+            .type = BB_FIELD_INT,
+            .offset = offsetof(WideEntity, values) + i * sizeof(int),
+            .size = sizeof(int),
+            .flags = BB_FIELD_NONE
+        };
+    }
+
+    *out_schema = (bb_schema_t){
+        .name = "wide_entities",
+        .fields = wide_fields,
+        .field_count = BB_WIDE_FIELD_COUNT + 1,
+        .struct_size = sizeof(WideEntity),
+        .primary_key_index = 0
+    };
+}
+
+static void test_sqlite_many_fields_no_overflow(void)
+{
+    printf("\tTesting schema with many fields does not overflow SQL buffer...\n");
+
+    bb_schema_t wide_schema;
+    build_wide_schema(&wide_schema);
+
+    /* Sanity check: this schema alone comfortably exceeds the old
+     * 1024-byte fixed SQL buffers once column names/types are laid out. */
+    size_t approx_column_list_len = 0;
+    for (size_t i = 0; i < wide_schema.field_count; i++)
+        approx_column_list_len += strlen(wide_schema.fields[i].name) + strlen(", INTEGER");
+    BB_ASSERT(approx_column_list_len > 1024);
+
+    const char *db_path = "test_model_sqlite_wide.db";
+    cleanup_db(db_path);
+
+    const bb_model_api_t *api = bb_model_get("sqlite");
+    BB_ASSERT(api != NULL);
+
+    bb_model_handle_t *h = api->open(db_path);
+    BB_ASSERT(h != NULL);
+
+    WideEntity e = { .id = 1 };
+    for (int i = 0; i < BB_WIDE_FIELD_COUNT; i++)
+        e.values[i] = i;
+
+    BB_ASSERT(api->insert(h, &wide_schema, &e) == 0);
+
+    void *rows = NULL;
+    size_t row_count = 0;
+    BB_ASSERT(api->find_all(h, &wide_schema, &rows, &row_count) == 0);
+    BB_ASSERT(row_count == 1);
+
+    WideEntity *out = (WideEntity *)rows;
+    BB_ASSERT(out->id == 1);
+    BB_ASSERT(out->values[BB_WIDE_FIELD_COUNT - 1] == BB_WIDE_FIELD_COUNT - 1);
+
+    free(rows);
+    api->close(h);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -345,6 +433,7 @@ int main(void)
     test_sqlite_update_not_found();
     test_sqlite_remove_not_found();
     test_sqlite_long_table_name_no_overflow();
+    test_sqlite_many_fields_no_overflow();
 
     printf("All SQLite model tests passed!\n");
     return 0;
