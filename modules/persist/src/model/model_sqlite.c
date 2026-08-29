@@ -21,31 +21,106 @@ static const char *field_type_to_sql(bb_field_type_t type)
     }
 }
 
+/* ---------------------------
+ * Dynamic SQL buffer
+ *
+ * Table and column names come from schema metadata whose length is not
+ * bounded by anything in this module. Building SQL strings into fixed
+ * stack buffers with strcat() (unchecked -> stack buffer overflow) or
+ * snprintf() (silently truncates -> queries the wrong table/column) is
+ * unsafe once a schema has a long name or enough fields. This buffer
+ * grows on demand instead, so there is no fixed limit to overrun.
+ * --------------------------- */
+
+typedef struct {
+    char *data;
+    size_t len;
+    size_t cap;
+} sql_buf_t;
+
+static int sql_buf_init(sql_buf_t *b)
+{
+    b->cap = 128;
+    b->len = 0;
+    b->data = malloc(b->cap);
+
+    if (!b->data)
+        return -1;
+
+    b->data[0] = '\0';
+    return 0;
+}
+
+static int sql_buf_append(sql_buf_t *b, const char *s)
+{
+    size_t slen = strlen(s);
+    size_t needed = b->len + slen + 1; /* +1 for NUL */
+
+    if (needed > b->cap)
+    {
+        size_t new_cap = b->cap;
+
+        while (new_cap < needed)
+            new_cap *= 2;
+
+        char *tmp = realloc(b->data, new_cap);
+        if (!tmp)
+            return -1;
+
+        b->data = tmp;
+        b->cap = new_cap;
+    }
+
+    memcpy(b->data + b->len, s, slen + 1); /* copies the NUL too */
+    b->len += slen;
+    return 0;
+}
+
+static void sql_buf_free(sql_buf_t *b)
+{
+    free(b->data);
+    b->data = NULL;
+    b->len = 0;
+    b->cap = 0;
+}
+
 static int ensure_table(sqlite3 *db, bb_schema_t *schema)
 {
-    char sql[1024] = {0};
-    strcat(sql, "CREATE TABLE IF NOT EXISTS ");
-    strcat(sql, schema->name);
-    strcat(sql, " (");
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return SQLITE_NOMEM;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "CREATE TABLE IF NOT EXISTS ");
+    err |= sql_buf_append(&sql, schema->name);
+    err |= sql_buf_append(&sql, " (");
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
         bb_field_t *f = &schema->fields[i];
 
-        strcat(sql, f->name);
-        strcat(sql, " ");
-        strcat(sql, field_type_to_sql(f->type));
+        err |= sql_buf_append(&sql, f->name);
+        err |= sql_buf_append(&sql, " ");
+        err |= sql_buf_append(&sql, field_type_to_sql(f->type));
 
         if (i == schema->primary_key_index)
-            strcat(sql, " PRIMARY KEY");
+            err |= sql_buf_append(&sql, " PRIMARY KEY");
 
         if (i < schema->field_count - 1)
-            strcat(sql, ", ");
+            err |= sql_buf_append(&sql, ", ");
     }
 
-    strcat(sql, ");");
+    err |= sql_buf_append(&sql, ");");
 
-    return sqlite3_exec(db, sql, NULL, NULL, NULL);
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return SQLITE_NOMEM;
+    }
+
+    int rc = sqlite3_exec(db, sql.data, NULL, NULL, NULL);
+    sql_buf_free(&sql);
+    return rc;
 }
 
 static bb_model_handle_t *sqlite_open(const char *uri)
@@ -78,32 +153,45 @@ static int sqlite_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *e
     if (ensure_table(h->db, schema) != SQLITE_OK)
         return -1;
 
-    char sql[1024] = {0};
-    strcat(sql, "INSERT INTO ");
-    strcat(sql, schema->name);
-    strcat(sql, " (");
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "INSERT INTO ");
+    err |= sql_buf_append(&sql, schema->name);
+    err |= sql_buf_append(&sql, " (");
 
     // column names
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        strcat(sql, schema->fields[i].name);
+        err |= sql_buf_append(&sql, schema->fields[i].name);
         if (i < schema->field_count - 1)
-            strcat(sql, ", ");
+            err |= sql_buf_append(&sql, ", ");
     }
 
-    strcat(sql, ") VALUES (");
+    err |= sql_buf_append(&sql, ") VALUES (");
 
     for (size_t i = 0; i < schema->field_count; i++)
     {
-        strcat(sql, "?");
+        err |= sql_buf_append(&sql, "?");
         if (i < schema->field_count - 1)
-            strcat(sql, ", ");
+            err |= sql_buf_append(&sql, ", ");
     }
 
-    strcat(sql, ");");
+    err |= sql_buf_append(&sql, ");");
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
 
     sqlite3_stmt *stmt;
-    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+    int prepare_rc = sqlite3_prepare_v2(h->db, sql.data, -1, &stmt, NULL);
+    sql_buf_free(&sql);
+
+    if (prepare_rc != SQLITE_OK)
         return -1;
 
     // bind values
@@ -149,13 +237,28 @@ static int sqlite_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, voi
 
     bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
-    char sql[512];
-    snprintf(sql, sizeof(sql),
-             "SELECT * FROM %s WHERE %s = ?;",
-             schema->name, pk->name);
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "SELECT * FROM ");
+    err |= sql_buf_append(&sql, schema->name);
+    err |= sql_buf_append(&sql, " WHERE ");
+    err |= sql_buf_append(&sql, pk->name);
+    err |= sql_buf_append(&sql, " = ?;");
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
 
     sqlite3_stmt *stmt;
-    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+    int prepare_rc = sqlite3_prepare_v2(h->db, sql.data, -1, &stmt, NULL);
+    sql_buf_free(&sql);
+
+    if (prepare_rc != SQLITE_OK)
         return -1;
 
     switch (pk->type)
@@ -224,10 +327,14 @@ static int sqlite_update(bb_model_handle_t *handle,
 
     bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
-    char sql[1024] = {0};
-    strcat(sql, "UPDATE ");
-    strcat(sql, schema->name);
-    strcat(sql, " SET ");
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "UPDATE ");
+    err |= sql_buf_append(&sql, schema->name);
+    err |= sql_buf_append(&sql, " SET ");
 
     // SET clause (skip PK)
     int first = 1;
@@ -237,20 +344,29 @@ static int sqlite_update(bb_model_handle_t *handle,
             continue;
 
         if (!first)
-            strcat(sql, ", ");
+            err |= sql_buf_append(&sql, ", ");
 
-        strcat(sql, schema->fields[i].name);
-        strcat(sql, " = ?");
+        err |= sql_buf_append(&sql, schema->fields[i].name);
+        err |= sql_buf_append(&sql, " = ?");
 
         first = 0;
     }
 
-    strcat(sql, " WHERE ");
-    strcat(sql, pk->name);
-    strcat(sql, " = ?;");
+    err |= sql_buf_append(&sql, " WHERE ");
+    err |= sql_buf_append(&sql, pk->name);
+    err |= sql_buf_append(&sql, " = ?;");
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
 
     sqlite3_stmt *stmt;
-    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+    int prepare_rc = sqlite3_prepare_v2(h->db, sql.data, -1, &stmt, NULL);
+    sql_buf_free(&sql);
+
+    if (prepare_rc != SQLITE_OK)
         return -1;
 
     // bind values (non-PK first)
@@ -325,13 +441,28 @@ static int sqlite_remove(bb_model_handle_t *handle, bb_schema_t *schema, const v
 
     bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
-    char sql[512];
-    snprintf(sql, sizeof(sql),
-             "DELETE FROM %s WHERE %s = ?;",
-             schema->name, pk->name);
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "DELETE FROM ");
+    err |= sql_buf_append(&sql, schema->name);
+    err |= sql_buf_append(&sql, " WHERE ");
+    err |= sql_buf_append(&sql, pk->name);
+    err |= sql_buf_append(&sql, " = ?;");
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
 
     sqlite3_stmt *stmt;
-    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+    int prepare_rc = sqlite3_prepare_v2(h->db, sql.data, -1, &stmt, NULL);
+    sql_buf_free(&sql);
+
+    if (prepare_rc != SQLITE_OK)
         return -1;
 
     switch (pk->type)
@@ -371,11 +502,26 @@ static int sqlite_find_all(bb_model_handle_t *handle,
     if (ensure_table(h->db, schema) != SQLITE_OK)
         return -1;
 
-    char sql[256];
-    snprintf(sql, sizeof(sql), "SELECT * FROM %s;", schema->name);
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "SELECT * FROM ");
+    err |= sql_buf_append(&sql, schema->name);
+    err |= sql_buf_append(&sql, ";");
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
 
     sqlite3_stmt *stmt;
-    if (sqlite3_prepare_v2(h->db, sql, -1, &stmt, NULL) != SQLITE_OK)
+    int prepare_rc = sqlite3_prepare_v2(h->db, sql.data, -1, &stmt, NULL);
+    sql_buf_free(&sql);
+
+    if (prepare_rc != SQLITE_OK)
         return -1;
 
     size_t capacity = 8;
@@ -455,20 +601,28 @@ static int sqlite_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *sc
     if (!field)
         return -1;
 
-    char sql[512];
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
 
-    snprintf(sql, sizeof(sql),
-             "SELECT * FROM %s WHERE %s = ? LIMIT 1;",
-             schema->name,
-             field->name);
+    int err = 0;
+    err |= sql_buf_append(&sql, "SELECT * FROM ");
+    err |= sql_buf_append(&sql, schema->name);
+    err |= sql_buf_append(&sql, " WHERE ");
+    err |= sql_buf_append(&sql, field->name);
+    err |= sql_buf_append(&sql, " = ? LIMIT 1;");
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
 
     sqlite3_stmt *stmt;
+    int prepare_rc = sqlite3_prepare_v2(h->db, sql.data, -1, &stmt, NULL);
+    sql_buf_free(&sql);
 
-    if (sqlite3_prepare_v2(h->db,
-                           sql,
-                           -1,
-                           &stmt,
-                           NULL) != SQLITE_OK)
+    if (prepare_rc != SQLITE_OK)
     {
         return -1;
     }
