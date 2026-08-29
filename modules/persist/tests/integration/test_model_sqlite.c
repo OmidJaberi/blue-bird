@@ -1,5 +1,6 @@
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "blue-bird/persist/model.h"
@@ -274,6 +275,63 @@ static void test_sqlite_remove_not_found(void)
     api->close(h);
 }
 
+#define BB_LONG_NAME_LEN 2000
+
+static void test_sqlite_long_table_name_no_overflow(void)
+{
+    printf("\tTesting long table name does not overflow SQL buffer...\n");
+
+    /* Build a table name far longer than the old fixed 1024-byte
+     * buffers used for CREATE TABLE / INSERT / UPDATE statements. */
+    char long_name[BB_LONG_NAME_LEN + 1];
+    memset(long_name, 'a', BB_LONG_NAME_LEN);
+    long_name[BB_LONG_NAME_LEN] = '\0';
+
+    bb_schema_t long_name_schema = {
+        .name = long_name,
+        .fields = user_fields,
+        .field_count = 2,
+        .struct_size = sizeof(User),
+        .primary_key_index = 0
+    };
+
+    const char *db_path = "test_model_sqlite_long_name.db";
+    cleanup_db(db_path);
+
+    const bb_model_api_t *api = bb_model_get("sqlite");
+    BB_ASSERT(api != NULL);
+
+    bb_model_handle_t *h = api->open(db_path);
+    BB_ASSERT(h != NULL);
+
+    User u = { .id = 1 };
+    strncpy(u.name, "Alice", sizeof(u.name));
+
+    /* CREATE TABLE + INSERT: this is where the old strcat-based
+     * ensure_table()/sqlite_insert() would overrun their stack buffers. */
+    BB_ASSERT(api->insert(h, &long_name_schema, &u) == 0);
+
+    User out = {0};
+    int id = 1;
+    BB_ASSERT(api->find_by_pk(h, &long_name_schema, &out, &id) == 0);
+    BB_ASSERT(out.id == 1);
+    BB_ASSERT(strcmp(out.name, "Alice") == 0);
+
+    strncpy(u.name, "Bob", sizeof(u.name));
+    BB_ASSERT(api->update(h, &long_name_schema, &u) == 0);
+
+    memset(&out, 0, sizeof(out));
+    BB_ASSERT(api->find_by_pk(h, &long_name_schema, &out, &id) == 0);
+    BB_ASSERT(strcmp(out.name, "Bob") == 0);
+
+    BB_ASSERT(api->remove(h, &long_name_schema, &id) == 0);
+
+    memset(&out, 0, sizeof(out));
+    BB_ASSERT(api->find_by_pk(h, &long_name_schema, &out, &id) != 0);
+
+    api->close(h);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -286,6 +344,7 @@ int main(void)
     test_sqlite_insert_conflict();
     test_sqlite_update_not_found();
     test_sqlite_remove_not_found();
+    test_sqlite_long_table_name_no_overflow();
 
     printf("All SQLite model tests passed!\n");
     return 0;
