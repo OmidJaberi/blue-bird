@@ -7,6 +7,7 @@ extern "C" {
 
 
 #include "schema.h"
+#include "query.h"
 
 typedef struct bb_model_handle_t bb_model_handle_t;
 
@@ -22,6 +23,12 @@ typedef struct {
     int (*remove)(bb_model_handle_t *h, bb_schema_t *schema, const void *key);
     int (*find_all)(bb_model_handle_t *h, bb_schema_t *schema, void **out_array, size_t *out_count);
     int (*find_first_by_field)(bb_model_handle_t *h, bb_schema_t *schema, void *out, const char *field_name, const void *value);
+
+    /* Optional. Runs a bb_query_t (WHERE/ORDER BY/LIMIT/OFFSET) against
+     * the backend, ideally pushed down to the storage engine instead of
+     * loading every row. May be NULL -- bb_repo_find() falls back to
+     * find_all() + in-memory filtering (bb_query_apply()) when it is. */
+    int (*query)(bb_model_handle_t *h, bb_schema_t *schema, const bb_query_t *q, void **out_array, size_t *out_count);
 
 } bb_model_api_t;
 

@@ -21,6 +21,21 @@ static const char *field_type_to_sql(bb_field_type_t type)
     }
 }
 
+static const char *query_op_to_sql(bb_query_op_t op)
+{
+    switch (op)
+    {
+        case BB_OP_EQ:   return "=";
+        case BB_OP_NE:   return "!=";
+        case BB_OP_LT:   return "<";
+        case BB_OP_LTE:  return "<=";
+        case BB_OP_GT:   return ">";
+        case BB_OP_GTE:  return ">=";
+        case BB_OP_LIKE: return "LIKE";
+        default:         return "=";
+    }
+}
+
 /* ---------------------------
  * Dynamic SQL buffer
  *
@@ -697,6 +712,190 @@ static int sqlite_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *sc
     return 0;
 }
 
+static int sqlite_query(bb_model_handle_t *handle, bb_schema_t *schema, const bb_query_t *q, void **out_array, size_t *out_count)
+{
+    BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
+
+    if (ensure_table(h->db, schema) != SQLITE_OK)
+        return -1;
+
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "SELECT * FROM ");
+    err |= sql_buf_append(&sql, schema->name);
+
+    if (q->condition_count > 0)
+    {
+        err |= sql_buf_append(&sql, " WHERE ");
+
+        for (size_t i = 0; i < q->condition_count; i++)
+        {
+            if (i > 0)
+                err |= sql_buf_append(&sql, " AND ");
+
+            err |= sql_buf_append(&sql, q->conditions[i].field);
+            err |= sql_buf_append(&sql, " ");
+            err |= sql_buf_append(&sql, query_op_to_sql(q->conditions[i].op));
+            err |= sql_buf_append(&sql, " ?");
+        }
+    }
+
+    if (q->sort_count > 0)
+    {
+        err |= sql_buf_append(&sql, " ORDER BY ");
+
+        for (size_t i = 0; i < q->sort_count; i++)
+        {
+            if (i > 0)
+                err |= sql_buf_append(&sql, ", ");
+
+            err |= sql_buf_append(&sql, q->sorts[i].field);
+            err |= sql_buf_append(&sql,
+                q->sorts[i].direction == BB_ORDER_ASC ? " ASC" : " DESC");
+        }
+    }
+
+    /* SQLite requires LIMIT to precede OFFSET; an offset with no limit
+     * needs an explicit "no limit" sentinel. */
+    if (q->limit >= 0)
+        err |= sql_buf_append(&sql, " LIMIT ?");
+    else if (q->offset >= 0)
+        err |= sql_buf_append(&sql, " LIMIT -1");
+
+    if (q->offset >= 0)
+        err |= sql_buf_append(&sql, " OFFSET ?");
+
+    err |= sql_buf_append(&sql, ";");
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
+
+    sqlite3_stmt *stmt;
+    int prepare_rc = sqlite3_prepare_v2(h->db, sql.data, -1, &stmt, NULL);
+    sql_buf_free(&sql);
+
+    if (prepare_rc != SQLITE_OK)
+        return -1;
+
+    int bind_index = 1;
+
+    for (size_t i = 0; i < q->condition_count; i++)
+    {
+        const bb_query_cond_t *cond = &q->conditions[i];
+        bb_field_t *f = bb_schema_find_field(schema, cond->field);
+
+        if (!f)
+        {
+            sqlite3_finalize(stmt);
+            return -1;
+        }
+
+        switch (f->type)
+        {
+            case BB_FIELD_INT:
+                sqlite3_bind_int(stmt, bind_index++, *(const int *)cond->value);
+                break;
+
+            case BB_FIELD_STRING:
+            case BB_FIELD_UUID:
+                sqlite3_bind_text(stmt, bind_index++,
+                                  (const char *)cond->value,
+                                  -1, SQLITE_STATIC);
+                break;
+
+            case BB_FIELD_BLOB:
+                sqlite3_bind_blob(stmt, bind_index++,
+                                  cond->value,
+                                  (int)f->size,
+                                  SQLITE_STATIC);
+                break;
+        }
+    }
+
+    if (q->limit >= 0)
+        sqlite3_bind_int(stmt, bind_index++, (int)q->limit);
+
+    if (q->offset >= 0)
+        sqlite3_bind_int(stmt, bind_index++, (int)q->offset);
+
+    size_t capacity = 8;
+    size_t count = 0;
+
+    void *buffer = malloc(schema->struct_size * capacity);
+    if (!buffer)
+    {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        if (count >= capacity)
+        {
+            capacity *= 2;
+            void *tmp = realloc(buffer, schema->struct_size * capacity);
+            if (!tmp)
+            {
+                free(buffer);
+                sqlite3_finalize(stmt);
+                return -1;
+            }
+            buffer = tmp;
+        }
+
+        void *entity = (char *)buffer + (count * schema->struct_size);
+
+        for (size_t i = 0; i < schema->field_count; i++)
+        {
+            bb_field_t *f = &schema->fields[i];
+            void *field_ptr = (char *)entity + f->offset;
+
+            switch (f->type)
+            {
+                case BB_FIELD_INT:
+                    *(int *)field_ptr = sqlite3_column_int(stmt, (int)i);
+                    break;
+
+                case BB_FIELD_STRING:
+                case BB_FIELD_UUID:
+                {
+                    const unsigned char *text = sqlite3_column_text(stmt, (int)i);
+                    if (text)
+                        strncpy((char *)field_ptr, (const char *)text, f->size);
+                    break;
+                }
+
+                case BB_FIELD_BLOB:
+                    memcpy(field_ptr,
+                           sqlite3_column_blob(stmt, (int)i),
+                           f->size);
+                    break;
+            }
+        }
+
+        count++;
+    }
+
+    sqlite3_finalize(stmt);
+
+    if (count == 0)
+    {
+        free(buffer);
+        buffer = NULL;
+    }
+
+    *out_array = buffer;
+    *out_count = count;
+
+    return 0;
+}
+
 static bb_model_api_t model_sqlite_api = {
     .name                = "sqlite",
     .open                = sqlite_open,
@@ -706,7 +905,8 @@ static bb_model_api_t model_sqlite_api = {
     .update              = sqlite_update,
     .remove              = sqlite_remove,
     .find_all            = sqlite_find_all,
-    .find_first_by_field = sqlite_find_first_by_field
+    .find_first_by_field = sqlite_find_first_by_field,
+    .query               = sqlite_query
 };
 
 const bb_model_api_t *bb_model_sqlite_api(void)
