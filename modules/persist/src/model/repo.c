@@ -86,3 +86,28 @@ int bb_repo_filter(bb_repo_t *repo, void **out_array, size_t *out_count, bb_filt
 
     return 0;
 }
+
+int bb_repo_find(bb_repo_t *r, const bb_query_t *q, void **out_array, size_t *out_count)
+{
+    if (!r || !q || !out_array || !out_count)
+        return -1;
+
+    if (r->api->query)
+    {
+        return r->api->query(r->handle, r->schema, q, out_array, out_count);
+    }
+
+    /* Backend has no native query() -- load everything and filter/sort/
+     * paginate in memory. Correct for any backend, just not as scalable
+     * as a pushed-down query for large tables. */
+    void *all = NULL;
+    size_t total = 0;
+
+    if (bb_repo_find_all(r, &all, &total) != 0)
+        return -1;
+
+    int rc = bb_query_apply(q, all, total, out_array, out_count);
+    free(all);
+
+    return rc;
+}

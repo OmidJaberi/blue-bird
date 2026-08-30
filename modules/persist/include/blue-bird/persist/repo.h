@@ -69,6 +69,12 @@ static inline int bb_repo_find_first_by_field(bb_repo_t *r, void *out, const cha
     return r->api->find_first_by_field(r->handle, r->schema, out, field, value);
 }
 
+/* WHERE/ORDER BY/LIMIT/OFFSET search. Uses the backend's native query()
+ * if it implements one (pushed down to the storage engine); otherwise
+ * falls back to find_all() + in-memory filtering, so this always works
+ * regardless of backend, just not always as efficiently. */
+int bb_repo_find(bb_repo_t *r, const bb_query_t *q, void **out_array, size_t *out_count);
+
 #define BB_DEFINE_REPO_TYPE(name, type) \
     typedef struct { bb_repo_t base; } name; \
     static inline int name##_insert(name *r, type *e) { return bb_repo_insert(&r->base, e); } \
