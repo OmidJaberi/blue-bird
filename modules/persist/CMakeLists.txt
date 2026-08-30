@@ -9,6 +9,7 @@ add_library(bluebird_persist
     src/model/model_json.c
     src/model/model_registry.c
     src/model/model_sqlite.c
+    src/model/query.c
     src/model/repo.c
     src/model/schema.c
 
