@@ -1280,6 +1280,101 @@ static void test_unwatch_fd_destroys_task(void)
     bb_platform_net_cleanup();
 }
 
+// Persistent watcher must fire repeatedly while the FD remains readable.
+// Unlike BB_WATCH_ONESHOT, the watcher stays registered after each event.
+
+static int persistent_watch_fire_count = 0;
+
+static void persistent_watch_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    persistent_watch_fire_count++;
+}
+
+static void test_persistent_watch_fires_repeatedly(void)
+{
+    printf("\tRunning test_persistent_watch_fires_repeatedly...\n");
+
+    persistent_watch_fire_count = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    bb_socket_t listener = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(listener != BB_INVALID_SOCKET);
+
+    int opt = 1;
+    BB_ASSERT(setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)) == 0);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+
+    BB_ASSERT(bind(listener, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    BB_ASSERT(listen(listener, 1) == 0);
+
+    socklen_t addr_len = sizeof(addr);
+    BB_ASSERT(getsockname(listener, (struct sockaddr *)&addr, &addr_len) == 0);
+
+    bb_socket_t client = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(client != BB_INVALID_SOCKET);
+
+    BB_ASSERT(connect(client, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+    bb_socket_t server = accept(listener, NULL, NULL);
+    BB_ASSERT(server != BB_INVALID_SOCKET);
+
+    bb_socket_close(listener);
+
+    /*
+     * Leave data unread. The FD therefore remains readable across polls.
+     */
+    BB_ASSERT(send(client, "x", 1, 0) == 1);
+
+    bb_task_t *watch = bb_runtime_watch_fd(runtime, server, BB_EVENT_READ, BB_WATCH_PERSISTENT, persistent_watch_cb, NULL);
+
+    BB_ASSERT(watch != NULL);
+    BB_ASSERT(runtime->watcher_count == 1);
+
+    runtime->running = true;
+
+    /*
+     * Each poll should produce another invocation because the data remains
+     * unread and the watcher is persistent.
+     */
+    for (int i = 0; i < 3; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(persistent_watch_fire_count == 3);
+    BB_ASSERT(runtime->watcher_count == 1);
+    BB_ASSERT(bb_task_is_cancelled(watch) == 0);
+
+    BB_ASSERT(bb_runtime_unwatch_fd(runtime, server) == 0);
+    BB_ASSERT(runtime->watcher_count == 0);
+
+    /*
+     * Process the cancelled watcher task so its lifetime is fully retired.
+     */
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(persistent_watch_fire_count == 3);
+
+    bb_socket_close(server);
+    bb_socket_close(client);
+
+    bb_runtime_destroy(runtime);
+
+    bb_platform_net_cleanup();
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -1309,6 +1404,7 @@ int main(void)
     test_oneshot_watch_fires_once();
     test_watch_fd_replace_cancels_old_task();
     test_unwatch_fd_destroys_task();
+    test_persistent_watch_fires_repeatedly();
     printf("Runtime integration test passed.\n");
     return 0;
 }
