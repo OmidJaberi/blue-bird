@@ -1375,6 +1375,68 @@ static void test_persistent_watch_fires_repeatedly(void)
     bb_platform_net_cleanup();
 }
 
+// Stopping the runtime must stop execution of the current run loop,
+// but must NOT cancel or destroy tasks that are still queued.
+
+static int stop_preserves_queue_first = 0;
+static int stop_preserves_queue_second = 0;
+
+static void stop_preserves_queue_first_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    stop_preserves_queue_first++;
+
+    bb_runtime_stop(runtime);
+}
+
+static void stop_preserves_queue_second_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    stop_preserves_queue_second++;
+}
+
+static void test_stop_preserves_queued_tasks(void)
+{
+    printf("\tRunning test_stop_preserves_queued_tasks...\n");
+
+    stop_preserves_queue_first = 0;
+    stop_preserves_queue_second = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, stop_preserves_queue_first_cb, runtime) != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, stop_preserves_queue_second_cb, NULL) != NULL);
+
+    // The first callback stops the run before the second task executes.
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(stop_preserves_queue_first == 1);
+    BB_ASSERT(stop_preserves_queue_second == 0);
+
+    // The important part: stopping wasn't cancellation. The queued task
+    // must still exist and execute when the runtime is run again.
+    BB_ASSERT(!bb_runtime_is_empty(runtime));
+
+    bb_runtime_set_running(runtime);
+    while (!bb_runtime_is_empty(runtime))
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(stop_preserves_queue_first == 1);
+    BB_ASSERT(stop_preserves_queue_second == 1);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -1405,6 +1467,7 @@ int main(void)
     test_watch_fd_replace_cancels_old_task();
     test_unwatch_fd_destroys_task();
     test_persistent_watch_fires_repeatedly();
+    test_stop_preserves_queued_tasks();
     printf("Runtime integration test passed.\n");
     return 0;
 }
