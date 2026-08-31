@@ -490,12 +490,14 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
         return -1;
     }
 
+    int res = -1;
     bb_poller_unregister(runtime->poller, fd, BB_EVENT_READ | BB_EVENT_WRITE);
 
     for (int i = 0; i < runtime->watcher_count; i++)
     {
         if (runtime->watchers[i].fd == fd)
         {
+            res = 0;
             bb_task_t *task = runtime->watchers[i].task;
 
             bb_task_cancel(task);
@@ -507,7 +509,7 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
         }
     }
 
-    return 0;
+    return res;
 }
 
 bb_task_t *bb_runtime_set_interval_ex(bb_runtime_t *runtime, uint64_t interval_ms, const bb_task_config_t *config)
