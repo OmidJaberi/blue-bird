@@ -228,7 +228,7 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
                 _bb_async_connection_handle_disconnect(async_conn);
                 break;
             }
-            case BB_ERR_IO:
+            default:
             {
                 bb_runtime_cancel_task(async_conn->runtime, task);
                 if (async_conn->read_error)

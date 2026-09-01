@@ -12,6 +12,19 @@ extern "C" {
 #include <stddef.h>
 #include <stdbool.h>
 
+/*
+ * Hard upper bound on how large a single connection's read buffer is
+ * ever allowed to grow. Without this, a client that trickles in bytes
+ * (or declares a huge Content-Length) forever without ever completing
+ * a request forces bb_connection_read() to keep doubling its buffer
+ * indefinitely, giving a single connection an unbounded claim on the
+ * heap -- a trivial denial-of-service vector when many such connections
+ * are opened at once. Once a connection's buffer would need to grow
+ * past this cap, bb_connection_read() rejects the payload with
+ * BB_ERR_PAYLOAD_TOO_LARGE instead of allocating further.
+ */
+#define BB_CONNECTION_MAX_BUFFER_SIZE (4 * 1024 * 1024) /* 4 MiB */
+
 typedef enum {
     BB_CONNECTION_READING,
     BB_CONNECTION_WRITING,

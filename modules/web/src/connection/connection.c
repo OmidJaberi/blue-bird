@@ -269,7 +269,25 @@ bb_error_t bb_connection_read(bb_connection_t *connection)
         /* Ensure space for incoming data and terminating '\0'. */
         if (connection->buffer_length + 1 >= connection->buffer_capacity)
         {
+            /* Already at the hard cap: refuse to grow any further
+             * rather than let a slow/never-completing payload double
+             * the buffer forever. */
+            if (connection->buffer_capacity >= BB_CONNECTION_MAX_BUFFER_SIZE)
+            {
+                connection->state = BB_CONNECTION_CLOSED;
+                return BB_ERROR(BB_ERR_PAYLOAD_TOO_LARGE, "Request payload exceeded the maximum buffer size.");
+            }
+
             size_t new_capacity = connection->buffer_capacity * 2;
+
+            /* Guard against size_t overflow on the doubling above, and
+             * clamp so a single growth step can never overshoot the
+             * hard cap. */
+            if (new_capacity < connection->buffer_capacity || new_capacity > BB_CONNECTION_MAX_BUFFER_SIZE)
+            {
+                new_capacity = BB_CONNECTION_MAX_BUFFER_SIZE;
+            }
+
             char *tmp = realloc(connection->buffer, new_capacity);
             if (!tmp)
             {
