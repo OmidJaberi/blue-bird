@@ -239,6 +239,135 @@ static void test_poller_wait_times_out_when_nothing_ready(void)
     close(pipefd[1]);
 }
 
+// ------------------------------------------------------------------------
+// Socket exhaustion (EMFILE/ENFILE) handling
+//
+// EMFILE ("process fd table full") and ENFILE ("system-wide fd table
+// full") both surface to us identically: whatever syscall would have
+// handed back a new fd instead returns -1. The most portable way to
+// force that deterministically in a unit test is EMFILE via
+// RLIMIT_NOFILE, since it doesn't require actually driving the whole
+// system out of descriptors -- but the code path exercised inside
+// epoll_create1()/kqueue() returning -1 is the same one ENFILE takes.
+//
+// Pinning rlim_cur at 3 works regardless of how many fds happen to
+// already be open: fds 0/1/2 (stdio) are always taken, so the *next*
+// fd the kernel would hand out is always >= 3 -- i.e. >= rlim_cur --
+// which is exactly what makes open()/socket()/epoll_create1()/kqueue()
+// fail with EMFILE. Existing, already-open fds are completely
+// unaffected; only *new* fd creation is blocked.
+static int _exhaust_fd_table(struct rlimit *previous)
+{
+    if (getrlimit(RLIMIT_NOFILE, previous) != 0)
+    {
+        return -1;
+    }
+
+    struct rlimit exhausted = *previous;
+    exhausted.rlim_cur = 3;
+
+    return setrlimit(RLIMIT_NOFILE, &exhausted);
+}
+
+#if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_KQUEUE)
+
+// epoll_create1()/kqueue() each need to hand back a brand-new kernel fd.
+// With the fd table pinned full, that allocation itself fails, so
+// bb_poller_create() must report failure cleanly (NULL) instead of
+// handing back a poller wrapping a bogus/negative epfd or kq that later
+// calls would blindly pass to epoll_ctl()/kevent() and crash on.
+static void test_poller_create_fails_gracefully_under_fd_exhaustion(void)
+{
+    printf("\tRunning test_poller_create_fails_gracefully_under_fd_exhaustion...\n");
+
+    struct rlimit previous_limit;
+    BB_ASSERT(_exhaust_fd_table(&previous_limit) == 0);
+
+    bb_poller_t *poller = bb_poller_create();
+    BB_ASSERT(poller == NULL);
+
+    // Must also be safe to hand a NULL straight to destroy after a
+    // failed create, same as any other caller error path.
+    bb_poller_destroy(poller);
+
+    setrlimit(RLIMIT_NOFILE, &previous_limit); // best-effort restore
+}
+
+#endif // BB_POLLER_BACKEND_EPOLL || BB_POLLER_BACKEND_KQUEUE
+
+#if defined(BB_POLLER_BACKEND_POLL)
+
+// Unlike epoll/kqueue, poll()/WSAPoll() need no persistent kernel-side
+// handle -- _bb_poller_backend_create() is a pure no-op. So a fully
+// exhausted fd table must NOT stop a poller from being created here;
+// this is the one backend that keeps degrading gracefully rather than
+// refusing outright when the process is completely out of descriptors.
+static void test_poller_create_succeeds_without_kernel_fd_under_exhaustion(void)
+{
+    printf("\tRunning test_poller_create_succeeds_without_kernel_fd_under_exhaustion...\n");
+
+    struct rlimit previous_limit;
+    BB_ASSERT(_exhaust_fd_table(&previous_limit) == 0);
+
+    bb_poller_t *poller = bb_poller_create();
+    BB_ASSERT(poller != NULL);
+
+    setrlimit(RLIMIT_NOFILE, &previous_limit); // best-effort restore
+
+    bb_poller_destroy(poller);
+}
+
+#endif // BB_POLLER_BACKEND_POLL
+
+// The realistic production scenario: a long-running server hits
+// EMFILE/ENFILE while trying to accept() new connections. New
+// connections get rejected elsewhere (bb_connection_accept() already
+// returns NULL uniformly for any accept() failure), but the event loop
+// itself -- and every connection it was already serving before the fd
+// table filled up -- must keep working. None of register/unregister/
+// wait need to allocate a *new* kernel fd for an fd the backend already
+// knows about (EPOLL_CTL_MOD, a repeat kevent EV_ADD, and rebuilding the
+// ephemeral poll() array all reuse existing handles), so none of them
+// should start failing just because the process is out of descriptors.
+static void test_poller_register_and_wait_survive_fd_table_exhaustion(void)
+{
+    printf("\tRunning test_poller_register_and_wait_survive_fd_table_exhaustion...\n");
+
+    int pipefd[2];
+    BB_ASSERT(pipe(pipefd) == 0);
+
+    bb_poller_t *poller = bb_poller_create();
+    BB_ASSERT(poller != NULL);
+
+    BB_ASSERT(bb_poller_register(poller, pipefd[0], BB_EVENT_READ) == 0);
+
+    struct rlimit previous_limit;
+    BB_ASSERT(_exhaust_fd_table(&previous_limit) == 0);
+
+    // Toggle the fd's registration while the fd table is completely
+    // full: unregister must still succeed (it's best-effort/bookkeeping
+    // only), and re-registering it must still succeed too, since it
+    // touches only the already-open pipe fd and the already-open
+    // epfd/kq -- no new fd is created by either call.
+    BB_ASSERT(bb_poller_unregister(poller, pipefd[0], BB_EVENT_READ) == 0);
+    BB_ASSERT(bb_poller_register(poller, pipefd[0], BB_EVENT_READ) == 0);
+
+    BB_ASSERT(write(pipefd[1], "x", 1) == 1);
+
+    bb_poll_event_t events[4];
+    int ready = bb_poller_wait(poller, events, 4, 1000);
+
+    BB_ASSERT(ready == 1);
+    BB_ASSERT(events[0].fd == pipefd[0]);
+    BB_ASSERT(events[0].events & BB_EVENT_READ);
+
+    setrlimit(RLIMIT_NOFILE, &previous_limit); // restore before teardown
+
+    bb_poller_destroy(poller);
+    close(pipefd[0]);
+    close(pipefd[1]);
+}
+
 static void test_poller_register_merges_repeat_calls_into_one_entry(void)
 {
     printf("\tRunning test_poller_register_merges_repeat_calls_into_one_entry...\n");
@@ -284,6 +413,14 @@ int main(void)
     test_poller_wait_reports_readable_fd();
     test_poller_wait_times_out_when_nothing_ready();
     test_poller_register_merges_repeat_calls_into_one_entry();
+
+#if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_KQUEUE)
+    test_poller_create_fails_gracefully_under_fd_exhaustion();
+#endif
+#if defined(BB_POLLER_BACKEND_POLL)
+    test_poller_create_succeeds_without_kernel_fd_under_exhaustion();
+#endif
+    test_poller_register_and_wait_survive_fd_table_exhaustion();
 #endif
 
     printf("Poller tests passed.\n");
