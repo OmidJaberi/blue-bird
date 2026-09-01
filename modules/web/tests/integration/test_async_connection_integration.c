@@ -325,6 +325,77 @@ static void async_remote_disconnect_test(void)
     bb_runtime_destroy(runtime);
 }
 
+static bb_read_status_t read_never_done(void *userdata)
+{
+    (void)userdata;
+
+    // Never signals BB_READ_DONE; only bb_connection_read() hitting the
+    // hard buffer cap should ever end this task.
+    return (bb_read_status_t){ .result = BB_READ_MORE };
+}
+
+static void async_payload_too_large_test(void)
+{
+    printf("\tTesting oversized payload is rejected without hanging the loop...\n");
+
+    error_called = 0;
+    disconnect_called = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
+
+    bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
+
+    BB_ASSERT(client);
+
+    bb_async_connection_t *server = NULL;
+
+    while (!server)
+    {
+        server = bb_async_connection_accept(runtime, listener->connection->fd);
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(!BB_FAILED(bb_async_connection_create_read_task(server, read_never_done, read_error, server)));
+
+    // Simulate a client that just keeps streaming bytes without ever
+    // completing a request -- the exact shape of a buffer-exhaustion
+    // DoS attempt. Feed it well past BB_CONNECTION_MAX_BUFFER_SIZE.
+    size_t chunk_size = 65536;
+    char *chunk = malloc(chunk_size);
+    memset(chunk, 'C', chunk_size);
+
+    size_t total_sent = 0;
+    size_t max_to_send = (size_t)BB_CONNECTION_MAX_BUFFER_SIZE * 2;
+
+    while (!error_called && total_sent < max_to_send)
+    {
+        char *msg = malloc(chunk_size);
+        memcpy(msg, chunk, chunk_size);
+
+        BB_ASSERT(bb_connection_buffer_add(client->connection, msg, chunk_size) == 0);
+        bb_connection_write(client->connection);
+
+        total_sent += chunk_size;
+
+        bb_runtime_tick(runtime);
+        bb_usleep(1000);
+    }
+
+    free(chunk);
+
+    // The server must have reported the failure -- it must NOT still be
+    // silently spinning the read task waiting for more data that will
+    // never complete a request.
+    BB_ASSERT(error_called == 1);
+    BB_ASSERT(server->read_task == NULL);
+    BB_ASSERT(server->connection->buffer_capacity == (size_t)BB_CONNECTION_MAX_BUFFER_SIZE);
+
+    bb_async_connection_destroy(client);
+    bb_async_connection_destroy(server);
+    bb_runtime_destroy(runtime);
+}
+
 static void async_write_disconnect_test(void)
 {
     printf("\tTesting write after remote disconnect...\n");
@@ -401,6 +472,7 @@ int main(void)
     async_write_callback_test();
     async_read_callback_test();
     async_read_more_test();
+    async_payload_too_large_test();
     async_remote_disconnect_test();
     async_write_disconnect_test();
 
