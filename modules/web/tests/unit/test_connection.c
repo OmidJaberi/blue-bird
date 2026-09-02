@@ -287,6 +287,32 @@ static void connection_read_buffer_capped_test(void)
     bb_socket_close(fds[1]);
 }
 
+static void connection_read_buffer_exactly_at_cap_test(void)
+{
+    printf("\tTesting reads up to the cap still succeed...\n");
+
+    bb_socket_t fds[2];
+    BB_ASSERT(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+
+    bb_connection_t *reader = bb_connection_create_non_blocking(fds[0]);
+
+    // Comfortably under the cap: growth should proceed normally and
+    // never trip BB_ERR_PAYLOAD_TOO_LARGE.
+    size_t target = BB_CONNECTION_MAX_BUFFER_SIZE / 2;
+
+    size_t sent = 0;
+    bb_error_t err = _pump_bytes(reader, fds[1], target, &sent);
+
+    BB_ASSERT(!BB_FAILED(err));
+    BB_ASSERT(sent == target);
+    BB_ASSERT(reader->buffer_capacity <= BB_CONNECTION_MAX_BUFFER_SIZE);
+    BB_ASSERT(reader->state == BB_CONNECTION_READING);
+    BB_ASSERT(reader->buffer_length == sent);
+
+    bb_connection_destroy(reader);
+    bb_socket_close(fds[1]);
+}
+
 static void connection_closed_is_sticky_test(void)
 {
     printf("\tTesting closed state is sticky...\n");
@@ -318,6 +344,7 @@ int main(void)
     connection_invalid_buffer_test();
     connection_read_write_test();
     connection_read_buffer_capped_test();
+    connection_read_buffer_exactly_at_cap_test();
     connection_read_closed_test();
     connection_write_closed_test();
     connection_closed_is_sticky_test();
