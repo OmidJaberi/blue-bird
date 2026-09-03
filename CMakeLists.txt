@@ -13,6 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
+option(BUILD_TOOLS "Build developer tools (codegen, etc.)" ON)
 option(BLUEBIRD_INSTALL "Install Blue-Bird" OFF)
 
 option(BB_ENABLE_SANITIZERS "Enable sanitizers" OFF)
@@ -101,6 +102,11 @@ target_link_libraries(bluebird INTERFACE
 )
 
 add_library(BlueBird::bluebird ALIAS bluebird)
+
+# Developer tools (bb-codegen, etc.)
+if(BUILD_TOOLS)
+    add_subdirectory(tools/codegen)
+endif()
 
 # Examples
 
