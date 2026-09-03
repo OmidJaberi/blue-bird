@@ -1,0 +1,14 @@
+#ifndef BB_CODEGEN_BUILD_CONFIG_H
+#define BB_CODEGEN_BUILD_CONFIG_H
+
+/* Absolute path to tools/codegen/templates in the source tree. Baked in
+ * at configure time so `bb-codegen` finds its templates regardless of
+ * where it's invoked from or where the build directory lives -- this is
+ * dev-only tooling that runs from within a checkout, not something
+ * installed/relocated onto another machine, so a source-tree-relative
+ * absolute path is the simplest thing that reliably works. Edit the
+ * .tmpl files directly; no rebuild is needed to pick up template
+ * changes, only to pick up C changes. */
+#define BB_CODEGEN_TEMPLATES_DIR "@BB_CODEGEN_TEMPLATES_DIR@"
+
+#endif //BB_CODEGEN_BUILD_CONFIG_H
