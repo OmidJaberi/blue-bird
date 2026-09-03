@@ -949,7 +949,7 @@ failure:
 
 static bool white_space(char c)
 {
-    return c == ' ' || c == '\t' || c == '\n';
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
 static int parse_json_str_partial(bb_json_t **json, char *buffer);
