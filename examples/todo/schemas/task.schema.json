@@ -1,0 +1,11 @@
+{
+    "version": 1,
+    "kind": "persist.schema",
+    "name": "Task",
+    "table": "tasks",
+    "fields": [
+        { "name": "id", "type": "uuid", "primary_key": true },
+        { "name": "name", "type": "string", "size": 64 },
+        { "name": "status", "type": "string", "size": 64 }
+    ]
+}
