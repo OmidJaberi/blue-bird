@@ -19,7 +19,7 @@ int main(void)
     bb_model_handle_t *handle = api->open(dbfile);
 
     /* init repo */
-    bb_repo_init(&global_task_repo.base, api, handle, &task_schema);
+    bb_repo_init(&global_task_repo.base, api, handle, &Task_schema);
 
     bb_server_t *server = bb_server_create(8080);
 
