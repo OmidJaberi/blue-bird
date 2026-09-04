@@ -52,10 +52,37 @@ Schemas allow Blue-Bird to:
 
 ---
 
+# Generating Schemas
+
+Rather than hand-writing a schema's `bb_field_t[]` and matching
+`offsetof()` calls, schemas can be generated from a JSON manifest with
+[`bb-codegen`](../tools/codegen.md):
+
+```json
+{
+    "version": 1,
+    "kind": "persist.schema",
+    "name": "Task",
+    "table": "tasks",
+    "fields": [
+        { "name": "id", "type": "uuid", "primary_key": true },
+        { "name": "name", "type": "string", "size": 64 }
+    ]
+}
+```
+
+```bash
+bb-codegen generate --out schemas/generated schemas/task.schema.json
+```
+
+The `examples/todo` app uses this instead of a hand-written schema — see
+`examples/todo/schemas/`.
+
+---
+
 # Long-Term Vision
 
 Schemas are intended to become a foundation for:
 - scaffolding
-- code generation
 - serialization systems
-- tooling
+- further tooling (migrations, dialect-specific validation)

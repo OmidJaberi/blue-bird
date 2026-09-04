@@ -65,3 +65,11 @@ Repositories support `WHERE`/`ORDER BY`/`LIMIT`/`OFFSET` search via
 `bb_repo_find()` — pushed down to SQL on backends that support it, and
 falling back to an in-memory filter on backends that don't. See
 [Querying](query.md).
+
+---
+
+# Schema Codegen
+
+Schemas can be generated from a JSON manifest instead of hand-written,
+removing manual `offsetof()` bookkeeping. See
+[bb-codegen](../tools/codegen.md).
