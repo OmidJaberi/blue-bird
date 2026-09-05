@@ -111,6 +111,7 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - Key-value persistence
 - Schema-driven object persistence
 - Repository APIs
+- Query/criteria API (SQL pushdown where the backend supports it, in-memory fallback otherwise)
 - File backend
 - JSON backend
 - SQLite backend
@@ -152,6 +153,12 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - Unit and integration tests
 - Example applications
 
+## Developer Tools
+
+- `bb-codegen`: generates Persist schemas from a JSON manifest (struct + field metadata), instead of hand-written `offsetof()` bookkeeping
+- Built around a `kind`-dispatched manifest format so new generators (routes, policies, etc.) can register without touching the core tool
+- See [docs/tools/codegen.md](docs/tools/codegen.md)
+
 ---
 
 # Repository Structure
@@ -167,6 +174,9 @@ blue-bird/
 │   ├── utils/      # JSON, UUID, time, encoding, config
 │   ├── log/        # Logging infrastructure
 │   └── error/      # Error handling primitives
+│
+├── tools/
+│   └── codegen/    # bb-codegen: manifest-driven code generation (Persist schemas today)
 │
 ├── examples/       # Example applications
 ├── tests/          # Unit and integration testing infrastructure
