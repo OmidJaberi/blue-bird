@@ -12,6 +12,7 @@ add_library(bluebird_web
     src/http/message.c
     src/http/request.c
     src/http/response.c
+    src/http/http_parser.c
 
     src/http/client_request.c
     src/http/server_request.c
