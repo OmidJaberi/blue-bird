@@ -147,24 +147,31 @@ const char *bb_message_get_body(bb_http_message_t *msg)
 
 void bb_message_set_body(bb_http_message_t *msg, const char *body)
 {
+    if (!body)
+    {
+        bb_message_set_body_data(msg, NULL, 0);
+        return;
+    }
+    bb_message_set_body_data(msg, body, strlen(body));
+}
+
+void bb_message_set_body_data(bb_http_message_t *msg, const void *body, size_t body_len)
+{
     if (!msg) return;
 
-    // Free previous body if any
-    if (msg->body) {
-        free(msg->body);
-        msg->body = NULL;
-        msg->body_len = 0;
-    }
+    free(msg->body);
+    msg->body = NULL;
+    msg->body_len = 0;
 
+    if (body_len == 0) return;
     if (!body) return;
 
-    size_t len = strlen(body);
-    msg->body = (char *)malloc(len + 1);
-    if (!msg->body) return; // malloc failed, just leave empty
+    msg->body = malloc(body_len + 1);
+    if (!msg->body) return;
 
-    memcpy(msg->body, body, len);
-    msg->body[len] = '\0';
-    msg->body_len = len;
+    memcpy(msg->body, body, body_len);
+    msg->body[body_len] = '\0';
+    msg->body_len = body_len;
 }
 
 static int _parse_header(const char **raw, char **name_buf, char **value_buf)

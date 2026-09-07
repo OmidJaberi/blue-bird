@@ -1,6 +1,7 @@
 #include "server_internal.h"
 #include "connection/async_connection.h"
-#include "http/parser.h"
+#include "http/http_parser.h"
+#include "http/request.h"
 
 #include "blue-bird/runtime/event.h"
 #include "blue-bird/log/log.h"
@@ -86,11 +87,17 @@ static void _server_task_data_cleanup(bb_server_task_data_t *data)
         bb_conn_list_remove(data->server->conn_list, data->conn_node);
     }
 
+    if (data->http_parser)
+    {
+        bb_http_parser_destroy(data->http_parser);
+        data->http_parser = NULL;
+    }
+
     if (data->ws)
     {
         bb_websocket_destroy(data->ws);
     }
-    else
+    else if (data->async_conn)
     {
         bb_async_connection_destroy(data->async_conn);
     }
@@ -221,16 +228,44 @@ static bb_read_status_t _server_read_step(void *userdata)
 {
     bb_server_task_data_t *data = userdata;
     bb_async_connection_t *async_conn = data->async_conn;
+    bb_connection_t *conn = async_conn->connection;
 
-    if (!bb_http_message_complete(async_conn->connection->buffer, async_conn->connection->buffer_length))
+    if (!data->http_parser)
     {
+        data->http_parser = bb_http_parser_create();
+        if (!data->http_parser)
+            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_ALLOC, "Failed to create HTTP parser.") };
+    }
+
+    if (data->parsed_offset > conn->buffer_length)
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "HTTP parser buffer offset is invalid.") };
+
+    size_t available = conn->buffer_length - data->parsed_offset;
+    bb_http_parse_status_t parse_status = bb_http_parser_feed(
+        data->http_parser,
+        (const uint8_t *)conn->buffer + data->parsed_offset,
+        available);
+    data->parsed_offset += bb_http_parser_last_consumed(data->http_parser);
+
+    if (parse_status == BB_HTTP_PARSE_INCOMPLETE)
         return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
+
+    if (parse_status == BB_HTTP_PARSE_ERROR)
+    {
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_BAD_REQUEST, bb_http_parser_error(data->http_parser)) };
     }
 
     bb_request_t *req = bb_request_server_create();
     bb_response_t *res = bb_response_create();
 
-    if (bb_request_parse(async_conn->connection->buffer, req))
+    if (!req || !res)
+    {
+        if (req) bb_request_destroy(req);
+        if (res) bb_response_destroy(res);
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_ALLOC, "Failed to allocate HTTP request/response.") };
+    }
+
+    if (bb_request_parse_http_parser(bb_http_parser_get_request(data->http_parser), req))
     {
         default_400(req, res);
     }
@@ -276,6 +311,13 @@ static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *
     data->async_conn = async_conn;
     data->ws = NULL;
     data->conn_node = NULL;
+    data->http_parser = bb_http_parser_create();
+    data->parsed_offset = 0;
+    if (!data->http_parser)
+    {
+        free(data);
+        return 1;
+    }
 
     if (BB_FAILED(bb_async_connection_create_read_task(async_conn, _server_read_step, _server_read_error, data)))
     {
@@ -320,7 +362,8 @@ void bb_server_start(bb_server_t *server)
     data->server = server;
     data->async_conn = server->async_conn;
     data->ws = NULL;
-    data->conn_node = NULL; // not a per-connection object; not tracked in conn_list
+    data->conn_node = NULL;
+    // not a per-connection object; not tracked in conn_list
 
     server->accept_task_data = data;
 
@@ -333,11 +376,17 @@ static void _server_conn_cleanup(void *userdata)
 {
     bb_server_task_data_t *data = userdata;
 
+    if (data->http_parser)
+    {
+        bb_http_parser_destroy(data->http_parser);
+        data->http_parser = NULL;
+    }
+
     if (data->ws)
     {
         bb_websocket_destroy(data->ws);
     }
-    else
+    else if (data->async_conn)
     {
         bb_async_connection_destroy(data->async_conn);
     }

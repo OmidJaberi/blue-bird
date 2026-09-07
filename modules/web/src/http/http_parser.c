@@ -13,6 +13,7 @@
 
 struct bb_http_parser {
     bb_http_parse_state_t state;
+    bool response_mode;
 
     /* Generic line accumulation buffer, reused for the request line,
      * each header line, each chunk-size line, and each trailer line. */
@@ -24,6 +25,7 @@ struct bb_http_parser {
     bool line_saw_cr;
 
     bb_http_request_t request;
+    bb_http_response_t response;
 
     bool has_content_length;
     uint64_t content_length;
@@ -108,6 +110,46 @@ static void free_request(bb_http_request_t *req)
     memset(req, 0, sizeof(*req));
 }
 
+static void free_response(bb_http_response_t *res)
+{
+    free_headers(res->headers, res->header_count);
+    free_headers(res->trailers, res->trailer_count);
+    free(res->body);
+    memset(res, 0, sizeof(*res));
+}
+
+static bb_http_header_t **active_headers(bb_http_parser_t *p, size_t **count)
+{
+    if (p->response_mode)
+    {
+        *count = &p->response.header_count;
+        return &p->response.headers;
+    }
+    *count = &p->request.header_count;
+    return &p->request.headers;
+}
+
+static bb_http_header_t **active_trailers(bb_http_parser_t *p, size_t **count)
+{
+    if (p->response_mode)
+    {
+        *count = &p->response.trailer_count;
+        return &p->response.trailers;
+    }
+    *count = &p->request.trailer_count;
+    return &p->request.trailers;
+}
+
+static uint8_t **active_body(bb_http_parser_t *p)
+{
+    return p->response_mode ? &p->response.body : &p->request.body;
+}
+
+static size_t *active_body_len(bb_http_parser_t *p)
+{
+    return p->response_mode ? &p->response.body_len : &p->request.body_len;
+}
+
 /* --------------------------------------------------------------------- */
 /* Lifecycle                                                             */
 /* --------------------------------------------------------------------- */
@@ -119,7 +161,16 @@ bb_http_parser_t *bb_http_parser_create(void)
         return NULL;
 
     p->state = BB_HTTP_PARSE_REQUEST_LINE;
+    p->response_mode = false;
     reset_line(p, BB_HTTP_MAX_REQUEST_LINE);
+    return p;
+}
+
+bb_http_parser_t *bb_http_parser_create_response(void)
+{
+    bb_http_parser_t *p = bb_http_parser_create();
+    if (p)
+        p->response_mode = true;
     return p;
 }
 
@@ -130,6 +181,7 @@ void bb_http_parser_destroy(bb_http_parser_t *p)
 
     free(p->line_buf);
     free_request(&p->request);
+    free_response(&p->response);
     free(p);
 }
 
@@ -139,6 +191,7 @@ void bb_http_parser_reset(bb_http_parser_t *p)
         return;
 
     free_request(&p->request);
+    free_response(&p->response);
 
     p->state = BB_HTTP_PARSE_REQUEST_LINE;
     reset_line(p, BB_HTTP_MAX_REQUEST_LINE);
@@ -172,6 +225,13 @@ const bb_http_request_t *bb_http_parser_get_request(const bb_http_parser_t *p)
     if (!p || p->state != BB_HTTP_PARSE_STATE_COMPLETE)
         return NULL;
     return &p->request;
+}
+
+const bb_http_response_t *bb_http_parser_get_response(const bb_http_parser_t *p)
+{
+    if (!p || !p->response_mode || p->state != BB_HTTP_PARSE_STATE_COMPLETE)
+        return NULL;
+    return &p->response;
 }
 
 const char *bb_http_parser_error(const bb_http_parser_t *p)
@@ -359,6 +419,65 @@ static int parse_request_line(bb_http_parser_t *p)
     p->request.version_major = v[5] - '0';
     p->request.version_minor = v[7] - '0';
 
+    return 0;
+}
+
+static int parse_response_line(bb_http_parser_t *p)
+{
+    const uint8_t *buf = p->line_buf;
+    size_t len = p->line_len;
+
+    if (len < 12 || memcmp(buf, "HTTP/", 5) != 0)
+    {
+        set_error(p, "malformed response line");
+        return -1;
+    }
+
+    if (!isdigit(buf[5]) || buf[6] != '.' || !isdigit(buf[7]) || buf[8] != ' ')
+    {
+        set_error(p, "invalid HTTP version");
+        return -1;
+    }
+
+    size_t i = 9;
+    if (i + 3 > len || !isdigit(buf[i]) || !isdigit(buf[i + 1]) || !isdigit(buf[i + 2]))
+    {
+        set_error(p, "invalid response status code");
+        return -1;
+    }
+
+    p->response.version_major = buf[5] - '0';
+    p->response.version_minor = buf[7] - '0';
+    p->response.status_code = (buf[i] - '0') * 100 + (buf[i + 1] - '0') * 10 + (buf[i + 2] - '0');
+
+    if (i + 3 < len && buf[i + 3] != ' ')
+    {
+        set_error(p, "malformed response reason phrase");
+        return -1;
+    }
+
+    i += 3;
+    if (i < len)
+        i++;
+
+    size_t reason_len = len - i;
+    if (reason_len >= sizeof(p->response.reason))
+    {
+        set_error(p, "reason phrase too long");
+        return -1;
+    }
+
+    for (size_t k = i; k < len; k++)
+    {
+        if ((buf[k] < 0x20 && buf[k] != '\t') || buf[k] == 0x7f)
+        {
+            set_error(p, "invalid character in reason phrase");
+            return -1;
+        }
+    }
+
+    memcpy(p->response.reason, buf + i, reason_len);
+    p->response.reason[reason_len] = '\0';
     return 0;
 }
 
@@ -581,14 +700,14 @@ static int body_reserve(bb_http_parser_t *p, uint64_t needed_total)
     if (new_cap > BB_HTTP_MAX_BODY_SIZE)
         new_cap = BB_HTTP_MAX_BODY_SIZE;
 
-    uint8_t *tmp = realloc(p->request.body, (size_t)new_cap);
+    uint8_t *tmp = realloc(*active_body(p), (size_t)new_cap);
     if (!tmp)
     {
         set_error(p, "out of memory");
         return -1;
     }
 
-    p->request.body = tmp;
+    *active_body(p) = tmp;
     p->body_cap = new_cap;
     return 0;
 }
@@ -601,9 +720,9 @@ static int body_append(bb_http_parser_t *p, const uint8_t *data, size_t len)
     if (body_reserve(p, p->body_written + len) < 0)
         return -1;
 
-    memcpy(p->request.body + p->body_written, data, len);
+    memcpy(*active_body(p) + p->body_written, data, len);
     p->body_written += len;
-    p->request.body_len = (size_t)p->body_written;
+    *active_body_len(p) = (size_t)p->body_written;
     return 0;
 }
 
@@ -613,6 +732,11 @@ static int body_append(bb_http_parser_t *p, const uint8_t *data, size_t len)
 
 static int finish_headers(bb_http_parser_t *p)
 {
+    if (p->response_mode && ((p->response.status_code >= 100 && p->response.status_code < 200) || p->response.status_code == 204 || p->response.status_code == 304))
+    {
+        p->state = BB_HTTP_PARSE_STATE_COMPLETE;
+        return 0;
+    }
     if (p->has_content_length && p->has_transfer_encoding)
     {
         set_error(p, "ambiguous framing: both Content-Length and Transfer-Encoding present");
@@ -746,7 +870,7 @@ bb_http_parse_status_t bb_http_parser_feed(
                 if (r < 0)
                     goto out_error;
 
-                if (parse_request_line(p) < 0)
+                if ((p->response_mode ? parse_response_line(p) : parse_request_line(p)) < 0)
                     goto out_error;
 
                 reset_line(p, BB_HTTP_MAX_HEADER_SIZE);
@@ -775,9 +899,11 @@ bb_http_parse_status_t bb_http_parser_feed(
 
                 const char *name = NULL;
                 const char *value = NULL;
+                size_t *header_count = NULL;
+                bb_http_header_t **headers = active_headers(p, &header_count);
                 if (parse_field_line(
                         p,
-                        &p->request.headers, &p->request.header_count,
+                        headers, header_count,
                         BB_HTTP_MAX_HEADER_COUNT,
                         &p->header_bytes_total, BB_HTTP_MAX_HEADER_SIZE,
                         &name, &value) < 0)
@@ -912,9 +1038,11 @@ bb_http_parse_status_t bb_http_parser_feed(
 
                 const char *name = NULL;
                 const char *value = NULL;
+                size_t *trailer_count = NULL;
+                bb_http_header_t **trailers = active_trailers(p, &trailer_count);
                 if (parse_field_line(
                         p,
-                        &p->request.trailers, &p->request.trailer_count,
+                        trailers, trailer_count,
                         BB_HTTP_MAX_TRAILER_COUNT,
                         &p->trailer_bytes_total, BB_HTTP_MAX_TRAILER_SIZE,
                         &name, &value) < 0)

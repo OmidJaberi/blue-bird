@@ -1,5 +1,6 @@
 #include "blue-bird/web/client.h"
-#include "http/parser.h"
+#include "http/http_parser.h"
+#include "http/response.h"
 #include "connection/connection.h"
 #include "connection/async_connection.h"
 #include "client_internal.h"
@@ -42,6 +43,8 @@ bb_client_t *bb_client_create_on_runtime(bb_runtime_t *runtime)
     client->async_conn = NULL;
     client->connection = NULL;
     client->runtime = runtime;
+    client->http_parser = NULL;
+    client->parsed_offset = 0;
     return client;
 }
 
@@ -56,6 +59,7 @@ void bb_client_destroy(bb_client_t *client)
 
     if (client->req) bb_request_destroy(client->req);
     if (client->res) bb_response_destroy(client->res);
+    if (client->http_parser) bb_http_parser_destroy(client->http_parser);
     free(client);
 }
 
@@ -68,6 +72,9 @@ void bb_client_reset(bb_client_t *client)
     bb_client_close(client);
     bb_request_reset(client->req);
     bb_response_reset(client->res);
+    if (client->http_parser)
+        bb_http_parser_reset(client->http_parser);
+    client->parsed_offset = 0;
 }
 
 void bb_client_close(bb_client_t *client)
@@ -159,23 +166,39 @@ bb_error_t bb_client_receive(bb_client_t *client)
 
     bb_connection_t *conn = client->connection;
 
-    while (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    if (!client->http_parser)
     {
-        bb_error_t err = bb_connection_read(conn);
+        client->http_parser = bb_http_parser_create_response();
+        if (!client->http_parser)
+            return BB_ERROR(BB_ERR_ALLOC, "Failed to create HTTP parser");
+        client->parsed_offset = 0;
+    }
 
-        if (err.code == BB_ERR_IO)
-        {
-            return BB_ERROR(BB_ERR_IO, "Read failed");
-        }
+    for (;;)
+    {
+        size_t available = conn->buffer_length - client->parsed_offset;
+        bb_http_parse_status_t status = bb_http_parser_feed(
+            client->http_parser,
+            (const uint8_t *)conn->buffer + client->parsed_offset,
+            available);
+        client->parsed_offset += bb_http_parser_last_consumed(client->http_parser);
 
-        if (err.code == BB_ERR_CONNECTION_CLOSED)
+        if (status == BB_HTTP_PARSE_COMPLETE)
             break;
+        if (status == BB_HTTP_PARSE_ERROR)
+            return BB_ERROR(BB_ERR_BAD_REQUEST, bb_http_parser_error(client->http_parser));
+
+        bb_error_t err = bb_connection_read(conn);
+        if (err.code == BB_ERR_IO)
+            return BB_ERROR(BB_ERR_IO, "Read failed");
+        if (err.code == BB_ERR_CONNECTION_CLOSED)
+            return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed before response was complete");
+        if (BB_FAILED(err))
+            return err;
     }
 
-    if (bb_response_parse(conn->buffer, client->res) != 0)
-    {
-        return BB_ERROR(BB_ERR_UNKNOWN, "Failed to parse response");
-    }
+    if (bb_response_from_parsed(bb_http_parser_get_response(client->http_parser), client->res) != 0)
+        return BB_ERROR(BB_ERR_UNKNOWN, "Failed to build response");
 
     return BB_SUCCESS();
 }
@@ -199,12 +222,31 @@ static bb_read_status_t _client_read_step(void *userdata)
     bb_async_connection_t *async_conn = client->async_conn;
     bb_connection_t *conn = async_conn->connection;
 
-    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    if (!client->http_parser)
     {
-        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
+        client->http_parser = bb_http_parser_create_response();
+        if (!client->http_parser)
+            return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_ALLOC, "Failed to create HTTP parser") };
+        client->parsed_offset = 0;
     }
 
-    if (bb_response_parse(conn->buffer, client->res))
+    if (client->parsed_offset > conn->buffer_length)
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "HTTP parser buffer offset is invalid") };
+
+    size_t available = conn->buffer_length - client->parsed_offset;
+    bb_http_parse_status_t status = bb_http_parser_feed(
+        client->http_parser,
+        (const uint8_t *)conn->buffer + client->parsed_offset,
+        available);
+    client->parsed_offset += bb_http_parser_last_consumed(client->http_parser);
+
+    if (status == BB_HTTP_PARSE_INCOMPLETE)
+        return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
+
+    if (status == BB_HTTP_PARSE_ERROR)
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_BAD_REQUEST, bb_http_parser_error(client->http_parser)) };
+
+    if (bb_response_from_parsed(bb_http_parser_get_response(client->http_parser), client->res))
     {
         return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_INTERNAL, "Response parse failed") };
     }

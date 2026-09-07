@@ -93,41 +93,69 @@ static void parse_query_params(bb_server_request_t *req)
     }
 }
 
+int bb_server_request_from_parsed(const bb_http_request_t *parsed, bb_server_request_t *req)
+{
+    if (!parsed || !req) return -1;
+
+    if (strlen(parsed->method) >= METHOD_SIZE ||
+        strlen(parsed->target) >= PATH_SIZE)
+        return -1;
+
+    req->param_count = 0;
+    req->query_count = 0;
+    bb_message_reset(req->msg);
+
+    size_t method_len = strlen(parsed->method);
+    size_t path_len = strlen(parsed->target);
+    memcpy(req->method, parsed->method, method_len + 1);
+    memcpy(req->path, parsed->target, path_len + 1);
+    snprintf(req->version, sizeof(req->version), "HTTP/%d.%d",
+             parsed->version_major, parsed->version_minor);
+
+    if (!is_valid_path(req->path))
+        return -1;
+
+    bb_decode_percent(req->path, 0);
+    if (strstr(req->path, ".."))
+        return -1;
+
+    char start_line[PATH_SIZE + METHOD_SIZE + VERSION_SIZE + 3];
+    snprintf(start_line, sizeof(start_line), "%s %s %s",
+             req->method, req->path, req->version);
+    bb_message_set_start_line(req->msg, start_line);
+
+    for (size_t i = 0; i < parsed->header_count; i++)
+        bb_message_set_header(req->msg, parsed->headers[i].name, parsed->headers[i].value);
+
+    bb_message_set_body_data(req->msg, parsed->body, parsed->body_len);
+
+    const char *content_type = bb_message_get_header(req->msg, "Content-Type");
+    if (content_type && strncmp(content_type, "application/x-www-form-urlencoded", 33) == 0 &&
+        bb_message_get_body(req->msg))
+    {
+        bb_decode_percent((char *)bb_message_get_body(req->msg), 1);
+    }
+
+    parse_query_params(req);
+    return 0;
+}
+
 int bb_server_request_parse(const char *raw, bb_server_request_t *req)
 {
     if (!raw || !req) return -1;
 
-    req->param_count = 0;
-    req->query_count = 0;
-    if (bb_message_parse(raw, req->msg) != 0)
-        return -1;
+    bb_http_parser_t *parser = bb_http_parser_create();
+    if (!parser) return -1;
 
-    // Parse method, path, version
-    char method[8];
-    char path[4096];
-    char version[16];
+    bb_http_parse_status_t status = bb_http_parser_feed(
+        parser, (const unsigned char *)raw, strlen(raw));
 
-    if (sscanf(bb_message_get_start_line(req->msg), "%7s %4095s %15s", method, path, version) != 3)
-        return -1;
+    int result = -1;
+    if (status == BB_HTTP_PARSE_COMPLETE)
+        result = bb_server_request_from_parsed(bb_http_parser_get_request(parser), req);
 
-    if (strlen(path) >= 256)
-        return -1;   // reject too-long path
-
-    strcpy(req->method, method);
-    strcpy(req->path, path);
-    strcpy(req->version, version);
-    
-    if (!is_valid_path(req->path))
-        return -1;
-
-    bb_decode_percent(req->path, 0); // do NOT treat '+' as space in path
-    if (strstr(req->path, ".."))
-        return -1;
-
-    // Query Params
-    parse_query_params(req);
-
-    return 0;
+    bb_http_parser_destroy(parser);
+    return result;
 }
 
 int bb_server_request_add_param(bb_server_request_t *req, const char *key, const char *value)

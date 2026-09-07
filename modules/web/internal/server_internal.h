@@ -5,6 +5,7 @@
 #include "websocket/websocket_internal.h"
 #include "websocket/websocket_list.h"
 #include "connection/async_connection.h"
+#include "http/http_parser.h"
 #include "connection/conn_list.h"
 #include "router.h"
 #include "middleware.h"
@@ -15,6 +16,8 @@ typedef struct {
     bb_websocket_t *ws;
 
     bb_conn_node_t *conn_node;
+    bb_http_parser_t *http_parser;
+    size_t parsed_offset;
 } bb_server_task_data_t;
 
 struct bb_server {

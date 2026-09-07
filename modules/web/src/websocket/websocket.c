@@ -8,7 +8,7 @@
 #include "blue-bird/utils/encoding.h"
 #include "blue-bird/utils/hash.h"
 
-#include "http/parser.h"
+#include "http/http_parser.h"
 
 #include "blue-bird/web/error.h"
 
@@ -23,6 +23,8 @@ typedef struct {
     bb_websocket_t *ws;
     bb_ws_connect_cb connect_cb;
     void *connect_userdata;
+    bb_http_parser_t *http_parser;
+    size_t parsed_offset;
 } _bb_ws_client_task_data_t;
 
 static int _parse_ws_url(const char *url, char **host, int *port, char **path)
@@ -169,14 +171,33 @@ static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
         };
     }
 
-    if (!bb_http_message_complete(conn->buffer, conn->buffer_length))
+    if (!data->http_parser)
     {
-        return (bb_read_status_t){
-            .result = BB_READ_MORE,
-        };
+        data->http_parser = bb_http_parser_create_response();
+        if (!data->http_parser)
+            return (bb_read_status_t){ .result = BB_READ_ERROR, .err = BB_ERROR(BB_ERR_ALLOC, "Failed to create HTTP parser") };
     }
 
+    if (data->parsed_offset > conn->buffer_length)
+        return (bb_read_status_t){ .result = BB_READ_ERROR, .err = BB_ERROR(BB_ERR_INTERNAL, "HTTP parser buffer offset is invalid") };
+
+    size_t available = conn->buffer_length - data->parsed_offset;
+    bb_http_parse_status_t status = bb_http_parser_feed(
+        data->http_parser,
+        (const uint8_t *)conn->buffer + data->parsed_offset,
+        available);
+    data->parsed_offset += bb_http_parser_last_consumed(data->http_parser);
+
+    if (status == BB_HTTP_PARSE_INCOMPLETE)
+        return (bb_read_status_t){ .result = BB_READ_MORE };
+
+    if (status == BB_HTTP_PARSE_ERROR)
+        return (bb_read_status_t){ .result = BB_READ_ERROR, .err = BB_ERROR(BB_ERR_BAD_REQUEST, bb_http_parser_error(data->http_parser)) };
+
     conn->buffer_length = 0;
+
+    bb_http_parser_destroy(data->http_parser);
+    data->http_parser = NULL;
 
     bb_websocket_create_read_task(data->ws);
     
@@ -195,6 +216,8 @@ static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
 
     _bb_ws_client_task_data_t *data = userdata;
 
+    if (data->http_parser)
+        bb_http_parser_destroy(data->http_parser);
     bb_async_connection_destroy(data->ws->async_conn);
 
     data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
@@ -288,6 +311,8 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
     data->ws = ws;
     data->connect_cb = connect_callback;
     data->connect_userdata = userdata;
+    data->http_parser = NULL;
+    data->parsed_offset = 0;
 
     uint8_t nonce[16];
 

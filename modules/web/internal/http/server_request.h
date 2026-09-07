@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include "blue-bird/web/http/message.h"
+#include "http/http_parser.h"
 
 #define METHOD_SIZE 8
 #define PATH_SIZE 256
@@ -46,6 +47,7 @@ void bb_server_request_destroy(bb_server_request_t *req);
 void bb_server_request_reset(bb_server_request_t *req);
 
 int bb_server_request_parse(const char *raw, bb_server_request_t *req);
+int bb_server_request_from_parsed(const bb_http_request_t *parsed, bb_server_request_t *req);
 
 int bb_server_request_add_param(bb_server_request_t *req, const char *key, const char *value);
 const char *bb_server_request_get_param(bb_server_request_t *req, const char *name);

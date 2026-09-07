@@ -77,6 +77,22 @@ typedef struct {
     size_t body_len;
 } bb_http_request_t;
 
+typedef struct {
+    int version_major;
+    int version_minor;
+    int status_code;
+    char reason[BB_HTTP_MAX_REQUEST_LINE];
+
+    bb_http_header_t *headers;
+    size_t header_count;
+
+    bb_http_header_t *trailers;
+    size_t trailer_count;
+
+    uint8_t *body;
+    size_t body_len;
+} bb_http_response_t;
+
 /* --------------------------------------------------------------------- */
 /* Parser                                                                 */
 /* --------------------------------------------------------------------- */
@@ -84,6 +100,7 @@ typedef struct {
 typedef struct bb_http_parser bb_http_parser_t;
 
 bb_http_parser_t *bb_http_parser_create(void);
+bb_http_parser_t *bb_http_parser_create_response(void);
 void bb_http_parser_destroy(bb_http_parser_t *parser);
 
 /* Resets the parser (and the request it has accumulated) so it can be
@@ -120,6 +137,7 @@ size_t bb_http_parser_last_consumed(const bb_http_parser_t *parser);
  * the parser; the pointer is invalidated by bb_http_parser_reset() or
  * bb_http_parser_destroy(). */
 const bb_http_request_t *bb_http_parser_get_request(const bb_http_parser_t *parser);
+const bb_http_response_t *bb_http_parser_get_response(const bb_http_parser_t *parser);
 
 /* Short, human-readable description of the most recent error. Only
  * meaningful after bb_http_parser_feed() has returned

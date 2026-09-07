@@ -3,6 +3,7 @@
 
 #include "http/server_request.h"
 #include "http/client_request.h"
+#include "http/http_parser.h"
 
 typedef enum {
     BB_SERVER_REQUEST,
@@ -122,6 +123,13 @@ int bb_request_parse(const char *raw, bb_request_t *req)
     return bb_server_request_parse(raw, &req->inner_req.s_req);
 }
 
+int bb_request_parse_http_parser(const bb_http_request_t *parsed, bb_request_t *req)
+{
+    if (!req) return -1;
+    BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
+    return bb_server_request_from_parsed(parsed, &req->inner_req.s_req);
+}
+
 int bb_request_add_param(bb_request_t *req, const char *key, const char *value)
 {
     BB_ASSERT_MSG(req->type == BB_SERVER_REQUEST, "Invalid request type.");
@@ -184,7 +192,7 @@ int bb_request_serialize(bb_request_t *req, char **buffer, size_t *size)
     const char *method = bb_request_get_method(req) ? bb_request_get_method(req) : "GET";
     const char *path = bb_request_get_path(req) ? bb_request_get_path(req) : "/";
     
-    char start_line[512];
+    char start_line[BB_HTTP_MAX_REQUEST_LINE + BB_HTTP_METHOD_SIZE + 16];
     snprintf(start_line, sizeof(start_line), "%s %s HTTP/1.1", method, path);
 
     // Temporary:

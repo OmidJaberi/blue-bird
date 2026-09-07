@@ -4,6 +4,7 @@
 
 #include "blue-bird/web/http/response.h"
 #include "blue-bird/web/http/message.h"
+#include "http/response.h"
 
 struct bb_response {
     bb_http_message_t *msg;
@@ -101,4 +102,24 @@ int bb_response_parse(const char *raw, bb_response_t *res)
 bb_http_message_t *bb_response_get_message(bb_response_t *res)
 {
     return res->msg;
+}
+
+int bb_response_from_parsed(const bb_http_response_t *parsed, bb_response_t *res)
+{
+    if (!parsed || !res || !res->msg) return -1;
+
+    bb_response_reset(res);
+    res->status_code = parsed->status_code;
+
+    char start_line[BB_HTTP_MAX_REQUEST_LINE + 32];
+    snprintf(start_line, sizeof(start_line), "HTTP/%d.%d %d%s%s",
+             parsed->version_major, parsed->version_minor, parsed->status_code,
+             parsed->reason[0] ? " " : "", parsed->reason);
+    bb_message_set_start_line(res->msg, start_line);
+
+    for (size_t i = 0; i < parsed->header_count; i++)
+        bb_message_set_header(res->msg, parsed->headers[i].name, parsed->headers[i].value);
+
+    bb_message_set_body_data(res->msg, parsed->body, parsed->body_len);
+    return 0;
 }
