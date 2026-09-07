@@ -112,6 +112,12 @@ static void _server_after_write(bb_task_t *task, void *userdata)
     bb_server_t *server = data->server;
     if (data->ws)
     {
+        if (data->http_parser)
+        {
+            bb_http_parser_destroy(data->http_parser);
+            data->http_parser = NULL;
+        }
+
         if (bb_ws_list_add(server->ws_list, data->ws) != 0)
         {
             bb_websocket_destroy(data->ws);
