@@ -771,7 +771,7 @@ void test_partial_request(void)
     int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
     BB_ASSERT(rc == 0);
 
-    send(fd, "GET / HTTP/1.1\r\n", 17, MSG_NOSIGNAL);
+    send(fd, "GET / HTTP/1.1\r\n", 16, MSG_NOSIGNAL);
 
     bb_usleep(10000);
 
