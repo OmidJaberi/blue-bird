@@ -5,7 +5,7 @@
 #include "websocket/websocket_internal.h"
 #include "websocket/websocket_list.h"
 #include "connection/async_connection.h"
-#include "http/http_parser.h"
+#include "http/parser.h"
 #include "connection/conn_list.h"
 #include "router.h"
 #include "middleware.h"

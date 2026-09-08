@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include "blue-bird/web/http/message.h"
-#include "http/http_parser.h"
+#include "http/parser.h"
 
 #define METHOD_SIZE 8
 #define PATH_SIZE 256

@@ -1,6 +1,6 @@
 #include "server_internal.h"
 #include "connection/async_connection.h"
-#include "http/http_parser.h"
+#include "http/parser.h"
 #include "http/request.h"
 
 #include "blue-bird/runtime/event.h"

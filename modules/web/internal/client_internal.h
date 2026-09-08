@@ -5,7 +5,7 @@
 
 #include "blue-bird/web/http/handler.h"
 #include "connection/async_connection.h"
-#include "http/http_parser.h"
+#include "http/parser.h"
 
 struct bb_client {
     bb_async_connection_t *async_conn;

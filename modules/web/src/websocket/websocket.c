@@ -8,7 +8,7 @@
 #include "blue-bird/utils/encoding.h"
 #include "blue-bird/utils/hash.h"
 
-#include "http/http_parser.h"
+#include "http/parser.h"
 
 #include "blue-bird/web/error.h"
 

@@ -1,9 +1,10 @@
-#ifndef BB_HTTP_PARSER_INCREMENTAL_H
-#define BB_HTTP_PARSER_INCREMENTAL_H
+#ifndef BB_HTTP_PARSER_H
+#define BB_HTTP_PARSER_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 #include <stddef.h>
 #include <stdint.h>
@@ -144,8 +145,9 @@ const bb_http_response_t *bb_http_parser_get_response(const bb_http_parser_t *pa
  * BB_HTTP_PARSE_ERROR. */
 const char *bb_http_parser_error(const bb_http_parser_t *parser);
 
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* BB_HTTP_PARSER_INCREMENTAL_H */
+#endif // BB_HTTP_PARSER_H
