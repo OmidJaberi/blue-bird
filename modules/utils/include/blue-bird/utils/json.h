@@ -21,7 +21,7 @@ typedef enum {
     BB_JSON_ARRAY,
     BB_JSON_OBJECT,
     BB_JSON_NOT_INITIALIZED
-} bb_json_node_type_t;
+} bb_json_type_t;
 
 // Error Codes:
 enum {
@@ -31,10 +31,10 @@ enum {
 
 typedef struct BBJsonNode bb_json_t;
 
-bb_json_t *bb_json_create(bb_json_node_type_t type);
+bb_json_t *bb_json_create(bb_json_type_t type);
 void bb_json_destroy(bb_json_t *json);
 size_t bb_json_get_size(bb_json_t *json);
-bb_json_node_type_t bb_json_get_type(bb_json_t *json);
+bb_json_type_t bb_json_get_type(bb_json_t *json);
 
 // JSON Primitives
 bb_error_t bb_json_set_value_bool(bb_json_t *json, bool value);

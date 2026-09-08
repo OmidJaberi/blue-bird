@@ -17,7 +17,7 @@ typedef struct BBHashTableNode {
 } _bb_hash_table_node_t;
 
 struct BBJsonNode {
-    bb_json_node_type_t type;
+    bb_json_type_t type;
     size_t size;               // For text, array, and object types
     union {
         bool bool_val;
@@ -38,7 +38,7 @@ struct BBJsonNode {
     };
 };
 
-bb_json_t *bb_json_create(bb_json_node_type_t type)
+bb_json_t *bb_json_create(bb_json_type_t type)
 {
     bb_json_t *json = malloc(sizeof(bb_json_t));
     if (!json)
@@ -140,7 +140,7 @@ size_t bb_json_get_size(bb_json_t *json)
     return json->size;
 }
 
-bb_json_node_type_t bb_json_get_type(bb_json_t *json)
+bb_json_type_t bb_json_get_type(bb_json_t *json)
 {
     if (!json)
     {
