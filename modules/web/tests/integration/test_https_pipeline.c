@@ -13,14 +13,23 @@
 #if defined(BB_WITH_TLS)
 
 #include <pthread.h>
-#include <unistd.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#if defined(_WIN32)
+#define _BB_NULL_REDIRECT ">NUL 2>&1"
+#else
+#define _BB_NULL_REDIRECT ">/dev/null 2>&1"
+#endif
+
 #define TEST_PORT 8443
 
-static char g_tmp_dir[] = "/tmp/bb_https_test_XXXXXX";
+/* Fixed, non-unique directory name: this test binary runs once per
+ * ctest invocation, so a temp-unique name (POSIX mkdtemp(), unavailable
+ * on Windows anyway) isn't needed -- just don't collide with other test
+ * fixtures. */
+static char g_tmp_dir[] = "bb_https_pipeline_test_fixtures";
 static char g_cert_path[512];
 static char g_key_path[512];
 
@@ -369,7 +378,8 @@ static void wss_echo_test(void)
 
 static void _generate_cert_fixture(void)
 {
-    BB_ASSERT(mkdtemp(g_tmp_dir) != NULL);
+    remove(g_tmp_dir); /* in case a stray file exists from a previous run */
+    bb_mkdir(g_tmp_dir);
 
     snprintf(g_cert_path, sizeof(g_cert_path), "%s/cert.pem", g_tmp_dir);
     snprintf(g_key_path, sizeof(g_key_path), "%s/key.pem", g_tmp_dir);
@@ -377,7 +387,7 @@ static void _generate_cert_fixture(void)
     char cmd[2048];
     snprintf(cmd, sizeof(cmd),
         "openssl req -x509 -newkey rsa:2048 -keyout %s -out %s "
-        "-days 1 -nodes -subj \"/CN=localhost\" >/dev/null 2>&1",
+        "-days 1 -nodes -subj \"/CN=localhost\" " _BB_NULL_REDIRECT,
         g_key_path, g_cert_path);
 
     BB_ASSERT(system(cmd) == 0);
@@ -385,9 +395,16 @@ static void _generate_cert_fixture(void)
 
 static void _cleanup_cert_fixture(void)
 {
-    char cmd[600];
-    snprintf(cmd, sizeof(cmd), "rm -rf %s", g_tmp_dir);
-    system(cmd); /* best effort */
+    /* Best effort: remove the files we know we created, then the
+     * now-empty directory. Avoids shelling out to rm/rmdir, which
+     * differ in syntax between POSIX and Windows shells. */
+    remove(g_cert_path);
+    remove(g_key_path);
+#if defined(_WIN32)
+    _rmdir(g_tmp_dir);
+#else
+    rmdir(g_tmp_dir);
+#endif
 }
 
 int main(void)

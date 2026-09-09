@@ -5,7 +5,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <fcntl.h>
 
 static void transport_tcp_create_test(void)
 {
@@ -90,10 +89,20 @@ static void transport_tcp_closed_test(void)
     bb_socket_close(fds[0]);
 }
 
+/* Portable "is this still an open socket handle" check -- fcntl(F_GETFD)
+ * is POSIX-only and doesn't exist on Windows, but SOL_SOCKET/SO_TYPE is
+ * supported by both Winsock and BSD sockets. */
+static int _socket_is_open(bb_socket_t sock)
+{
+    int type = 0;
+    socklen_t len = sizeof(type);
+    return getsockopt(sock, SOL_SOCKET, SO_TYPE, (char *)&type, &len) == 0;
+}
+
 /* destroy() must never close the underlying fd -- bb_connection_t owns
  * socket lifetime independently of whichever transport is layered over
  * it (this matters for TLS upgrade in place). Verify the fd is still a
- * valid descriptor after the transport is torn down. */
+ * valid, open socket after the transport is torn down. */
 static void transport_tcp_destroy_does_not_close_fd_test(void)
 {
     printf("\tTesting TCP transport destroy leaves fd open...\n");
@@ -104,7 +113,7 @@ static void transport_tcp_destroy_does_not_close_fd_test(void)
     bb_transport_t *a = bb_transport_create_tcp(fds[0]);
     bb_transport_destroy(a);
 
-    BB_ASSERT(fcntl(fds[0], F_GETFD) != -1);
+    BB_ASSERT(_socket_is_open(fds[0]));
 
     bb_socket_close(fds[0]);
     bb_socket_close(fds[1]);

@@ -1,6 +1,7 @@
 #include "transport/transport.h"
 
 #include <stdlib.h>
+#include <limits.h>
 
 /* --------------------------------------------------------------------- */
 /* Dispatch                                                               */
@@ -64,7 +65,12 @@ void bb_transport_destroy(bb_transport_t *transport)
 
 static bb_transport_status_t _tcp_read(bb_transport_t *transport, void *buffer, size_t capacity, size_t *bytes_read)
 {
-    ssize_t n = recv(transport->fd, buffer, capacity, 0);
+    /* recv()/send() take a signed int length on Windows (size_t
+     * elsewhere); clamp rather than let the implicit narrowing warn or,
+     * in principle, wrap. */
+    int want = (capacity > INT_MAX) ? INT_MAX : (int)capacity;
+
+    ssize_t n = recv(transport->fd, buffer, want, 0);
 
     if (n > 0)
     {
@@ -87,7 +93,9 @@ static bb_transport_status_t _tcp_read(bb_transport_t *transport, void *buffer, 
 
 static bb_transport_status_t _tcp_write(bb_transport_t *transport, const void *buffer, size_t length, size_t *bytes_written)
 {
-    ssize_t n = send(transport->fd, buffer, length, MSG_NOSIGNAL);
+    int want = (length > INT_MAX) ? INT_MAX : (int)length;
+
+    ssize_t n = send(transport->fd, buffer, want, MSG_NOSIGNAL);
 
     if (n > 0)
     {

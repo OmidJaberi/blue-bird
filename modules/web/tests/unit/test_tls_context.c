@@ -10,9 +10,17 @@
 
 #if defined(BB_WITH_TLS)
 
-#include <unistd.h>
+#if defined(_WIN32)
+#define _BB_NULL_REDIRECT ">NUL 2>&1"
+#else
+#define _BB_NULL_REDIRECT ">/dev/null 2>&1"
+#endif
 
-static char g_tmp_dir[] = "/tmp/bb_tls_test_XXXXXX";
+/* Fixed, non-unique directory name: each of these test binaries runs
+ * once per ctest invocation (never in parallel with itself), so a
+ * temp-unique name (POSIX mkdtemp(), unavailable on Windows anyway)
+ * isn't needed -- just don't collide with other test fixtures. */
+static char g_tmp_dir[] = "bb_tls_context_test_fixtures";
 
 static char g_valid_cert[512];
 static char g_valid_key[512];
@@ -36,7 +44,8 @@ static void _write_garbage(const char *path)
 
 static void _generate_fixtures(void)
 {
-    BB_ASSERT(mkdtemp(g_tmp_dir) != NULL);
+    remove(g_tmp_dir); /* in case a stray file exists from a previous run */
+    bb_mkdir(g_tmp_dir);
 
     snprintf(g_valid_cert, sizeof(g_valid_cert), "%s/valid_cert.pem", g_tmp_dir);
     snprintf(g_valid_key, sizeof(g_valid_key), "%s/valid_key.pem", g_tmp_dir);
@@ -48,14 +57,14 @@ static void _generate_fixtures(void)
 
     snprintf(cmd, sizeof(cmd),
         "openssl req -x509 -newkey rsa:2048 -keyout %s -out %s "
-        "-days 1 -nodes -subj \"/CN=localhost\" >/dev/null 2>&1",
+        "-days 1 -nodes -subj \"/CN=localhost\" " _BB_NULL_REDIRECT,
         g_valid_key, g_valid_cert);
     _run(cmd);
 
     /* A second, unrelated key -- structurally valid PEM, but does not
      * match g_valid_cert's public key. */
     snprintf(cmd, sizeof(cmd),
-        "openssl genrsa -out %s 2048 >/dev/null 2>&1",
+        "openssl genrsa -out %s 2048 " _BB_NULL_REDIRECT,
         g_other_key);
     _run(cmd);
 
@@ -64,9 +73,18 @@ static void _generate_fixtures(void)
 
 static void _cleanup_fixtures(void)
 {
-    char cmd[600];
-    snprintf(cmd, sizeof(cmd), "rm -rf %s", g_tmp_dir);
-    system(cmd); /* best effort */
+    /* Best effort: remove the files we know we created, then the now-empty
+     * directory. Avoids shelling out to rm/rmdir, which differ in syntax
+     * between POSIX and Windows shells. */
+    remove(g_valid_cert);
+    remove(g_valid_key);
+    remove(g_other_key);
+    remove(g_garbage_file);
+#if defined(_WIN32)
+    _rmdir(g_tmp_dir);
+#else
+    rmdir(g_tmp_dir);
+#endif
 }
 
 static void tls_context_valid_test(void)
