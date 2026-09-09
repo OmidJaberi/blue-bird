@@ -165,6 +165,7 @@ Major components include:
 * middleware
 * request/response abstractions
 * asynchronous connections
+* optional TLS transport (HTTPS, WSS), enabled at build time via OpenSSL
 
 The web module is built on top of the runtime and provides the primary interface for building networked applications.
 

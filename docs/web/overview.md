@@ -8,6 +8,7 @@ It includes:
 - HTTP server support
 - HTTP client support
 - Websockets server and client support
+- optional TLS support (HTTPS and WSS servers)
 - request and response abstractions
 - routing
 - middleware integration
@@ -255,6 +256,24 @@ Middleware executes before route handlers and can:
 
 ---
 
+# TLS / HTTPS
+
+TLS is an optional, build-time feature (`-DBB_WITH_TLS=ON`, requires OpenSSL) that adds HTTPS and WSS support using the exact same routes, middleware, handlers, and WebSocket code as plain HTTP/WS.
+
+```c
+bb_tls_config_t tls_config = {
+    .certificate_file = "cert.pem",
+    .private_key_file = "key.pem",
+};
+
+bb_error_t err;
+bb_server_t *server = bb_server_create_tls(8443, &tls_config, &err);
+```
+
+See [TLS, HTTPS & WSS](tls.md) for setup, certificate validation behavior, and architecture details.
+
+---
+
 # Error Handling
 
 Blue-Bird uses the `bb_error_t` abstraction for error reporting.
@@ -298,3 +317,4 @@ It is suitable for:
 - [routing.md](routing.md)
 - [middleware.md](middleware.md)
 - [websockets.md](websockets.md)
+- [tls.md](tls.md)

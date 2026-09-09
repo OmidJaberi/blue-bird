@@ -96,6 +96,7 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 ![Web](docs/assets/web_architecture.svg)
 
 - Server supporting HTTP + Websockets
+- Optional TLS support: HTTPS and WSS (build with `-DBB_WITH_TLS=ON`, requires OpenSSL)
 - HTTP client
 - Websocket client
 - Request/response abstractions
@@ -193,6 +194,7 @@ blue-bird/
 - C11 compatible compiler
 - CMake 3.20+
 - SQLite3 (optional, for SQLite persistence backend)
+- OpenSSL (optional, for HTTPS/WSS support)
 
 ## Build Instructions
 
@@ -208,6 +210,15 @@ This builds:
 - framework modules
 - examples
 - tests
+
+To also enable HTTPS/WSS support:
+
+```bash
+cmake .. -DBB_WITH_TLS=ON
+make
+```
+
+See [docs/web/tls.md](docs/web/tls.md) for details.
 
 ---
 
@@ -259,6 +270,7 @@ The framework already includes:
 - Async Runtime
 - working HTTP infrastructure
 - working Websockets infrastructure
+- optional TLS support (HTTPS, WSS)
 - authentication and session management
 - persistence systems
 - templating

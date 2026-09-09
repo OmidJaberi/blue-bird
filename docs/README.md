@@ -28,6 +28,8 @@ Blue-Bird is a modular backend and web framework written in C, focused on:
 - [Web Overview](web/overview.md)
 - [Routing](web/routing.md)
 - [Middleware](web/middleware.md)
+- [WebSockets](web/websockets.md)
+- [TLS, HTTPS & WSS](web/tls.md)
 
 ---
 

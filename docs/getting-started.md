@@ -9,6 +9,7 @@ This guide walks through building and running your first Blue-Bird application.
 - C11 compatible compiler
 - CMake 3.20+
 - SQLite3 (optional)
+- OpenSSL (optional, for HTTPS/WSS support)
 
 ---
 
@@ -25,6 +26,13 @@ This builds:
 - framework modules
 - examples
 - tests
+
+To also enable HTTPS/WSS support (requires OpenSSL):
+
+```bash
+cmake .. -DBB_WITH_TLS=ON
+make
+```
 
 ---
 
@@ -72,4 +80,5 @@ After building, run binaries from the build directory.
 - Read the [Architecture Guide](architecture.md)
 - Learn about [Routing](web/routing.md)
 - Learn about [Middleware](web/middleware.md)
+- Learn about [TLS, HTTPS & WSS](web/tls.md)
 - Explore the [Persistence System](persist/overview.md)
