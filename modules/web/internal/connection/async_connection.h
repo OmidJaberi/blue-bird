@@ -33,6 +33,8 @@ typedef struct bb_async_connection {
     bool disconnected;
 
     bb_task_t *write_task;
+    int write_watch_events;    // which BB_EVENT_* the write task is currently registered for
+    bool write_rewatching;     // true while cancelling+recreating write_task for a direction flip
 
     bb_async_callback_t write_success;
     bb_async_callback_t write_failure;
@@ -41,6 +43,7 @@ typedef struct bb_async_connection {
 
 
     bb_task_t *read_task;
+    int read_watch_events;     // which BB_EVENT_* the read task is currently registered for
 
     bb_read_step_fn read_step;
     bb_read_error_fn read_error;
@@ -59,6 +62,14 @@ void bb_async_connection_set_disconnect_callback(bb_async_connection_t *async_co
 
 bb_async_connection_t *bb_async_connection_serve(bb_runtime_t *runtime, int port);
 bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, bb_socket_t server_fd);
+
+/* Same as bb_async_connection_accept(), but immediately upgrades the
+ * accepted connection to server-side TLS (see bb_connection_upgrade_to_tls()).
+ * The connection starts life in BB_CONNECTION_HANDSHAKE; the read task
+ * created via bb_async_connection_create_read_task() drives the
+ * handshake transparently before any HTTP/WebSocket bytes are seen. */
+bb_async_connection_t *bb_async_connection_accept_tls(bb_runtime_t *runtime, bb_socket_t server_fd, bb_tls_context_t *tls_ctx);
+
 bb_async_connection_t *bb_async_connection_connect(bb_runtime_t *runtime, const char *host, const char *port_str);
 void bb_async_connection_close(bb_async_connection_t *async_conn);
 

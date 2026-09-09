@@ -28,21 +28,32 @@ static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
-bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
+/*
+ * Takes ownership of `tls_ctx` (may be NULL for a plain server):
+ * on success it's stored on the returned server; on any failure it is
+ * destroyed here before returning NULL. Callers must not touch it again
+ * either way.
+ */
+static bb_server_t *_bb_server_create_common(bb_runtime_t *runtime, int port, bb_tls_context_t *tls_ctx)
 {
     if (!runtime)
     {
+        bb_tls_context_destroy(tls_ctx);
         return NULL;
     }
 
     bb_server_t *server = calloc(1, sizeof(*server));
     if (!server)
     {
+        bb_tls_context_destroy(tls_ctx);
         return NULL;
     }
 
     server->runtime = runtime;
+    server->tls_ctx = tls_ctx;
 
+    // The listening socket itself is always plain TCP -- TLS is applied
+    // per accepted client connection, not to the accept() socket.
     server->async_conn = bb_async_connection_serve(runtime, port);
     if (!server->async_conn)
     {
@@ -58,7 +69,48 @@ bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
     server->conn_list = bb_conn_list_create();
     server->ws_list = bb_ws_list_create();
 
-    BB_LOG_INFO("Blue-Bird server initialized on port %d\n", port);
+    BB_LOG_INFO("Blue-Bird %sserver initialized on port %d\n", tls_ctx ? "TLS " : "", port);
+    return server;
+}
+
+bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
+{
+    return _bb_server_create_common(runtime, port, NULL);
+}
+
+bb_server_t *bb_server_create_tls_on_runtime(bb_runtime_t *runtime, int port, const bb_tls_config_t *tls_config, bb_error_t *out_err)
+{
+    if (out_err)
+    {
+        *out_err = BB_SUCCESS();
+    }
+
+    if (!runtime)
+    {
+        if (out_err) *out_err = BB_ERROR(BB_ERR_NULL, "No runtime.");
+        return NULL;
+    }
+
+    // Fail fast: never defer certificate/key problems until the first
+    // client connects.
+    bb_error_t tls_err;
+    bb_tls_context_t *tls_ctx = bb_tls_context_create_server(tls_config, &tls_err);
+    if (!tls_ctx)
+    {
+        if (out_err) *out_err = tls_err;
+        return NULL;
+    }
+
+    // On failure, _bb_server_create_common() has already torn down the
+    // (partially-constructed) server via bb_server_destroy(), which owns
+    // tls_ctx from this point on and frees it -- don't double-free it here.
+    bb_server_t *server = _bb_server_create_common(runtime, port, tls_ctx);
+    if (!server)
+    {
+        if (out_err) *out_err = BB_ERROR(BB_ERR_INTERNAL, "Failed to create server.");
+        return NULL;
+    }
+
     return server;
 }
 
@@ -345,9 +397,12 @@ void _server_accept_task(bb_task_t *task, void *userdata)
     (void)task;
 
     bb_server_task_data_t *data = userdata;
+    bb_server_t *server = data->server;
 
     bb_async_connection_t *async_conn;
-    while ((async_conn = bb_async_connection_accept(data->async_conn->runtime, data->async_conn->connection->fd)))
+    while ((async_conn = server->tls_ctx
+                ? bb_async_connection_accept_tls(data->async_conn->runtime, data->async_conn->connection->fd, server->tls_ctx)
+                : bb_async_connection_accept(data->async_conn->runtime, data->async_conn->connection->fd)))
     {
         if (_server_create_read_task(data->server, async_conn) != 0)
         {
@@ -423,6 +478,12 @@ void bb_server_destroy(bb_server_t *server)
     {
         bb_async_connection_destroy(server->async_conn);
         server->async_conn = NULL;
+    }
+
+    if (server->tls_ctx)
+    {
+        bb_tls_context_destroy(server->tls_ctx);
+        server->tls_ctx = NULL;
     }
 
     if (server->accept_task_data)

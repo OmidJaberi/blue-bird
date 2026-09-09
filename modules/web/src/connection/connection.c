@@ -36,6 +36,19 @@ bb_connection_t *bb_connection_create(bb_socket_t fd)
     connection->write_data = NULL;
     connection->write_pending = false;
 
+    // Transport: every connection starts out as plain TCP. Server-side
+    // TLS connections are upgraded in place via bb_connection_upgrade_to_tls()
+    // right after accept, before any data is read.
+    connection->transport = bb_transport_create_tcp(fd);
+    if (!connection->transport)
+    {
+        free(connection->buffer);
+        free(connection);
+        return NULL;
+    }
+    connection->read_io_hint = BB_CONN_IO_DEFAULT;
+    connection->write_io_hint = BB_CONN_IO_DEFAULT;
+
     return connection;
 }
 
@@ -54,6 +67,16 @@ void bb_connection_destroy(bb_connection_t *connection)
     if (!connection)
     {
         return;
+    }
+
+    if (connection->transport)
+    {
+        // Best-effort, non-blocking: we don't loop waiting for the
+        // peer's close_notify, but we do give OpenSSL a chance to send
+        // ours. Cleanup must never block on network I/O.
+        bb_transport_shutdown(connection->transport);
+        bb_transport_destroy(connection->transport);
+        connection->transport = NULL;
     }
 
     bb_socket_close(connection->fd);
@@ -252,6 +275,34 @@ bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char 
     return connection;
 }
 
+int bb_connection_upgrade_to_tls(bb_connection_t *connection, bb_tls_context_t *tls_ctx)
+{
+    if (!connection || !tls_ctx)
+    {
+        return -1;
+    }
+
+    bb_transport_t *tls_transport = bb_transport_create_tls_server(connection->fd, tls_ctx);
+    if (!tls_transport)
+    {
+        return -1;
+    }
+
+    /* The old (plain TCP) transport never owned the fd, so tearing it
+     * down here can't double-close the socket. */
+    if (connection->transport)
+    {
+        bb_transport_destroy(connection->transport);
+    }
+
+    connection->transport = tls_transport;
+    connection->state = BB_CONNECTION_HANDSHAKE;
+    connection->read_io_hint = BB_CONN_IO_DEFAULT;
+    connection->write_io_hint = BB_CONN_IO_DEFAULT;
+
+    return 0;
+}
+
 bb_error_t bb_connection_read(bb_connection_t *connection)
 {
     if (!connection)
@@ -263,6 +314,39 @@ bb_error_t bb_connection_read(bb_connection_t *connection)
     {
         return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
     }
+
+    /* TLS handshake gates everything: HTTP/WebSocket parsing must never
+     * see bytes until the transport says the handshake is complete. */
+    if (connection->state == BB_CONNECTION_HANDSHAKE)
+    {
+        bb_transport_status_t hs = bb_transport_handshake(connection->transport);
+
+        switch (hs)
+        {
+            case BB_TRANSPORT_OK:
+                connection->state = BB_CONNECTION_READING;
+                break; /* fall through into the normal read loop below */
+
+            case BB_TRANSPORT_WANT_READ:
+                connection->read_io_hint = BB_CONN_IO_DEFAULT;
+                return BB_SUCCESS();
+
+            case BB_TRANSPORT_WANT_WRITE:
+                connection->read_io_hint = BB_CONN_IO_NEED_WRITE;
+                return BB_SUCCESS();
+
+            case BB_TRANSPORT_CLOSED:
+                connection->state = BB_CONNECTION_CLOSED;
+                return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Peer closed connection during TLS handshake.");
+
+            case BB_TRANSPORT_ERROR:
+            default:
+                connection->state = BB_CONNECTION_CLOSED;
+                return BB_ERROR(BB_ERR_TLS_HANDSHAKE, "TLS handshake failed.");
+        }
+    }
+
+    connection->read_io_hint = BB_CONN_IO_DEFAULT;
 
     while (1)
     {
@@ -297,41 +381,42 @@ bb_error_t bb_connection_read(bb_connection_t *connection)
             connection->buffer_capacity = new_capacity;
         }
 
-        ssize_t n =
-            recv(
-                connection->fd,
-                connection->buffer +
-                connection->buffer_length,
-                connection->buffer_capacity -
-                connection->buffer_length - 1,
-                0
-            );
+        size_t n = 0;
+        bb_transport_status_t st = bb_transport_read(
+            connection->transport,
+            connection->buffer + connection->buffer_length,
+            connection->buffer_capacity - connection->buffer_length - 1,
+            &n
+        );
 
-        if (n > 0)
+        if (st == BB_TRANSPORT_OK)
         {
-            connection->buffer_length += (size_t)n;
+            connection->buffer_length += n;
             connection->buffer[connection->buffer_length] = '\0';
             continue;
         }
 
         /* Peer performed an orderly shutdown (EOF). */
-        if (n == 0)
+        if (st == BB_TRANSPORT_CLOSED)
         {
             connection->state = BB_CONNECTION_CLOSED;
             return BB_SUCCESS();
         }
 
-        /* No more data available on a non-blocking socket. */
-        if (bb_socket_would_block())
+        /* No more data available right now. */
+        if (st == BB_TRANSPORT_WANT_READ)
         {
             break;
         }
 
-        /* Fatal socket error. */
-        if (bb_socket_connection_closed())
+        /* TLS needs to write before it can make read progress
+         * (handshake renegotiation, session ticket update, etc). The
+         * async connection layer watches for this and flips the
+         * poller's interest to WRITE for us. */
+        if (st == BB_TRANSPORT_WANT_WRITE)
         {
-            connection->state = BB_CONNECTION_CLOSED;
-            return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
+            connection->read_io_hint = BB_CONN_IO_NEED_WRITE;
+            break;
         }
 
         return BB_ERROR(BB_ERR_IO, "Socket read failed.");
@@ -351,28 +436,44 @@ bb_error_t bb_connection_write(bb_connection_t *connection)
         return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");
     }
 
+    connection->write_io_hint = BB_CONN_IO_DEFAULT;
+
     while (connection->write_data != NULL)
     {
         while (connection->write_data->write_offset < connection->write_data->write_length)
         {
-            ssize_t n = send(
-                connection->fd,
+            size_t n = 0;
+            bb_transport_status_t st = bb_transport_write(
+                connection->transport,
                 connection->write_data->write_buffer + connection->write_data->write_offset,
                 connection->write_data->write_length - connection->write_data->write_offset,
-                MSG_NOSIGNAL
+                &n
             );
-            if (n > 0)
+
+            if (st == BB_TRANSPORT_OK)
             {
-                connection->write_data->write_offset += (size_t)n;
+                connection->write_data->write_offset += n;
                 continue;
             }
-            /* Send buffer is full on a non-blocking socket. */
-            if (bb_socket_would_block())
+
+            /* Send buffer is full right now -- normal backpressure. */
+            if (st == BB_TRANSPORT_WANT_WRITE)
             {
                 return BB_SUCCESS();
             }
+
+            /* TLS needs to read before it can make write progress. The
+             * async connection layer flips the poller's interest to
+             * READ for us; the write buffer is left exactly as-is
+             * (no bytes discarded), so the retry resumes cleanly. */
+            if (st == BB_TRANSPORT_WANT_READ)
+            {
+                connection->write_io_hint = BB_CONN_IO_NEED_READ;
+                return BB_SUCCESS();
+            }
+
             /* Peer disconnected. */
-            if (bb_socket_connection_closed())
+            if (st == BB_TRANSPORT_CLOSED)
             {
                 connection->state = BB_CONNECTION_CLOSED;
                 return BB_ERROR(BB_ERR_CONNECTION_CLOSED, "Connection closed.");

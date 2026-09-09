@@ -14,6 +14,9 @@ enum {
     BB_ERR_NETWORK,
     BB_ERR_EOF,
     BB_ERR_PAYLOAD_TOO_LARGE,
+    BB_ERR_TLS_CONFIG,      // certificate/private-key/context setup failed
+    BB_ERR_TLS_HANDSHAKE,   // TLS handshake or session setup failed
+    BB_ERR_TLS_UNSUPPORTED, // built without BB_WITH_TLS
 };
 
 

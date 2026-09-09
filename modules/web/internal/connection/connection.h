@@ -8,6 +8,7 @@ extern "C" {
 
 #include <blue-bird/utils/platform.h>
 #include "blue-bird/web/error.h"
+#include "transport/transport.h"
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -26,10 +27,27 @@ extern "C" {
 #define BB_CONNECTION_MAX_BUFFER_SIZE (4 * 1024 * 1024) /* 4 MiB */
 
 typedef enum {
+    BB_CONNECTION_HANDSHAKE, // TLS handshake in progress; no HTTP/WS parsing yet
     BB_CONNECTION_READING,
     BB_CONNECTION_WRITING,
     BB_CONNECTION_CLOSED
 } bb_connection_state_t;
+
+/*
+ * Which readiness direction bb_connection_read()/bb_connection_write()
+ * are actually waiting on right now. Normally reads wait on READ and
+ * writes wait on WRITE, but TLS can need either direction for either
+ * operation (handshake, renegotiation, or a partial SSL_write that
+ * needs a socket read to make progress). BB_CONN_IO_DEFAULT means
+ * "the obvious direction for this operation"; the async connection
+ * layer flips the poller's watched event only when it sees NEED_READ
+ * on a write, or NEED_WRITE on a read.
+ */
+typedef enum {
+    BB_CONN_IO_DEFAULT,
+    BB_CONN_IO_NEED_READ,
+    BB_CONN_IO_NEED_WRITE
+} bb_conn_io_hint_t;
 
 typedef struct write_buffer {
     char *write_buffer;
@@ -52,6 +70,12 @@ typedef struct bb_connection {
     write_buffer_t *write_data;
     bool write_pending;
 
+    // Transport (plain TCP or TLS/TCP) that bb_connection_read/write
+    // actually go through. Always non-NULL after a successful create.
+    bb_transport_t *transport;
+    bb_conn_io_hint_t read_io_hint;
+    bb_conn_io_hint_t write_io_hint;
+
     void *userdata;
 } bb_connection_t;
 
@@ -67,6 +91,17 @@ bb_connection_t *bb_connection_connect(const char *host, const char *port_str);
 bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char *port_str);
 bb_error_t bb_connection_read(bb_connection_t *connection);
 bb_error_t bb_connection_write(bb_connection_t *connection);
+
+/*
+ * Replaces the connection's transport with a server-side TLS/TCP
+ * transport bound to the same fd, and puts the connection into
+ * BB_CONNECTION_HANDSHAKE. Nothing above bb_connection_t (HTTP parser,
+ * router, WebSocket code) is aware this happened -- bb_connection_read()
+ * simply returns no data until the handshake completes.
+ *
+ * Returns 0 on success, -1 on failure (connection is left unchanged).
+ */
+int bb_connection_upgrade_to_tls(bb_connection_t *connection, bb_tls_context_t *tls_ctx);
 
 
 #ifdef __cplusplus

@@ -14,6 +14,9 @@ bb_async_connection_t *bb_async_connection_create(bb_runtime_t *runtime)
 
     async_conn->runtime = runtime;
     async_conn->disconnected = false;
+    async_conn->read_watch_events = BB_EVENT_READ;
+    async_conn->write_watch_events = BB_EVENT_WRITE;
+    async_conn->write_rewatching = false;
     return async_conn;
 }
 
@@ -90,6 +93,27 @@ bb_async_connection_t *bb_async_connection_accept(bb_runtime_t *runtime, bb_sock
     return async_conn;
 }
 
+bb_async_connection_t *bb_async_connection_accept_tls(bb_runtime_t *runtime, bb_socket_t server_fd, bb_tls_context_t *tls_ctx)
+{
+    bb_async_connection_t *async_conn = bb_async_connection_create(runtime);
+    if (!async_conn)
+    {
+        return NULL;
+    }
+    async_conn->connection = bb_connection_accept(server_fd);
+    if (!async_conn->connection)
+    {
+        bb_async_connection_destroy(async_conn);
+        return NULL;
+    }
+    if (bb_connection_upgrade_to_tls(async_conn->connection, tls_ctx) != 0)
+    {
+        bb_async_connection_destroy(async_conn);
+        return NULL;
+    }
+    return async_conn;
+}
+
 bb_async_connection_t *bb_async_connection_connect(bb_runtime_t *runtime, const char *host, const char *port_str)
 {
     bb_async_connection_t *async_conn = bb_async_connection_create(runtime);
@@ -117,6 +141,56 @@ void bb_async_connection_close(bb_async_connection_t *async_conn)
     async_conn->connection = NULL;
 
     _bb_async_connection_handle_disconnect(async_conn);
+}
+
+static void _bb_write_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    (void) task;
+    (void) result;
+    bb_async_connection_t *async_conn = userdata;
+    async_conn->write_task = NULL;
+
+    // While flipping the watched direction (see _bb_async_connection_rewatch_write),
+    // the old task is cancelled purely to be replaced by a new one for the
+    // *same* logical write operation -- write_pending must stay true, or a
+    // caller racing bb_async_connection_create_write_task() in between would
+    // think no write is in flight and start a duplicate one.
+    if (!async_conn->write_rewatching && async_conn->connection)
+    {
+        async_conn->connection->write_pending = false;
+    }
+}
+
+static void _bb_write_task(bb_task_t *task, void *userdata);
+
+static void _bb_async_connection_rewatch_write(bb_async_connection_t *async_conn, int events)
+{
+    bb_task_t *old_task = async_conn->write_task;
+
+    async_conn->write_rewatching = true;
+    bb_runtime_cancel_task(async_conn->runtime, old_task); // synchronously invokes _bb_write_task_cleanup
+    async_conn->write_rewatching = false;
+
+    bb_task_t *task = bb_runtime_watch_fd_ex(async_conn->runtime, async_conn->connection->fd, events, BB_WATCH_PERSISTENT, &(bb_task_config_t) {
+        .run = _bb_write_task,
+        .userdata = async_conn,
+        .cleanup = _bb_write_task_cleanup
+    });
+
+    if (!task)
+    {
+        // Couldn't re-arm: give up on the write rather than stalling
+        // silently forever.
+        async_conn->connection->write_pending = false;
+        if (async_conn->write_failure)
+        {
+            async_conn->write_failure(NULL, async_conn->write_userdata);
+        }
+        return;
+    }
+
+    async_conn->write_task = task;
+    async_conn->write_watch_events = events;
 }
 
 static void _bb_write_task(bb_task_t *task, void *userdata)
@@ -149,6 +223,16 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
         return;
     }
 
+    // TLS may need the opposite readiness direction to make write
+    // progress (e.g. a renegotiation needs to read while we're mid-write).
+    // Flip the poller interest instead of busy-looping on the wrong event.
+    int desired_events = (conn->write_io_hint == BB_CONN_IO_NEED_READ) ? BB_EVENT_READ : BB_EVENT_WRITE;
+    if (desired_events != async_conn->write_watch_events)
+    {
+        _bb_async_connection_rewatch_write(async_conn, desired_events);
+        return;
+    }
+
     if (conn->write_data)
     {
         return;
@@ -158,18 +242,6 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     if (async_conn->write_success)
     {
         async_conn->write_success(task, async_conn->write_userdata);
-    }
-}
-
-static void _bb_write_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
-{
-    (void) task;
-    (void) result;
-    bb_async_connection_t *async_conn = userdata;
-    async_conn->write_task = NULL;
-    if (async_conn->connection)
-    {
-        async_conn->connection->write_pending = false;
     }
 }
 
@@ -198,9 +270,48 @@ bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_co
 
     // Handle existing task...
     async_conn->write_task = task;
+    async_conn->write_watch_events = BB_EVENT_WRITE;
     async_conn->connection->write_pending = true;
 
     return BB_SUCCESS();
+}
+
+static void _bb_read_task(bb_task_t *task, void *userdata);
+
+static void _bb_read_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    (void) task;
+    (void) result;
+    bb_async_connection_t *async_conn = userdata;
+    async_conn->read_task = NULL;
+}
+
+static void _bb_async_connection_rewatch_read(bb_async_connection_t *async_conn, int events)
+{
+    bb_task_t *old_task = async_conn->read_task;
+
+    bb_runtime_cancel_task(async_conn->runtime, old_task); // synchronously invokes _bb_read_task_cleanup
+
+    bb_task_t *task = bb_runtime_watch_fd_ex(async_conn->runtime, async_conn->connection->fd, events, BB_WATCH_PERSISTENT, &(bb_task_config_t) {
+        .run = _bb_read_task,
+        .userdata = async_conn,
+        .cleanup = _bb_read_task_cleanup
+    });
+
+    if (!task)
+    {
+        // Couldn't re-arm: nothing will ever drive this connection's
+        // read side again, so surface it as a read error rather than
+        // silently stalling.
+        if (async_conn->read_error)
+        {
+            async_conn->read_error(BB_ERROR(BB_ERR_ALLOC, "Failed to re-arm read task."), async_conn->read_userdata);
+        }
+        return;
+    }
+
+    async_conn->read_task = task;
+    async_conn->read_watch_events = events;
 }
 
 static void _bb_read_task(bb_task_t *task, void *userdata)
@@ -218,7 +329,9 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
         return;
     }
 
-    bb_error_t err = bb_connection_read(async_conn->connection);
+    bb_connection_t *conn = async_conn->connection;
+
+    bb_error_t err = bb_connection_read(conn);
     if (BB_FAILED(err))
     {
         switch (err.code)
@@ -241,20 +354,29 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
         return;
     }
 
+    // TLS (handshake or in-band renegotiation) may need the opposite
+    // readiness direction to make read progress. Flip the poller
+    // interest instead of busy-looping on the wrong event.
+    int desired_events = (conn->read_io_hint == BB_CONN_IO_NEED_WRITE) ? BB_EVENT_WRITE : BB_EVENT_READ;
+    if (desired_events != async_conn->read_watch_events)
+    {
+        _bb_async_connection_rewatch_read(async_conn, desired_events);
+        return;
+    }
+
+    // Handshake still in progress: no application data to hand to the
+    // higher layer yet.
+    if (conn->state == BB_CONNECTION_HANDSHAKE)
+    {
+        return;
+    }
+
     bb_read_status_t status = async_conn->read_step(async_conn->read_userdata);
 
     if (status.result == BB_READ_ERROR && async_conn->read_error)
     {
         async_conn->read_error(status.err, async_conn->read_userdata);
     }
-}
-
-static void _bb_read_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
-{
-    (void) task;
-    (void) result;
-    bb_async_connection_t *async_conn = userdata;
-    async_conn->read_task = NULL;
 }
 
 void bb_async_connection_pause_read(bb_async_connection_t *async_conn)
@@ -296,6 +418,7 @@ bb_error_t bb_async_connection_create_read_task(bb_async_connection_t *async_con
     }
 
     async_conn->read_task = task;
+    async_conn->read_watch_events = BB_EVENT_READ;
 
     return BB_SUCCESS();
 }

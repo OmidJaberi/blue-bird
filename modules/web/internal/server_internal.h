@@ -34,6 +34,8 @@ struct bb_server {
 
     uint32_t ws_heartbeat_interval_ms;
     uint32_t ws_heartbeat_max_missed_pongs;
+
+    bb_tls_context_t *tls_ctx; // NULL for a plain-TCP server
 };
 
 #endif //BB_SERVER_INTERNAL_H

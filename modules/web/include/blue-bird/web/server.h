@@ -7,13 +7,16 @@ extern "C" {
 
 
 #include "blue-bird/runtime/runtime.h"
+#include "blue-bird/error/error.h"
 
 #include "http/handler.h"
 #include "websocket/websocket.h"
+#include "tls.h"
 
 typedef struct bb_server bb_server_t;
 
 bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port);
+bb_server_t *bb_server_create_tls_on_runtime(bb_runtime_t *runtime, int port, const bb_tls_config_t *tls_config, bb_error_t *out_err);
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler);
 void bb_server_add_websocket(bb_server_t *server, const char *path, bb_ws_handler_cb handler);
 void bb_server_set_websocket_heartbeat(bb_server_t *server, uint32_t interval_ms, uint32_t max_missed_pongs); // max_missed_pongs == 0 -> disable
@@ -25,6 +28,11 @@ void bb_server_destroy(bb_server_t *server);
 static inline bb_server_t *bb_server_create(int port)
 {
     return bb_server_create_on_runtime(bb_runtime_default(), port);
+}
+
+static inline bb_server_t *bb_server_create_tls(int port, const bb_tls_config_t *tls_config, bb_error_t *out_err)
+{
+    return bb_server_create_tls_on_runtime(bb_runtime_default(), port, tls_config, out_err);
 }
 
 

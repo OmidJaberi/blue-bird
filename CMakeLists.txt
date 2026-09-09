@@ -17,6 +17,7 @@ option(BUILD_TOOLS "Build developer tools (codegen, etc.)" ON)
 option(BLUEBIRD_INSTALL "Install Blue-Bird" OFF)
 
 option(BB_ENABLE_SANITIZERS "Enable sanitizers" OFF)
+option(BB_WITH_TLS "Build with TLS/HTTPS/WSS support (requires OpenSSL)" OFF)
 
 if(BB_ENABLE_SANITIZERS)
     add_compile_options(
