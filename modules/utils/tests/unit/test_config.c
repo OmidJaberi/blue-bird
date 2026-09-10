@@ -134,6 +134,54 @@ void test_config_invalid_destination(void)
     bb_json_destroy(array);
 }
 
+void test_config_load_tls_certificate(void)
+{
+    printf("\tTesting loading TLS certificate configuration...\n");
+
+    const char *path = "test_config_tls_cert.env";
+
+    write_test_file(
+        path,
+        BB_CONFIG_KEY_TLS_CERTIFICATE_FILE "=/etc/blue-bird/cert.pem\n"
+    );
+
+    bb_json_t *config = bb_json_create(BB_JSON_OBJECT);
+
+    BB_ASSERT(!BB_FAILED(bb_config_load_env(config, path)));
+
+    BB_ASSERT(strcmp(
+        bb_json_get_value_text(bb_json_object_get_value(config, BB_CONFIG_KEY_TLS_CERTIFICATE_FILE)),
+        "/etc/blue-bird/cert.pem") == 0);
+
+    remove(path);
+    bb_json_destroy(config);
+}
+
+void test_config_load_tls_private_key(void)
+{
+    printf("\tTesting loading TLS private-key configuration...\n");
+
+    const char *path = "test_config_tls_key.json";
+
+    write_test_file(
+        path,
+        "{"
+        "\"" BB_CONFIG_KEY_TLS_PRIVATE_KEY_FILE "\": \"/etc/blue-bird/key.pem\""
+        "}"
+    );
+
+    bb_json_t *config = bb_json_create(BB_JSON_OBJECT);
+
+    BB_ASSERT(!BB_FAILED(bb_config_load_json(config, path)));
+
+    BB_ASSERT(strcmp(
+        bb_json_get_value_text(bb_json_object_get_value(config, BB_CONFIG_KEY_TLS_PRIVATE_KEY_FILE)),
+        "/etc/blue-bird/key.pem") == 0);
+
+    remove(path);
+    bb_json_destroy(config);
+}
+
 int main(void)
 {
     printf("Running config tests...\n");
@@ -145,6 +193,9 @@ int main(void)
     test_config_json_overwrite();
 
     test_config_invalid_destination();
+
+    test_config_load_tls_certificate();
+    test_config_load_tls_private_key();
 
     printf("All tests passed.\n");
     return 0;
