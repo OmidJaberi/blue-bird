@@ -106,6 +106,53 @@ if (!server)
 
 ---
 
+# Loading TLS Configuration from bb_config
+
+Rather than hard-coding `cert.pem`/`key.pem`, an application typically wants the certificate and private-key paths to come from its configuration -- an environment file, a JSON config file, or environment variables merged into one. Blue-Bird's generic config loader (see [Configuration](../utils/config.md)) recognizes two well-known keys for this:
+
+```c
+#define BB_CONFIG_KEY_TLS_CERTIFICATE_FILE "tls_certificate_file"
+#define BB_CONFIG_KEY_TLS_PRIVATE_KEY_FILE "tls_private_key_file"
+```
+
+A `.env` file might look like:
+
+```
+tls_certificate_file=/etc/blue-bird/cert.pem
+tls_private_key_file=/etc/blue-bird/key.pem
+```
+
+Load it with `bb_config_load_env()`, then hand the resulting config straight to `bb_tls_config_from_json()` to build a `bb_tls_config_t`:
+
+```c
+#include <blue-bird/utils/bb_config.h>
+#include <blue-bird/web/server.h>
+
+bb_json_t *config = bb_json_create(BB_JSON_OBJECT);
+bb_error_t err = bb_config_load_env(config, ".env");
+if (BB_FAILED(err))
+{
+    fprintf(stderr, "Failed to load config: %s\n", err.message);
+    return 1;
+}
+
+bb_tls_config_t tls_config;
+err = bb_tls_config_from_json(config, &tls_config);
+if (BB_FAILED(err))
+{
+    fprintf(stderr, "Failed to load TLS config: %s\n", err.message);
+    return 1;
+}
+
+bb_server_t *server = bb_server_create_tls(8443, &tls_config, &err);
+```
+
+`bb_tls_config_from_json()` only checks that both keys are present and hold non-empty strings -- it returns `BB_ERR_TLS_CONFIG` otherwise. The `certificate_file`/`private_key_file` pointers it fills in alias strings owned by `config`, so `config` must stay alive for as long as `tls_config` (and any server created from it) is in use. Whether the paths actually point at a valid, matching certificate/key pair is still verified the usual way, during `bb_server_create_tls()`/`bb_server_create_tls_on_runtime()`.
+
+The existing `bb_tls_config_t` struct and `bb_server_create_tls*()` functions are unchanged -- building a `bb_tls_config_t` by hand, as in the previous section, remains just as valid.
+
+---
+
 # WSS (WebSocket over TLS)
 
 WebSocket routes registered with `bb_server_add_websocket()` automatically work over TLS on an HTTPS server — there is no separate "WSS route" concept. A client that completes a WebSocket upgrade handshake over an already-established TLS connection gets a normal `bb_websocket_t`, and message framing, ping/pong, and close handling all behave identically to plain `ws://`.
