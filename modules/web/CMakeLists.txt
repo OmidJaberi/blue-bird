@@ -23,6 +23,7 @@ add_library(bluebird_web
 
     src/transport/transport.c
     $<IF:$<BOOL:${BB_WITH_TLS}>,src/transport/tls.c,src/transport/tls_stub.c>
+    src/tls_config.c
 )
 
 target_include_directories(bluebird_web
