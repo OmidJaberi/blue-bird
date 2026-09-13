@@ -5,6 +5,7 @@ add_library(bluebird_security
     src/pbkdf2.c
     src/random.c
     src/session.c
+    src/session_store.c
 )
 
 target_include_directories(bluebird_security
