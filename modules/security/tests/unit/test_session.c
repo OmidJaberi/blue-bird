@@ -1,5 +1,7 @@
 #include "blue-bird/security/session.h"
 
+#include "session_store.h"
+
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,6 +42,48 @@ void test_session_lookup(void)
     BB_ASSERT(strcmp(created.user_id, fetched.user_id) == 0);
 }
 
+void test_session_lookup_not_found(void)
+{
+    printf("\tTesting lookup of a session that was never created...\n");
+
+    bb_session_t fetched;
+
+    bb_error_t err = bb_session_get("00000000000000000000000000000000000000000000000000000000000000", &fetched);
+
+    BB_ASSERT(err.code == BB_ERR_SESSION_NOT_FOUND);
+}
+
+void test_session_lookup_prefix_does_not_match(void)
+{
+    printf("\tTesting that a truncated/prefix ID does not match...\n");
+
+    bb_session_t created;
+    bb_session_t fetched;
+
+    bb_session_create("user-prefix", 3600, &created);
+
+    char prefix[BB_SESSION_ID_SIZE];
+
+    strncpy(prefix, created.id, sizeof(prefix) - 1);
+    prefix[sizeof(prefix) - 1] = '\0';
+    prefix[strlen(prefix) / 2] = '\0'; /* truncate to half length */
+
+    bb_error_t err = bb_session_get(prefix, &fetched);
+
+    BB_ASSERT(err.code != BB_OK);
+}
+
+void test_session_lookup_empty_id(void)
+{
+    printf("\tTesting lookup with an empty ID string...\n");
+
+    bb_session_t fetched;
+
+    bb_error_t err = bb_session_get("", &fetched);
+
+    BB_ASSERT(err.code != BB_OK);
+}
+
 void test_session_destroy(void)
 {
     printf("\tTesting session destroy...\n");
@@ -48,11 +92,22 @@ void test_session_destroy(void)
 
     bb_session_create("user-3", 3600, &session);
 
-    bb_session_destroy(session.id);
+    bb_error_t destroy_err = bb_session_destroy(session.id);
+
+    BB_ASSERT(destroy_err.code == BB_OK);
 
     bb_error_t err = bb_session_get(session.id, &session);
 
-    BB_ASSERT(err.code != BB_OK);
+    BB_ASSERT(err.code == BB_ERR_SESSION_NOT_FOUND);
+}
+
+void test_session_destroy_not_found(void)
+{
+    printf("\tTesting destroy of a session that doesn't exist...\n");
+
+    bb_error_t err = bb_session_destroy("does-not-exist");
+
+    BB_ASSERT(err.code == BB_ERR_SESSION_NOT_FOUND);
 }
 
 void test_session_expired(void)
@@ -65,7 +120,7 @@ void test_session_expired(void)
 
     bb_error_t err = bb_session_get(session.id, &session);
 
-    BB_ASSERT(err.code != BB_OK);
+    BB_ASSERT(err.code == BB_ERR_SESSION_EXPIRED);
 }
 
 void test_session_unique_ids(void)
@@ -82,15 +137,68 @@ void test_session_unique_ids(void)
     BB_ASSERT(strcmp(s1.id, s2.id) != 0);
 }
 
+void test_session_null_arguments(void)
+{
+    printf("\tTesting null argument handling...\n");
+
+    bb_session_t session;
+
+    BB_ASSERT(bb_session_create(NULL, 3600, &session).code == BB_ERR_NULL);
+    BB_ASSERT(bb_session_create("user-x", 3600, NULL).code == BB_ERR_NULL);
+
+    BB_ASSERT(bb_session_get(NULL, &session).code == BB_ERR_NULL);
+    BB_ASSERT(bb_session_get("some-id", NULL).code == BB_ERR_NULL);
+
+    BB_ASSERT(bb_session_destroy(NULL).code == BB_ERR_NULL);
+}
+
+void test_session_cleanup_removes_only_expired(void)
+{
+    printf("\tTesting that cleanup removes expired sessions and keeps live ones...\n");
+
+    bb_session_t expired;
+    bb_session_t live;
+
+    bb_session_create("user-expired", -5, &expired);
+    bb_session_create("user-live", 3600, &live);
+
+    size_t before = _bb_session_store_count();
+
+    bb_error_t err = bb_session_cleanup_expired();
+
+    BB_ASSERT(err.code == BB_OK);
+
+    size_t after = _bb_session_store_count();
+
+    /* At least the one expired session we just made should be gone;
+     * other tests in this file may have left their own live sessions
+     * lying around, so we can't assert an exact count. */
+    BB_ASSERT(after < before);
+
+    /* The live session must have survived the sweep. */
+    bb_session_t fetched;
+    BB_ASSERT(bb_session_get(live.id, &fetched).code == BB_OK);
+
+    /* And the expired one must actually be gone from the store now,
+     * not just rejected by the expiry check on lookup. */
+    BB_ASSERT(bb_session_get(expired.id, &fetched).code == BB_ERR_SESSION_NOT_FOUND);
+}
+
 int main(void)
 {
     printf("Running Session tests...\n");
 
     test_session_create();
     test_session_lookup();
+    test_session_lookup_not_found();
+    test_session_lookup_prefix_does_not_match();
+    test_session_lookup_empty_id();
     test_session_destroy();
+    test_session_destroy_not_found();
     test_session_expired();
     test_session_unique_ids();
+    test_session_null_arguments();
+    test_session_cleanup_removes_only_expired();
 
     printf("All tests passed.\n");
 
