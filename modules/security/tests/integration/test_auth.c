@@ -1,9 +1,11 @@
 #include "blue-bird/security/auth.h"
+#include "blue-bird/security/config.h"
 #include "blue-bird/security/session.h"
 
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 static int verify_user(const char *username, const char *password, char *user_id, size_t user_id_size)
 {
@@ -60,6 +62,30 @@ void test_logout(void)
     BB_ASSERT(err.code != BB_OK);
 }
 
+void test_login_uses_configured_session_lifetime(void)
+{
+    printf("\tTesting that login's default session lifetime tracks security config...\n");
+
+    bb_security_config_t config;
+    bb_security_config_default(&config);
+    config.session_lifetime_seconds = 42;
+
+    bb_error_t set_err = bb_security_config_set(&config);
+    BB_ASSERT(set_err.code == BB_OK);
+
+    bb_session_t session;
+    time_t before = time(NULL);
+
+    bb_error_t err = bb_auth_login("admin", "secret123", verify_user, &session);
+
+    BB_ASSERT(err.code == BB_OK);
+    BB_ASSERT(session.expires_at >= before + 42);
+    BB_ASSERT(session.expires_at <= before + 42 + 5); /* a little slack for test runtime */
+
+    bb_security_config_default(&config);
+    bb_security_config_set(&config);
+}
+
 int main(void)
 {
     printf("Running Auth tests...\n");
@@ -67,6 +93,7 @@ int main(void)
     test_login_success();
     test_login_failure();
     test_logout();
+    test_login_uses_configured_session_lifetime();
 
     printf("All tests passed.\n");
 

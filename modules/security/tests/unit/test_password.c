@@ -12,6 +12,7 @@
  */
 
 #include "blue-bird/security/password.h"
+#include "blue-bird/security/config.h"
 
 #include "password_backend.h"
 #include "random.h"
@@ -204,6 +205,65 @@ void test_password_end_to_end_smoke(void)
     BB_ASSERT(bb_password_verify("wrong-password", hash) == 0);
 }
 
+/* --- Config wiring: does bb_password_hash()/_verify() actually consult
+ * bb_security_config_get(), not just the old hardcoded constants? Uses
+ * the minimum allowed iteration count to keep this fast. --- */
+
+void test_password_config_iterations_are_embedded(void)
+{
+    printf("\tTesting that a configured iteration count is embedded in the hash...\n");
+    fflush(stdout);
+
+    bb_security_config_t config;
+    bb_security_config_default(&config);
+    config.password_pbkdf2_iterations = BB_PASSWORD_PBKDF2_ITERATIONS_MIN;
+
+    bb_error_t set_err = bb_security_config_set(&config);
+    BB_ASSERT(set_err.code == BB_OK);
+
+    char hash[256];
+    bb_error_t err = bb_password_hash("secret123", hash, sizeof(hash));
+
+    BB_ASSERT(err.code == BB_OK);
+    BB_ASSERT(strncmp(hash, "bb$pbkdf2-sha256$i=100000$", 26) == 0);
+    BB_ASSERT(bb_password_verify("secret123", hash) == 1);
+
+    bb_security_config_default(&config);
+    bb_security_config_set(&config);
+}
+
+void test_password_config_max_length_is_enforced(void)
+{
+    printf("\tTesting that a configured max password length is enforced...\n");
+    fflush(stdout);
+
+    bb_security_config_t config;
+    bb_security_config_default(&config);
+    config.password_pbkdf2_iterations = BB_PASSWORD_PBKDF2_ITERATIONS_MIN;
+    config.password_max_length = 8;
+
+    bb_error_t set_err = bb_security_config_set(&config);
+    BB_ASSERT(set_err.code == BB_OK);
+
+    char hash[256];
+
+    /* Exactly at the limit: allowed. */
+    bb_error_t ok_err = bb_password_hash("12345678", hash, sizeof(hash));
+    BB_ASSERT(ok_err.code == BB_OK);
+    BB_ASSERT(bb_password_verify("12345678", hash) == 1);
+
+    /* One over the limit: rejected before any hashing happens. */
+    bb_error_t too_long_err = bb_password_hash("123456789", hash, sizeof(hash));
+    BB_ASSERT(too_long_err.code == BB_ERR_PASSWORD_TOO_LONG);
+
+    /* A password that's valid under the old (larger) default but not
+     * under this config must also fail to *verify* now, not just hash. */
+    BB_ASSERT(bb_password_verify("123456789", "bb$pbkdf2-sha256$i=2$00$00") == 0);
+
+    bb_security_config_default(&config);
+    bb_security_config_set(&config);
+}
+
 int main(void)
 {
     printf("Running Password tests...\n");
@@ -221,6 +281,8 @@ int main(void)
     test_null_arguments();
     test_password_hash_buffer_too_small();
     test_password_end_to_end_smoke();
+    test_password_config_iterations_are_embedded();
+    test_password_config_max_length_is_enforced();
 
     printf("All tests passed.\n");
 

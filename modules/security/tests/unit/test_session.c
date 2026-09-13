@@ -1,4 +1,5 @@
 #include "blue-bird/security/session.h"
+#include "blue-bird/security/config.h"
 
 #include "session_store.h"
 
@@ -184,6 +185,51 @@ void test_session_cleanup_removes_only_expired(void)
     BB_ASSERT(bb_session_get(expired.id, &fetched).code == BB_ERR_SESSION_NOT_FOUND);
 }
 
+/* --- Config wiring --- */
+
+void test_session_config_id_length_is_used(void)
+{
+    printf("\tTesting that a configured session ID length is used...\n");
+
+    bb_security_config_t config;
+    bb_security_config_default(&config);
+    config.session_id_length = 32; /* the floor: 128 bits */
+
+    bb_error_t set_err = bb_security_config_set(&config);
+    BB_ASSERT(set_err.code == BB_OK);
+
+    bb_session_t session;
+    bb_error_t err = bb_session_create("user-short-id", 3600, &session);
+
+    BB_ASSERT(err.code == BB_OK);
+    BB_ASSERT(strlen(session.id) == 32);
+
+    /* It must still be independently look-up-able, not just the right
+     * length. */
+    bb_session_t fetched;
+    BB_ASSERT(bb_session_get(session.id, &fetched).code == BB_OK);
+
+    bb_security_config_default(&config);
+    bb_security_config_set(&config);
+}
+
+void test_session_config_lifetime_default_used_by_login(void)
+{
+    printf("\tTesting that bb_auth_login()'s default lifetime tracks config...\n");
+
+    /* auth.c's use of the configured session_lifetime_seconds is
+     * exercised end-to-end in security.test_auth; here we just confirm
+     * bb_session_create() honors whatever ttl it's given, which is the
+     * piece auth.c relies on. */
+    bb_session_t session;
+    time_t before = time(NULL);
+
+    bb_error_t err = bb_session_create("user-ttl", 120, &session);
+
+    BB_ASSERT(err.code == BB_OK);
+    BB_ASSERT(session.expires_at >= before + 120);
+}
+
 int main(void)
 {
     printf("Running Session tests...\n");
@@ -199,6 +245,8 @@ int main(void)
     test_session_unique_ids();
     test_session_null_arguments();
     test_session_cleanup_removes_only_expired();
+    test_session_config_id_length_is_used();
+    test_session_config_lifetime_default_used_by_login();
 
     printf("All tests passed.\n");
 
