@@ -184,6 +184,36 @@ The verification callback remains fully application-defined.
 
 ---
 
+# Configuring Security Policy
+
+Set this once, at application startup, before anything starts handling
+requests:
+
+```c
+bb_security_config_t config;
+bb_security_config_default(&config);
+
+config.session_lifetime_seconds = 1800; /* 30 minutes instead of the 1 hour default */
+
+bb_error_t err = bb_security_config_set(&config);
+```
+
+Or load it from your existing `.env`/JSON config:
+
+```c
+bb_security_config_t config;
+bb_error_t err = bb_security_config_from_json(app_config, &config);
+
+if (err.code == BB_OK)
+{
+    bb_security_config_set(&config);
+}
+```
+
+See [config.md](config.md) for the full list of what's configurable.
+
+---
+
 # Logout
 
 Logout is simply session destruction.

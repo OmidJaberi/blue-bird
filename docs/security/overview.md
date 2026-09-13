@@ -60,6 +60,7 @@ The security module currently supports:
 - configurable session expiration
 - authentication helpers
 - in-memory session storage
+- explicit, validated security configuration (see [config.md](config.md))
 
 ---
 
@@ -88,6 +89,7 @@ This preserves clean dependency direction throughout Blue-Bird.
 #include <blue-bird/security/password.h>
 #include <blue-bird/security/session.h>
 #include <blue-bird/security/auth.h>
+#include <blue-bird/security/config.h>
 ```
 
 ---
@@ -107,6 +109,21 @@ sessions
 Applications provide user storage and credential lookup.
 
 The security module provides password validation and session lifecycle management.
+
+---
+
+# Regression Coverage
+
+Beyond the per-feature unit tests, `tests/integration/test_regression_*.c`
+adversarially test the password, session, and randomness subsystems
+(malformed input, corrupted records, expired/deleted/unknown sessions,
+zero-length and oversized random requests), and mechanically guard
+against the specific mistakes this module's security hardening fixed
+(non-CSPRNG randomness, non-cryptographic password hashing) reappearing
+in a future change. This suite runs, along with everything else, across
+the CI matrix in `.github/workflows/cmake-multi-platform.yml`
+(Linux/macOS/Windows, multiple compilers, Debug/Release, with and
+without ASan/UBSan).
 
 ---
 
@@ -169,4 +186,5 @@ while remaining:
 - [auth.md](auth.md)
 - [passwords.md](passwords.md)
 - [sessions.md](sessions.md)
+- [config.md](config.md)
 - [usage.md](usage.md)

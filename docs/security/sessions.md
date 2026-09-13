@@ -61,6 +61,11 @@ current time + ttl
 expires_at
 ```
 
+`bb_session_create()` takes its `ttl` explicitly. `bb_auth_login()`'s
+default `ttl` - and the number of hex characters generated for each
+session's `id` - come from the active security configuration; see
+[config.md](config.md) for `bb_security_config_t`.
+
 Expired sessions should no longer be considered valid.
 
 ---
@@ -87,7 +92,14 @@ without changing the public API.
 
 Expired sessions may be removed through cleanup operations.
 
-This prevents unbounded growth of the session store.
+```c
+bb_session_cleanup_expired();
+```
+
+This prevents unbounded growth of the session store. It does not run
+on a timer by itself - call it periodically from wherever your
+application already drives one (see `blue-bird/security/session.h`
+for a `bb_runtime_set_interval()` wiring example).
 
 ---
 

@@ -44,8 +44,14 @@ Password hashes are stored using a self-describing format.
 Example:
 
 ```txt
-bb$algorithm$salt$hash
+bb$pbkdf2-sha256$i=600000$<hex salt>$<hex hash>
 ```
+
+The algorithm is PBKDF2-HMAC-SHA256 (no external cryptography
+dependency - see the module's internal SHA-256/HMAC implementation).
+The iteration count is embedded directly in the record, so it always
+reflects whatever cost the password was actually hashed with, even if
+the configured default (see [config.md](config.md)) changes later.
 
 This format allows future algorithm upgrades while preserving compatibility with existing hashes.
 
@@ -75,12 +81,10 @@ The hashing implementation is intentionally isolated behind internal APIs.
 
 This allows future migration toward stronger algorithms without changing the public API.
 
-Potential future algorithms include:
-
-- PBKDF2
-- bcrypt
-- scrypt
-- Argon2id
+The current implementation uses PBKDF2-HMAC-SHA256. Its cost
+(iteration count) and the maximum accepted password length are
+policy, not hardcoded constants - see [config.md](config.md) for
+`bb_security_config_t`.
 
 ---
 
