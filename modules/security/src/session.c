@@ -13,6 +13,7 @@
 
 #include "../internal/random.h"
 #include "../internal/session_store.h"
+#include "blue-bird/security/config.h"
 
 bb_error_t bb_session_create(const char *user_id, time_t ttl, bb_session_t *session)
 {
@@ -23,10 +24,12 @@ bb_error_t bb_session_create(const char *user_id, time_t ttl, bb_session_t *sess
 
     strncpy(session->user_id, user_id, sizeof(session->user_id) - 1);
 
+    const bb_security_config_t *config = bb_security_config_get();
+
     /* A session is only as secure as its ID. If the CSPRNG fails, this
      * must fail loudly rather than hand back a session with a weak (or
      * all-zero) ID. */
-    bb_error_t err = _bb_random_hex(session->id, sizeof(session->id));
+    bb_error_t err = _bb_random_hex(session->id, config->session_id_length + 1);
 
     if (BB_FAILED(err))
         return err;

@@ -35,7 +35,9 @@ enum bb_security_error {
     BB_ERR_SESSION_EXPIRED,
     BB_ERR_SESSION_NOT_FOUND,
     BB_ERR_HASH_FAILED,
-    BB_ERR_RANDOM_FAILED
+    BB_ERR_RANDOM_FAILED,
+    BB_ERR_PASSWORD_TOO_LONG,
+    BB_ERR_INVALID_SECURITY_CONFIG
 };
 
 bb_error_t bb_session_create(const char *user_id, time_t ttl, bb_session_t *session);
