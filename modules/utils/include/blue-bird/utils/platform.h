@@ -143,6 +143,22 @@ static inline int bb_socket_would_block(void)
 #endif
 }
 
+/*
+ * True if the last socket error indicates the process (EMFILE) or
+ * system (ENFILE) hit its file/socket descriptor ceiling. When this
+ * comes back from accept(), there is no descriptor available for the
+ * newly completed connection, so it cannot be served.
+ */
+static inline int bb_socket_fd_exhausted(void)
+{
+#if defined(_WIN32)
+    return bb_socket_last_error() == WSAEMFILE;
+#else
+    int err = bb_socket_last_error();
+    return err == EMFILE || err == ENFILE;
+#endif
+}
+
 /* --------------------------------------------------------------------- */
 /* Misc helpers                                                          */
 /* --------------------------------------------------------------------- */

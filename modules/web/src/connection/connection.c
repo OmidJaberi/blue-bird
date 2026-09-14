@@ -168,36 +168,129 @@ bb_connection_t *bb_connection_serve(int port)
     return connection;
 }
 
+/* --------------------------------------------------------------------- */
+/* Descriptor-exhaustion rejection (EMFILE/ENFILE)                       */
+/* --------------------------------------------------------------------- */
+
+/*
+ * accept() hands out a brand-new descriptor per completed connection.
+ * When the process (EMFILE) or system (ENFILE) runs out of descriptors,
+ * accept() fails with no way to hand the pending client an fd. If we
+ * just return NULL at that point, the completed connection stays in the
+ * listen backlog: the listener remains readable, so the event loop's
+ * accept task re-fires on every tick and hits the same EMFILE/ENFILE
+ * forever -- a busy loop that never makes progress and starves the
+ * connections already being served.
+ *
+ * The standard cure (the same "spare descriptor" trick nginx and
+ * lighttpd use) is to hold one descriptor permanently in reserve that is
+ * not a live connection. When accept() reports EMFILE/ENFILE, close the
+ * spare to free exactly one slot, accept() the pending connection, close
+ * it right away -- a clean, decisive rejection the peer observes as EOF
+ * or a reset instead of a hang -- and then reopen the spare. Draining a
+ * single connection per accept() call bounds the work done per event
+ * loop tick; the accept task is naturally re-invoked for any backlog
+ * that remains.
+ */
+static bb_socket_t _bb_connection_spare_fd = BB_INVALID_SOCKET;
+
+static bb_socket_t _bb_connection_spare_fd_open(void)
+{
+#if defined(_WIN32)
+    /* A bare socket occupies one slot of the process's socket-handle
+     * table -- the same table accept() draws from. */
+    return socket(AF_INET, SOCK_STREAM, 0);
+#else
+    /* An empty file is enough to hold one descriptor. */
+    return open("/dev/null", O_RDWR);
+#endif
+}
+
+/* Establishes the reserved descriptor the first time it is needed.
+ * Must only run while the table still has room; the rejection path
+ * handles the case where even this fails. */
+static void _bb_connection_ensure_spare_fd(void)
+{
+    if (_bb_connection_spare_fd == BB_INVALID_SOCKET)
+    {
+        _bb_connection_spare_fd = _bb_connection_spare_fd_open();
+    }
+}
+
+/*
+ * Accepts and rejects a single pending connection using the reserved
+ * spare descriptor. Returns 0 if a connection was drained, -1 if there
+ * was nothing to drain or no spare was established.
+ */
+static int _bb_connection_reject_pending(bb_socket_t server_fd)
+{
+    if (_bb_connection_spare_fd == BB_INVALID_SOCKET)
+    {
+        /* The process was already out of descriptors before the first
+         * accept() ran, so no reserve could be established. Nothing we
+         * can trade; fall back to plain failure. */
+        return -1;
+    }
+
+    bb_socket_close(_bb_connection_spare_fd);
+    _bb_connection_spare_fd = BB_INVALID_SOCKET;
+
+    bb_socket_t rejected = accept(server_fd, NULL, NULL);
+
+    if (!bb_socket_is_invalid(rejected))
+    {
+        /* Peer was connected but has no slot to be served in; closing
+         * immediately is the rejection. */
+        bb_socket_close(rejected);
+    }
+
+    /* Re-arm the reserve for the next exhaustion event. If this fails it
+     * is harmless: the reserve is re-created lazily on a later accept. */
+    _bb_connection_spare_fd = _bb_connection_spare_fd_open();
+
+    return bb_socket_is_invalid(rejected) ? -1 : 0;
+}
+
 bb_connection_t *bb_connection_accept(bb_socket_t server_fd)
 {
+    _bb_connection_ensure_spare_fd();
+
     struct sockaddr_in address;
 
     socklen_t addrlen = sizeof(address);
 
     bb_socket_t client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen);
 
-    if (client_fd < 0)
+    if (!bb_socket_is_invalid(client_fd))
     {
-        /*
-        * Nonblocking socket:
-        * no more pending connections.
-        */
-        return NULL;
+        if (bb_socket_set_nonblocking(client_fd) != 0)
+        {
+            bb_socket_close(client_fd);
+            return NULL;
+        }
+
+        bb_connection_t *connection = bb_connection_create(client_fd);
+
+        if (!connection)
+        {
+            bb_socket_close(client_fd);
+        }
+        return connection;
     }
 
-    if (bb_socket_set_nonblocking(client_fd) != 0)
+    /*
+    * Nonblocking socket: no more pending connections (EAGAIN/EWOULDBLOCK
+    * are the normal "nothing waiting" case). The exception is a full
+    * descriptor table: the pending connection cannot be served, and
+    * leaving it queued would keep the listener readable forever, so it
+    * must be drained and rejected outright.
+    */
+    if (bb_socket_fd_exhausted())
     {
-        return NULL;
+        _bb_connection_reject_pending(server_fd);
     }
 
-    bb_connection_t *connection = bb_connection_create(client_fd);
-
-    if (!connection)
-    {
-        bb_socket_close(client_fd);
-        return NULL;
-    }
-    return connection;
+    return NULL;
 }
 
 static int _connect(const char *host, const char *port_str)
