@@ -10,6 +10,7 @@
 
 #if !defined(_WIN32)
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -88,35 +89,146 @@ static bb_socket_t _connect_to(int port)
 }
 
 /*
- * Counts descriptors in [0, 1024) that are currently open.  Used to
- * derive the exact rlim_cur that makes accept() fail: with N fds open
- * (occupying fd numbers 0..N-1 with no gaps, as guaranteed by our
- * controlled setup), rlim_cur = N means the next allocation (fd N)
- * exceeds the limit, while closing any one of the existing fds frees a
- * slot below the limit.
+ * Deterministic file-descriptor exhaustion
+ *
+ * We must not derive RLIMIT_NOFILE from the number of open descriptors.
+ * Open descriptors may have gaps, and the highest descriptor number may
+ * be much larger than the number of descriptors currently open.
+ *
+ * Instead:
+ *
+ *   1. Save the original resource limit.
+ *   2. Find the highest descriptor currently in use.
+ *   3. Set a small, valid soft limit above that descriptor.
+ *   4. Fill the remaining descriptor slots with /dev/null.
+ *   5. Verify that the OS actually reports EMFILE.
+ *
+ * The filler descriptors are retained until _restore_fd_table() is called.
  */
-static int _count_open_fds(void)
+
+#define BB_TEST_MAX_FILLER_FDS 4096
+
+static int _fd_fillers[BB_TEST_MAX_FILLER_FDS];
+static size_t _fd_filler_count = 0;
+
+static int _highest_open_fd(void)
 {
-    int count = 0;
+    int highest = -1;
 
     for (int fd = 0; fd < 1024; fd++)
     {
+        errno = 0;
+
         if (fcntl(fd, F_GETFD) != -1)
-            count++;
+        {
+            highest = fd;
+        }
+        else if (errno != EBADF)
+        {
+            /*
+             * A descriptor may be valid but inaccessible to F_GETFD.
+             * Treat it as occupied rather than assuming that it is free.
+             */
+            highest = fd;
+        }
     }
 
-    return count;
+    return highest;
 }
 
-static void _pin_fd_table(struct rlimit *out_previous)
+static void _close_fd_fillers(void)
 {
-    getrlimit(RLIMIT_NOFILE, out_previous);
+    for (size_t i = 0; i < _fd_filler_count; i++)
+    {
+        if (_fd_fillers[i] >= 0)
+        {
+            close(_fd_fillers[i]);
+            _fd_fillers[i] = -1;
+        }
+    }
 
-    int open_count = _count_open_fds();
+    _fd_filler_count = 0;
+}
 
-    struct rlimit pinned = *out_previous;
-    pinned.rlim_cur = (rlim_t)open_count;
-    (void)setrlimit(RLIMIT_NOFILE, &pinned);
+static int _pin_fd_table(struct rlimit *out_previous)
+{
+    if (getrlimit(RLIMIT_NOFILE, out_previous) != 0)
+    {
+        return -1;
+    }
+
+    int highest_fd = _highest_open_fd();
+
+    if (highest_fd < 0)
+    {
+        return -1;
+    }
+
+    /*
+     * Leave enough room above the highest currently open descriptor
+     * for the descriptor table to be filled deterministically.
+     */
+    rlim_t required_limit = (rlim_t)highest_fd + 32;
+
+    if (required_limit > out_previous->rlim_max)
+    {
+        return -1;
+    }
+
+    struct rlimit limited = *out_previous;
+    limited.rlim_cur = required_limit;
+
+    if (setrlimit(RLIMIT_NOFILE, &limited) != 0)
+    {
+        return -1;
+    }
+
+    /*
+     * Fill every remaining descriptor slot until open() fails.
+     *
+     * The descriptor table may contain gaps, so we do not rely on
+     * descriptor numbers or on the number of descriptors already open.
+     */
+    for (;;)
+    {
+        int fd = open("/dev/null", O_RDONLY);
+
+        if (fd < 0)
+        {
+            if (errno == EMFILE)
+            {
+                /*
+                 * This is the condition the test needs to exercise.
+                 */
+                return 0;
+            }
+
+            _close_fd_fillers();
+            (void)setrlimit(RLIMIT_NOFILE, out_previous);
+            return -1;
+        }
+
+        if (_fd_filler_count >= BB_TEST_MAX_FILLER_FDS)
+        {
+            close(fd);
+            _close_fd_fillers();
+            (void)setrlimit(RLIMIT_NOFILE, out_previous);
+            return -1;
+        }
+
+        _fd_fillers[_fd_filler_count++] = fd;
+    }
+}
+
+static void _restore_fd_table(const struct rlimit *previous)
+{
+    /*
+     * Release the descriptors first. Otherwise restoring the limit
+     * does not make the already-open filler descriptors disappear.
+     */
+    _close_fd_fillers();
+
+    (void)setrlimit(RLIMIT_NOFILE, previous);
 }
 
 /*
@@ -152,7 +264,8 @@ static void test_rejects_pending_connection_under_fd_exhaustion(void)
     bb_socket_set_nonblocking(pending_client);
 
     struct rlimit previous;
-    _pin_fd_table(&previous);
+
+    BB_ASSERT(_pin_fd_table(&previous) == 0);
 
     bb_connection_t *accepted = bb_connection_accept(listener);
     BB_ASSERT(accepted == NULL);
@@ -174,7 +287,7 @@ static void test_rejects_pending_connection_under_fd_exhaustion(void)
 
     BB_ASSERT(closed);
 
-    setrlimit(RLIMIT_NOFILE, &previous);
+    _restore_fd_table(&previous);
 
     /* Listener must recover and accept a fresh connection. */
     bb_socket_t recovery = _connect_to(port);
@@ -227,7 +340,8 @@ static void test_full_backlog_rejects_multiple_pending_connections(void)
     BB_ASSERT(clients[1] >= 0);
 
     struct rlimit previous;
-    _pin_fd_table(&previous);
+
+    BB_ASSERT(_pin_fd_table(&previous) == 0);
 
     /* First accept() rejects and drains one. */
     BB_ASSERT(bb_connection_accept(listener) == NULL);
@@ -238,7 +352,7 @@ static void test_full_backlog_rejects_multiple_pending_connections(void)
     /* Third accept(): nothing left pending, normal EAGAIN. */
     BB_ASSERT(bb_connection_accept(listener) == NULL);
 
-    setrlimit(RLIMIT_NOFILE, &previous);
+    _restore_fd_table(&previous);
 
     for (int i = 0; i < 2; i++)
         close(clients[i]);
@@ -264,11 +378,12 @@ static void test_born_exhausted_fails_without_crash(void)
     BB_ASSERT(pending >= 0);
 
     struct rlimit previous;
-    _pin_fd_table(&previous);
+
+    BB_ASSERT(_pin_fd_table(&previous) == 0);
 
     BB_ASSERT(bb_connection_accept(listener) == NULL);
 
-    setrlimit(RLIMIT_NOFILE, &previous);
+    _restore_fd_table(&previous);
 
     close(pending);
     close(listener);
