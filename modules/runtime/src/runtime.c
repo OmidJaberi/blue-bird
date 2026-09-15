@@ -193,6 +193,20 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
 
     int ready = bb_poller_wait(runtime->poller, events, BB_RUNTIME_MAX_EVENTS, timeout_ms);
 
+    // bb_poller_wait() returns -1 on a backend-level failure -- e.g. a
+    // transient malloc failure while building the ready-list, or (in
+    // principle) the underlying epoll/kqueue handle itself misbehaving.
+    // That is never fatal to the loop: it just means "no FD-readiness
+    // information this tick". Timers and already-scheduled tasks below
+    // are completely independent of the poller and still run normally,
+    // so we explicitly skip FD dispatch here and let the next
+    // bb_runtime_tick() try the poller again. One bad tick must never
+    // crash or wedge the runtime.
+    if (ready <= 0)
+    {
+        return;
+    }
+
     for (int i = 0; i < ready; i++)
     {
         for (int j = 0; j < runtime->watcher_count; j++)
