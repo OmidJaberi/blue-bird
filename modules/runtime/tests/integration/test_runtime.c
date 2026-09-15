@@ -3,6 +3,7 @@
 
 #include "blue-bird/runtime/runtime.h"
 #include "runtime_internal.h"
+#include "poller_backend.h"
 
 static int execution_order[10];
 static int execution_index = 0;
@@ -1530,6 +1531,78 @@ static void test_stop_preserves_queued_tasks(void)
     bb_runtime_destroy(runtime);
 }
 
+// ------------------------------------------------------------------------
+// Socket failure edge case: the poller's own OS-level handle can fail
+// (e.g. epoll/kqueue misbehaving, or -- the realistic case -- a transient
+// malloc failure while building the ready-list inside bb_poller_wait()).
+// That surfaces as bb_poller_wait() returning -1. The tick loop must
+// treat this as "no FD-readiness info this tick", not as a reason to
+// crash or wedge: timers and already-queued tasks are independent of the
+// poller and must keep running normally, tick after tick.
+#if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_KQUEUE)
+
+static int poller_failure_timeout_fired = 0;
+
+static void poller_failure_timeout_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+    poller_failure_timeout_fired++;
+}
+
+static void test_runtime_survives_poller_wait_failure(void)
+{
+    printf("\tRunning test_runtime_survives_poller_wait_failure...\n");
+
+    poller_failure_timeout_fired = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Break the poller's backend handle so every subsequent
+    // bb_poller_wait() call fails at the syscall level (EBADF) -- the
+    // same -1 contract as any other backend-level failure.
+#if defined(BB_POLLER_BACKEND_EPOLL)
+    close(runtime->poller->epfd);
+    runtime->poller->epfd = -1;
+#elif defined(BB_POLLER_BACKEND_KQUEUE)
+    close(runtime->poller->kq);
+    runtime->poller->kq = -1;
+#endif
+
+    // Queued after the corruption: timers are driven by the monotonic
+    // clock, not the poller, so they must still fire on schedule.
+    BB_ASSERT(bb_runtime_set_timeout(runtime, 0, poller_failure_timeout_cb, NULL) != NULL);
+
+    runtime->running = true;
+
+    // Must not crash despite every bb_poller_wait() call failing.
+    bb_runtime_tick(runtime); // wait() fails; timer is due; scheduled
+    bb_runtime_tick(runtime); // timer task executes
+
+    BB_ASSERT(poller_failure_timeout_fired == 1);
+
+    // The runtime as a whole must still be usable afterwards -- plain
+    // task scheduling (which never touches the poller) keeps working.
+    BB_ASSERT(bb_runtime_schedule(runtime, poller_failure_timeout_cb, NULL) != NULL);
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(poller_failure_timeout_fired == 2);
+
+    // Hand the poller a valid-but-harmless fd before teardown, so
+    // bb_runtime_destroy() -> _bb_poller_backend_destroy() closes a real
+    // descriptor instead of double-closing the one we already closed.
+#if defined(BB_POLLER_BACKEND_EPOLL)
+    runtime->poller->epfd = open("/dev/null", O_RDONLY);
+#elif defined(BB_POLLER_BACKEND_KQUEUE)
+    runtime->poller->kq = open("/dev/null", O_RDONLY);
+#endif
+
+    bb_runtime_destroy(runtime);
+}
+
+#endif // BB_POLLER_BACKEND_EPOLL || BB_POLLER_BACKEND_KQUEUE
+
 int main(void)
 {
     printf("Starting runtime integration test...\n");
@@ -1562,6 +1635,9 @@ int main(void)
     test_unwatch_unknown_fd_preserves_watchers();
     test_persistent_watch_fires_repeatedly();
     test_stop_preserves_queued_tasks();
+#if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_KQUEUE)
+    test_runtime_survives_poller_wait_failure();
+#endif
     printf("Runtime integration test passed.\n");
     return 0;
 }
