@@ -339,11 +339,110 @@ static void test_churn_many_concurrent_watchers_all_fire(void)
     bb_platform_net_cleanup();
 }
 
+/*
+ * Repeated add -> fire -> remove rounds over the same descriptors.
+ *
+ * This is the shape a busy server actually produces: connections arrive
+ * and depart continuously while the watcher table stays roughly the
+ * same size. Each round re-registers every fd from scratch, so any
+ * entry the previous round failed to clear out of watchers[] or the
+ * poller's fds[] accumulates -- and the exact-count assertions at the
+ * top of each round catch that drift on the very next iteration rather
+ * than letting it silently pile up.
+ */
+static void test_churn_repeated_watch_unwatch_rounds(void)
+{
+    printf("\tRunning test_churn_repeated_watch_unwatch_rounds...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
+    BB_ASSERT(pairs != NULL);
+
+    int count = _make_pairs(pairs, CHURN_PAIRS);
+
+    if (count <= BB_RUNTIME_WATCHERS_INITIAL_CAPACITY)
+    {
+        printf("\t\tskipped: only %d socket pairs available (need > %d)\n",
+               count, BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+        _close_pairs(pairs, count);
+        free(pairs);
+        bb_runtime_destroy(runtime);
+        bb_platform_net_cleanup();
+        return;
+    }
+
+    runtime->running = true;
+
+    for (int round = 0; round < CHURN_ROUNDS; round++)
+    {
+        _reset_fire_counts();
+
+        // Every round must start from a genuinely clean slate. If the
+        // previous round leaked a watcher or a poller entry, this fails
+        // immediately and points at the round that leaked.
+        BB_ASSERT(runtime->watcher_count == 0);
+        BB_ASSERT(runtime->poller->count == 0);
+
+        for (int i = 0; i < count; i++)
+        {
+            bb_task_t *task = bb_runtime_watch_fd(runtime, pairs[i].server, BB_EVENT_READ,
+                                                  BB_WATCH_PERSISTENT, churn_watch_cb,
+                                                  (void *)(intptr_t)i);
+            BB_ASSERT(task != NULL);
+
+            BB_ASSERT(send(pairs[i].client, "x", 1, 0) == 1);
+        }
+
+        BB_ASSERT(runtime->watcher_count == count);
+        BB_ASSERT(runtime->poller->count == count);
+
+        churn_expect_t expect = { .count = count };
+
+        _tick_until(runtime, _all_fired, &expect, count * 2 + 16);
+
+        for (int i = 0; i < count; i++)
+        {
+            BB_ASSERT(churn_fire_count[i] > 0);
+        }
+
+        /*
+         * Tear down in reverse order. Forward order happens to remove
+         * the swap-remove "hot" slot last; reverse order repeatedly
+         * removes the entry that a previous swap just relocated, which
+         * is where index-tracking bugs surface.
+         */
+        for (int i = count - 1; i >= 0; i--)
+        {
+            _drain_one(pairs[i].server); // stop it being readable
+            BB_ASSERT(bb_runtime_unwatch_fd(runtime, pairs[i].server) == 0);
+        }
+
+        BB_ASSERT(runtime->watcher_count == 0);
+        BB_ASSERT(runtime->poller->count == 0);
+
+        // Let the cancelled tasks that unwatch_fd() queued for
+        // destruction actually drain, so they don't accumulate across
+        // rounds in the scheduler.
+        bb_runtime_tick(runtime);
+    }
+
+    _close_pairs(pairs, count);
+    free(pairs);
+
+    bb_runtime_destroy(runtime);
+    bb_platform_net_cleanup();
+}
+
 int main(void)
 {
     printf("Starting runtime connection-churn stress test...\n");
 
     test_churn_many_concurrent_watchers_all_fire();
+    test_churn_repeated_watch_unwatch_rounds();
 
     printf("Runtime connection-churn stress test passed.\n");
     return 0;
