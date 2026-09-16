@@ -185,12 +185,58 @@ static void _drain_one(bb_socket_t fd)
 }
 
 /*
+ * Ticks a fixed number of times *without* blocking for the full idle
+ * timeout on each one.
+ *
+ * With nothing watched, no timers, and an empty scheduler,
+ * bb_runtime_tick() has nothing to wake it, so it blocks in
+ * bb_poller_wait() for BB_RUNTIME_IDLE_TIMEOUT_MS (1s). Tests that tick
+ * a fixed budget to prove a *negative* -- "nothing fires from here on"
+ * -- spend that second on every tick after the interesting work is
+ * done, which turns a 100-tick budget into 100 seconds of dead waiting.
+ *
+ * Keeping one repeating timer armed gives _bb_runtime_next_timeout_ms()
+ * something permanently due, so each wait returns promptly. A 0ms
+ * interval is safe: the runtime re-arms a non-advancing repeat to
+ * now + 1 rather than spinning. The timer's callback is deliberately
+ * separate from churn_watch_cb() so it can't perturb the fire counts
+ * being asserted on.
+ */
+static void _quiet_tick_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+}
+
+static void _tick_quiet(bb_runtime_t *runtime, int ticks)
+{
+    bb_task_t *keepalive = bb_runtime_set_interval(runtime, 0, _quiet_tick_cb, NULL);
+    BB_ASSERT(keepalive != NULL);
+
+    for (int i = 0; i < ticks; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(bb_runtime_cancel_task(runtime, keepalive) == 0);
+
+    // Let the cancelled keepalive drain so it can't outlive this call.
+    bb_runtime_tick(runtime);
+}
+
+/*
  * Ticks until `predicate` holds or the budget runs out. Returns the
  * number of ticks spent; the caller asserts the predicate separately so
  * a failure reports the real condition rather than "ran out of ticks".
  */
 static int _tick_until(bb_runtime_t *runtime, int (*predicate)(void *), void *ctx, int max_ticks)
 {
+    /* Same reason as _tick_quiet(): without this, a predicate that never
+     * becomes true turns the budget into max_ticks seconds of blocking
+     * before the assertion finally reports the failure. */
+    bb_task_t *keepalive = bb_runtime_set_interval(runtime, 0, _quiet_tick_cb, NULL);
+    BB_ASSERT(keepalive != NULL);
+
     int ticks = 0;
 
     while (ticks < max_ticks && !predicate(ctx))
@@ -198,6 +244,9 @@ static int _tick_until(bb_runtime_t *runtime, int (*predicate)(void *), void *ct
         bb_runtime_tick(runtime);
         ticks++;
     }
+
+    BB_ASSERT(bb_runtime_cancel_task(runtime, keepalive) == 0);
+    bb_runtime_tick(runtime);
 
     return ticks;
 }
@@ -427,7 +476,7 @@ static void test_churn_repeated_watch_unwatch_rounds(void)
         // Let the cancelled tasks that unwatch_fd() queued for
         // destruction actually drain, so they don't accumulate across
         // rounds in the scheduler.
-        bb_runtime_tick(runtime);
+        _tick_quiet(runtime, 1);
     }
 
     _close_pairs(pairs, count);
@@ -437,12 +486,322 @@ static void test_churn_repeated_watch_unwatch_rounds(void)
     bb_platform_net_cleanup();
 }
 
+/*
+ * Half the watchers removed while the other half are mid-dispatch.
+ *
+ * _bb_runtime_wait() walks watchers[] while dispatching, and a oneshot
+ * watcher removes itself from that same array during the walk by
+ * swapping the last entry into its slot. Removing a large, interleaved
+ * subset up front means the surviving watchers are exactly the ones
+ * most likely to be relocated by those swaps. Every survivor must still
+ * fire, and every removed watcher must stay silent.
+ */
+static void test_churn_interleaved_removal_preserves_survivors(void)
+{
+    printf("\tRunning test_churn_interleaved_removal_preserves_survivors...\n");
+
+    _reset_fire_counts();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
+    BB_ASSERT(pairs != NULL);
+
+    int count = _make_pairs(pairs, CHURN_PAIRS);
+
+    if (count <= BB_RUNTIME_WATCHERS_INITIAL_CAPACITY)
+    {
+        printf("\t\tskipped: only %d socket pairs available (need > %d)\n",
+               count, BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+        _close_pairs(pairs, count);
+        free(pairs);
+        bb_runtime_destroy(runtime);
+        bb_platform_net_cleanup();
+        return;
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        BB_ASSERT(bb_runtime_watch_fd(runtime, pairs[i].server, BB_EVENT_READ,
+                                      BB_WATCH_ONESHOT, churn_watch_cb,
+                                      (void *)(intptr_t)i) != NULL);
+
+        BB_ASSERT(send(pairs[i].client, "x", 1, 0) == 1);
+    }
+
+    BB_ASSERT(runtime->watcher_count == count);
+
+    // Drop every even-indexed watcher, leaving a maximally fragmented
+    // table for the dispatch walk to traverse.
+    int removed = 0;
+
+    for (int i = 0; i < count; i += 2)
+    {
+        BB_ASSERT(bb_runtime_unwatch_fd(runtime, pairs[i].server) == 0);
+        removed++;
+    }
+
+    int survivors = count - removed;
+
+    BB_ASSERT(runtime->watcher_count == survivors);
+    BB_ASSERT(runtime->poller->count == survivors);
+
+    runtime->running = true;
+
+    // Ticks a fixed budget rather than stopping at "all fired": the
+    // point is partly to confirm the removed watchers stay silent even
+    // after the survivors are done, so the loop must keep running past
+    // that point.
+    _tick_quiet(runtime, survivors * 2 + 16);
+
+    for (int i = 0; i < count; i++)
+    {
+        if (i % 2 == 0)
+        {
+            // Unwatched before the loop ever ran: must never fire, even
+            // though its fd stayed readable the whole time.
+            BB_ASSERT(churn_fire_count[i] == 0);
+        }
+        else
+        {
+            BB_ASSERT(churn_fire_count[i] == 1);
+        }
+    }
+
+    BB_ASSERT(runtime->watcher_count == 0);
+    BB_ASSERT(runtime->poller->count == 0);
+
+    _close_pairs(pairs, count);
+    free(pairs);
+
+    bb_runtime_destroy(runtime);
+    bb_platform_net_cleanup();
+}
+
+/*
+ * Descriptor-number recycling across churn.
+ *
+ * The OS hands out the lowest free descriptor, so under churn a closed
+ * connection's fd number is immediately reused by the next accepted
+ * one. Both watchers[] and the poller's fds[] are keyed on that raw
+ * number, so if unwatch leaves anything behind, the *new* connection
+ * inherits the old one's registration: _bb_runtime_fd_registered_mask()
+ * reports the fd as already registered and skips the poller registration
+ * entirely, and the new watcher silently never fires.
+ *
+ * This closes and reopens repeatedly to make number reuse near-certain,
+ * and asserts the fresh watcher fires on every generation.
+ */
+static void test_churn_recycled_fd_numbers_rewatch_cleanly(void)
+{
+    printf("\tRunning test_churn_recycled_fd_numbers_rewatch_cleanly...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    runtime->running = true;
+
+    int reuse_observed = 0;
+    bb_socket_t previous_fd = BB_INVALID_SOCKET;
+
+    for (int generation = 0; generation < 32; generation++)
+    {
+        _reset_fire_counts();
+
+        churn_pair_t pair;
+
+        if (_make_pair(&pair) != 0)
+        {
+            printf("\t\tskipped: could not create socket pair at generation %d\n", generation);
+            break;
+        }
+
+        if (pair.server == previous_fd)
+        {
+            reuse_observed++;
+        }
+
+        BB_ASSERT(bb_runtime_watch_fd(runtime, pair.server, BB_EVENT_READ,
+                                      BB_WATCH_ONESHOT, churn_watch_cb,
+                                      (void *)(intptr_t)0) != NULL);
+
+        BB_ASSERT(send(pair.client, "x", 1, 0) == 1);
+
+        churn_expect_t expect = { .count = 1 };
+
+        _tick_until(runtime, _all_fired, &expect, 32);
+
+        // The crux: a watcher on a *recycled* fd number must fire just
+        // like one on a never-before-seen number. A stale entry left by
+        // the previous generation would make this zero.
+        BB_ASSERT(churn_fire_count[0] == 1);
+
+        BB_ASSERT(runtime->watcher_count == 0);
+        BB_ASSERT(runtime->poller->count == 0);
+
+        previous_fd = pair.server;
+
+        _close_pair(&pair);
+
+        // Drain the destroyed oneshot task before the next generation.
+        _tick_quiet(runtime, 1);
+    }
+
+    // Not an assertion about the runtime -- just confirmation that the
+    // scenario above actually exercised fd reuse rather than getting a
+    // fresh number every time (which would make the test vacuous).
+    printf("\t\tfd number reuse observed in %d generation(s)\n", reuse_observed);
+
+    bb_runtime_destroy(runtime);
+    bb_platform_net_cleanup();
+}
+
+/*
+ * Churn with no tick in between: watchers added and removed faster than
+ * the loop runs.
+ *
+ * A burst of connections that all arrive and disconnect within a single
+ * loop iteration never gives the poller a chance to report on them. The
+ * bookkeeping must still net out to zero, and -- critically -- the next
+ * tick must not dispatch anything for the fds that came and went.
+ */
+static void test_churn_add_remove_without_intervening_ticks(void)
+{
+    printf("\tRunning test_churn_add_remove_without_intervening_ticks...\n");
+
+    _reset_fire_counts();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
+    BB_ASSERT(pairs != NULL);
+
+    int count = _make_pairs(pairs, CHURN_PAIRS);
+
+    if (count <= BB_RUNTIME_WATCHERS_INITIAL_CAPACITY)
+    {
+        printf("\t\tskipped: only %d socket pairs available (need > %d)\n",
+               count, BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+        _close_pairs(pairs, count);
+        free(pairs);
+        bb_runtime_destroy(runtime);
+        bb_platform_net_cleanup();
+        return;
+    }
+
+    // Watch and immediately unwatch, one fd at a time, with the fd made
+    // readable in between -- so readiness genuinely exists but the loop
+    // never gets a chance to observe it.
+    for (int i = 0; i < count; i++)
+    {
+        BB_ASSERT(bb_runtime_watch_fd(runtime, pairs[i].server, BB_EVENT_READ,
+                                      BB_WATCH_PERSISTENT, churn_watch_cb,
+                                      (void *)(intptr_t)i) != NULL);
+
+        BB_ASSERT(send(pairs[i].client, "x", 1, 0) == 1);
+
+        BB_ASSERT(bb_runtime_unwatch_fd(runtime, pairs[i].server) == 0);
+    }
+
+    BB_ASSERT(runtime->watcher_count == 0);
+    BB_ASSERT(runtime->poller->count == 0);
+
+    runtime->running = true;
+
+    _tick_quiet(runtime, 8);
+
+    // Every fd is still readable, but nothing is watching any of them.
+    for (int i = 0; i < count; i++)
+    {
+        BB_ASSERT(churn_fire_count[i] == 0);
+    }
+
+    _close_pairs(pairs, count);
+    free(pairs);
+
+    bb_runtime_destroy(runtime);
+    bb_platform_net_cleanup();
+}
+
+/*
+ * Teardown with a large watcher table still fully populated.
+ *
+ * The normal path drains watchers as they fire; this is the abrupt
+ * shutdown case, where bb_runtime_destroy() has to unregister and free
+ * hundreds of live watchers at once. It must not crash, double-free, or
+ * leak -- the assertion here is "runs to completion cleanly", with
+ * ASan/valgrind builds supplying the rest.
+ */
+static void test_churn_destroy_with_many_live_watchers(void)
+{
+    printf("\tRunning test_churn_destroy_with_many_live_watchers...\n");
+
+    _reset_fire_counts();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
+    BB_ASSERT(pairs != NULL);
+
+    int count = _make_pairs(pairs, CHURN_PAIRS);
+
+    if (count <= 0)
+    {
+        printf("\t\tskipped: no socket pairs available\n");
+        free(pairs);
+        bb_runtime_destroy(runtime);
+        bb_platform_net_cleanup();
+        return;
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        BB_ASSERT(bb_runtime_watch_fd(runtime, pairs[i].server, BB_EVENT_READ,
+                                      BB_WATCH_PERSISTENT, churn_watch_cb,
+                                      (void *)(intptr_t)i) != NULL);
+    }
+
+    // Also leave timers and queued tasks outstanding, so destroy has to
+    // tear down all three subsystems at once rather than just watchers.
+    for (int i = 0; i < 32; i++)
+    {
+        BB_ASSERT(bb_runtime_set_timeout(runtime, 60000, churn_watch_cb, (void *)(intptr_t)0) != NULL);
+        BB_ASSERT(bb_runtime_schedule(runtime, churn_watch_cb, (void *)(intptr_t)0) != NULL);
+    }
+
+    BB_ASSERT(runtime->watcher_count == count);
+
+    // Destroy without ever running the loop: nothing was dispatched, so
+    // every watcher, timer, and queued task is still live.
+    bb_runtime_destroy(runtime);
+
+    _close_pairs(pairs, count);
+    free(pairs);
+
+    bb_platform_net_cleanup();
+}
+
 int main(void)
 {
     printf("Starting runtime connection-churn stress test...\n");
 
     test_churn_many_concurrent_watchers_all_fire();
     test_churn_repeated_watch_unwatch_rounds();
+    test_churn_interleaved_removal_preserves_survivors();
+    test_churn_recycled_fd_numbers_rewatch_cleanly();
+    test_churn_add_remove_without_intervening_ticks();
+    test_churn_destroy_with_many_live_watchers();
 
     printf("Runtime connection-churn stress test passed.\n");
     return 0;
