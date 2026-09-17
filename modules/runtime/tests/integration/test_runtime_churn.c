@@ -40,10 +40,21 @@
  *     accepted the next tick, so any bookkeeping keyed on the raw fd
  *     must be fully cleared on unwatch.
  *
- * These tests drive real loopback sockets (not pipes) so the kernel
- * participates exactly as it would for accepted connections, and assert
- * on runtime->watcher_count / poller->count directly to catch
- * bookkeeping drift that firing counts alone would hide.
+ * These tests drive real connected socket pairs (via the platform's
+ * socketpair() -- AF_UNIX on POSIX, a loopback-TCP shim on Windows, the
+ * same helper every other socket-based test in this codebase uses) so
+ * the kernel participates in readiness exactly as it would for an
+ * accepted connection, and assert on runtime->watcher_count /
+ * poller->count directly to catch bookkeeping drift that firing counts
+ * alone would hide.
+ *
+ * Deliberately NOT used here: hand-rolled TCP listen()/connect()/
+ * accept(). A previous version of this file did that per pair, which
+ * meant CHURN_PAIRS * CHURN_ROUNDS ephemeral listeners bound and torn
+ * down within one process -- fine on Linux, but slow and occasionally
+ * flaky on Windows CI, where TCP socket teardown is noticeably heavier
+ * and the loopback stack is more sensitive to rapid churn. socketpair()
+ * needs none of that: one syscall, no ephemeral port, no listener.
  */
 
 /* Comfortably past both arrays' initial capacity of 16 and past
@@ -64,70 +75,25 @@ typedef struct {
 /* ======================================================================= */
 
 /*
- * Creates one connected loopback TCP pair. Real sockets rather than
- * pipes: accepted connections are what the runtime actually watches in
- * production, and socket fds go through the same kernel readiness paths
- * (including EPOLLHUP/EV_EOF on peer close) that pipes only approximate.
+ * Creates one connected socket pair via the platform's socketpair()
+ * shim (blue-bird/utils/platform.h) -- the same helper every other
+ * socket-based test in this codebase uses to get two connected,
+ * pollable descriptors without a listener or an ephemeral port. `domain`
+ * is AF_UNIX so this is a cheap, instantaneous kernel-only pair on
+ * POSIX; the Windows implementation ignores `domain` and always creates
+ * a loopback TCP pair, so the same call is portable as-is.
  */
 static int _make_pair(churn_pair_t *pair)
 {
-    bb_socket_t listener = socket(AF_INET, SOCK_STREAM, 0);
+    bb_socket_t fds[2];
 
-    if (bb_socket_is_invalid(listener))
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
     {
         return -1;
     }
 
-    int opt = 1;
-    setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
-
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    addr.sin_port = 0;
-
-    if (bind(listener, (struct sockaddr *)&addr, sizeof(addr)) != 0 || listen(listener, 1) != 0)
-    {
-        bb_socket_close(listener);
-        return -1;
-    }
-
-    socklen_t addr_len = sizeof(addr);
-
-    if (getsockname(listener, (struct sockaddr *)&addr, &addr_len) != 0)
-    {
-        bb_socket_close(listener);
-        return -1;
-    }
-
-    bb_socket_t client = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (bb_socket_is_invalid(client))
-    {
-        bb_socket_close(listener);
-        return -1;
-    }
-
-    if (connect(client, (struct sockaddr *)&addr, sizeof(addr)) != 0)
-    {
-        bb_socket_close(client);
-        bb_socket_close(listener);
-        return -1;
-    }
-
-    bb_socket_t server = accept(listener, NULL, NULL);
-
-    bb_socket_close(listener); // no longer needed; the pair is established
-
-    if (bb_socket_is_invalid(server))
-    {
-        bb_socket_close(client);
-        return -1;
-    }
-
-    pair->client = client;
-    pair->server = server;
+    pair->client = fds[0];
+    pair->server = fds[1];
 
     return 0;
 }
@@ -321,8 +287,6 @@ static void test_churn_many_concurrent_watchers_all_fire(void)
     bb_runtime_t *runtime = bb_runtime_create();
     BB_ASSERT(runtime != NULL);
 
-    BB_ASSERT(bb_platform_net_init() == 0);
-
     churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
     BB_ASSERT(pairs != NULL);
 
@@ -337,7 +301,6 @@ static void test_churn_many_concurrent_watchers_all_fire(void)
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);
-        bb_platform_net_cleanup();
         return;
     }
 
@@ -385,7 +348,6 @@ static void test_churn_many_concurrent_watchers_all_fire(void)
     free(pairs);
 
     bb_runtime_destroy(runtime);
-    bb_platform_net_cleanup();
 }
 
 /*
@@ -406,8 +368,6 @@ static void test_churn_repeated_watch_unwatch_rounds(void)
     bb_runtime_t *runtime = bb_runtime_create();
     BB_ASSERT(runtime != NULL);
 
-    BB_ASSERT(bb_platform_net_init() == 0);
-
     churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
     BB_ASSERT(pairs != NULL);
 
@@ -420,7 +380,6 @@ static void test_churn_repeated_watch_unwatch_rounds(void)
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);
-        bb_platform_net_cleanup();
         return;
     }
 
@@ -483,7 +442,6 @@ static void test_churn_repeated_watch_unwatch_rounds(void)
     free(pairs);
 
     bb_runtime_destroy(runtime);
-    bb_platform_net_cleanup();
 }
 
 /*
@@ -505,8 +463,6 @@ static void test_churn_interleaved_removal_preserves_survivors(void)
     bb_runtime_t *runtime = bb_runtime_create();
     BB_ASSERT(runtime != NULL);
 
-    BB_ASSERT(bb_platform_net_init() == 0);
-
     churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
     BB_ASSERT(pairs != NULL);
 
@@ -519,7 +475,6 @@ static void test_churn_interleaved_removal_preserves_survivors(void)
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);
-        bb_platform_net_cleanup();
         return;
     }
 
@@ -578,7 +533,6 @@ static void test_churn_interleaved_removal_preserves_survivors(void)
     free(pairs);
 
     bb_runtime_destroy(runtime);
-    bb_platform_net_cleanup();
 }
 
 /*
@@ -601,8 +555,6 @@ static void test_churn_recycled_fd_numbers_rewatch_cleanly(void)
 
     bb_runtime_t *runtime = bb_runtime_create();
     BB_ASSERT(runtime != NULL);
-
-    BB_ASSERT(bb_platform_net_init() == 0);
 
     runtime->running = true;
 
@@ -658,7 +610,6 @@ static void test_churn_recycled_fd_numbers_rewatch_cleanly(void)
     printf("\t\tfd number reuse observed in %d generation(s)\n", reuse_observed);
 
     bb_runtime_destroy(runtime);
-    bb_platform_net_cleanup();
 }
 
 /*
@@ -679,8 +630,6 @@ static void test_churn_add_remove_without_intervening_ticks(void)
     bb_runtime_t *runtime = bb_runtime_create();
     BB_ASSERT(runtime != NULL);
 
-    BB_ASSERT(bb_platform_net_init() == 0);
-
     churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
     BB_ASSERT(pairs != NULL);
 
@@ -693,7 +642,6 @@ static void test_churn_add_remove_without_intervening_ticks(void)
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);
-        bb_platform_net_cleanup();
         return;
     }
 
@@ -728,7 +676,6 @@ static void test_churn_add_remove_without_intervening_ticks(void)
     free(pairs);
 
     bb_runtime_destroy(runtime);
-    bb_platform_net_cleanup();
 }
 
 /*
@@ -749,8 +696,6 @@ static void test_churn_destroy_with_many_live_watchers(void)
     bb_runtime_t *runtime = bb_runtime_create();
     BB_ASSERT(runtime != NULL);
 
-    BB_ASSERT(bb_platform_net_init() == 0);
-
     churn_pair_t *pairs = calloc(CHURN_PAIRS, sizeof(*pairs));
     BB_ASSERT(pairs != NULL);
 
@@ -761,7 +706,6 @@ static void test_churn_destroy_with_many_live_watchers(void)
         printf("\t\tskipped: no socket pairs available\n");
         free(pairs);
         bb_runtime_destroy(runtime);
-        bb_platform_net_cleanup();
         return;
     }
 
@@ -789,12 +733,13 @@ static void test_churn_destroy_with_many_live_watchers(void)
     _close_pairs(pairs, count);
     free(pairs);
 
-    bb_platform_net_cleanup();
 }
 
 int main(void)
 {
     printf("Starting runtime connection-churn stress test...\n");
+
+    BB_ASSERT(bb_platform_net_init() == 0);
 
     test_churn_many_concurrent_watchers_all_fire();
     test_churn_repeated_watch_unwatch_rounds();
@@ -802,6 +747,8 @@ int main(void)
     test_churn_recycled_fd_numbers_rewatch_cleanly();
     test_churn_add_remove_without_intervening_ticks();
     test_churn_destroy_with_many_live_watchers();
+
+    bb_platform_net_cleanup();
 
     printf("Runtime connection-churn stress test passed.\n");
     return 0;
