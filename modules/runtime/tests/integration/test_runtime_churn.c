@@ -197,10 +197,30 @@ static void _tick_quiet(bb_runtime_t *runtime, int ticks)
  */
 static int _tick_until(bb_runtime_t *runtime, int (*predicate)(void *), void *ctx, int max_ticks)
 {
-    /* Same reason as _tick_quiet(): without this, a predicate that never
-     * becomes true turns the budget into max_ticks seconds of blocking
-     * before the assertion finally reports the failure. */
-    bb_task_t *keepalive = bb_runtime_set_interval(runtime, 0, _quiet_tick_cb, NULL);
+    /*
+     * Bounds the *failure*-path cost (predicate never true -> every tick
+     * would otherwise block the full BB_RUNTIME_IDLE_TIMEOUT_MS, turning
+     * max_ticks into that many seconds before the assertion below even
+     * gets to report the real problem) without making the *success*
+     * path a non-blocking spin.
+     *
+     * That distinction matters here specifically: the predicates this
+     * is called with wait for real socket readiness delivered by the
+     * OS, not just for a scheduled callback. A 0ms keepalive (used in
+     * _tick_quiet() below, where nothing is ever expected to arrive) is
+     * wrong here -- it turns bb_poller_wait() into an always-non-
+     * blocking poll, giving the kernel no window at all to actually
+     * deliver the data before the next attempt gives up on it. Loopback
+     * delivery on Linux is close enough to synchronous that this never
+     * showed up there, but on Windows (WSAPoll, and often a VM'd
+     * network stack under CI) it is not instantaneous, and a tight
+     * zero-wait busy-loop can outrun it -- exactly what caused
+     * intermittent "some watcher never fired" failures on Windows CI.
+     * 10ms keeps each attempt genuinely blocking long enough for that
+     * delivery while still bounding max_ticks * 10ms to a couple of
+     * seconds in the worst case.
+     */
+    bb_task_t *keepalive = bb_runtime_set_interval(runtime, 10, _quiet_tick_cb, NULL);
     BB_ASSERT(keepalive != NULL);
 
     int ticks = 0;
@@ -254,6 +274,24 @@ static int _all_fired(void *ctx)
     churn_expect_t *expect = ctx;
 
     for (int i = 0; i < expect->count; i++)
+    {
+        if (churn_fire_count[i] == 0)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+/* Same shape as _all_fired(), but only over the odd indices -- the ones
+ * test_churn_interleaved_removal_preserves_survivors() below never
+ * unwatches, so these are the only ones expected to fire. */
+static int _odd_survivors_fired(void *ctx)
+{
+    churn_expect_t *expect = ctx;
+
+    for (int i = 1; i < expect->count; i += 2)
     {
         if (churn_fire_count[i] == 0)
         {
@@ -506,11 +544,22 @@ static void test_churn_interleaved_removal_preserves_survivors(void)
 
     runtime->running = true;
 
-    // Ticks a fixed budget rather than stopping at "all fired": the
-    // point is partly to confirm the removed watchers stay silent even
-    // after the survivors are done, so the loop must keep running past
-    // that point.
-    _tick_quiet(runtime, survivors * 2 + 16);
+    // Phase 1: wait for real socket delivery. Every surviving (odd)
+    // watcher's fd genuinely has unread data -- this needs the same
+    // real per-tick wait as _tick_until() elsewhere in this file, not a
+    // non-blocking spin, or delivery lagging on a slower network stack
+    // (observed on Windows CI) can be missed entirely within the
+    // budget.
+    churn_expect_t expect = { .count = count };
+
+    _tick_until(runtime, _odd_survivors_fired, &expect, survivors * 2 + 16);
+
+    // Phase 2: nothing further is expected to arrive (survivors are
+    // oneshot and already fired; removed watchers were never
+    // registered), so this can safely be the non-blocking _tick_quiet()
+    // -- it exists purely to confirm the removed watchers stay silent
+    // even after the survivors are done, not to wait for anything.
+    _tick_quiet(runtime, 16);
 
     for (int i = 0; i < count; i++)
     {
