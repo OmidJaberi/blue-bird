@@ -87,10 +87,29 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
         return n;
     }
 
+    /*
+     * Reports at most max_events of the (possibly larger) ready set.
+     * When more fds are ready than that in a single call, which one is
+     * fine as long as SOME progress is made -- the caller (the runtime
+     * tick loop) simply calls bb_poller_wait() again and picks up the
+     * rest. That assumption breaks if this always started scanning
+     * poller->fds[] from index 0: with a persistently-ready set that
+     * never shrinks between calls (e.g. a level-triggered watcher whose
+     * data goes unread across many ticks), the same low-index entries
+     * would win every single call and entries past the max_events cutoff
+     * would never be reported at all -- not a slow drain, a permanent
+     * starvation. Resuming from where the previous call left off makes
+     * every entry eventually reachable regardless of whether the set
+     * ever shrinks.
+     */
     int event_count = 0;
+    int start = poller->scan_cursor % poller->count;
+    int seen;
 
-    for (int i = 0; i < poller->count && event_count < max_events; i++)
+    for (seen = 0; seen < poller->count && event_count < max_events; seen++)
     {
+        int i = (start + seen) % poller->count;
+
         int triggered = 0;
 
         if (pfds[i].revents & POLLIN)  triggered |= BB_EVENT_READ;
@@ -108,6 +127,11 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
             event_count++;
         }
     }
+
+    // Resume right after the last index actually examined, so the next
+    // call continues rotating through the table instead of restarting
+    // at 0 (which is what would starve the tail of the table).
+    poller->scan_cursor = (start + seen) % poller->count;
 
     free(pfds);
 

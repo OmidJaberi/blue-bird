@@ -33,11 +33,22 @@ struct bb_poller {
     int epfd;
 #elif defined(BB_POLLER_BACKEND_KQUEUE)
     int kq;
+#elif defined(BB_POLLER_BACKEND_POLL)
+    /*
+     * poll()/WSAPoll() don't hand back a kernel-maintained, self-rotating
+     * ready list the way epoll/kqueue do -- _bb_poller_backend_wait()
+     * scans poller->fds[] itself, in registration order, so it needs
+     * its own fairness bookkeeping: see poller_backend/poll.c.
+     */
+    int scan_cursor;
 #endif
     /*
-     * BB_POLLER_BACKEND_POLL needs no persistent OS-level state: poll()/
-     * WSAPoll() take an ephemeral array built fresh from fds[] on every
-     * bb_poller_wait() call, so there's nothing to store here for it.
+     * BB_POLLER_BACKEND_POLL needs no persistent *OS-level* state:
+     * poll()/WSAPoll() take an ephemeral array built fresh from fds[]
+     * on every bb_poller_wait() call, so there's nothing from the OS to
+     * store here for it. scan_cursor above is process-side bookkeeping,
+     * not OS state, which is why it's a plain field rather than
+     * something _bb_poller_backend_create() sets up.
      */
 };
 
