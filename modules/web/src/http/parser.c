@@ -325,6 +325,199 @@ static int consume_line(bb_http_parser_t *p, const uint8_t **data, size_t *len)
 /* Request line                                                          */
 /* --------------------------------------------------------------------- */
 
+/* --------------------------------------------------------------------- */
+/* Request-target sanitization                                           */
+/* --------------------------------------------------------------------- */
+
+/*
+ * Validate a percent-encoded octet without decoding the request-target.
+ * The parser deliberately keeps the original representation so downstream
+ * routing can make one consistent decoding decision. We only reject
+ * malformed encodings and encoded bytes that would introduce framing or
+ * path-semantics ambiguity.
+ */
+static int hex_value(uint8_t c)
+{
+    if (c >= '0' && c <= '9')
+        return (int)(c - '0');
+    if (c >= 'a' && c <= 'f')
+        return 10 + (int)(c - 'a');
+    if (c >= 'A' && c <= 'F')
+        return 10 + (int)(c - 'A');
+    return -1;
+}
+
+static int sanitize_request_target(bb_http_parser_t *p, uint8_t *target, size_t len)
+{
+    if (len == 0)
+    {
+        set_error(p, "empty request-target");
+        return -1;
+    }
+
+    /* OPTIONS * is a valid request-target form. It has no path/query. */
+    if (len == 1 && target[0] == '*')
+        return 0;
+
+    /* This server accepts origin-form request targets only. */
+    if (target[0] != '/')
+    {
+        set_error(p, "request-target must use origin-form");
+        return -1;
+    }
+
+    size_t query_start = len;
+    for (size_t i = 0; i < len; i++)
+    {
+        if (target[i] == '#')
+        {
+            set_error(p, "fragment is not allowed in request-target");
+            return -1;
+        }
+
+        if (target[i] == '\\')
+        {
+            set_error(p, "backslash is not allowed in request-target");
+            return -1;
+        }
+
+        if (target[i] == '%')
+        {
+            if (i + 2 >= len || hex_value(target[i + 1]) < 0 || hex_value(target[i + 2]) < 0)
+            {
+                set_error(p, "malformed percent-encoding in request-target");
+                return -1;
+            }
+
+            int decoded = (hex_value(target[i + 1]) << 4) | hex_value(target[i + 2]);
+
+            /*
+             * Encoded controls, separators, slash and backslash are rejected
+             * rather than decoded. Otherwise two routing layers could see
+             * different paths (for example /a%2fb vs /a/b).
+             */
+            if (decoded < 0x20 || decoded == 0x7F ||
+                decoded == '/' || decoded == '\\')
+            {
+                set_error(p, "unsafe percent-encoded byte in request-target");
+                return -1;
+            }
+
+            i += 2;
+            continue;
+        }
+
+        if (target[i] == '?' && query_start == len)
+            query_start = i;
+    }
+
+    /*
+     * Validate the path component for dot-segments. Do this on both the
+     * literal bytes and percent-encoded "." so encoded traversal cannot
+     * bypass the check.
+     */
+    size_t path_end = query_start;
+    size_t segment_start = 1; /* target[0] is '/' */
+
+    for (size_t i = 1; i <= path_end; i++)
+    {
+        if (i == path_end || target[i] == '/')
+        {
+            size_t seg_len = i - segment_start;
+
+            if (seg_len == 1 && target[segment_start] == '.')
+            {
+                set_error(p, "dot path segment is not allowed");
+                return -1;
+            }
+
+            if (seg_len == 2 && target[segment_start] == '.' && target[segment_start + 1] == '.')
+            {
+                set_error(p, "dot path segment is not allowed");
+                return -1;
+            }
+
+            /*
+             * %2e and %2E are ".". A two-character encoded dot is rejected
+             * in a segment; mixed forms such as ".%2e" and "%2e." are too.
+             */
+            if (seg_len == 3 &&
+                target[segment_start] == '%' &&
+                (target[segment_start + 1] == '2') &&
+                (target[segment_start + 2] == 'e' || target[segment_start + 2] == 'E'))
+            {
+                set_error(p, "encoded dot path segment is not allowed");
+                return -1;
+            }
+
+            if (seg_len == 4 &&
+                ((target[segment_start] == '.' && target[segment_start + 1] == '%' &&
+                  target[segment_start + 2] == '2' &&
+                  (target[segment_start + 3] == 'e' || target[segment_start + 3] == 'E')) ||
+                 (target[segment_start] == '%' && target[segment_start + 1] == '2' &&
+                  (target[segment_start + 2] == 'e' || target[segment_start + 2] == 'E') &&
+                  target[segment_start + 3] == '.')))
+            {
+                set_error(p, "encoded dot path segment is not allowed");
+                return -1;
+            }
+
+            if (seg_len == 6 &&
+                target[segment_start] == '%' && target[segment_start + 1] == '2' &&
+                (target[segment_start + 2] == 'e' || target[segment_start + 2] == 'E') &&
+                target[segment_start + 3] == '%' && target[segment_start + 4] == '2' &&
+                (target[segment_start + 5] == 'e' || target[segment_start + 5] == 'E'))
+            {
+                set_error(p, "encoded dot path segment is not allowed");
+                return -1;
+            }
+
+            segment_start = i + 1;
+        }
+    }
+
+    /*
+     * Query data is intentionally not decoded here. It is validated as
+     * percent-encoded URI data so downstream query parsing cannot receive
+     * malformed escapes or encoded control characters.
+     */
+    if (query_start < len)
+    {
+        for (size_t i = query_start + 1; i < len; i++)
+        {
+            uint8_t c = target[i];
+
+            if (c == '%')
+            {
+                /* Already checked globally above; keep this loop explicit
+                 * so the query invariant remains obvious. */
+                if (i + 2 >= len || hex_value(target[i + 1]) < 0 || hex_value(target[i + 2]) < 0)
+                {
+                    set_error(p, "malformed percent-encoding in query");
+                    return -1;
+                }
+
+                int decoded = (hex_value(target[i + 1]) << 4) | hex_value(target[i + 2]);
+                if (decoded < 0x20 || decoded == 0x7F)
+                {
+                    set_error(p, "unsafe percent-encoded byte in query");
+                    return -1;
+                }
+                i += 2;
+                continue;
+            }
+
+            if (c < 0x20 || c == 0x7F || c == '\\')
+            {
+                set_error(p, "invalid character in query");
+                return -1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 static int parse_request_line(bb_http_parser_t *p)
 {
     const uint8_t *buf = p->line_buf;
@@ -405,6 +598,9 @@ static int parse_request_line(bb_http_parser_t *p)
     }
     memcpy(p->request.target, buf + rest_start, target_len);
     p->request.target[target_len] = '\0';
+
+    if (sanitize_request_target(p, (uint8_t *)p->request.target, target_len) < 0)
+        return -1;
 
     size_t version_len = len - version_start;
     const uint8_t *v = buf + version_start;
