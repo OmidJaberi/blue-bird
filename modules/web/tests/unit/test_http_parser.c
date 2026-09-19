@@ -568,6 +568,157 @@ void test_double_space_request_line_rejected(void)
 }
 
 /* --------------------------------------------------------------------- */
+/* Request-target sanitization                                           */
+/* --------------------------------------------------------------------- */
+
+void test_request_target_valid_query_preserved(void)
+{
+    bb_http_parser_t *p = bb_http_parser_create();
+
+    BB_ASSERT(feed_str(p,
+        "GET /search?q=hello%20world&page=2 HTTP/1.1\r\n"
+        "Host: example.com\r\n"
+        "\r\n") == BB_HTTP_PARSE_COMPLETE);
+
+    const bb_http_request_t *req = bb_http_parser_get_request(p);
+    BB_ASSERT(strcmp(req->target, "/search?q=hello%20world&page=2") == 0);
+
+    bb_http_parser_destroy(p);
+}
+
+void test_request_target_malformed_percent_rejected(void)
+{
+    const char *targets[] = {
+        "/bad%",
+        "/bad%2",
+        "/bad%GG",
+        "/search?q=%GG"
+    };
+
+    for (size_t i = 0; i < sizeof(targets) / sizeof(targets[0]); i++)
+    {
+        bb_http_parser_t *p = bb_http_parser_create();
+
+        char request[256];
+        snprintf(request, sizeof(request),
+                 "GET %s HTTP/1.1\r\n\r\n", targets[i]);
+
+        BB_ASSERT(feed_str(p, request) == BB_HTTP_PARSE_ERROR);
+        bb_http_parser_destroy(p);
+    }
+}
+
+void test_request_target_path_traversal_rejected(void)
+{
+    const char *targets[] = {
+        "/../secret",
+        "/a/../secret",
+        "/./secret",
+        "/a/./secret",
+        "/%2e%2e/secret",
+        "/%2E%2E/secret",
+        "/.%2e/secret",
+        "/%2e./secret",
+        "/%2e%2e/secret"
+    };
+
+    for (size_t i = 0; i < sizeof(targets) / sizeof(targets[0]); i++)
+    {
+        bb_http_parser_t *p = bb_http_parser_create();
+
+        char request[256];
+        snprintf(request, sizeof(request),
+                 "GET %s HTTP/1.1\r\n\r\n", targets[i]);
+
+        BB_ASSERT(feed_str(p, request) == BB_HTTP_PARSE_ERROR);
+        bb_http_parser_destroy(p);
+    }
+}
+
+void test_request_target_encoded_separator_rejected(void)
+{
+    const char *targets[] = {
+        "/a%2fb",
+        "/a%2Fb",
+        "/a%5cb",
+        "/a%5Cb"
+    };
+
+    for (size_t i = 0; i < sizeof(targets) / sizeof(targets[0]); i++)
+    {
+        bb_http_parser_t *p = bb_http_parser_create();
+
+        char request[256];
+        snprintf(request, sizeof(request),
+                 "GET %s HTTP/1.1\r\n\r\n", targets[i]);
+
+        BB_ASSERT(feed_str(p, request) == BB_HTTP_PARSE_ERROR);
+        bb_http_parser_destroy(p);
+    }
+}
+
+void test_request_target_query_encoded_controls_rejected(void)
+{
+    const char *targets[] = {
+        "/search?q=%00",
+        "/search?q=%09",
+        "/search?q=%0A",
+        "/search?q=%0D",
+        "/search?q=%1F",
+        "/search?q=%7F"
+    };
+
+    for (size_t i = 0; i < sizeof(targets) / sizeof(targets[0]); i++)
+    {
+        bb_http_parser_t *p = bb_http_parser_create();
+
+        char request[256];
+        snprintf(request, sizeof(request),
+                 "GET %s HTTP/1.1\r\n\r\n", targets[i]);
+
+        BB_ASSERT(feed_str(p, request) == BB_HTTP_PARSE_ERROR);
+        bb_http_parser_destroy(p);
+    }
+}
+
+void test_request_target_fragment_rejected(void)
+{
+    bb_http_parser_t *p = bb_http_parser_create();
+
+    BB_ASSERT(feed_str(p,
+        "GET /index.html#fragment HTTP/1.1\r\n"
+        "\r\n") == BB_HTTP_PARSE_ERROR);
+
+    bb_http_parser_destroy(p);
+}
+
+void test_request_target_backslash_rejected(void)
+{
+    bb_http_parser_t *p = bb_http_parser_create();
+
+    BB_ASSERT(feed_str(p,
+        "GET /foo\\bar HTTP/1.1\r\n"
+        "\r\n") == BB_HTTP_PARSE_ERROR);
+
+    bb_http_parser_destroy(p);
+}
+
+void test_options_asterisk_request_target_allowed(void)
+{
+    bb_http_parser_t *p = bb_http_parser_create();
+
+    BB_ASSERT(feed_str(p,
+        "OPTIONS * HTTP/1.1\r\n"
+        "Host: example.com\r\n"
+        "\r\n") == BB_HTTP_PARSE_COMPLETE);
+
+    const bb_http_request_t *req = bb_http_parser_get_request(p);
+    BB_ASSERT(strcmp(req->target, "*") == 0);
+
+    bb_http_parser_destroy(p);
+}
+
+/* --------------------------------------------------------------------- */
 /* Header validation                                                     */
 /* --------------------------------------------------------------------- */
 
@@ -723,6 +874,15 @@ int main(void)
     test_embedded_nul_in_request_line_rejected();
     test_request_line_exceeds_limit_rejected();
     test_double_space_request_line_rejected();
+
+    test_request_target_valid_query_preserved();
+    test_request_target_malformed_percent_rejected();
+    test_request_target_path_traversal_rejected();
+    test_request_target_encoded_separator_rejected();
+    test_request_target_query_encoded_controls_rejected();
+    test_request_target_fragment_rejected();
+    test_request_target_backslash_rejected();
+    test_options_asterisk_request_target_allowed();
 
     test_header_missing_colon_rejected();
     test_header_invalid_name_char_rejected();
