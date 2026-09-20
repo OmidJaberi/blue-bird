@@ -65,32 +65,140 @@ void bb_server_request_reset(bb_server_request_t *req)
     req->query_count = 0;
 }
 
-static void parse_query_params(bb_server_request_t *req)
+static int hex_value(char c)
 {
-    char *qmark = strchr(req->path, '?');
-    if (qmark)
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+/*
+ * Decode one URI/query component in place.
+ *
+ * The HTTP parser has already checked percent-encoding syntax, but this
+ * function deliberately validates it again because it is a separate trust
+ * boundary. Decoding happens exactly once and never creates new query
+ * separators: the query is split into fields before either side is decoded.
+ */
+static int decode_query_component(char *dst, size_t dst_cap,
+                                  const char *src, size_t src_len)
+{
+    size_t out = 0;
+
+    if (dst_cap == 0)
+        return -1;
+
+    for (size_t i = 0; i < src_len; i++)
     {
-        *qmark = '\0';
-        char *query_str = qmark + 1;
-        char *pair = strtok(query_str, "&");
-        while (pair)
+        unsigned char c = (unsigned char)src[i];
+
+        if (c == '%')
         {
-            char *eq = strchr(pair, '=');
+            if (i + 2 >= src_len)
+                return -1;
 
-            bb_decode_percent(pair, 1);      // '+' becomes space in query
-            
-            if (eq)
-            {
-                bb_decode_percent(eq + 1, 1);
-                *eq = '\0';
-                bb_server_request_add_query_param(req, pair, eq + 1);
+            int hi = hex_value(src[i + 1]);
+            int lo = hex_value(src[i + 2]);
+            if (hi < 0 || lo < 0)
+                return -1;
 
-            }
-            else
-                bb_server_request_add_query_param(req, pair, "");
-            pair = strtok(NULL, "&");
+            c = (unsigned char)((hi << 4) | lo);
+            i += 2;
         }
+        else if (c == '+')
+        {
+            c = ' ';
+        }
+
+        /* Decoded NUL/control bytes must never enter C strings. */
+        if (c == '\0' || c < 0x20 || c == 0x7F)
+            return -1;
+
+        if (out + 1 >= dst_cap)
+            return -1;
+
+        dst[out++] = (char)c;
     }
+
+    dst[out] = '\0';
+    return 0;
+}
+
+/*
+ * Parse the raw query component without strtok(): strtok silently collapses
+ * repeated separators and makes it impossible to distinguish malformed empty
+ * parameters. The raw query is split first; percent-decoding is performed
+ * afterwards so %26 and %3D remain data rather than becoming delimiters.
+ */
+static int parse_query_params(bb_server_request_t *req,
+                              const char *query, size_t query_len)
+{
+    if (query_len == 0)
+        return 0;
+
+    if (query[query_len - 1] == '&')
+        return -1;
+
+    size_t pair_start = 0;
+
+    while (pair_start < query_len)
+    {
+        size_t pair_end = pair_start;
+        while (pair_end < query_len && query[pair_end] != '&')
+            pair_end++;
+
+        if (pair_end == pair_start)
+            return -1; /* empty parameter, e.g. && */
+
+        if (pair_end == query_len && pair_end > pair_start &&
+            query[pair_end - 1] == '&')
+            return -1; /* trailing '&' */
+
+        if (req->query_count >= MAX_QUERY_PARAMS)
+            return -1;
+
+        size_t eq = pair_start;
+        while (eq < pair_end && query[eq] != '=')
+            eq++;
+
+        size_t key_len = eq - pair_start;
+        size_t value_start = eq < pair_end ? eq + 1 : pair_end;
+        size_t value_len = pair_end - value_start;
+
+        if (key_len == 0 || key_len >= MAX_QUERY_PARAM_KEY)
+            return -1;
+        if (value_len >= MAX_QUERY_PARAM_VALUE)
+            return -1;
+
+        char key[MAX_QUERY_PARAM_KEY];
+        char value[MAX_QUERY_PARAM_VALUE];
+
+        if (decode_query_component(key, sizeof(key),
+                                   query + pair_start, key_len) < 0)
+            return -1;
+        if (decode_query_component(value, sizeof(value),
+                                   query + value_start, value_len) < 0)
+            return -1;
+
+        /* Decoding must not create a separator/assignment ambiguity in the
+         * key. An encoded '=' is data in the key, but accepting it makes the
+         * key representation unnecessarily ambiguous to callers. */
+        if (strchr(key, '=') || strchr(key, '&'))
+            return -1;
+
+        if (bb_server_request_add_query_param(req, key, value) < 0)
+            return -1;
+
+        pair_start = pair_end;
+        if (pair_start < query_len)
+            pair_start++; /* skip '&' */
+    }
+
+    return 0;
 }
 
 int bb_server_request_from_parsed(const bb_http_request_t *parsed, bb_server_request_t *req)
@@ -106,18 +214,44 @@ int bb_server_request_from_parsed(const bb_http_request_t *parsed, bb_server_req
     bb_message_reset(req->msg);
 
     size_t method_len = strlen(parsed->method);
-    size_t path_len = strlen(parsed->target);
+    const char *target = parsed->target;
+    const char *qmark = strchr(target, '?');
+    size_t raw_path_len = qmark ? (size_t)(qmark - target) : strlen(target);
+    size_t query_len = qmark ? strlen(qmark + 1) : 0;
+
+    if (raw_path_len == 0 || raw_path_len >= PATH_SIZE)
+        return -1;
+
     memcpy(req->method, parsed->method, method_len + 1);
-    memcpy(req->path, parsed->target, path_len + 1);
+    memcpy(req->path, target, raw_path_len);
+    req->path[raw_path_len] = '\0';
     snprintf(req->version, sizeof(req->version), "HTTP/%d.%d",
              parsed->version_major, parsed->version_minor);
 
     if (!is_valid_path(req->path))
         return -1;
 
+    /* Decode the path only after separating the raw query. This prevents an
+     * encoded '?' in the path (%3F) from becoming a new query delimiter. */
     bb_decode_percent(req->path, 0);
-    if (strstr(req->path, ".."))
-        return -1;
+
+    /* Defense in depth: reject traversal after decoding as well. */
+    const char *segment = req->path;
+    if (*segment == '/')
+        segment++;
+    while (1)
+    {
+        const char *slash = strchr(segment, '/');
+        size_t segment_len = slash ? (size_t)(slash - segment) : strlen(segment);
+
+        if ((segment_len == 1 && segment[0] == '.') ||
+            (segment_len == 2 && segment[0] == '.' && segment[1] == '.'))
+            return -1;
+
+        if (!slash)
+            break;
+        segment = slash + 1;
+    }
 
     char start_line[PATH_SIZE + METHOD_SIZE + VERSION_SIZE + 3];
     snprintf(start_line, sizeof(start_line), "%s %s %s",
@@ -136,7 +270,9 @@ int bb_server_request_from_parsed(const bb_http_request_t *parsed, bb_server_req
         bb_decode_percent((char *)bb_message_get_body(req->msg), 1);
     }
 
-    parse_query_params(req);
+    if (qmark && parse_query_params(req, qmark + 1, query_len) < 0)
+        return -1;
+
     return 0;
 }
 
@@ -189,16 +325,20 @@ const char *bb_server_request_get_param(bb_server_request_t *req, const char *na
 
 int bb_server_request_add_query_param(bb_server_request_t *req, const char *key, const char *value)
 {
+    if (!req || !key || !value)
+        return -1;
+
     if (req->query_count >= MAX_QUERY_PARAMS)
-       return -1;
-    
+        return -1;
+
+    if (strlen(key) >= MAX_QUERY_PARAM_KEY ||
+        strlen(value) >= MAX_QUERY_PARAM_VALUE)
+        return -1;
+
     _bb_query_param_t *qp = &req->query[req->query_count];
 
-    strncpy(qp->key, key, sizeof(qp->key) - 1);
-    qp->key[sizeof(qp->key) - 1] = '\0';
-
-    strncpy(qp->value, value, sizeof(qp->value) - 1);
-    qp->value[sizeof(qp->value) - 1] = '\0';
+    memcpy(qp->key, key, strlen(key) + 1);
+    memcpy(qp->value, value, strlen(value) + 1);
 
     req->query_count++;
     return 0;
