@@ -46,6 +46,14 @@ jobs:
             build_type: Debug
             sanitizers: ON
 
+          - name: macOS / Clang / Debug
+            os: macos-latest
+            compiler: clang
+            cc: clang
+            cxx: clang++
+            build_type: Debug
+            sanitizers: OFF
+
           - name: Windows / MSVC / Release
             os: windows-latest
             compiler: msvc
@@ -91,6 +99,17 @@ jobs:
           -DBB_ENABLE_SANITIZERS=${{ matrix.sanitizers }}
         env:
           CCACHE_DIR: ~/.ccache
+
+      # ---------- macOS ----------
+      # sqlite3 ships with the macOS SDK, so no extra dependencies.
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DBB_ENABLE_SANITIZERS=${{ matrix.sanitizers }}
 
       # ---------- Windows ----------
       - name: Get vcpkg commit
