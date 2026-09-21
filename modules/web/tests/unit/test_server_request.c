@@ -318,6 +318,107 @@ void test_query_decoded_control_rejected(void)
 }
 
 
+static void assert_path_rejected(const char *target)
+{
+    char raw[512];
+    snprintf(raw, sizeof(raw), "GET %s HTTP/1.1\r\nHost: localhost\r\n\r\n", target);
+
+    bb_server_request_t req;
+    bb_server_request_init(&req);
+    BB_ASSERT(bb_server_request_parse(raw, &req) != 0);
+    bb_server_request_destroy(&req);
+}
+
+void test_path_encoded_reserved_characters(void)
+{
+    const char *raw =
+        "GET /a%3Fb%3Bc%3Dd%26e%2Bf?real=yes HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n";
+
+    bb_server_request_t req;
+    bb_server_request_init(&req);
+
+    BB_ASSERT(bb_server_request_parse(raw, &req) == 0);
+    BB_ASSERT(strcmp(req.path, "/a?b;c=d&e+f") == 0);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "real"), "yes") == 0);
+
+    bb_server_request_destroy(&req);
+}
+
+void test_path_encoded_slash_rejected(void)
+{
+    assert_path_rejected("/a%2Fb");
+    assert_path_rejected("/a%2fb");
+    assert_path_rejected("/a%5Cb");
+}
+
+void test_path_malformed_percent_encoding_rejected(void)
+{
+    assert_path_rejected("/a%");
+    assert_path_rejected("/a%2");
+    assert_path_rejected("/a%GG");
+}
+
+void test_path_decoded_control_rejected(void)
+{
+    assert_path_rejected("/a%00b");
+    assert_path_rejected("/a%0Ab");
+    assert_path_rejected("/a%0Db");
+}
+
+void test_path_dot_segments_rejected_after_decoding(void)
+{
+    const char *targets[] = {
+        "/a/./b",
+        "/a/../b",
+        "/a/%2e/b",
+        "/a/%2E%2E/b",
+        "/a/.%2e/b",
+        "/a/%2e./b",
+        "/%2e%2e/secret",
+        "/%2E/secret"
+    };
+
+    for (size_t i = 0; i < sizeof(targets) / sizeof(targets[0]); i++)
+        assert_path_rejected(targets[i]);
+}
+
+void test_path_percent_encoding_decoded_once(void)
+{
+    const char *raw =
+        "GET /a/%252e%252e/b HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n";
+
+    bb_server_request_t req;
+    bb_server_request_init(&req);
+
+    BB_ASSERT(bb_server_request_parse(raw, &req) == 0);
+    BB_ASSERT(strcmp(req.path, "/a/%2e%2e/b") == 0);
+
+    bb_server_request_destroy(&req);
+}
+
+void test_path_query_split_before_path_decoding(void)
+{
+    const char *raw =
+        "GET /a%3Fb%26c?x=1 HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "\r\n";
+
+    bb_server_request_t req;
+    bb_server_request_init(&req);
+
+    BB_ASSERT(bb_server_request_parse(raw, &req) == 0);
+    BB_ASSERT(strcmp(req.path, "/a?b&c") == 0);
+    BB_ASSERT(req.query_count == 1);
+    BB_ASSERT(strcmp(bb_server_request_get_query_param(&req, "x"), "1") == 0);
+
+    bb_server_request_destroy(&req);
+}
+
+
 int main(void)
 {
     printf("Running Request tests...\n");
@@ -337,6 +438,13 @@ int main(void)
     test_query_empty_parameter_rejected();
     test_query_component_limits_rejected();
     test_query_decoded_control_rejected();
+    test_path_encoded_reserved_characters();
+    test_path_encoded_slash_rejected();
+    test_path_malformed_percent_encoding_rejected();
+    test_path_decoded_control_rejected();
+    test_path_dot_segments_rejected_after_decoding();
+    test_path_percent_encoding_decoded_once();
+    test_path_query_split_before_path_decoding();
     printf("All tests passed.\n");
     return 0;
 }
