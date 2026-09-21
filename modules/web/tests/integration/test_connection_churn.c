@@ -72,7 +72,14 @@ static int _open_fd_count(void)
 
     if (!dir)
     {
-        return -1; // not Linux, or /proc not mounted
+        /* macOS and the BSDs have no /proc, but /dev/fd (fdescfs) lists
+         * the calling process's open descriptors the same way. */
+        dir = opendir("/dev/fd");
+    }
+
+    if (!dir)
+    {
+        return -1; // neither is available
     }
 
     int count = 0;
@@ -204,6 +211,31 @@ static bb_connection_t *_accept_retrying(bb_socket_t listener, int budget_ms)
             sleep_us *= 2;
         }
     }
+}
+
+/*
+ * Reads until the connection reports the peer's close, or the budget runs
+ * out. A single bb_connection_read() is not enough to observe an EOF that
+ * was sent *before* accept(): on Linux the FIN is processed synchronously
+ * inside the peer's close(), so it is already queued by the time accept()
+ * returns. macOS delivers loopback packets asynchronously, so accept() can
+ * succeed off the handshake ACK while the FIN behind it is still in flight,
+ * and the first read legitimately sees "no data yet" (state stays READING).
+ */
+static bb_error_t _read_until_closed(bb_connection_t *conn, int budget_ms)
+{
+    int64_t deadline = bb_time_monotonic_ms() + budget_ms;
+    bb_error_t err = bb_connection_read(conn);
+
+    while (err.code == BB_OK &&
+           conn->state != BB_CONNECTION_CLOSED &&
+           bb_time_monotonic_ms() < deadline)
+    {
+        bb_usleep(1000);
+        err = bb_connection_read(conn);
+    }
+
+    return err;
 }
 
 /* ======================================================================= */
@@ -521,7 +553,7 @@ static void test_churn_immediate_peer_disconnect(void)
         bb_connection_t *server = _accept_retrying(listener, 2000);
         BB_ASSERT(server != NULL);
 
-        bb_error_t err = bb_connection_read(server);
+        bb_error_t err = _read_until_closed(server, 2000);
 
         /* EOF is not a failure. The read either drains what the peer
          * managed to send and reports success, or observes the close --
