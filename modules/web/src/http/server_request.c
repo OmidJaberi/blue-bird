@@ -5,34 +5,127 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int is_valid_path(const char *path)
+static int hex_value(char c)
 {
-    for (const unsigned char *p = (const unsigned char *)path; *p; p++)
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+static int is_valid_decoded_path_char(unsigned char c)
+{
+    if (c < 0x20 || c == 0x7F)
+        return 0;
+
+    switch (c)
     {
-        unsigned char c = *p;
-
-        // Reject control chars
-        if (c < 32 || c == 127)
+        case ' ':
+        case '"':
+        case '<':
+        case '>':
+        case '\\':
+        case '^':
+        case '`':
+        case '{':
+        case '|':
+        case '}':
             return 0;
+        default:
+            return 1;
+    }
+}
 
-        // Reject unsafe / problematic characters
-        switch (c)
+/*
+ * Decode the request path exactly once into a separate buffer.
+ *
+ * Query splitting must happen before this function is called. Consequently
+ * an encoded '?' (%3F) is path data and cannot create a query delimiter.
+ * Likewise, encoded '&' and '=' remain path data rather than becoming query
+ * syntax.
+ *
+ * Encoded '/' and '\\' are rejected deliberately. Decoding either one would
+ * change path segment boundaries after routing, allowing two layers to see
+ * different resources (for example /a%2Fb versus /a/b).
+ */
+static int decode_path(const char *src, size_t src_len,
+                       char *dst, size_t dst_cap)
+{
+    size_t out = 0;
+
+    if (!src || !dst || dst_cap == 0 || src_len == 0)
+        return -1;
+
+    for (size_t i = 0; i < src_len; i++)
+    {
+        unsigned char c = (unsigned char)src[i];
+
+        if (c == '%')
         {
-            case ' ':
-            case '"':
-            case '<':
-            case '>':
-            case '\\':
-            case '^':
-            case '`':
-            case '{':
-            case '|':
-            case '}':
-                return 0;
+            if (i + 2 >= src_len)
+                return -1;
+
+            int hi = hex_value(src[i + 1]);
+            int lo = hex_value(src[i + 2]);
+            if (hi < 0 || lo < 0)
+                return -1;
+
+            c = (unsigned char)((hi << 4) | lo);
+            i += 2;
+
+            /* Never allow decoding to change path structure. */
+            if (c == '/' || c == '\\')
+                return -1;
         }
+
+        if (!is_valid_decoded_path_char(c))
+            return -1;
+
+        if (out + 1 >= dst_cap)
+            return -1;
+
+        dst[out++] = (char)c;
     }
 
-    return 1;
+    if (out == 0 || dst[0] != '/')
+        return -1;
+
+    dst[out] = '\0';
+    return 0;
+}
+
+/*
+ * Reject dot-segments after decoding. This catches literal, encoded, and
+ * mixed representations such as ../, %2e%2e/, .%2e/, and %2e./.
+ *
+ * We reject rather than normalize: silently changing /a/../b into /b can
+ * make authorization and routing layers disagree about the resource that
+ * was actually requested.
+ */
+static int has_dot_segment(const char *path)
+{
+    const char *segment = path;
+
+    if (*segment == '/')
+        segment++;
+
+    while (1)
+    {
+        const char *slash = strchr(segment, '/');
+        size_t len = slash ? (size_t)(slash - segment) : strlen(segment);
+
+        if ((len == 1 && segment[0] == '.') ||
+            (len == 2 && segment[0] == '.' && segment[1] == '.'))
+            return 1;
+
+        if (!slash)
+            return 0;
+
+        segment = slash + 1;
+    }
 }
 
 void bb_server_request_init(bb_server_request_t *req)
@@ -63,17 +156,6 @@ void bb_server_request_reset(bb_server_request_t *req)
     }
     req->param_count = 0;
     req->query_count = 0;
-}
-
-static int hex_value(char c)
-{
-    if (c >= '0' && c <= '9')
-        return c - '0';
-    if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
-    return -1;
 }
 
 /*
@@ -223,35 +305,20 @@ int bb_server_request_from_parsed(const bb_http_request_t *parsed, bb_server_req
         return -1;
 
     memcpy(req->method, parsed->method, method_len + 1);
-    memcpy(req->path, target, raw_path_len);
-    req->path[raw_path_len] = '\0';
     snprintf(req->version, sizeof(req->version), "HTTP/%d.%d",
              parsed->version_major, parsed->version_minor);
 
-    if (!is_valid_path(req->path))
+    /*
+     * Canonicalize the path exactly once, after separating the raw query.
+     * This makes encoded reserved characters deterministic: %3F becomes '?'
+     * in the path, while it can never become a query delimiter here.
+     */
+    if (decode_path(target, raw_path_len, req->path, sizeof(req->path)) < 0)
         return -1;
 
-    /* Decode the path only after separating the raw query. This prevents an
-     * encoded '?' in the path (%3F) from becoming a new query delimiter. */
-    bb_decode_percent(req->path, 0);
-
-    /* Defense in depth: reject traversal after decoding as well. */
-    const char *segment = req->path;
-    if (*segment == '/')
-        segment++;
-    while (1)
-    {
-        const char *slash = strchr(segment, '/');
-        size_t segment_len = slash ? (size_t)(slash - segment) : strlen(segment);
-
-        if ((segment_len == 1 && segment[0] == '.') ||
-            (segment_len == 2 && segment[0] == '.' && segment[1] == '.'))
-            return -1;
-
-        if (!slash)
-            break;
-        segment = slash + 1;
-    }
+    /* Reject dot-segments after decoding, including encoded/mixed forms. */
+    if (has_dot_segment(req->path))
+        return -1;
 
     char start_line[PATH_SIZE + METHOD_SIZE + VERSION_SIZE + 3];
     snprintf(start_line, sizeof(start_line), "%s %s %s",
