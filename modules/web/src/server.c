@@ -340,10 +340,28 @@ static bb_read_status_t _server_read_step(void *userdata)
         }
     }
 
-    char *buffer;
-    size_t length;
-    bb_response_serialize(res, &buffer, &length);
-    bb_connection_buffer_add(async_conn->connection, buffer, length);
+    char *buffer = NULL;
+    size_t length = 0;
+    if (bb_response_serialize(res, &buffer, &length) != 0)
+    {
+        // buffer/length are left indeterminate on failure (e.g. the
+        // malloc() inside bb_response_serialize() failed) -- don't hand
+        // either to bb_connection_buffer_add().
+        bb_request_destroy(req);
+        bb_response_destroy(res);
+
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_ALLOC, "Failed to serialize HTTP response.") };
+    }
+
+    if (bb_connection_buffer_add(async_conn->connection, buffer, length) != 0)
+    {
+        // On failure bb_connection_buffer_add() has already freed
+        // `buffer` itself -- don't free it again here.
+        bb_request_destroy(req);
+        bb_response_destroy(res);
+
+        return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_ALLOC, "Failed to buffer HTTP response for write.") };
+    }
 
     bb_request_destroy(req);
     bb_response_destroy(res);
