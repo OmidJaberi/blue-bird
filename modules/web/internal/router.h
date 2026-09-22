@@ -16,7 +16,8 @@ typedef enum {
 } bb_route_type_t;
 
 typedef struct bb_route bb_route_t;
-typedef bb_route_t* bb_route_list_t;
+
+typedef struct bb_route_list bb_route_list_t;
 
 bb_route_type_t bb_route_get_type(bb_route_t *route);
 bb_http_handler_cb bb_route_get_http_handler(bb_route_t *route);

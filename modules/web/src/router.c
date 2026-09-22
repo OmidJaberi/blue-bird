@@ -7,6 +7,12 @@
 #define MAX_SEGMENTS 20
 #define MAX_PATH_LEN 256
 
+
+struct bb_route_list {
+    bb_route_t *head;
+    bb_route_t *tail;
+};
+
 struct bb_route {
     bb_route_type_t type;
     char *method;
@@ -39,6 +45,21 @@ bb_route_list_t *bb_route_list_create(void)
 {
     bb_route_list_t *route_list = calloc(1, sizeof(*route_list));
     return route_list;
+}
+
+static void append_route(bb_route_list_t *route_list, bb_route_t *new_route)
+{
+    new_route->next_route = NULL;
+
+    if (route_list->tail)
+    {
+        route_list->tail->next_route = new_route;
+    }
+    else
+    {
+        route_list->head = new_route;
+    }
+    route_list->tail = new_route;
 }
 
 static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN])
@@ -88,9 +109,8 @@ bb_error_t bb_route_list_add_http(bb_route_list_t *route_list, const char *metho
     new_route->method = bb_strdup(method);
     new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->http_handler = handler;
-    
-    new_route->next_route = *route_list;
-    *route_list = new_route;
+
+    append_route(route_list, new_route);
 
     return BB_SUCCESS();
 }
@@ -109,9 +129,8 @@ bb_error_t bb_route_list_add_websocket(bb_route_list_t *route_list, const char *
     new_route->method = bb_strdup("GET");
     new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->websocket_handler = handler;
-    
-    new_route->next_route = *route_list;
-    *route_list = new_route;
+
+    append_route(route_list, new_route);
 
     return BB_SUCCESS();
 }
@@ -135,7 +154,7 @@ bb_route_t *bb_route_list_match(bb_route_list_t *route_list, bb_request_t *req)
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(bb_request_get_path(req), req_segments);
 
-    for (bb_route_t *route = *route_list; route != NULL; route = route->next_route)
+    for (bb_route_t *route = route_list->head; route != NULL; route = route->next_route)
     {
         if (strcmp(bb_request_get_method(req), route->method) != 0) continue;
 
@@ -155,7 +174,7 @@ bb_route_t *bb_route_list_match(bb_route_list_t *route_list, bb_request_t *req)
 
 void bb_route_list_destroy(bb_route_list_t *route_list)
 {
-    bb_route_t *current = *route_list;
+    bb_route_t *current = route_list->head;
     while (current)
     {
         bb_route_t *next = current->next_route;
