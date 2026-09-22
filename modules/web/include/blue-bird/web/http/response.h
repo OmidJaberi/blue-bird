@@ -22,8 +22,6 @@ int bb_response_get_status(bb_response_t *res);
 
 int bb_response_serialize(bb_response_t *res, char **buffer, size_t *size);
 
-int bb_response_parse(const char *raw, bb_response_t *res);
-
 bb_http_message_t *bb_response_get_message(bb_response_t *res);
 
 // Message Helpers:

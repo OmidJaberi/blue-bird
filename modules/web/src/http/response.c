@@ -85,20 +85,6 @@ int bb_response_serialize(bb_response_t *res, char **buffer, size_t *buffer_size
     return bb_message_serialize(res->msg, buffer, buffer_size);
 }
 
-int bb_response_parse(const char *raw, bb_response_t *res)
-{
-    if (!raw || !res)
-        return -1;
-
-    if (bb_message_parse(raw, res->msg) != 0)
-        return -1;
-
-    /* HTTP/1.1 200 OK */
-    sscanf(bb_message_get_start_line(res->msg), "HTTP/%*s %d", &res->status_code);
-
-    return 0;
-}
-
 bb_http_message_t *bb_response_get_message(bb_response_t *res)
 {
     return res->msg;
