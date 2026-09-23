@@ -128,19 +128,21 @@ bb_connection_t *bb_connection_serve(int port)
     int opt = 1;
 
     // Create socket
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         return NULL;
     }
 
     if (bb_socket_set_nonblocking(server_fd) != 0)
     {
+        bb_socket_close(server_fd);
         return NULL;
     }
 
     // Reuse port
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
     {
+        bb_socket_close(server_fd);
         return NULL;
     }
 
@@ -151,12 +153,14 @@ bb_connection_t *bb_connection_serve(int port)
     // Bind
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
+        bb_socket_close(server_fd);
         return NULL;
     }
 
     // Listen
     if (listen(server_fd, 3) < 0)
     {
+        bb_socket_close(server_fd);
         return NULL;
     }
 
@@ -357,6 +361,7 @@ bb_connection_t *bb_connection_connect_nonblocking(const char *host, const char 
 
     if (bb_socket_set_nonblocking(fd) != 0)
     {
+        bb_socket_close(fd);
         return NULL;
     }
 
