@@ -190,7 +190,7 @@ static void _server_after_write(bb_task_t *task, void *userdata)
             bb_error_t err = bb_websocket_create_read_task(data->ws);
             if (BB_FAILED(err))
             {
-                bb_websocket_destroy(data->ws);
+                _server_ws_closed(data->ws, server);
             }
         }
 
