@@ -140,7 +140,7 @@ bb_connection_t *bb_connection_serve(int port)
     }
 
     // Reuse port
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)))
     {
         bb_socket_close(server_fd);
         return NULL;
@@ -157,8 +157,10 @@ bb_connection_t *bb_connection_serve(int port)
         return NULL;
     }
 
-    // Listen
-    if (listen(server_fd, 3) < 0)
+    // Listen. The accept queue must absorb connection bursts while the event
+    // loop is busy; the platform default is the largest queue the OS allows
+    // (or a generous fixed size), see BB_LISTEN_BACKLOG in platform.h.
+    if (bb_socket_listen(server_fd, BB_LISTEN_BACKLOG) != 0)
     {
         bb_socket_close(server_fd);
         return NULL;
