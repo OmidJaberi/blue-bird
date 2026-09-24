@@ -520,12 +520,20 @@ void bb_server_destroy(bb_server_t *server)
 
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler)
 {
-    bb_route_list_add_http(server->route_list, method, path, handler);
+    bb_error_t err = bb_route_list_add_http(server->route_list, method, path, handler);
+    if (err.code != BB_OK)
+    {
+        BB_LOG_ERROR("Failed to add route %s %s: %s\n", method, path, err.msg);
+    }
 }
 
 void bb_server_add_websocket(bb_server_t *server, const char *path, bb_ws_handler_cb handler)
 {
-    bb_route_list_add_websocket(server->route_list, path, handler);
+    bb_error_t err = bb_route_list_add_websocket(server->route_list, path, handler);
+    if (err.code != BB_OK)
+    {
+        BB_LOG_ERROR("Failed to add WebSocket route %s: %s\n", path, err.msg);
+    }
 }
 
 void bb_server_set_websocket_heartbeat(bb_server_t *server, uint32_t interval_ms, uint32_t max_missed_pongs)
