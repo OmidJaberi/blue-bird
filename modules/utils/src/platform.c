@@ -55,6 +55,15 @@ int bb_socket_set_nonblocking(bb_socket_t sock)
 #endif
 }
 
+int bb_socket_listen(bb_socket_t sock, int backlog)
+{
+    if (backlog <= 0)
+    {
+        backlog = BB_LISTEN_BACKLOG;
+    }
+    return listen(sock, backlog) == 0 ? 0 : -1;
+}
+
 int bb_socket_last_error(void)
 {
 #if defined(_WIN32)

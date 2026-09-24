@@ -104,6 +104,38 @@ int bb_socket_close(bb_socket_t sock);
 int bb_socket_set_nonblocking(bb_socket_t sock);
 
 /*
+ * Default accept-queue length for listening sockets.
+ *
+ * The kernel silently clamps whatever is passed to listen() to its own
+ * ceiling (net.core.somaxconn on Linux, kern.ipc.somaxconn on macOS/BSD),
+ * so asking for more than the system allows is harmless -- while asking
+ * for too little (the old value of 3) drops or delays connections during
+ * bursts long before the OS limit is reached.
+ *
+ *  - Windows: SOMAXCONN lets the Winsock provider pick a sensible maximum
+ *    (a fixed number would cap it below what the system supports).
+ *  - POSIX: at least 1024, or the system's SOMAXCONN if that is larger.
+ *
+ * Override at build time with -DBB_LISTEN_BACKLOG=<n>.
+ */
+#ifndef BB_LISTEN_BACKLOG
+#if defined(_WIN32)
+#define BB_LISTEN_BACKLOG SOMAXCONN
+#elif defined(SOMAXCONN) && (SOMAXCONN > 1024)
+#define BB_LISTEN_BACKLOG SOMAXCONN
+#else
+#define BB_LISTEN_BACKLOG 1024
+#endif
+#endif
+
+/*
+ * Marks `sock` as a passive (listening) socket. Wraps listen().
+ * A `backlog` <= 0 selects BB_LISTEN_BACKLOG. Returns 0 on success, -1 on
+ * failure (the error is available via bb_socket_last_error()).
+ */
+int bb_socket_listen(bb_socket_t sock, int backlog);
+
+/*
  * Returns the last socket error in a platform-neutral way
  * (errno on POSIX, WSAGetLastError() on Windows).
  */
