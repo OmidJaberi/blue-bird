@@ -215,6 +215,79 @@ void test_websocket_route_only_matches_get(void)
     bb_request_destroy(req);
 }
 
+void test_long_request_segment(void)
+{
+    printf("Testing Router: long request segment...\n");
+    bb_route_list_t *route_list = bb_route_list_create();
+    bb_request_t *req = bb_request_server_create();
+
+    bb_route_list_add_http(route_list, "GET", "/users/:id", handler_user);
+
+    /* The request path buffer holds 255 bytes, so this is the longest
+     * segment a request can carry: it must match without overflowing. */
+    char path[300];
+    memcpy(path, "/users/", 7);
+    memset(path + 7, 'A', 248);
+    path[255] = '\0';
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_path(req, path);
+    BB_ASSERT(bb_route_list_match(route_list, req) != NULL);
+
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+}
+
+void test_too_many_request_segments_rejected(void)
+{
+    printf("Testing Router: too many request segments are rejected...\n");
+    bb_route_list_t *route_list = bb_route_list_create();
+    bb_request_t *req = bb_request_server_create();
+
+    /* Route with exactly 20 segments */
+    char route_path[128] = "";
+    for (int i = 0; i < 20; i++)
+        strcat(route_path, "/a");
+    BB_ASSERT(bb_route_list_add_http(route_list, "GET", route_path, handler_hello_get).code == BB_OK);
+
+    /* Request with 25 segments must not match by being truncated to 20 */
+    char req_path[128] = "";
+    for (int i = 0; i < 25; i++)
+        strcat(req_path, "/a");
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_path(req, req_path);
+    BB_ASSERT(bb_route_list_match(route_list, req) == NULL);
+
+    bb_request_set_path(req, route_path);
+    BB_ASSERT(bb_route_list_match(route_list, req) != NULL);
+
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+}
+
+void test_invalid_route_registration_rejected(void)
+{
+    printf("Testing Router: invalid route registration is rejected...\n");
+    bb_route_list_t *route_list = bb_route_list_create();
+    bb_request_t *req = bb_request_server_create();
+
+    char path[512];
+    path[0] = '/';
+    memset(path + 1, 'B', 400);
+    path[401] = '\0';
+
+    BB_ASSERT(bb_route_list_add_http(route_list, "GET", path, handler_hello_get).code != BB_OK);
+    BB_ASSERT(bb_route_list_add_websocket(route_list, path, websocket_handler).code != BB_OK);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_path(req, path);
+    BB_ASSERT(bb_route_list_match(route_list, req) == NULL);
+
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+}
+
 int main(void)
 {
     test_route_match_get();
@@ -224,6 +297,9 @@ int main(void)
     test_http_route_type();
     test_websocket_route_type();
     test_websocket_route_only_matches_get();
+    test_long_request_segment();
+    test_too_many_request_segments_rejected();
+    test_invalid_route_registration_rejected();
     printf("All Router tests passed.\n");
     return 0;
 }
