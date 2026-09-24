@@ -1,6 +1,8 @@
 #include "router.h"
 #include "blue-bird/utils/platform.h"
 #include "blue-bird/error/assert.h"
+#include "blue-bird/web/error.h"
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -62,36 +64,65 @@ static void append_route(bb_route_list_t *route_list, bb_route_t *new_route)
     route_list->tail = new_route;
 }
 
+/*
+ * Splits `path` into '/'-separated, non-empty segments.
+ * Returns the segment count, or -1 if the path has more than MAX_SEGMENTS
+ * segments or any segment is >= MAX_PATH_LEN bytes. Nothing is ever truncated,
+ * so callers can never match a partial path.
+ */
 static int split_path(const char *path, char segments[MAX_SEGMENTS][MAX_PATH_LEN])
 {
     int count = 0;
     const char *start = path;
     const char *p;
-    
-    for (p = path; *p && count < MAX_SEGMENTS; p++)
-    {
-        if (*p == '/')
-        {
-            if (p > start)
-            {
-                size_t len = p - start;
-                strncpy(segments[count], start, len);
-                segments[count][len] = '\0';
-                count++;
-            }
-            start = p + 1;
-        }
-    }
 
-    if (p > start && count < MAX_SEGMENTS)
+    for (p = path; ; p++)
     {
-        size_t len = p - start;
-        strncpy(segments[count], start, len);
-        segments[count][len] = '\0';
-        count++;
+        if (*p != '/' && *p != '\0')
+            continue;
+
+        if (p > start)
+        {
+            size_t len = (size_t)(p - start);
+            if (count >= MAX_SEGMENTS || len >= MAX_PATH_LEN)
+                return -1;
+            memcpy(segments[count], start, len);
+            segments[count][len] = '\0';
+            count++;
+        }
+
+        if (*p == '\0')
+            break;
+        start = p + 1;
     }
 
     return count;
+}
+
+/* Allocates a route and fills the fields shared by HTTP and WebSocket routes. */
+static bb_error_t route_create(const char *method, const char *path, bb_route_t **out)
+{
+    bb_route_t *route = calloc(1, sizeof(*route));
+    if (!route)
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate route");
+
+    route->method = bb_strdup(method);
+    if (!route->method)
+    {
+        free(route);
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate route method");
+    }
+
+    route->segments_count = split_path(path, route->path_segments);
+    if (route->segments_count < 0)
+    {
+        free(route->method);
+        free(route);
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "Route path has too many segments or a segment is too long");
+    }
+
+    *out = route;
+    return BB_SUCCESS();
 }
 
 bb_error_t bb_route_list_add_http(bb_route_list_t *route_list, const char *method, const char *path, bb_http_handler_cb handler)
@@ -102,12 +133,12 @@ bb_error_t bb_route_list_add_http(bb_route_list_t *route_list, const char *metho
     BB_ASSERT_MSG(path != NULL, "Route path is NULL");
     BB_ASSERT_MSG(handler != NULL, "Route handler is NULL");
 
-    bb_route_t *new_route = malloc(sizeof(bb_route_t));
-    
-    // Add the route
+    bb_route_t *new_route = NULL;
+    bb_error_t err = route_create(method, path, &new_route);
+    if (err.code != BB_OK)
+        return err;
+
     new_route->type = BB_ROUTE_HTTP;
-    new_route->method = bb_strdup(method);
-    new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->http_handler = handler;
 
     append_route(route_list, new_route);
@@ -122,12 +153,12 @@ bb_error_t bb_route_list_add_websocket(bb_route_list_t *route_list, const char *
     BB_ASSERT_MSG(path != NULL, "Route path is NULL");
     BB_ASSERT_MSG(handler != NULL, "Route handler is NULL");
 
-    bb_route_t *new_route = malloc(sizeof(bb_route_t));
-    
-    // Add the route
+    bb_route_t *new_route = NULL;
+    bb_error_t err = route_create("GET", path, &new_route);
+    if (err.code != BB_OK)
+        return err;
+
     new_route->type = BB_ROUTE_WEBSOCKET;
-    new_route->method = bb_strdup("GET");
-    new_route->segments_count = split_path(path, new_route->path_segments);
     new_route->websocket_handler = handler;
 
     append_route(route_list, new_route);
@@ -153,6 +184,8 @@ bb_route_t *bb_route_list_match(bb_route_list_t *route_list, bb_request_t *req)
 {
     char req_segments[MAX_SEGMENTS][MAX_PATH_LEN];
     int req_count = split_path(bb_request_get_path(req), req_segments);
+    if (req_count < 0)
+        return NULL; // Oversized or too-deep path: cannot match any route (caller returns 404)
 
     for (bb_route_t *route = route_list->head; route != NULL; route = route->next_route)
     {
