@@ -447,6 +447,66 @@ static void test_timer_order(void)
     bb_runtime_destroy(runtime);
 }
 
+// Timer cancelled by another task before its deadline
+
+static int cross_timer_cancel_executed = 0;
+static int cross_timer_cancel_controller_executed = 0;
+static bb_task_t *cross_timer_cancel_target = NULL;
+
+static void cross_timer_cancel_target_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    cross_timer_cancel_executed++;
+}
+
+static void cross_timer_cancel_controller_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    cross_timer_cancel_controller_executed++;
+
+    BB_ASSERT(cross_timer_cancel_target != NULL);
+    bb_runtime_cancel_task(runtime, cross_timer_cancel_target);
+
+    BB_ASSERT(bb_task_is_cancelled(cross_timer_cancel_target) == 1);
+
+    bb_runtime_stop(runtime);
+}
+
+static void test_timer_cancelled_before_deadline_by_task(void)
+{
+    printf("\tRunning test_timer_cancelled_before_deadline_by_task...\n");
+
+    cross_timer_cancel_executed = 0;
+    cross_timer_cancel_controller_executed = 0;
+    cross_timer_cancel_target = NULL;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    /*
+     * Give the timer plenty of time. The controller task should execute
+     * immediately and cancel it before the deadline is reached.
+     */
+    cross_timer_cancel_target = bb_runtime_set_timeout(runtime, 100, cross_timer_cancel_target_cb, NULL);
+
+    BB_ASSERT(cross_timer_cancel_target != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, cross_timer_cancel_controller_cb, runtime) != NULL);
+
+    bb_runtime_run(runtime);
+
+    BB_ASSERT(cross_timer_cancel_controller_executed == 1);
+    BB_ASSERT(cross_timer_cancel_executed == 0);
+    BB_ASSERT(bb_task_is_cancelled(cross_timer_cancel_target) == 1);
+
+    bb_runtime_destroy(runtime);
+}
+
 // Cancel from other task:
 static int cross_cancel_target_executed = 0;
 static bb_task_t *cross_cancel_target = NULL;
@@ -1616,6 +1676,7 @@ int main(void)
     test_runtime_reuse();
     test_timer_to_task_scheduling();
     test_timer_order();
+    test_timer_cancelled_before_deadline_by_task();
     test_cross_task_cancellation();
     test_task_fanout();
     test_timeout_cancellation();
