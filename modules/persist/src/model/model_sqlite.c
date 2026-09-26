@@ -6,6 +6,8 @@
 
 #include "blue-bird/persist/model/model_sqlite.h"
 
+#include <blue-bird/utils/platform.h>
+
 /* ---------------------------
  * Connection pool
  *
@@ -306,7 +308,7 @@ static bb_model_handle_t *sqlite_open(const char *uri)
     BB_ModelSQLiteHandle *h = calloc(1, sizeof(*h));
     if (!h) return NULL;
 
-    h->uri = uri ? strdup(uri) : strdup("");
+    h->uri = uri ? bb_strdup(uri) : bb_strdup("");
     if (!h->uri)
     {
         free(h);

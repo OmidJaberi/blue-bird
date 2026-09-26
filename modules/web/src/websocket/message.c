@@ -1,5 +1,7 @@
 #include "websocket/message_internal.h"
 
+#include <blue-bird/utils/platform.h>
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,7 +18,7 @@ bb_ws_message_t *bb_ws_message_create(bb_ws_message_type_t type, const void *dat
 
     if (type == BB_WS_MESSAGE_TEXT)
     {
-        message->data = strdup(data);
+        message->data = bb_strdup(data);
     }
     else if (length > 0)
     {
