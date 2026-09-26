@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "blue-bird/persist/model.h"
 #include "blue-bird/persist/model/model_sqlite.h"
@@ -420,6 +421,172 @@ static void test_sqlite_many_fields_no_overflow(void)
     api->close(h);
 }
 
+/* ---------------------------
+ * Connection pool / concurrency tests
+ *
+ * These exercise the pooled backend from multiple threads sharing a
+ * single bb_model_handle_t, which is exactly the case a single
+ * sqlite3* handle couldn't support safely.
+ * --------------------------- */
+
+#define BB_POOL_TEST_THREADS 16
+#define BB_POOL_TEST_OPS_PER_THREAD 50
+
+typedef struct {
+    const bb_model_api_t *api;
+    bb_model_handle_t *h;
+    int thread_idx;
+    int failed; /* set to 1 by the thread on any assertion-style failure */
+} bb_pool_worker_arg_t;
+
+static void *bb_pool_worker(void *arg_)
+{
+    bb_pool_worker_arg_t *arg = (bb_pool_worker_arg_t *)arg_;
+    arg->failed = 0;
+
+    for (int i = 0; i < BB_POOL_TEST_OPS_PER_THREAD; i++)
+    {
+        int id = arg->thread_idx * BB_POOL_TEST_OPS_PER_THREAD + i;
+
+        User u = { .id = id };
+        snprintf(u.name, sizeof(u.name), "user-%d", id);
+
+        if (arg->api->insert(arg->h, &user_schema, &u) != 0)
+        {
+            arg->failed = 1;
+            return NULL;
+        }
+
+        User out = { 0 };
+        if (arg->api->find_by_pk(arg->h, &user_schema, &out, &id) != 0)
+        {
+            arg->failed = 1;
+            return NULL;
+        }
+
+        if (out.id != id || strcmp(out.name, u.name) != 0)
+        {
+            arg->failed = 1;
+            return NULL;
+        }
+
+        /* Also drive find_all concurrently so readers and writers on
+         * different pooled connections overlap, not just inserts. */
+        void *rows = NULL;
+        size_t count = 0;
+        if (arg->api->find_all(arg->h, &user_schema, &rows, &count) != 0)
+        {
+            arg->failed = 1;
+            return NULL;
+        }
+        free(rows);
+    }
+
+    return NULL;
+}
+
+static void test_sqlite_concurrent_access_shared_handle(void)
+{
+    printf("\tTesting concurrent access on a shared handle...\n");
+    const char *db_path = "test_model_sqlite_concurrent.db";
+    cleanup_db(db_path);
+
+    const bb_model_api_t *api = bb_model_get("sqlite");
+    BB_ASSERT(api != NULL);
+
+    /* One handle (one pool), shared by every thread -- this is the
+     * scenario a single sqlite3* connection could not serve safely. */
+    bb_model_handle_t *h = api->open(db_path);
+    BB_ASSERT(h != NULL);
+
+    pthread_t threads[BB_POOL_TEST_THREADS];
+    bb_pool_worker_arg_t args[BB_POOL_TEST_THREADS];
+
+    for (int i = 0; i < BB_POOL_TEST_THREADS; i++)
+    {
+        args[i].api = api;
+        args[i].h = h;
+        args[i].thread_idx = i;
+        BB_ASSERT(pthread_create(&threads[i], NULL, bb_pool_worker, &args[i]) == 0);
+    }
+
+    int any_failed = 0;
+    for (int i = 0; i < BB_POOL_TEST_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+        any_failed |= args[i].failed;
+    }
+    BB_ASSERT(!any_failed);
+
+    /* Every thread's rows must have landed -- nothing lost or
+     * corrupted by connections being borrowed/returned concurrently. */
+    void *rows = NULL;
+    size_t count = 0;
+    BB_ASSERT(api->find_all(h, &user_schema, &rows, &count) == 0);
+    BB_ASSERT(count == (size_t)(BB_POOL_TEST_THREADS * BB_POOL_TEST_OPS_PER_THREAD));
+    free(rows);
+
+    api->close(h);
+}
+
+static void *bb_pool_insert_only_worker(void *arg_)
+{
+    bb_pool_worker_arg_t *arg = (bb_pool_worker_arg_t *)arg_;
+    arg->failed = 0;
+
+    User u = { .id = arg->thread_idx };
+    snprintf(u.name, sizeof(u.name), "mem-user-%d", arg->thread_idx);
+
+    if (arg->api->insert(arg->h, &user_schema, &u) != 0)
+        arg->failed = 1;
+
+    return NULL;
+}
+
+static void test_sqlite_memory_db_shared_across_threads(void)
+{
+    printf("\tTesting :memory: URI stays a single shared connection under concurrency...\n");
+
+    const bb_model_api_t *api = bb_model_get("sqlite");
+    BB_ASSERT(api != NULL);
+
+    /* ":memory:" must NOT be pooled the normal way: a fresh sqlite3
+     * connection per ":memory:" open() is its own empty database, so
+     * pooling it naively would make each borrowed connection see a
+     * different (mostly empty) database. The backend collapses the
+     * pool to one shared connection for this URI -- verify rows
+     * inserted from different threads are all visible afterward. */
+    bb_model_handle_t *h = api->open(":memory:");
+    BB_ASSERT(h != NULL);
+
+    pthread_t threads[BB_POOL_TEST_THREADS];
+    bb_pool_worker_arg_t args[BB_POOL_TEST_THREADS];
+
+    for (int i = 0; i < BB_POOL_TEST_THREADS; i++)
+    {
+        args[i].api = api;
+        args[i].h = h;
+        args[i].thread_idx = i;
+        BB_ASSERT(pthread_create(&threads[i], NULL, bb_pool_insert_only_worker, &args[i]) == 0);
+    }
+
+    int any_failed = 0;
+    for (int i = 0; i < BB_POOL_TEST_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+        any_failed |= args[i].failed;
+    }
+    BB_ASSERT(!any_failed);
+
+    void *rows = NULL;
+    size_t count = 0;
+    BB_ASSERT(api->find_all(h, &user_schema, &rows, &count) == 0);
+    BB_ASSERT(count == (size_t)BB_POOL_TEST_THREADS);
+    free(rows);
+
+    api->close(h);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -434,6 +601,8 @@ int main(void)
     test_sqlite_remove_not_found();
     test_sqlite_long_table_name_no_overflow();
     test_sqlite_many_fields_no_overflow();
+    test_sqlite_concurrent_access_shared_handle();
+    test_sqlite_memory_db_shared_across_threads();
 
     printf("All SQLite model tests passed!\n");
     return 0;
