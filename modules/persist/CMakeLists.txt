@@ -28,6 +28,7 @@ target_link_libraries(bluebird_persist
 
     PRIVATE
         SQLite::SQLite3
+        ${BLUEBIRD_THREADS_TARGET}
 )
 
 if(BUILD_TESTS)
