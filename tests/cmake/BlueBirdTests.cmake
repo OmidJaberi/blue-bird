@@ -1,5 +1,7 @@
 function(bb_add_module_tests MODULE_NAME MODULE_TARGET)
 
+    set(EXTRA_LIBS ${ARGN})
+
     file(GLOB_RECURSE TEST_SOURCES
         CONFIGURE_DEPENDS
         unit/*.c
@@ -41,6 +43,7 @@ function(bb_add_module_tests MODULE_NAME MODULE_TARGET)
             ${test_target}
             PRIVATE
                 ${MODULE_TARGET}
+                ${EXTRA_LIBS}
         )
 
         if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../internal")
