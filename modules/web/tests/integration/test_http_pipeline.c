@@ -1026,6 +1026,28 @@ void test_parser_header_limits(void)
     assert_server_healthy();
 }
 
+void test_parser_chunked_body(void)
+{
+    printf("Testing chunked request body is decoded...\n");
+
+    const char *req =
+        "GET /body HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "5\r\nhello\r\n"
+        "6\r\n world\r\n"
+        "0\r\n"
+        "\r\n";
+
+    char resp[4096];
+    (void)raw_http_exchange(req, strlen(req), resp, sizeof(resp));
+
+    /* keep-alive means the server may not close; only the content matters */
+    BB_ASSERT(strstr(resp, " 200 ") != NULL);
+    BB_ASSERT(strstr(resp, "body: hello world") != NULL);
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1269,6 +1291,7 @@ int main(void)
     test_parser_path_traversal_targets();
     test_parser_ambiguous_framing();
     test_parser_header_limits();
+    test_parser_chunked_body();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
