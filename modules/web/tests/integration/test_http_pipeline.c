@@ -923,6 +923,27 @@ void test_parser_malformed_request_line(void)
     assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
 }
 
+void test_parser_path_traversal_targets(void)
+{
+    printf("Testing traversal and unsafe encoded request targets are rejected...\n");
+
+    static const char *const payloads[] = {
+        "GET /../etc/passwd HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /param/../../etc/passwd HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /param/%2e%2e/secret HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /param/.%2E/secret HTTP/1.1\r\nHost: localhost\r\n\r\n",
+        "GET /param/a%2Fb HTTP/1.1\r\nHost: localhost\r\n\r\n",      /* encoded slash */
+        "GET /param/a%5Cb HTTP/1.1\r\nHost: localhost\r\n\r\n",      /* encoded backslash */
+        "GET /param/a\\b HTTP/1.1\r\nHost: localhost\r\n\r\n",       /* literal backslash */
+        "GET /param/%00 HTTP/1.1\r\nHost: localhost\r\n\r\n",        /* encoded NUL */
+        "GET /q_param?val=%0d%0aInjected:1 HTTP/1.1\r\nHost: localhost\r\n\r\n", /* CRLF in query */
+        "GET /param/%zz HTTP/1.1\r\nHost: localhost\r\n\r\n",        /* malformed escape */
+        "GET /param/% HTTP/1.1\r\nHost: localhost\r\n\r\n",          /* truncated escape */
+    };
+
+    assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1163,6 +1184,7 @@ int main(void)
     test_concurrent_clients();
     test_partial_request();
     test_parser_malformed_request_line();
+    test_parser_path_traversal_targets();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
