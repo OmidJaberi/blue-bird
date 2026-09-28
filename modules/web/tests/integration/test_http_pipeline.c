@@ -944,6 +944,37 @@ void test_parser_path_traversal_targets(void)
     assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
 }
 
+void test_parser_ambiguous_framing(void)
+{
+    printf("Testing ambiguous body framing (request smuggling vectors) is rejected...\n");
+
+    static const char *const payloads[] = {
+        /* Content-Length + Transfer-Encoding */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n"
+        "Transfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+        /* duplicate Content-Length, even when equal */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n"
+        "Content-Length: 5\r\n\r\nhello",
+        /* non-decimal / signed / overflowing Content-Length */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5abc\r\n\r\nhello",
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: -1\r\n\r\n",
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: 99999999999999999999999\r\n\r\n",
+        /* Content-Length above the parser's body limit */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: 999999999\r\n\r\n",
+        /* unsupported transfer coding */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: gzip\r\n\r\n",
+        /* obsolete line folding */
+        "GET / HTTP/1.1\r\nHost: localhost\r\nX-Folded: a\r\n b\r\n\r\n",
+        /* header without a colon / with an invalid name */
+        "GET / HTTP/1.1\r\nHost localhost\r\n\r\n",
+        "GET / HTTP/1.1\r\nBad Name: x\r\n\r\n",
+        /* bad chunk size */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\nZZ\r\nhello\r\n0\r\n\r\n",
+    };
+
+    assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1185,6 +1216,7 @@ int main(void)
     test_partial_request();
     test_parser_malformed_request_line();
     test_parser_path_traversal_targets();
+    test_parser_ambiguous_framing();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
