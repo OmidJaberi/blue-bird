@@ -7,6 +7,7 @@
 #include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <errno.h>
 
 bb_runtime_t *server_runtime = NULL;
 
@@ -794,6 +795,134 @@ void test_partial_request(void)
     bb_socket_close(fd);
 }
 
+/* ------------------------------------------------------------------ */
+/* Raw-socket helpers for HTTP parser tests                            */
+/* ------------------------------------------------------------------ */
+
+typedef enum
+{
+    RAW_PEER_CLOSED = 0, /* server closed (FIN or reset) */
+    RAW_TIMED_OUT        /* server kept the connection open and went quiet */
+} raw_result_t;
+
+/*
+ * Sends `req` verbatim over a fresh TCP connection (bypassing bb_client, which
+ * would normalise or reject malformed requests) and collects whatever the
+ * server sends back until it closes the connection or stays silent for ~2s.
+ */
+static raw_result_t raw_http_exchange(const void *req, size_t req_len, char *resp, size_t resp_cap)
+{
+    bb_socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(8080);
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    BB_ASSERT(connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+#ifdef _WIN32
+    DWORD tv = 2000;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
+#else
+    struct timeval tv = {.tv_sec = 2, .tv_usec = 0};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+
+    /* The server may reset the connection mid-send once it has rejected the
+     * request, so a short/failed send is not an error here. */
+    send(fd, req, req_len, MSG_NOSIGNAL);
+
+    size_t total = 0;
+    raw_result_t result = RAW_PEER_CLOSED;
+
+    for (;;)
+    {
+        if (total + 1 >= resp_cap)
+            break;
+
+        ssize_t n = recv(fd, resp + total, resp_cap - total - 1, 0);
+        if (n > 0)
+        {
+            total += (size_t)n;
+            continue;
+        }
+        if (n == 0)
+            break;
+
+#ifdef _WIN32
+        if (WSAGetLastError() == WSAETIMEDOUT)
+#else
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
+            result = RAW_TIMED_OUT;
+        break; /* timeout or connection reset */
+    }
+
+    resp[total] = '\0';
+    bb_socket_close(fd);
+    return result;
+}
+
+/* A plain request must still succeed: proves the server survived whatever
+ * malformed input the previous test threw at it. */
+static void assert_server_healthy(void)
+{
+    bb_client_t *client = bb_client_create();
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_url(req, "http://127.0.0.1:8080/");
+    bb_request_set_body(req, "");
+
+    bb_error_t err = bb_client_execute(client);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+
+    bb_client_destroy(client);
+}
+
+/* Every payload must be rejected by the parser: no 2xx response is served and
+ * the server drops the connection instead of waiting for more bytes. */
+static void assert_all_rejected(const char *const *payloads, size_t count)
+{
+    for (size_t i = 0; i < count; i++)
+    {
+        char resp[4096];
+        raw_result_t r = raw_http_exchange(payloads[i], strlen(payloads[i]), resp, sizeof(resp));
+
+        if (r != RAW_PEER_CLOSED || strstr(resp, " 200 ") != NULL)
+        {
+            fprintf(stderr, "payload #%zu was not rejected:\n%s\n", i, payloads[i]);
+        }
+        BB_ASSERT(r == RAW_PEER_CLOSED);
+        BB_ASSERT(strstr(resp, " 200 ") == NULL);
+        BB_ASSERT(strstr(resp, "Hello, Blue-Bird") == NULL);
+    }
+    assert_server_healthy();
+}
+
+void test_parser_malformed_request_line(void)
+{
+    printf("Testing malformed request lines are rejected...\n");
+
+    static const char *const payloads[] = {
+        "GET /\r\nHost: localhost\r\n\r\n",                          /* missing version */
+        "GET / HTTP/1.x\r\nHost: localhost\r\n\r\n",                 /* bad version */
+        "GET / HTTP/11.1\r\nHost: localhost\r\n\r\n",                /* bad version */
+        "GE(T / HTTP/1.1\r\nHost: localhost\r\n\r\n",                /* non-token method */
+        "GET http://evil.example/ HTTP/1.1\r\nHost: localhost\r\n\r\n", /* not origin-form */
+        "GET /#frag HTTP/1.1\r\nHost: localhost\r\n\r\n",            /* fragment in target */
+        "GET / HTTP/1.1\nHost: localhost\n\n",                       /* bare LF */
+        "\r\n",                                                      /* empty request line */
+    };
+
+    assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1033,6 +1162,7 @@ int main(void)
     test_invalid_url_chars();
     test_concurrent_clients();
     test_partial_request();
+    test_parser_malformed_request_line();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
