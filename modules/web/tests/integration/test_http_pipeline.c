@@ -981,7 +981,7 @@ void test_parser_header_limits(void)
 
     /* request-target longer than BB_HTTP_MAX_REQUEST_LINE (8192) */
     size_t long_len = 9000;
-    char *long_target = malloc(long_len + 64);
+    char *long_target = malloc(long_len + 128);
     BB_ASSERT(long_target != NULL);
     int off = snprintf(long_target, 32, "GET /");
     memset(long_target + off, 'a', long_len);
