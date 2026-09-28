@@ -678,6 +678,145 @@ void test_json_dsl_macros(void)
     bb_json_destroy(doc);
 }
 
+void test_json_type_mismatch(void)
+{
+    printf("\tTesting JSON type mismatch handling...\n");
+
+    bb_json_t *num = bb_json_new_int(7);
+    bb_json_t *text = bb_json_new_text("abc");
+    bb_json_t *arr = bb_json_new_array();
+    bb_json_t *obj = bb_json_new_object();
+
+    // Setters reject values of the wrong type and leave the node untouched.
+    bb_error_t err = bb_json_set_value_text(num, "nope");
+    BB_ASSERT(err.code == BB_ERR_JSON_TYPE_MISMATCH);
+    err = bb_json_set_value_bool(text, true);
+    BB_ASSERT(err.code == BB_ERR_JSON_TYPE_MISMATCH);
+    err = bb_json_set_value_real(num, 1.5f);
+    BB_ASSERT(err.code == BB_ERR_JSON_TYPE_MISMATCH);
+    BB_ASSERT(bb_json_get_value_integer(num) == 7);
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "abc") == 0);
+
+    // Getters on the wrong type return neutral defaults.
+    BB_ASSERT(bb_json_get_value_text(num) == NULL);
+    BB_ASSERT(bb_json_get_value_integer(text) == 0);
+    BB_ASSERT(bb_json_get_value_bool(num) == false);
+
+    // Container operations reject the wrong container type.
+    // (a rejected element is not adopted, so the caller still owns it)
+    bb_json_t *orphan = bb_json_new_int(1);
+    err = bb_json_array_push(obj, orphan);
+    BB_ASSERT(err.code == BB_ERR_JSON_TYPE_MISMATCH);
+    err = bb_json_object_set_value(arr, "k", orphan);
+    BB_ASSERT(err.code == BB_ERR_JSON_TYPE_MISMATCH);
+    bb_json_destroy(orphan);
+    BB_ASSERT(bb_json_array_get_index(obj, 0) == NULL);
+    BB_ASSERT(bb_json_object_get_value(arr, "k") == NULL);
+
+    // Out-of-range array access.
+    bb_json_array_push(arr, bb_json_new_int(1));
+    BB_ASSERT(bb_json_array_get_index(arr, 1) == NULL);
+    err = bb_json_array_remove_at_index(arr, 1);
+    BB_ASSERT(err.code == BB_ERR_JSON_OVERFLOW);
+    BB_ASSERT(bb_json_get_size(arr) == 1);
+
+    bb_json_destroy(num);
+    bb_json_destroy(text);
+    bb_json_destroy(arr);
+    bb_json_destroy(obj);
+}
+
+void test_object_remove_missing_key(void)
+{
+    printf("\tTesting JSON object remove of missing key...\n");
+    bb_json_t *obj = bb_json_parse("{\"a\": 1, \"b\": 2, \"c\": 3}");
+    BB_ASSERT(obj != NULL);
+
+    bb_error_t err = bb_json_object_remove_key(obj, "zzz");
+    BB_ASSERT(err.code == BB_ERR_NOT_FOUND);
+    BB_ASSERT(bb_json_get_size(obj) == 3);
+
+    // Removing a middle key keeps the insertion order of the rest.
+    BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, "b")));
+    BB_ASSERT(bb_json_get_size(obj) == 2);
+    BB_ASSERT(bb_json_object_get_value(obj, "b") == NULL);
+
+    char *buffer;
+    int size;
+    bb_json_serialize(obj, &buffer, &size);
+    BB_ASSERT(strcmp(buffer, "{\"a\": 1, \"c\": 3}") == 0);
+    free(buffer);
+
+    // Removing the same key twice fails the second time.
+    err = bb_json_object_remove_key(obj, "b");
+    BB_ASSERT(err.code == BB_ERR_NOT_FOUND);
+
+    bb_json_destroy(obj);
+}
+
+void test_parse_literals_and_whitespace(void)
+{
+    printf("\tTesting JSON parsing of literals and surrounding whitespace...\n");
+    bb_json_t *json = bb_json_parse("  \n\t[true, false, null, -7, 2.5]  \n");
+    BB_ASSERT(json != NULL);
+    BB_ASSERT(bb_json_get_type(json) == BB_JSON_ARRAY);
+    BB_ASSERT(bb_json_get_size(json) == 5);
+
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(json, 0)) == BB_JSON_BOOL);
+    BB_ASSERT(bb_json_get_value_bool(bb_json_array_get_index(json, 0)) == true);
+    BB_ASSERT(bb_json_get_value_bool(bb_json_array_get_index(json, 1)) == false);
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(json, 2)) == BB_JSON_NULL);
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(json, 3)) == BB_JSON_INT);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(json, 3)) == -7);
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(json, 4)) == BB_JSON_REAL);
+    BB_ASSERT(bb_json_get_value_real(bb_json_array_get_index(json, 4)) == 2.5f);
+    bb_json_destroy(json);
+
+    // Bare top-level literals.
+    json = bb_json_parse("null");
+    BB_ASSERT(json != NULL && bb_json_get_type(json) == BB_JSON_NULL);
+    bb_json_destroy(json);
+
+    // Misspelled / truncated literals and empty input are rejected.
+    BB_ASSERT(bb_json_parse("nul") == NULL);
+    BB_ASSERT(bb_json_parse("tru") == NULL);
+    BB_ASSERT(bb_json_parse("[fals]") == NULL);
+    BB_ASSERT(bb_json_parse("") == NULL);
+    BB_ASSERT(bb_json_parse("   ") == NULL);
+}
+
+void test_serialize_indented_roundtrip(void)
+{
+    printf("\tTesting indented JSON serialization roundtrip...\n");
+    bb_json_t *doc = bb_json_parse(
+        "{\"name\": \"Alice\", \"tags\": [\"a\", \"b\"], "
+        "\"nested\": {\"list\": [{\"x\": 1}, {\"x\": 2}], \"empty\": [], \"none\": {}}, "
+        "\"ok\": true, \"gone\": null}");
+    BB_ASSERT(doc != NULL);
+
+    // serialize_indented frees a non-NULL *buffer, so it must start as NULL.
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize_indented(doc, &buffer, &size)));
+    BB_ASSERT(buffer != NULL);
+    BB_ASSERT(size == (int)strlen(buffer));
+    BB_ASSERT(strchr(buffer, '\n') != NULL);
+
+    bb_json_t *reparsed = bb_json_parse(buffer);
+    BB_ASSERT(reparsed != NULL);
+    BB_ASSERT(bb_json_equal(doc, reparsed));
+
+    free(buffer);
+    bb_json_destroy(doc);
+    bb_json_destroy(reparsed);
+}
+
+void test_json_load_missing_file(void)
+{
+    printf("\tTesting JSON load of missing file...\n");
+    BB_ASSERT(bb_json_load("this_file_should_not_exist_bb.json") == NULL);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -688,6 +827,8 @@ int main(void)
     test_json_object();
     test_object_key_overwrite();
     test_object_key_deletion();
+    test_object_remove_missing_key();
+    test_json_type_mismatch();
 
     test_serialize_integer_json();
     test_serialize_text_json();
@@ -702,6 +843,7 @@ int main(void)
     test_parse_large_json();
     test_parse_text_with_escapes();
     test_serialize_json_size();
+    test_parse_literals_and_whitespace();
 
     test_incomplete_text_json();
     test_incomplete_array_json();
@@ -729,6 +871,8 @@ int main(void)
     test_json_object_merge_invalid_type();
 
     test_dump_and_bb_json_load();
+    test_json_load_missing_file();
+    test_serialize_indented_roundtrip();
 
     test_json_dsl_macros();
     printf("All tests passed.\n");
