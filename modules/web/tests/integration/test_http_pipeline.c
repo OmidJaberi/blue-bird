@@ -975,6 +975,57 @@ void test_parser_ambiguous_framing(void)
     assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
 }
 
+void test_parser_header_limits(void)
+{
+    printf("Testing oversized request line and header limits are rejected...\n");
+
+    /* request-target longer than BB_HTTP_MAX_REQUEST_LINE (8192) */
+    size_t long_len = 9000;
+    char *long_target = malloc(long_len + 64);
+    BB_ASSERT(long_target != NULL);
+    int off = snprintf(long_target, 32, "GET /");
+    memset(long_target + off, 'a', long_len);
+    off += (int)long_len;
+    off += snprintf(long_target + off, 64, " HTTP/1.1\r\nHost: localhost\r\n\r\n");
+
+    char resp[4096];
+    raw_result_t r = raw_http_exchange(long_target, (size_t)off, resp, sizeof(resp));
+    BB_ASSERT(r == RAW_PEER_CLOSED);
+    BB_ASSERT(strstr(resp, " 200 ") == NULL);
+    free(long_target);
+
+    /* a single header line larger than BB_HTTP_MAX_HEADER_SIZE (32768) */
+    size_t hdr_len = 40000;
+    char *big_header = malloc(hdr_len + 128);
+    BB_ASSERT(big_header != NULL);
+    off = snprintf(big_header, 64, "GET / HTTP/1.1\r\nHost: localhost\r\nX-Big: ");
+    memset(big_header + off, 'b', hdr_len);
+    off += (int)hdr_len;
+    off += snprintf(big_header + off, 16, "\r\n\r\n");
+
+    r = raw_http_exchange(big_header, (size_t)off, resp, sizeof(resp));
+    BB_ASSERT(r == RAW_PEER_CLOSED);
+    BB_ASSERT(strstr(resp, " 200 ") == NULL);
+    free(big_header);
+
+    /* more than BB_HTTP_MAX_HEADER_COUNT (100) header fields */
+    char *many = malloc(8192);
+    BB_ASSERT(many != NULL);
+    off = snprintf(many, 64, "GET / HTTP/1.1\r\nHost: localhost\r\n");
+    for (int i = 0; i < 150; i++)
+    {
+        off += snprintf(many + off, 64, "X-H%d: v\r\n", i);
+    }
+    off += snprintf(many + off, 8, "\r\n");
+
+    r = raw_http_exchange(many, (size_t)off, resp, sizeof(resp));
+    BB_ASSERT(r == RAW_PEER_CLOSED);
+    BB_ASSERT(strstr(resp, " 200 ") == NULL);
+    free(many);
+
+    assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1217,6 +1268,7 @@ int main(void)
     test_parser_malformed_request_line();
     test_parser_path_traversal_targets();
     test_parser_ambiguous_framing();
+    test_parser_header_limits();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
