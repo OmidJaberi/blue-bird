@@ -9,6 +9,7 @@ bb_ws_list_t *bb_ws_list_create(void)
     }
     list->head = NULL;
     list->tail = NULL;
+    list->count = 0;
     return list;
 }
 
@@ -30,6 +31,7 @@ int bb_ws_list_add(bb_ws_list_t *list, bb_websocket_t *ws)
         list->tail->next = node;
     }
     list->tail = node;
+    list->count++;
     return 0;
 }
 
@@ -58,10 +60,19 @@ int bb_ws_list_remove(bb_ws_list_t *list, bb_websocket_t *ws)
             }
 
             free(node);
+            if (list->count > 0)
+            {
+                list->count--;
+            }
             return 0;
         }
     }
     return -1;
+}
+
+size_t bb_ws_list_count(const bb_ws_list_t *list)
+{
+    return list ? list->count : 0;
 }
 
 void bb_ws_list_destroy(bb_ws_list_t *list)
