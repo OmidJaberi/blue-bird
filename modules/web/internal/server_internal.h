@@ -9,6 +9,7 @@
 #include "connection/conn_list.h"
 #include "router.h"
 #include "middleware.h"
+#include "metrics.h"
 
 typedef struct {
     bb_server_t *server;
@@ -31,6 +32,8 @@ struct bb_server {
 
     bb_conn_list_t *conn_list;
     bb_ws_list_t *ws_list;
+
+    bb_metrics_t metrics; // zero-initialised by calloc in server creation
 
     uint32_t ws_heartbeat_interval_ms;
     uint32_t ws_heartbeat_max_missed_pongs;
