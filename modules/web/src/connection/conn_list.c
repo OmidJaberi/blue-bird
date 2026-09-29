@@ -11,6 +11,7 @@ struct bb_conn_node {
 struct bb_conn_list {
     bb_conn_node_t *head;
     bb_conn_node_t *tail;
+    size_t count;
 };
 
 bb_conn_list_t *bb_conn_list_create(void)
@@ -44,6 +45,7 @@ bb_conn_node_t *bb_conn_list_add(bb_conn_list_t *list, void *data)
         list->head = node;
     }
     list->tail = node;
+    list->count++;
 
     return node;
 }
@@ -73,7 +75,17 @@ void bb_conn_list_remove(bb_conn_list_t *list, bb_conn_node_t *node)
         list->tail = node->prev;
     }
 
+    if (list->count > 0)
+    {
+        list->count--;
+    }
+
     free(node);
+}
+
+size_t bb_conn_list_count(const bb_conn_list_t *list)
+{
+    return list ? list->count : 0;
 }
 
 void bb_conn_list_destroy_all(bb_conn_list_t *list, bb_conn_cleanup_fn cleanup)

@@ -19,6 +19,9 @@ bb_conn_node_t *bb_conn_list_add(bb_conn_list_t *list, void *data);
 
 void bb_conn_list_remove(bb_conn_list_t *list, bb_conn_node_t *node);
 
+/* Number of connections currently tracked (0 for a NULL list). O(1). */
+size_t bb_conn_list_count(const bb_conn_list_t *list);
+
 void bb_conn_list_destroy_all(bb_conn_list_t *list, bb_conn_cleanup_fn cleanup);
 
 
