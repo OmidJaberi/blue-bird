@@ -5,6 +5,7 @@
 
 #include "blue-bird/runtime/event.h"
 #include "blue-bird/log/log.h"
+#include "blue-bird/utils/time.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -176,6 +177,8 @@ static void _server_after_write(bb_task_t *task, void *userdata)
         }
         else
         {
+            bb_metrics_on_ws_session_opened(&server->metrics);
+
             /*
             * Now websocket session owns the connection.
             */
@@ -288,6 +291,11 @@ static bb_read_status_t _server_read_step(void *userdata)
     bb_async_connection_t *async_conn = data->async_conn;
     bb_connection_t *conn = async_conn->connection;
 
+    if (data->request_start_ms < 0)
+    {
+        data->request_start_ms = bb_time_monotonic_ms();
+    }
+
     if (!data->http_parser)
     {
         data->http_parser = bb_http_parser_create();
@@ -363,6 +371,10 @@ static bb_read_status_t _server_read_step(void *userdata)
         return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_ALLOC, "Failed to buffer HTTP response for write.") };
     }
 
+    // Response is fully built and queued: count it and record how long the
+    // request took from its first read (excludes the socket write).
+    bb_metrics_observe_request(&data->server->metrics, bb_response_get_status(res), bb_time_monotonic_ms() - data->request_start_ms);
+
     bb_request_destroy(req);
     bb_response_destroy(res);
 
@@ -389,6 +401,7 @@ static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *
     data->conn_node = NULL;
     data->http_parser = bb_http_parser_create();
     data->parsed_offset = 0;
+    data->request_start_ms = -1;
     if (!data->http_parser)
     {
         free(data);
@@ -422,6 +435,8 @@ void _server_accept_task(bb_task_t *task, void *userdata)
                 ? bb_async_connection_accept_tls(data->async_conn->runtime, data->async_conn->connection->fd, server->tls_ctx)
                 : bb_async_connection_accept(data->async_conn->runtime, data->async_conn->connection->fd)))
     {
+        bb_metrics_on_connection_accepted(&server->metrics);
+
         if (_server_create_read_task(data->server, async_conn) != 0)
         {
             bb_async_connection_destroy(async_conn);
@@ -442,6 +457,9 @@ void bb_server_start(bb_server_t *server)
     data->async_conn = server->async_conn;
     data->ws = NULL;
     data->conn_node = NULL;
+    data->parsed_offset = 0;
+    data->http_parser = NULL;
+    data->request_start_ms = -1;
     // not a per-connection object; not tracked in conn_list
 
     server->accept_task_data = data;

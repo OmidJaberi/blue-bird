@@ -19,6 +19,7 @@ typedef struct {
     bb_conn_node_t *conn_node;
     bb_http_parser_t *http_parser;
     size_t parsed_offset;
+    int64_t request_start_ms; // monotonic time of the first read step; -1 until then
 } bb_server_task_data_t;
 
 struct bb_server {
