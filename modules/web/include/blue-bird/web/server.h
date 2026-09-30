@@ -12,6 +12,7 @@ extern "C" {
 #include "http/handler.h"
 #include "websocket/websocket.h"
 #include "tls.h"
+#include "blue-bird/web/metrics.h"
 
 typedef struct bb_server bb_server_t;
 
@@ -23,6 +24,15 @@ void bb_server_set_websocket_heartbeat(bb_server_t *server, uint32_t interval_ms
 void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw);
 void bb_server_use_post_middleware(bb_server_t *server, bb_http_handler_cb mw);
 void bb_server_start(bb_server_t *server);
+
+/*
+ * Copy the server's current metrics into *out.
+ * Returns 0 on success, -1 if server or out is NULL.
+ *
+ * Not thread-safe: call it from the runtime thread (e.g. inside a route
+ * handler or runtime task), or while the runtime is stopped.
+ */
+int bb_server_get_metrics(const bb_server_t *server, bb_metrics_snapshot_t *out);
 void bb_server_destroy(bb_server_t *server);
 
 static inline bb_server_t *bb_server_create(int port)

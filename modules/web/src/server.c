@@ -444,6 +444,17 @@ void _server_accept_task(bb_task_t *task, void *userdata)
     }
 }
 
+int bb_server_get_metrics(const bb_server_t *server, bb_metrics_snapshot_t *out)
+{
+    if (!server || !out)
+    {
+        return -1;
+    }
+
+    bb_metrics_take_snapshot(&server->metrics, bb_conn_list_count(server->conn_list), bb_ws_list_count(server->ws_list), out);
+    return 0;
+}
+
 void bb_server_start(bb_server_t *server)
 {
     bb_server_task_data_t *data = malloc(sizeof(*data));
