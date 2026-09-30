@@ -1,11 +1,10 @@
 #include "blue-bird/web/server.h"
-#include <arpa/inet.h>
+#include "blue-bird/utils/platform.h" /* portable sockets, bb_usleep(); pulls in winsock2 on Windows */
+
 #include <blue-bird/error/assert.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 #define TEST_PORT 18099
 
@@ -33,38 +32,56 @@ static void *server_thread(void *arg)
     return NULL;
 }
 
-static int client_connect(void)
+/* Receive timeout so a misbehaving server fails the test instead of hanging it. */
+static void set_recv_timeout_ms(bb_socket_t fd, int ms)
 {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    BB_ASSERT(fd >= 0);
-    struct sockaddr_in a = { .sin_family = AF_INET, .sin_port = htons(TEST_PORT) };
-    inet_pton(AF_INET, "127.0.0.1", &a.sin_addr);
-    BB_ASSERT(connect(fd, (struct sockaddr *) &a, sizeof(a)) == 0);
+#ifdef _WIN32
+    DWORD tv = (DWORD) ms;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *) &tv, sizeof(tv));
+#else
+    struct timeval tv = { .tv_sec = ms / 1000, .tv_usec = (ms % 1000) * 1000 };
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+}
+
+static bb_socket_t client_connect(void)
+{
+    bb_socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(!bb_socket_is_invalid(fd));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(TEST_PORT);
+    BB_ASSERT(inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) == 1);
+
+    BB_ASSERT(connect(fd, (struct sockaddr *) &addr, sizeof(addr)) == 0);
+    set_recv_timeout_ms(fd, 2000);
     return fd;
 }
 
-static void send_all(int fd, const char *s)
+static void send_all(bb_socket_t fd, const char *s)
 {
-    size_t len = strlen(s);
-    BB_ASSERT(write(fd, s, len) == (ssize_t) len);
+    int len = (int) strlen(s);
+    BB_ASSERT(send(fd, s, len, MSG_NOSIGNAL) == len);
 }
 
 static void http_get(const char *path)
 {
-    int fd = client_connect();
+    bb_socket_t fd = client_connect();
     char req[256];
     snprintf(req, sizeof(req), "GET %s HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n", path);
     send_all(fd, req);
 
     char buf[1024];
-    while (read(fd, buf, sizeof(buf)) > 0) {}
-    close(fd);
+    while (recv(fd, buf, (int) sizeof(buf), 0) > 0) {}
+    bb_socket_close(fd);
 }
 
 /* Performs the upgrade handshake and returns the still-open socket. */
-static int ws_open(const char *path)
+static bb_socket_t ws_open(const char *path)
 {
-    int fd = client_connect();
+    bb_socket_t fd = client_connect();
     char req[512];
     snprintf(req, sizeof(req),
              "GET %s HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
@@ -73,7 +90,7 @@ static int ws_open(const char *path)
     send_all(fd, req);
 
     char buf[1024];
-    ssize_t n = read(fd, buf, sizeof(buf) - 1);
+    int n = recv(fd, buf, (int) sizeof(buf) - 1, 0);
     BB_ASSERT(n > 0);
     buf[n] = '\0';
     BB_ASSERT(strstr(buf, "101") != NULL);
@@ -101,15 +118,15 @@ int main(void)
 
     pthread_t th;
     pthread_create(&th, NULL, server_thread, NULL);
-    while (!bb_runtime_is_running(rt)) usleep(1000);
+    while (!bb_runtime_is_running(rt)) bb_usleep(1000);
 
     printf("Testing metrics after HTTP traffic, an idle connection and a WebSocket session...\n");
     for (int i = 0; i < 5; i++) http_get("/ok");
     for (int i = 0; i < 2; i++) http_get("/nope");
 
-    int idle_fd = client_connect(); /* connected, never sends a request */
-    int ws_fd = ws_open("/ws");     /* upgraded, stays open */
-    usleep(200000);
+    bb_socket_t idle_fd = client_connect(); /* connected, never sends a request */
+    bb_socket_t ws_fd = ws_open("/ws");     /* upgraded, stays open */
+    bb_usleep(200000);
 
     /* Stop the loop before reading: bb_server_get_metrics() is single-thread only. */
     bb_runtime_stop(rt);
@@ -150,8 +167,8 @@ int main(void)
     /* Only the idle connection is still an HTTP connection; the upgraded one moved to the WS list. */
     BB_ASSERT(snap.active_connections == 1);
 
-    close(idle_fd);
-    close(ws_fd);
+    bb_socket_close(idle_fd);
+    bb_socket_close(ws_fd);
     bb_server_destroy(server);
     bb_runtime_destroy(rt);
 
