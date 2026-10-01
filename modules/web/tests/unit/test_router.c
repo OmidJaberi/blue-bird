@@ -288,6 +288,55 @@ void test_invalid_route_registration_rejected(void)
     bb_request_destroy(req);
 }
 
+static bb_error_t ctx_handler(void *ctx, bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    int *calls = ctx;
+    (*calls)++;
+    bb_response_set_body(res, "ctx OK");
+    return BB_SUCCESS();
+}
+
+void test_ctx_route(void)
+{
+    printf("Testing Router: context route receives its context...\n");
+    bb_route_list_t *route_list = bb_route_list_create();
+    bb_request_t *req = bb_request_server_create();
+    bb_response_t *res = bb_response_create();
+
+    int calls = 0;
+    BB_ASSERT(bb_route_list_add_http_ctx(route_list, "GET", "/ctx", ctx_handler, &calls).code == BB_OK);
+    BB_ASSERT(bb_route_list_add_http(route_list, "GET", "/plain", handler_root).code == BB_OK);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_path(req, "/ctx");
+    bb_route_t *route = bb_route_list_match(route_list, req);
+    BB_ASSERT(route != NULL);
+    BB_ASSERT(bb_route_get_type(route) == BB_ROUTE_HTTP);
+    BB_ASSERT(bb_route_run_http_handler(route, req, res).code == BB_OK);
+    BB_ASSERT(calls == 1);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "ctx OK") == 0);
+
+    /* Plain routes still dispatch through the same entry point. */
+    bb_request_set_path(req, "/plain");
+    route = bb_route_list_match(route_list, req);
+    BB_ASSERT(route != NULL);
+    BB_ASSERT(bb_route_run_http_handler(route, req, res).code == BB_OK);
+    BB_ASSERT(calls == 1);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Root OK") == 0);
+
+    /* A bad path is rejected like for plain routes. */
+    char path[512];
+    path[0] = '/';
+    memset(path + 1, 'B', 400);
+    path[401] = '\0';
+    BB_ASSERT(bb_route_list_add_http_ctx(route_list, "GET", path, ctx_handler, &calls).code != BB_OK);
+
+    bb_route_list_destroy(route_list);
+    bb_request_destroy(req);
+    bb_response_destroy(res);
+}
+
 int main(void)
 {
     test_route_match_get();
@@ -300,6 +349,7 @@ int main(void)
     test_long_request_segment();
     test_too_many_request_segments_rejected();
     test_invalid_route_registration_rejected();
+    test_ctx_route();
     printf("All Router tests passed.\n");
     return 0;
 }

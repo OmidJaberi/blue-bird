@@ -25,6 +25,9 @@ struct bb_route {
         bb_http_handler_cb http_handler;
         bb_ws_handler_cb websocket_handler;
     };
+    /* Set instead of http_handler for context routes (see bb_route_list_add_http_ctx). */
+    bb_http_ctx_handler_cb http_ctx_handler;
+    void *ctx;
     bb_route_t *next_route;
 };
 
@@ -41,6 +44,17 @@ bb_http_handler_cb bb_route_get_http_handler(bb_route_t *route)
 bb_ws_handler_cb bb_route_get_websocket_handler(bb_route_t *route)
 {
     return route->websocket_handler;
+}
+
+bb_error_t bb_route_run_http_handler(bb_route_t *route, bb_request_t *req, bb_response_t *res)
+{
+    BB_ASSERT_MSG(route != NULL && route->type == BB_ROUTE_HTTP, "Not an HTTP route");
+
+    if (route->http_ctx_handler)
+    {
+        return route->http_ctx_handler(route->ctx, req, res);
+    }
+    return route->http_handler(req, res);
 }
 
 bb_route_list_t *bb_route_list_create(void)
@@ -140,6 +154,27 @@ bb_error_t bb_route_list_add_http(bb_route_list_t *route_list, const char *metho
 
     new_route->type = BB_ROUTE_HTTP;
     new_route->http_handler = handler;
+
+    append_route(route_list, new_route);
+
+    return BB_SUCCESS();
+}
+
+bb_error_t bb_route_list_add_http_ctx(bb_route_list_t *route_list, const char *method, const char *path, bb_http_ctx_handler_cb handler, void *ctx)
+{
+    BB_ASSERT_MSG(route_list != NULL, "Route list pointer is NULL");
+    BB_ASSERT_MSG(method != NULL, "HTTP method is NULL");
+    BB_ASSERT_MSG(path != NULL, "Route path is NULL");
+    BB_ASSERT_MSG(handler != NULL, "Route handler is NULL");
+
+    bb_route_t *new_route = NULL;
+    bb_error_t err = route_create(method, path, &new_route);
+    if (err.code != BB_OK)
+        return err;
+
+    new_route->type = BB_ROUTE_HTTP;
+    new_route->http_ctx_handler = handler;
+    new_route->ctx = ctx;
 
     append_route(route_list, new_route);
 
