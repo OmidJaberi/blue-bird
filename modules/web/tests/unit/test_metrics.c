@@ -1,6 +1,7 @@
 #include "metrics.h"
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static void test_bucket_index(void)
@@ -92,12 +93,113 @@ static void test_null_safety(void)
     BB_ASSERT(snap.counters.requests_total == 0);
 }
 
+static void test_render_prometheus(void)
+{
+    printf("Testing metrics prometheus render...\n");
+    bb_metrics_t m;
+    memset(&m, 0, sizeof(m));
+    bb_metrics_on_connection_accepted(&m);
+    bb_metrics_on_ws_session_opened(&m);
+    bb_metrics_observe_request(&m, 200, 0);
+    bb_metrics_observe_request(&m, 200, 3);
+    bb_metrics_observe_request(&m, 404, 30);
+    bb_metrics_observe_request(&m, 500, 5000);
+
+    bb_metrics_snapshot_t snap;
+    bb_metrics_take_snapshot(&m, 7, 3, &snap);
+
+    size_t need = bb_metrics_render_prometheus(&snap, NULL, 0);
+    BB_ASSERT(need > 0);
+
+    char *buf = malloc(need + 1);
+    BB_ASSERT(buf != NULL);
+    BB_ASSERT(bb_metrics_render_prometheus(&snap, buf, need + 1) == need);
+    BB_ASSERT(strlen(buf) == need);
+
+    BB_ASSERT(strstr(buf, "# TYPE bluebird_http_connections_active gauge\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_http_connections_active 7\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_websocket_sessions_active 3\n") != NULL);
+    BB_ASSERT(strstr(buf, "# TYPE bluebird_connections_accepted_total counter\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_connections_accepted_total 1\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_websocket_sessions_opened_total 1\n") != NULL);
+
+    BB_ASSERT(strstr(buf, "bluebird_http_requests_total{status_class=\"2xx\"} 2\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_http_requests_total{status_class=\"4xx\"} 1\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_http_requests_total{status_class=\"5xx\"} 1\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_http_requests_total{status_class=\"3xx\"} 0\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_http_requests_total{status_class=\"other\"} 0\n") != NULL);
+
+    /* Histogram: cumulative buckets, +Inf == count, sum in seconds. */
+    BB_ASSERT(strstr(buf, "# TYPE bluebird_http_request_duration_seconds histogram\n") != NULL);
+    BB_ASSERT(strstr(buf, "_bucket{le=\"0.001\"} 1\n") != NULL);
+    BB_ASSERT(strstr(buf, "_bucket{le=\"0.005\"} 2\n") != NULL);
+    BB_ASSERT(strstr(buf, "_bucket{le=\"0.01\"} 2\n") != NULL);
+    BB_ASSERT(strstr(buf, "_bucket{le=\"0.05\"} 3\n") != NULL);
+    BB_ASSERT(strstr(buf, "_bucket{le=\"1\"} 3\n") != NULL);
+    BB_ASSERT(strstr(buf, "_bucket{le=\"+Inf\"} 4\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_http_request_duration_seconds_sum 5.033\n") != NULL);
+    BB_ASSERT(strstr(buf, "bluebird_http_request_duration_seconds_count 4\n") != NULL);
+
+    free(buf);
+}
+
+static void test_render_seconds_format(void)
+{
+    printf("Testing metrics prometheus seconds formatting...\n");
+    static const struct { uint64_t sum_ms; const char *expect; } cases[] = {
+        { 0, "_sum 0\n" }, { 10, "_sum 0.01\n" }, { 1500, "_sum 1.5\n" },
+        { 2000, "_sum 2\n" }, { 1234567, "_sum 1234.567\n" },
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        bb_metrics_t m;
+        memset(&m, 0, sizeof(m));
+        m.latency_sum_ms = cases[i].sum_ms;
+
+        bb_metrics_snapshot_t snap;
+        bb_metrics_take_snapshot(&m, 0, 0, &snap);
+
+        char buf[4096];
+        size_t n = bb_metrics_render_prometheus(&snap, buf, sizeof(buf));
+        BB_ASSERT(n > 0 && n < sizeof(buf));
+        BB_ASSERT(strstr(buf, cases[i].expect) != NULL);
+    }
+}
+
+static void test_render_truncation_and_null(void)
+{
+    printf("Testing metrics prometheus render truncation and NULL...\n");
+    bb_metrics_snapshot_t snap;
+    bb_metrics_take_snapshot(NULL, 1, 1, &snap);
+
+    size_t need = bb_metrics_render_prometheus(&snap, NULL, 0);
+
+    /* Too-small buffer: reports the full size, stays NUL-terminated, never overruns. */
+    char small[16];
+    memset(small, 'x', sizeof(small));
+    BB_ASSERT(bb_metrics_render_prometheus(&snap, small, sizeof(small)) == need);
+    BB_ASSERT(strlen(small) == sizeof(small) - 1);
+
+    char one[1] = { 'x' };
+    BB_ASSERT(bb_metrics_render_prometheus(&snap, one, sizeof(one)) == need);
+    BB_ASSERT(one[0] == '\0');
+
+    char buf[8] = "junk";
+    BB_ASSERT(bb_metrics_render_prometheus(NULL, buf, sizeof(buf)) == 0);
+    BB_ASSERT(buf[0] == '\0');
+    BB_ASSERT(bb_metrics_render_prometheus(NULL, NULL, 0) == 0);
+}
+
 int main(void)
 {
     test_bucket_index();
     test_observe_request();
     test_counters_and_snapshot();
     test_null_safety();
+    test_render_prometheus();
+    test_render_seconds_format();
+    test_render_truncation_and_null();
     printf("All metrics tests passed.\n");
     return 0;
 }

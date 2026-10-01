@@ -27,4 +27,14 @@ void bb_metrics_observe_request(bb_metrics_t *m, int status_code, int64_t latenc
 /* Fill *out from the counters and the caller-supplied gauge values. */
 void bb_metrics_take_snapshot(const bb_metrics_t *m, size_t active_connections, size_t active_ws_sessions, bb_metrics_snapshot_t *out);
 
+/*
+ * Render a snapshot in the Prometheus text exposition format (version 0.0.4).
+ *
+ * snprintf-style: returns the number of bytes the full output needs, excluding
+ * the terminating NUL, and writes at most cap bytes (always NUL-terminated when
+ * cap > 0). Call with (snap, NULL, 0) to size a buffer, then again to fill it.
+ * Returns 0 if snap is NULL.
+ */
+size_t bb_metrics_render_prometheus(const bb_metrics_snapshot_t *snap, char *buf, size_t cap);
+
 #endif // BB_WEB_METRICS_H
