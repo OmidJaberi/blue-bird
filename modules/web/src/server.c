@@ -244,7 +244,7 @@ static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_req
         return err;
     }
 
-    err = bb_route_get_http_handler(route)(req, res);
+    err = bb_route_run_http_handler(route, req, res);
 
     if (BB_FAILED(err))
     {
@@ -262,6 +262,34 @@ static bb_error_t _run_websocket_route(bb_async_connection_t *async_conn, bb_rou
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Failed to create websocket.");
     }
+
+    return BB_SUCCESS();
+}
+
+/* Handler for the opt-in metrics route; ctx is the owning bb_server_t. */
+static bb_error_t _metrics_route_handler(void *ctx, bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_server_t *server = ctx;
+
+    bb_metrics_snapshot_t snap;
+    if (bb_server_get_metrics(server, &snap) != 0)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to read metrics.");
+    }
+
+    size_t len = bb_metrics_render_prometheus(&snap, NULL, 0);
+    char *body = malloc(len + 1);
+    if (!body)
+    {
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate metrics body.");
+    }
+    bb_metrics_render_prometheus(&snap, body, len + 1);
+
+    bb_response_set_status(res, 200);
+    bb_response_set_header(res, "Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    bb_response_set_body(res, body);
+    free(body);
 
     return BB_SUCCESS();
 }
@@ -545,6 +573,33 @@ void bb_server_destroy(bb_server_t *server)
     bb_ws_list_destroy(server->ws_list);
 
     free(server);
+}
+
+int bb_server_enable_metrics(bb_server_t *server, const char *path)
+{
+    if (!server || server->metrics_enabled)
+    {
+        return -1;
+    }
+
+    if (!path)
+    {
+        path = "/metrics";
+    }
+    if (path[0] != '/')
+    {
+        return -1;
+    }
+
+    bb_error_t err = bb_route_list_add_http_ctx(server->route_list, "GET", path, _metrics_route_handler, server);
+    if (err.code != BB_OK)
+    {
+        BB_LOG_ERROR("Failed to add metrics route %s: %s\n", path, err.msg);
+        return -1;
+    }
+
+    server->metrics_enabled = 1;
+    return 0;
 }
 
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler)

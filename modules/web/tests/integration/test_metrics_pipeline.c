@@ -18,6 +18,17 @@ static bb_error_t ok_handler(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+/* Stand-in for an auth middleware: rejects any request carrying X-Block. */
+static bb_error_t block_mw(bb_request_t *req, bb_response_t *res)
+{
+    (void) res;
+    if (bb_request_get_header(req, "X-Block"))
+    {
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "blocked by test middleware");
+    }
+    return BB_SUCCESS();
+}
+
 static bb_error_t ws_handler(bb_websocket_t *ws, const bb_ws_message_t *message)
 {
     (void) ws;
@@ -66,16 +77,38 @@ static void send_all(bb_socket_t fd, const char *s)
     BB_ASSERT(send(fd, s, len, MSG_NOSIGNAL) == len);
 }
 
-static void http_get(const char *path)
+/* GET with optional extra header lines; returns the full raw response (NUL-terminated). */
+static size_t http_get_raw(const char *path, const char *extra_headers, char *out, size_t cap)
 {
     bb_socket_t fd = client_connect();
-    char req[256];
-    snprintf(req, sizeof(req), "GET %s HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n", path);
+    char req[512];
+    snprintf(req, sizeof(req), "GET %s HTTP/1.1\r\nHost: x\r\n%sConnection: close\r\n\r\n",
+             path, extra_headers ? extra_headers : "");
     send_all(fd, req);
 
-    char buf[1024];
-    while (recv(fd, buf, (int) sizeof(buf), 0) > 0) {}
+    size_t total = 0;
+    for (;;)
+    {
+        if (total + 1 >= cap)
+        {
+            break;
+        }
+        int n = recv(fd, out + total, (int) (cap - total - 1), 0);
+        if (n <= 0)
+        {
+            break;
+        }
+        total += (size_t) n;
+    }
+    out[total] = '\0';
     bb_socket_close(fd);
+    return total;
+}
+
+static void http_get(const char *path)
+{
+    char buf[1024];
+    http_get_raw(path, NULL, buf, sizeof(buf));
 }
 
 /* Performs the upgrade handshake and returns the still-open socket. */
@@ -103,6 +136,18 @@ static void test_null_args(bb_server_t *server)
     bb_metrics_snapshot_t snap;
     BB_ASSERT(bb_server_get_metrics(NULL, &snap) == -1);
     BB_ASSERT(bb_server_get_metrics(server, NULL) == -1);
+
+    printf("Testing bb_server_enable_metrics argument checks...\n");
+    BB_ASSERT(bb_server_enable_metrics(NULL, "/metrics") == -1);
+    BB_ASSERT(bb_server_enable_metrics(server, "metrics") == -1); /* must start with '/' */
+    BB_ASSERT(bb_server_enable_metrics(server, "") == -1);
+}
+
+static void test_enable_twice(bb_server_t *server)
+{
+    printf("Testing bb_server_enable_metrics only once per server...\n");
+    BB_ASSERT(bb_server_enable_metrics(server, NULL) == -1);
+    BB_ASSERT(bb_server_enable_metrics(server, "/other") == -1);
 }
 
 int main(void)
@@ -112,6 +157,9 @@ int main(void)
     BB_ASSERT(server != NULL);
     bb_server_add_route(server, "GET", "/ok", ok_handler);
     bb_server_add_websocket(server, "/ws", ws_handler);
+    bb_server_use_pre_middleware(server, block_mw);
+    BB_ASSERT(bb_server_enable_metrics(server, NULL) == 0); /* default path: /metrics */
+    test_enable_twice(server);
     bb_server_start(server);
 
     test_null_args(server);
@@ -127,6 +175,33 @@ int main(void)
     bb_socket_t idle_fd = client_connect(); /* connected, never sends a request */
     bb_socket_t ws_fd = ws_open("/ws");     /* upgraded, stays open */
     bb_usleep(200000);
+
+    printf("Testing GET /metrics scrape...\n");
+    static char scrape[8192];
+    size_t scrape_len = http_get_raw("/metrics", NULL, scrape, sizeof(scrape));
+    BB_ASSERT(scrape_len > 0 && scrape_len + 1 < sizeof(scrape)); /* not truncated */
+    BB_ASSERT(strstr(scrape, "HTTP/1.1 200") != NULL);
+    BB_ASSERT(strstr(scrape, "text/plain; version=0.0.4") != NULL);
+
+    /* The scrape sees state as of just before it finishes: its own connection is
+     * accepted and open, but its own request isn't counted yet. */
+    BB_ASSERT(strstr(scrape, "bluebird_http_connections_active 2\n") != NULL); /* idle + scrape */
+    BB_ASSERT(strstr(scrape, "bluebird_websocket_sessions_active 1\n") != NULL);
+    BB_ASSERT(strstr(scrape, "bluebird_connections_accepted_total 10\n") != NULL);
+    BB_ASSERT(strstr(scrape, "bluebird_websocket_sessions_opened_total 1\n") != NULL);
+    BB_ASSERT(strstr(scrape, "bluebird_http_requests_total{status_class=\"1xx\"} 1\n") != NULL);
+    BB_ASSERT(strstr(scrape, "bluebird_http_requests_total{status_class=\"2xx\"} 5\n") != NULL);
+    BB_ASSERT(strstr(scrape, "bluebird_http_requests_total{status_class=\"4xx\"} 2\n") != NULL);
+    BB_ASSERT(strstr(scrape, "_bucket{le=\"+Inf\"} 8\n") != NULL);
+    BB_ASSERT(strstr(scrape, "bluebird_http_request_duration_seconds_count 8\n") != NULL);
+
+    printf("Testing pre-middleware protects /metrics...\n");
+    char blocked[2048];
+    http_get_raw("/metrics", "X-Block: 1\r\n", blocked, sizeof(blocked));
+    BB_ASSERT(strstr(blocked, "bluebird_") == NULL);
+    BB_ASSERT(strstr(blocked, "HTTP/1.1 200") == NULL);
+
+    bb_usleep(100000);
 
     /* Stop the loop before reading: bb_server_get_metrics() is single-thread only. */
     bb_runtime_stop(rt);
@@ -146,14 +221,15 @@ int main(void)
            (unsigned long long) snap.active_connections,
            (unsigned long long) snap.active_ws_sessions);
 
-    /* 7 HTTP + 1 idle + 1 WebSocket upgrade */
-    BB_ASSERT(m->connections_accepted_total == 9);
-    /* 7 HTTP responses + the 101 upgrade response; the idle connection sent nothing */
-    BB_ASSERT(m->requests_total == 8);
-    BB_ASSERT(m->responses_by_class[2] == 5);
+    /* 7 HTTP + 1 idle + 1 WebSocket upgrade + 1 scrape + 1 blocked scrape */
+    BB_ASSERT(m->connections_accepted_total == 11);
+    /* 7 HTTP + the 101 upgrade + the scrape; the idle connection sent nothing and
+     * the blocked scrape was dropped by the middleware without a response */
+    BB_ASSERT(m->requests_total == 9);
+    BB_ASSERT(m->responses_by_class[2] == 6);
     BB_ASSERT(m->responses_by_class[4] == 2);
     BB_ASSERT(m->responses_by_class[1] == 1);
-    BB_ASSERT(m->latency_count == 8);
+    BB_ASSERT(m->latency_count == 9);
 
     uint64_t bucket_total = 0;
     for (size_t i = 0; i < BB_METRICS_LATENCY_BUCKETS; i++)

@@ -33,6 +33,21 @@ void bb_server_start(bb_server_t *server);
  * handler or runtime task), or while the runtime is stopped.
  */
 int bb_server_get_metrics(const bb_server_t *server, bb_metrics_snapshot_t *out);
+
+/*
+ * Serve the metrics in Prometheus text format on GET <path> (default "/metrics"
+ * when path is NULL). Opt-in: nothing is exposed until this is called.
+ *
+ * This registers an ordinary route, so it follows the router's rules: the first
+ * route registered for a path wins (a user route added earlier on the same path
+ * shadows it), and the server's pre/post middleware runs around it, so
+ * authentication middleware protects it like any other route.
+ *
+ * Returns 0 on success. Returns -1 if server is NULL, path doesn't start with
+ * '/', the route can't be registered, or metrics were already enabled (call it
+ * once per server).
+ */
+int bb_server_enable_metrics(bb_server_t *server, const char *path);
 void bb_server_destroy(bb_server_t *server);
 
 static inline bb_server_t *bb_server_create(int port)

@@ -35,6 +35,7 @@ struct bb_server {
     bb_ws_list_t *ws_list;
 
     bb_metrics_t metrics; // zero-initialised by calloc in server creation
+    int metrics_enabled;  // set by bb_server_enable_metrics(); the route itself lives in route_list
 
     uint32_t ws_heartbeat_interval_ms;
     uint32_t ws_heartbeat_max_missed_pongs;
