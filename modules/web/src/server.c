@@ -128,12 +128,33 @@ static void _server_ws_closed(bb_websocket_t *ws, void *userdata)
     bb_websocket_destroy(ws);
 }
 
+static void _server_on_disconnect(void *userdata);
+
+/*
+ * The async connection invokes its disconnect callback when the peer closes
+ * before a response is written (EOF while reading). Without a hook here nothing
+ * ever released that connection: its fd, conn_list node and task data leaked.
+ * The hook is only installed during the read phase and is removed before any
+ * other teardown or write path, so it can never run a second cleanup.
+ * WebSocket upgrades replace it with the WebSocket's own callback, which is
+ * left alone.
+ */
+static void _server_clear_disconnect_hook(bb_async_connection_t *async_conn)
+{
+    if (async_conn && async_conn->disconnect == _server_on_disconnect)
+    {
+        bb_async_connection_set_disconnect_callback(async_conn, NULL, NULL);
+    }
+}
+
 static void _server_task_data_cleanup(bb_server_task_data_t *data)
 {
     if (!data)
     {
         return;
     }
+
+    _server_clear_disconnect_hook(data->async_conn);
 
     if (data->server && data->server->conn_list)
     {
@@ -156,6 +177,11 @@ static void _server_task_data_cleanup(bb_server_task_data_t *data)
     }
 
     free(data);
+}
+
+static void _server_on_disconnect(void *userdata)
+{
+    _server_task_data_cleanup((bb_server_task_data_t *) userdata);
 }
 
 static void _server_after_write(bb_task_t *task, void *userdata)
@@ -216,6 +242,9 @@ static void _server_write_error(bb_task_t *task, void *userdata)
 
 static int _server_create_write_task(bb_server_task_data_t *data)
 {
+    /* From here the write task owns the connection's fate (write_failure cleans up). */
+    _server_clear_disconnect_hook(data->async_conn);
+
     if (BB_FAILED(bb_async_connection_create_write_task(data->async_conn, _server_after_write, _server_write_error, data)))
         return -1;
     return 0;
@@ -376,6 +405,15 @@ static bb_read_status_t _server_read_step(void *userdata)
         }
     }
 
+    // This server closes the connection after every HTTP response (no keep-alive),
+    // so tell the client; otherwise an HTTP/1.1 client assumes the connection is
+    // reusable and reports the close as a read error. The 101 upgrade response
+    // must keep the connection open.
+    if (bb_response_get_status(res) != 101 && !bb_response_get_header(res, "Connection"))
+    {
+        bb_response_set_header(res, "Connection", "close");
+    }
+
     char *buffer = NULL;
     size_t length = 0;
     if (bb_response_serialize(res, &buffer, &length) != 0)
@@ -435,6 +473,8 @@ static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *
         free(data);
         return 1;
     }
+
+    bb_async_connection_set_disconnect_callback(async_conn, _server_on_disconnect, data);
 
     if (BB_FAILED(bb_async_connection_create_read_task(async_conn, _server_read_step, _server_read_error, data)))
     {
@@ -511,6 +551,9 @@ void bb_server_start(bb_server_t *server)
 static void _server_conn_cleanup(void *userdata)
 {
     bb_server_task_data_t *data = userdata;
+
+    /* Server shutdown destroys the connection itself; don't let its disconnect hook clean up again. */
+    _server_clear_disconnect_hook(data->async_conn);
 
     if (data->http_parser)
     {

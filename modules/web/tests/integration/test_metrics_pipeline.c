@@ -127,6 +127,7 @@ static bb_socket_t ws_open(const char *path)
     BB_ASSERT(n > 0);
     buf[n] = '\0';
     BB_ASSERT(strstr(buf, "101") != NULL);
+    BB_ASSERT(strstr(buf, "Connection: close") == NULL); /* the upgrade keeps the connection open */
     return fd;
 }
 
@@ -182,6 +183,7 @@ int main(void)
     BB_ASSERT(scrape_len > 0 && scrape_len + 1 < sizeof(scrape)); /* not truncated */
     BB_ASSERT(strstr(scrape, "HTTP/1.1 200") != NULL);
     BB_ASSERT(strstr(scrape, "text/plain; version=0.0.4") != NULL);
+    BB_ASSERT(strstr(scrape, "Connection: close") != NULL); /* the server closes after every HTTP response */
 
     /* The scrape sees state as of just before it finishes: its own connection is
      * accepted and open, but its own request isn't counted yet. */
