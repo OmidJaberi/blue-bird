@@ -149,3 +149,72 @@ jobs:
       - name: Test
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
+
+  # Load test: hammer bb-loadtest-server with wrk and cross-check the result
+  # against the server's own /metrics (see tests/load/README.md). Fails on
+  # errors, crashes or leaked connections, not on a requests/sec threshold.
+  load-test:
+    name: Load test / wrk
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev curl ccache
+          sudo apt-get install -y wrk || echo "wrk is not available from apt; it will be built from source"
+
+      # Fallback in case the distro has no wrk package.
+      - name: Build wrk from source if needed
+        run: |
+          if command -v wrk >/dev/null 2>&1; then
+            wrk --version | head -n 1
+            exit 0
+          fi
+          sudo apt-get install -y build-essential libssl-dev
+          git clone --depth 1 --branch 4.2.0 https://github.com/wg/wrk.git "$RUNNER_TEMP/wrk"
+          make -C "$RUNNER_TEMP/wrk" -j"$(nproc)" WITH_OPENSSL=/usr
+          sudo install "$RUNNER_TEMP/wrk/wrk" /usr/local/bin/wrk
+          wrk --version | head -n 1
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-load-test-${{ github.sha }}
+          restore-keys: |
+            ccache-load-test-
+
+      - name: Configure
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DBB_ENABLE_SANITIZERS=OFF
+        env:
+          CCACHE_DIR: ~/.ccache
+
+      - name: Build load-test server
+        run: cmake --build build --target bb-loadtest-server --parallel
+        env:
+          CCACHE_DIR: ~/.ccache
+
+      - name: Run wrk load test
+        run: bash tests/load/run_wrk.sh
+        env:
+          BB_WRK_DURATION: 15s
+          BB_WRK_THREADS: 2
+          BB_WRK_CONNECTIONS: 64
+
+      - name: Upload load-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: build/load-results/
+          if-no-files-found: ignore
+          retention-days: 14
