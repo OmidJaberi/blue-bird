@@ -32,3 +32,7 @@ foreach(test_file ${TEST_SOURCES})
              COMMAND ${target_name})
 
 endforeach()
+
+# Server used by the load-test and leak-check jobs. It is a long-running
+# server, not a test, so it is built here but deliberately not add_test()'d.
+add_subdirectory(load)
