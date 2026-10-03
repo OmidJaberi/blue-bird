@@ -830,6 +830,88 @@ static void websocket_silent_dead_connection_test(void)
  * Main
  * ============================================================ */
 
+
+// Payload-length encoding boundary tests (RFC 6455 5.2: 7-bit, 16-bit, 64-bit lengths)
+
+static volatile int sized_finished = 0;
+static bb_ws_message_type_t sized_type;
+static uint8_t *sized_payload = NULL;
+static size_t sized_length = 0;
+
+static void _sized_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    BB_ASSERT(!BB_FAILED(err));
+
+    bb_error_t send_err = (sized_type == BB_WS_MESSAGE_TEXT)
+        ? bb_websocket_send_text(ws, (const char *)sized_payload)
+        : bb_websocket_send_binary(ws, sized_payload, sized_length);
+
+    BB_ASSERT(!BB_FAILED(send_err));
+}
+
+static bb_error_t _sized_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
+{
+    (void)ws;
+
+    BB_ASSERT(bb_ws_message_get_type(msg) == sized_type);
+    BB_ASSERT(bb_ws_message_get_length(msg) == sized_length);
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), sized_payload, sized_length) == 0);
+
+    sized_finished = 1;
+
+    return BB_SUCCESS();
+}
+
+static void websocket_sized_roundtrip(bb_ws_message_type_t type, size_t length)
+{
+    printf("\tTesting WebSocket %s round trip of %zu bytes...\n",
+           type == BB_WS_MESSAGE_TEXT ? "text" : "binary", length);
+
+    sized_finished = 0;
+    sized_type = type;
+    sized_length = length;
+    sized_payload = malloc(length + 1);
+    BB_ASSERT(sized_payload != NULL);
+
+    for (size_t i = 0; i < length; i++)
+    {
+        /* Text stays printable ASCII (no NUL); binary covers every byte value. */
+        sized_payload[i] = (type == BB_WS_MESSAGE_TEXT) ? (uint8_t)('A' + (i % 26)) : (uint8_t)(i * 31 + 7);
+    }
+    sized_payload[length] = '\0';
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
+
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+    bb_websocket_set_message_callback(client, _sized_message_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _sized_connect_cb, NULL);
+
+    while (!sized_finished)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+    free(sized_payload);
+    sized_payload = NULL;
+}
+
+static void websocket_length_boundary_test(void)
+{
+    /* 125: 7-bit, 126: first 16-bit, 65535: last 16-bit, 65536: first 64-bit. */
+    static const size_t sizes[] = { 125, 126, 65535, 65536, 70000, 300000 };
+
+    for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++)
+    {
+        websocket_sized_roundtrip(BB_WS_MESSAGE_TEXT, sizes[i]);
+        websocket_sized_roundtrip(BB_WS_MESSAGE_BINARY, sizes[i]);
+    }
+}
+
 int main(void)
 {
     pthread_t thread;
@@ -848,6 +930,7 @@ int main(void)
     websocket_large_message_test();
     websocket_binary_message_test();
     websocket_large_binary_test();
+    websocket_length_boundary_test();
     websocket_sequential_connections_test();
     websocket_multiple_clients_test();
     websocket_many_messages_test();
