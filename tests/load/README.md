@@ -43,5 +43,3 @@ The server closes the connection after every response, so wrk runs with
 
 - A text message containing an embedded NUL byte is echoed truncated at that
   byte (the public API only has `bb_websocket_send_text(const char *)`).
-- Messages of 64 KiB (65536 bytes) or more are not echoed; 65535 bytes and below
-  are. This is library behaviour, not something this tool adds.

@@ -847,7 +847,17 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
 
     const int masked = (ws->mode == BB_WEBSOCKET_CLIENT);
 
-    size_t ext_len = (frame->payload_length < 126) ? 0 : 2;
+    /* RFC 6455 5.2: <126 fits the 7-bit length, <=0xFFFF uses a 16-bit extension (126), else 64-bit (127). */
+    const uint64_t payload_length = (uint64_t) frame->payload_length;
+    size_t ext_len = 0;
+    if (payload_length > 0xFFFF)
+    {
+        ext_len = 8;
+    }
+    else if (payload_length >= 126)
+    {
+        ext_len = 2;
+    }
     size_t size = 2 + ext_len + (masked ? 4 : 0) + frame->payload_length;
 
     uint8_t *buffer = malloc(size);
@@ -864,17 +874,25 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
     out[pos++] = 0x80 | (frame->opcode & 0x0F);
 
     /* Length + MASK bit */
-    if (frame->payload_length < 126)
+    if (payload_length < 126)
     {
         out[pos++] =
             (masked ? 0x80 : 0x00) |
-            (uint8_t)frame->payload_length;
+            (uint8_t) payload_length;
+    }
+    else if (payload_length <= 0xFFFF)
+    {
+        out[pos++] = (masked ? 0x80 : 0x00) | 126;
+        out[pos++] = (payload_length >> 8) & 0xff;
+        out[pos++] = payload_length & 0xff;
     }
     else
     {
-        out[pos++] = (masked ? 0x80 : 0x00) | 126;
-        out[pos++] = (frame->payload_length >> 8) & 0xff;
-        out[pos++] = frame->payload_length & 0xff;
+        out[pos++] = (masked ? 0x80 : 0x00) | 127;
+        for (int shift = 56; shift >= 0; shift -= 8)
+        {
+            out[pos++] = (payload_length >> shift) & 0xff;
+        }
     }
 
     if (masked)
