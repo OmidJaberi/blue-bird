@@ -246,3 +246,65 @@ jobs:
           path: build/load-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  # Autobahn|Testsuite WebSocket conformance against bb-loadtest-server's /ws
+  # echo endpoint, run against the ASan + UBSan build so it also exercises the
+  # WebSocket code under the sanitizers (see tests/load/README.md).
+  #
+  # Conformance results are report-only for now: the job fails on infrastructure
+  # problems and sanitizer/leak reports, not on failing Autobahn cases.
+  # continue-on-error keeps this first rollout from blocking merges; remove it
+  # once a CI run has confirmed the Docker/Autobahn setup works.
+  autobahn:
+    name: Autobahn / ASan + UBSan (report-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev curl ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-autobahn-${{ github.sha }}
+          restore-keys: |
+            ccache-autobahn-
+
+      - name: Configure
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DBB_ENABLE_SANITIZERS=ON
+        env:
+          CCACHE_DIR: ~/.ccache
+
+      - name: Build load-test server
+        run: cmake --build build --target bb-loadtest-server --parallel
+        env:
+          CCACHE_DIR: ~/.ccache
+
+      - name: Run Autobahn
+        run: bash tests/load/run_autobahn.sh
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
+      - name: Upload Autobahn results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autobahn-results
+          path: build/autobahn-results/
+          if-no-files-found: ignore
+          retention-days: 14

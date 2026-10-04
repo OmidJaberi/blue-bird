@@ -3,6 +3,7 @@
 #include "blue-bird/web/websocket/websocket.h"
 #include "blue-bird/utils/platform.h"
 #include "server_internal.h"
+#include "websocket/websocket_internal.h"
 
 #include <blue-bird/error/assert.h>
 #include <pthread.h>
@@ -900,6 +901,57 @@ static void websocket_sized_roundtrip(bb_ws_message_type_t type, size_t length)
     sized_payload = NULL;
 }
 
+// A Pong frame must never crash a session that has no pong callback
+// (it used to call through an uninitialised function pointer).
+
+static volatile int pong_test_finished = 0;
+
+static void _pong_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    BB_ASSERT(!BB_FAILED(err));
+
+    /* Unsolicited Pong first, then a text message the server must still echo. */
+    BB_ASSERT(!BB_FAILED(bb_websocket_queue_pong(ws, "unsolicited", 11)));
+    BB_ASSERT(!BB_FAILED(bb_websocket_send_text(ws, "after pong")));
+}
+
+static bb_error_t _pong_message_cb(bb_websocket_t *ws, const bb_ws_message_t *msg)
+{
+    (void)ws;
+
+    BB_ASSERT(bb_ws_message_get_type(msg) == BB_WS_MESSAGE_TEXT);
+    BB_ASSERT(bb_ws_message_get_length(msg) == strlen("after pong"));
+    BB_ASSERT(memcmp(bb_ws_message_get_data(msg), "after pong", strlen("after pong")) == 0);
+
+    pong_test_finished = 1;
+
+    return BB_SUCCESS();
+}
+
+static void websocket_unsolicited_pong_test(void)
+{
+    printf("\tTesting WebSocket unsolicited Pong does not crash the server...\n");
+
+    pong_test_finished = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
+
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+    bb_websocket_set_message_callback(client, _pong_message_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/echo", _pong_connect_cb, NULL);
+
+    while (!pong_test_finished)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
 static void websocket_length_boundary_test(void)
 {
     /* 125: 7-bit, 126: first 16-bit, 65535: last 16-bit, 65536: first 64-bit. */
@@ -931,6 +983,7 @@ int main(void)
     websocket_binary_message_test();
     websocket_large_binary_test();
     websocket_length_boundary_test();
+    websocket_unsolicited_pong_test();
     websocket_sequential_connections_test();
     websocket_multiple_clients_test();
     websocket_many_messages_test();

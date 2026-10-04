@@ -54,6 +54,38 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
 The server closes the connection after every response, so wrk runs with
 `Connection: close` and each request is a fresh connection.
 
+## Autobahn conformance (WebSocket)
+
+```bash
+tests/load/run_autobahn.sh                 # needs Docker and python3
+BB_AUTOBAHN_CASES="1.*,2.*" tests/load/run_autobahn.sh
+```
+
+Runs the [Autobahn|Testsuite](https://github.com/crossbario/autobahn-testsuite)
+`fuzzingclient` (from its Docker image) against `WS /ws`. Results land in
+`build/autobahn-results/`: the HTML report under `reports/servers/`, a flat
+`results.json` (`case -> behavior/behaviorClose`) and `summary.md`.
+Compression cases (12.\*, 13.\*) and the large-message cases (9.\*) are excluded
+by default; see the top of the script for the environment variables.
+
+Conformance results are **report-only** for now: a failing case is printed and
+uploaded but does not fail the script. It does fail if Docker/Autobahn doesn't
+produce a report, the server crashes, hangs on SIGTERM or exits non-zero, or the
+server log contains a sanitizer or leak report. CI runs it against the
+ASan + UBSan build (job `autobahn`), so it also exercises the WebSocket code
+under the sanitizers, which `wrk` cannot.
+
+Expect many failing cases in the first report. A quick manual probe of the echo
+endpoint found these library gaps (conformance, not harness problems):
+
+- fragmented messages are delivered frame by frame instead of being reassembled
+  (categories 5.\*);
+- text frames are not UTF-8 validated (6.\*);
+- reserved bits, reserved opcodes, oversized control frames and unmasked client
+  frames are not rejected with close code 1002 (2.\*, 3.\*, 4.\*, 5.\*);
+- invalid close frames are not rejected, and every close is answered with 1000
+  (7.\*).
+
 ## Known limits
 
 - A text message containing an embedded NUL byte is echoed truncated at that

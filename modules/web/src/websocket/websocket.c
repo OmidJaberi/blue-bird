@@ -496,7 +496,8 @@ bb_websocket_t *bb_websocket_create_with_type(bb_async_connection_t *async_conn,
         return NULL;
     }
 
-    bb_websocket_t *ws = malloc(sizeof(*ws));
+    /* calloc: every callback/userdata pointer must start NULL (an unset pong_cb used to be garbage). */
+    bb_websocket_t *ws = calloc(1, sizeof(*ws));
 
     if (!ws)
     {
@@ -527,7 +528,8 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
         return NULL;
     }
 
-    bb_websocket_t *ws = malloc(sizeof(*ws));
+    /* calloc: every callback/userdata pointer must start NULL (an unset pong_cb used to be garbage). */
+    bb_websocket_t *ws = calloc(1, sizeof(*ws));
 
     if (!ws)
     {
