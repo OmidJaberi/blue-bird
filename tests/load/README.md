@@ -30,11 +30,26 @@ BB_WRK_DURATION=30s BB_WRK_CONNECTIONS=128 tests/load/run_wrk.sh
 Starts the server, runs `wrk` against `GET /`, and cross-checks wrk's numbers
 with the server's own `/metrics`. It fails on any socket error or non-2xx
 response, a server crash or non-zero exit, a sanitizer/leak report in the server
-log, open connections that don't drain after the run, or server counters that
-disagree with wrk. It does not fail on a requests/sec threshold (shared CI
+log, open connections that don't drain after the run, server file descriptors
+that don't return to their pre-run count (Linux, via `/proc/<pid>/fd`; a
+descriptor leak is invisible to LeakSanitizer/Valgrind when the leaked
+connections are freed at shutdown), or server counters that disagree with wrk. It does not fail on a requests/sec threshold (shared CI
 runners are too noisy). Results (`wrk.txt`, `metrics-*.txt`, `server.log`,
 `summary.md`) go to `build/load-results/`. All settings are environment
 variables, listed at the top of the script. Requires `wrk` and `curl`.
+
+CI runs this twice (see `.github/workflows/cmake-multi-platform.yml`): a Release
+build, and a Debug build with `BB_ENABLE_SANITIZERS=ON` (ASan + UBSan). The
+sanitizer run also catches memory errors and, because the server shuts down
+cleanly on SIGTERM, leaks (LeakSanitizer exits non-zero and the script reports
+it). To reproduce it locally:
+
+```bash
+cmake -B build-asan -S . -DCMAKE_BUILD_TYPE=Debug -DBB_ENABLE_SANITIZERS=ON
+cmake --build build-asan --target bb-loadtest-server
+ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
+  tests/load/run_wrk.sh build-asan/tests/load/bb-loadtest-server
+```
 
 The server closes the connection after every response, so wrk runs with
 `Connection: close` and each request is a fresh connection.

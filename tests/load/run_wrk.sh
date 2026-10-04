@@ -15,6 +15,7 @@
 #   BB_WRK_CONNECTIONS   wrk -c                  (default 64)
 #   BB_WRK_PATH          request path            (default /)
 #   BB_LOAD_OUT_DIR      results directory       (default build/load-results)
+#   BB_FD_SLACK          extra open fds tolerated after the run (default 2)
 #
 # The server closes the connection after every response, so wrk is run with
 # "Connection: close": each request is a fresh connection, which also exercises
@@ -54,6 +55,9 @@ trap cleanup EXIT
 
 scrape() { curl -fsS --max-time 5 "${BASE_URL}/metrics" -o "$1"; }
 
+# Open file descriptors of a process (Linux /proc only; empty elsewhere).
+fd_count() { [[ -d "/proc/$1/fd" ]] && ls "/proc/$1/fd" 2>/dev/null | wc -l | tr -d " "; }
+
 # metric <file> <exact series text, e.g. bluebird_http_connections_active>  -> value
 metric() { awk -v key="$2" 'index($0, key " ") == 1 { print $NF; exit }' "$1"; }
 
@@ -82,6 +86,12 @@ if [[ "$ready" -ne 1 ]]; then
 fi
 
 # ------------------------------------------------------------------- run wrk
+# Baseline fd count with no client connected. A descriptor leak is invisible to
+# LeakSanitizer/Valgrind when the leaked connections are freed at shutdown, so
+# compare the server's open fds before and after the run instead.
+sleep 0.3
+fds_before=$(fd_count "$SERVER_PID" || true)
+
 scrape "$OUT_DIR/metrics-before.txt"
 
 echo "Running wrk: -t${THREADS} -c${CONNECTIONS} -d${DURATION} ${BASE_URL}${REQ_PATH}"
@@ -118,6 +128,20 @@ for _ in $(seq 1 50); do
     sleep 0.1
 done
 [[ "${active:-999999}" -le 1 ]] || fail "bluebird_http_connections_active is ${active:-unknown} after the run (expected <= 1): connections leaked from the connection list"
+
+# Back to the baseline (plus a little slack) once every connection has drained.
+FD_SLACK="${BB_FD_SLACK:-2}"
+fds_after=""
+if [[ -n "$fds_before" ]]; then
+    for _ in $(seq 1 50); do
+        fds_after=$(fd_count "$SERVER_PID")
+        [[ "${fds_after:-999999}" -le $(( fds_before + FD_SLACK )) ]] && break
+        sleep 0.1
+    done
+    [[ "${fds_after:-999999}" -le $(( fds_before + FD_SLACK )) ]] || fail "server has $fds_after open fds after the run, up from $fds_before before it: descriptors leaked"
+else
+    echo "note: /proc/<pid>/fd not available on this platform; skipping the fd-leak check"
+fi
 
 delta() { echo $(( $(metric "$OUT_DIR/metrics-after.txt" "$1") - $(metric "$OUT_DIR/metrics-before.txt" "$1") )); }
 
@@ -172,6 +196,7 @@ fi
     echo "| Latency p50 / p99 | ${wrk_p50} / ${wrk_p99} |"
     echo "| Socket errors | ${wrk_socket_errors} |"
     echo "| Non-2xx/3xx | ${wrk_non2xx} |"
+    echo "| Server open fds before / after | ${fds_before:-n/a} / ${fds_after:-n/a} |"
     echo "| Server 2xx (metrics delta) | ${d2xx} |"
     echo "| Result | $([[ ${#failures[@]} -eq 0 ]] && echo PASS || echo "FAIL (${#failures[@]})") |"
 } >"$OUT_DIR/summary.md"

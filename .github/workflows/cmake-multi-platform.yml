@@ -152,11 +152,33 @@ jobs:
 
   # Load test: hammer bb-loadtest-server with wrk and cross-check the result
   # against the server's own /metrics (see tests/load/README.md). Fails on
-  # errors, crashes or leaked connections, not on a requests/sec threshold.
+  # errors, crashes, leaked connections or file descriptors, and (in the
+  # sanitizer run) any ASan/UBSan/LeakSanitizer report; not on a requests/sec
+  # threshold.
   load-test:
-    name: Load test / wrk
+    name: Load test / wrk / ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Release
+            slug: release
+            cc: gcc
+            cxx: g++
+            build_type: Release
+            sanitizers: OFF
+            duration: 15s
+
+          - name: ASan + UBSan
+            slug: asan
+            cc: clang
+            cxx: clang++
+            build_type: Debug
+            sanitizers: ON
+            duration: 10s
 
     steps:
       - uses: actions/checkout@v4
@@ -184,17 +206,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-load-test-${{ github.sha }}
+          key: ccache-load-test-${{ matrix.slug }}-${{ github.sha }}
           restore-keys: |
-            ccache-load-test-
+            ccache-load-test-${{ matrix.slug }}-
 
       - name: Configure
         run: >
           cmake -B build -S .
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          -DBB_ENABLE_SANITIZERS=OFF
+          -DBB_ENABLE_SANITIZERS=${{ matrix.sanitizers }}
         env:
           CCACHE_DIR: ~/.ccache
 
@@ -203,18 +227,22 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache
 
+      # The sanitizer options are ignored by the non-sanitizer build. A leak
+      # makes LeakSanitizer exit non-zero at shutdown, which the script reports.
       - name: Run wrk load test
         run: bash tests/load/run_wrk.sh
         env:
-          BB_WRK_DURATION: 15s
+          BB_WRK_DURATION: ${{ matrix.duration }}
           BB_WRK_THREADS: 2
           BB_WRK_CONNECTIONS: 64
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
 
       - name: Upload load-test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: load-test-results
+          name: load-test-results-${{ matrix.slug }}
           path: build/load-results/
           if-no-files-found: ignore
           retention-days: 14
