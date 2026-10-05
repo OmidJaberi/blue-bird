@@ -16,7 +16,7 @@
 #   BB_LOADTEST_BIN       server binary        (default build/tests/load/bb-loadtest-server)
 #   BB_LOADTEST_PORT      port                 (default 8090)
 #   BB_AUTOBAHN_OUT_DIR   results directory    (default build/autobahn-results)
-#   BB_AUTOBAHN_IMAGE     Docker image         (default crossbario/autobahn-testsuite:0.8.2)
+#   BB_AUTOBAHN_IMAGE     Docker image         (default crossbario/autobahn-testsuite, i.e. :latest)
 #   BB_AUTOBAHN_CASES     comma-separated case patterns   (default "*")
 #   BB_AUTOBAHN_EXCLUDE   comma-separated exclusions      (default "9.*,12.*,13.*")
 #   BB_AUTOBAHN_TIMEOUT   seconds before the container is killed (default 1800)
@@ -30,7 +30,7 @@ set -euo pipefail
 SERVER_BIN="${1:-${BB_LOADTEST_BIN:-build/tests/load/bb-loadtest-server}}"
 PORT="${BB_LOADTEST_PORT:-8090}"
 OUT_DIR="${BB_AUTOBAHN_OUT_DIR:-build/autobahn-results}"
-IMAGE="${BB_AUTOBAHN_IMAGE:-crossbario/autobahn-testsuite:0.8.2}"
+IMAGE="${BB_AUTOBAHN_IMAGE:-crossbario/autobahn-testsuite}"
 CASES="${BB_AUTOBAHN_CASES:-*}"
 EXCLUDE="${BB_AUTOBAHN_EXCLUDE-9.*,12.*,13.*}"
 TIMEOUT="${BB_AUTOBAHN_TIMEOUT:-1800}"
@@ -55,6 +55,17 @@ python3 "$HERE/autobahn/autobahn.py" config \
     --url "ws://127.0.0.1:${PORT}/ws" \
     --cases "$CASES" \
     --exclude "$EXCLUDE"
+
+# Pull before starting the server so a bad image name fails fast and clearly.
+# The resolved digest is printed (and added to the summary) so a known-good
+# image can be pinned later with BB_AUTOBAHN_IMAGE=repo@sha256:...
+echo "Pulling $IMAGE"
+if ! docker pull "$IMAGE"; then
+    echo "error: could not pull Docker image '$IMAGE'" >&2
+    exit 1
+fi
+IMAGE_DIGEST="$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null || true)"
+echo "Image: ${IMAGE_DIGEST:-$IMAGE}"
 
 start_server
 
@@ -85,6 +96,7 @@ python3 "$HERE/autobahn/autobahn.py" summary \
 [[ "$summary_rc" -eq 0 ]] || fail "no usable Autobahn report"
 
 if [[ -f "$OUT_DIR/summary.md" ]]; then
+    printf '\nImage: `%s`\n' "${IMAGE_DIGEST:-$IMAGE}" >>"$OUT_DIR/summary.md"
     cat "$OUT_DIR/summary.md"
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         cat "$OUT_DIR/summary.md" >>"$GITHUB_STEP_SUMMARY"
