@@ -16,6 +16,9 @@
 #   BB_WRK_PATH          request path            (default /)
 #   BB_LOAD_OUT_DIR      results directory       (default build/load-results)
 #   BB_FD_SLACK          extra open fds tolerated after the run (default 2)
+#   BB_WRK_TIMEOUT       wrk --timeout           (default 5s)
+#   BB_SERVER_WRAPPER    command prefix for the server, e.g. valgrind (see lib.sh)
+#   BB_START_TIMEOUT_S / BB_STOP_TIMEOUT_S   see lib.sh
 #
 # The server closes the connection after every response, so wrk is run with
 # "Connection: close": each request is a fresh connection, which also exercises
@@ -29,6 +32,7 @@ DURATION="${BB_WRK_DURATION:-10s}"
 THREADS="${BB_WRK_THREADS:-2}"
 CONNECTIONS="${BB_WRK_CONNECTIONS:-64}"
 REQ_PATH="${BB_WRK_PATH:-/}"
+WRK_TIMEOUT="${BB_WRK_TIMEOUT:-5s}"
 OUT_DIR="${BB_LOAD_OUT_DIR:-build/load-results}"
 
 BASE_URL="http://127.0.0.1:${PORT}"
@@ -56,7 +60,7 @@ scrape "$OUT_DIR/metrics-before.txt"
 
 echo "Running wrk: -t${THREADS} -c${CONNECTIONS} -d${DURATION} ${BASE_URL}${REQ_PATH}"
 wrk_rc=0
-wrk -t"$THREADS" -c"$CONNECTIONS" -d"$DURATION" --latency --timeout 5s \
+wrk -t"$THREADS" -c"$CONNECTIONS" -d"$DURATION" --latency --timeout "$WRK_TIMEOUT" \
     -H "Connection: close" "${BASE_URL}${REQ_PATH}" 2>&1 | tee "$OUT_DIR/wrk.txt" || wrk_rc=${PIPESTATUS[0]}
 [[ "$wrk_rc" -eq 0 ]] || fail "wrk exited with status $wrk_rc"
 

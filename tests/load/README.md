@@ -54,6 +54,28 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
 The server closes the connection after every response, so wrk runs with
 `Connection: close` and each request is a fresh connection.
 
+## Valgrind under load
+
+```bash
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DBB_ENABLE_SANITIZERS=OFF
+cmake --build build --target bb-loadtest-server
+BB_LOAD_OUT_DIR=build/load-results \
+BB_SERVER_WRAPPER="valgrind --leak-check=full --errors-for-leak-kinds=definite,indirect \
+  --error-exitcode=99 --log-file=build/load-results/valgrind.log" \
+BB_START_TIMEOUT_S=60 BB_STOP_TIMEOUT_S=180 BB_WRK_TIMEOUT=30s BB_WRK_CONNECTIONS=16 \
+  tests/load/run_wrk.sh
+```
+
+`BB_SERVER_WRAPPER` is a command prefix for the server (split on whitespace). Valgrind
+can't be combined with ASan, so use a Debug build without sanitizers; expect it to be
+10-50x slower, so keep the connection count small and raise the timeouts as above. The
+script fails if Valgrind exits non-zero (`--error-exitcode`) or its log (`valgrind.log`
+in the results directory) has a non-zero `ERROR SUMMARY`, on top of all the `wrk` checks.
+
+CI runs this nightly and on demand in `.github/workflows/nightly-valgrind.yml`.
+(GitHub only runs scheduled workflows from the default branch, and pauses them in
+repositories with no activity for 60 days.)
+
 ## Autobahn conformance (WebSocket)
 
 ```bash
