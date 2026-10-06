@@ -396,6 +396,14 @@ void test_incomplete_array_json(void)
     BB_ASSERT(json == NULL);
 }
 
+void test_parse_trailing_commas(void)
+{
+    printf("\tTesting JSON parsing of trailing commas...\n");
+
+    BB_ASSERT(bb_json_parse("[1, 2, 3,]") == NULL);
+    BB_ASSERT(bb_json_parse("{\"one\": 1,}") == NULL);
+}
+
 void test_multiple_comma_array_json(void)
 {
     printf("\tTesting multiple comma array JSON parsing...\n");
@@ -847,6 +855,7 @@ int main(void)
 
     test_incomplete_text_json();
     test_incomplete_array_json();
+    test_parse_trailing_commas();
     test_multiple_comma_array_json();
     test_missing_comma_array_json();
     test_incomplete_object_json();
