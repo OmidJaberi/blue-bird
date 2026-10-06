@@ -76,6 +76,15 @@ CI runs this nightly and on demand in `.github/workflows/nightly-valgrind.yml`.
 (GitHub only runs scheduled workflows from the default branch, and pauses them in
 repositories with no activity for 60 days.)
 
+> **Note: the nightly schedule is provisional.** It was chosen because Valgrind is
+> slow, not because nightly is the best fit for this project, and it may change.
+> A nightly failure isn't tied to the commit that caused it, and scheduled-run
+> failures are easy to miss. Alternatives considered: run it on pull requests that
+> touch `modules/**` or `tests/load/**` (a short run of 16 connections takes
+> seconds under Valgrind, so this is probably affordable), run it manually before
+> releases only, or rely on the ASan + UBSan job alone. Valgrind's main extra over
+> ASan is detecting use of uninitialised memory.
+
 ## Autobahn conformance (WebSocket)
 
 ```bash
