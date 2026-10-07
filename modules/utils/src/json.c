@@ -958,29 +958,40 @@ static int parse_json_str_array(bb_json_t **json, char *buffer)
 {
     BB_ASSERT_MSG(buffer[0] == '[', "Invalid array start.");
     (*json) = bb_json_create(BB_JSON_ARRAY);
+    if (!(*json))
+    {
+        return -1;
+    }
     int index = 1;
     while (white_space(buffer[index])) index++;
+
+    // Empty array
+    if (buffer[index] == ']')
+        return index + 1;
+
     while (buffer[index] != '\0')
     {
-        if (buffer[index] == ']')
-            return index + 1;
-        bb_json_t *child;
+        bb_json_t *child = NULL;
         int res = parse_json_str_partial(&child, buffer + index);
         if (res < 0)
         {
             goto failure;
         }
-        bb_json_array_push(*json, child);
-        index += res;
-        while (white_space(buffer[index])) index++;
-        if (buffer[index] == ',')
+        if (BB_FAILED(bb_json_array_push(*json, child)))
         {
-            index++;
-        }
-        else if (buffer[index] != ']')
-        {
+            bb_json_destroy(child);
             goto failure;
         }
+        index += res;
+        while (white_space(buffer[index])) index++;
+
+        if (buffer[index] == ']')
+            return index + 1;
+        if (buffer[index] != ',')
+            goto failure;
+
+        // Consume ','. A value MUST follow, so "[1,]" fails: ']' is not a valid value.
+        index++;
         while (white_space(buffer[index])) index++;
     }
 failure:
@@ -1020,8 +1031,13 @@ static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
     }
     memcpy(key, buffer + 1, key_end - 1);
     key[key_end - 1] = '\0';
-    bb_json_object_set_value(object, key, value);
+    bb_error_t err = bb_json_object_set_value(object, key, value);
     free(key);
+    if (BB_FAILED(err))
+    {
+        bb_json_destroy(value);
+        return -1;
+    }
     return res + index;
 }
 
@@ -1029,24 +1045,31 @@ static int parse_json_str_object(bb_json_t **json, char *buffer)
 {
     BB_ASSERT_MSG(buffer[0] == '{', "Invalid object start.");
     (*json) = bb_json_create(BB_JSON_OBJECT);
+    if (!(*json))
+    {
+        return -1;
+    }
     int index = 1;
     while (white_space(buffer[index])) index++;
+
+    // Empty object
+    if (buffer[index] == '}')
+        return index + 1;
+
     while (buffer[index] != '\0')
     {
-        if (buffer[index] == '}')
-            return index + 1;
+        // A key/value pair is required here, so "{"a":1,}" fails: '}' is not a valid key.
         int res = parse_and_add_json_object_pair(*json, buffer + index);
         if (res < 0) goto failure;
         index += res;
         while (white_space(buffer[index])) index++;
-        if (buffer[index] == ',')
-        {
-            index++;
-        }
-        else if (buffer[index] != '}')
-        {
+
+        if (buffer[index] == '}')
+            return index + 1;
+        if (buffer[index] != ',')
             goto failure;
-        }
+
+        index++; // consume ','; another pair MUST follow
         while (white_space(buffer[index])) index++;
     }
 failure:
