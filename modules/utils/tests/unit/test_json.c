@@ -111,6 +111,23 @@ void test_object_key_overwrite(void)
     bb_json_destroy(obj);
 }
 
+void test_parse_duplicate_object_key(void)
+{
+    printf("\tTesting JSON parsing of duplicate object keys...\n");
+
+    bb_json_t *json = bb_json_parse("{\"a\": 1, \"a\": 2}");
+
+    BB_ASSERT(json != NULL);
+    BB_ASSERT(bb_json_get_size(json) == 1);
+
+    bb_json_t *value = bb_json_object_get_value(json, "a");
+
+    BB_ASSERT(value != NULL);
+    BB_ASSERT(bb_json_get_value_integer(value) == 2);
+
+    bb_json_destroy(json);
+}
+
 void test_object_key_deletion(void)
 {
     printf("\tTesting JSON object key deletion...\n");
@@ -834,6 +851,7 @@ int main(void)
     test_json_array_multi_remove_at_index();
     test_json_object();
     test_object_key_overwrite();
+    test_parse_duplicate_object_key();
     test_object_key_deletion();
     test_object_remove_missing_key();
     test_json_type_mismatch();
