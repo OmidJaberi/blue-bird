@@ -90,32 +90,55 @@ repositories with no activity for 60 days.)
 ```bash
 tests/load/run_autobahn.sh                 # needs Docker and python3
 BB_AUTOBAHN_CASES="1.*,2.*" tests/load/run_autobahn.sh
+BB_AUTOBAHN_UPDATE_EXPECTED=1 tests/load/run_autobahn.sh   # refresh the baseline
 ```
 
 Runs the [Autobahn|Testsuite](https://github.com/crossbario/autobahn-testsuite)
-`fuzzingclient` (from its Docker image) against `WS /ws`. Results land in
-`build/autobahn-results/`: the HTML report under `reports/servers/`, a flat
-`results.json` (`case -> behavior/behaviorClose`) and `summary.md`.
-Compression cases (12.\*, 13.\*) and the large-message cases (9.\*) are excluded
-by default; see the top of the script for the environment variables.
+`fuzzingclient` (from its Docker image, pinned by digest) against `WS /ws`. Results land
+in `build/autobahn-results/`: the HTML report under `reports/servers/`, a flat
+`results.json` (`case -> behavior/behaviorClose`) and `summary.md`. Compression cases
+(12.\*, 13.\*) and the large-message cases (9.\*) are excluded by default; see the top
+of the script for the environment variables.
 
-Conformance results are **report-only** for now: a failing case is printed and
-uploaded but does not fail the script. It does fail if Docker/Autobahn doesn't
-produce a report, the server crashes, hangs on SIGTERM or exits non-zero, or the
-server log contains a sanitizer or leak report. CI runs it against the
-ASan + UBSan build (job `autobahn`), so it also exercises the WebSocket code
-under the sanitizers, which `wrk` cannot.
+**Gating.** The library does not pass the whole suite yet, so the run is gated against a
+committed baseline, `autobahn/expected-results.json` (the `results.json` of an accepted
+run). A case whose behavior or close status is worse than its baseline is a
+**regression** and fails the run (CI job `autobahn`). Known failures don't fail it, and
+improvements are reported. The comparison ranks statuses as: `OK`/`INFORMATIONAL` (pass)
+< `NON-STRICT` < anything else (fail); an unknown status counts as a failure. A case
+missing from a full run, or a new failing case the baseline doesn't know, also fails. Gating
+is only applied to the default case selection; a custom `BB_AUTOBAHN_CASES` /
+`BB_AUTOBAHN_EXCLUDE` is report-only unless `BB_AUTOBAHN_ENFORCE=1`.
 
-Expect many failing cases in the first report. A quick manual probe of the echo
-endpoint found these library gaps (conformance, not harness problems):
+**When you fix something**, the run reports the improved cases; rerun with
+`BB_AUTOBAHN_UPDATE_EXPECTED=1` (or copy `results.json` over the baseline) and commit the
+updated file so the fix is protected from now on. Moving to a newer Autobahn image
+(`BB_AUTOBAHN_IMAGE`) can add or change cases, so refresh the baseline at the same time.
 
-- fragmented messages are delivered frame by frame instead of being reassembled
-  (categories 5.\*);
-- text frames are not UTF-8 validated (6.\*);
-- reserved bits, reserved opcodes, oversized control frames and unmasked client
-  frames are not rejected with close code 1002 (2.\*, 3.\*, 4.\*, 5.\*);
-- invalid close frames are not rejected, and every close is answered with 1000
-  (7.\*).
+The script also fails if Docker/Autobahn doesn't produce a report, the server crashes,
+hangs on SIGTERM or exits non-zero, or the server log contains a sanitizer or leak
+report. CI runs it against the ASan + UBSan build, so it also exercises the WebSocket code
+under the sanitizers, which `wrk` cannot. `test_autobahn.py` self-tests the comparison
+logic and runs in CI before the suite.
+
+**Where the library stands** (247 cases, first full run; 115 pass, 132 fail):
+
+| Group | Failing / total |
+|---|---|
+| 1.\* framing | 0 / 16 |
+| 2.\* ping/pong | 1 / 11 |
+| 3.\* reserved bits | 6 / 7 |
+| 4.\* opcodes | 10 / 10 |
+| 5.\* fragmentation | 20 / 20 |
+| 6.\* UTF-8 | 80 / 145 |
+| 7.\* close handling | 13 / 37 |
+| 10.\* misc | 1 / 1 |
+
+These are library conformance gaps, not harness problems: fragmented messages are not
+reassembled (5.\*); text is not UTF-8 validated (6.\*); reserved bits, reserved opcodes
+and oversized control frames are not rejected (2.5, 3.\*, 4.\*); and invalid close
+frames are not rejected with the right close code (7.\*). The server log from this run
+had no sanitizer reports.
 
 ## Known limits
 

@@ -3,12 +3,13 @@
 # Run the Autobahn|Testsuite WebSocket conformance suite (fuzzingclient mode)
 # against bb-loadtest-server's /ws echo endpoint, in Docker.
 #
-# Conformance results are REPORT-ONLY for now: the script prints and uploads
-# them but does not fail on a failing case. It does fail on infrastructure and
-# robustness problems: Docker/Autobahn failing to run or produce a report, the
-# server crashing, hanging on SIGTERM or exiting non-zero, or any sanitizer /
-# leak report in the server log (so a run against the ASan build also exercises
-# the WebSocket code under AddressSanitizer).
+# Conformance is gated against a committed baseline (autobahn/expected-results.json):
+# a case that got WORSE than its baseline status fails the run; known failures do
+# not, and improvements are reported so the baseline can be refreshed. It also
+# fails on infrastructure and robustness problems: Docker/Autobahn failing to run
+# or produce a report, the server crashing, hanging on SIGTERM or exiting
+# non-zero, or any sanitizer / leak report in the server log (so a run against
+# the ASan build also exercises the WebSocket code under AddressSanitizer).
 #
 # Usage: tests/load/run_autobahn.sh [path-to-bb-loadtest-server]
 #
@@ -16,10 +17,14 @@
 #   BB_LOADTEST_BIN       server binary        (default build/tests/load/bb-loadtest-server)
 #   BB_LOADTEST_PORT      port                 (default 8090)
 #   BB_AUTOBAHN_OUT_DIR   results directory    (default build/autobahn-results)
-#   BB_AUTOBAHN_IMAGE     Docker image         (default crossbario/autobahn-testsuite, i.e. :latest)
+#   BB_AUTOBAHN_IMAGE     Docker image         (default: crossbario/autobahn-testsuite pinned by digest)
 #   BB_AUTOBAHN_CASES     comma-separated case patterns   (default "*")
 #   BB_AUTOBAHN_EXCLUDE   comma-separated exclusions      (default "9.*,12.*,13.*")
 #   BB_AUTOBAHN_TIMEOUT   seconds before the container is killed (default 1800)
+#   BB_AUTOBAHN_EXPECTED  baseline file        (default tests/load/autobahn/expected-results.json)
+#   BB_AUTOBAHN_ENFORCE   1 = fail on regressions against the baseline, 0 = report only
+#                         (default 1 for the default case selection, else 0)
+#   BB_AUTOBAHN_UPDATE_EXPECTED=1   rewrite the baseline from this run (then review the diff)
 #
 # Default exclusions: 12.* and 13.* test permessage-deflate compression, and 9.*
 # are large-message performance/limit cases (up to 16 MiB; the server buffer
@@ -30,13 +35,28 @@ set -euo pipefail
 SERVER_BIN="${1:-${BB_LOADTEST_BIN:-build/tests/load/bb-loadtest-server}}"
 PORT="${BB_LOADTEST_PORT:-8090}"
 OUT_DIR="${BB_AUTOBAHN_OUT_DIR:-build/autobahn-results}"
-IMAGE="${BB_AUTOBAHN_IMAGE:-crossbario/autobahn-testsuite}"
+# Pinned so a new image can't silently add or change cases under the baseline.
+# To move to a newer image, pull it, take the digest from the "Image:" line of the
+# run summary, and refresh the baseline.
+IMAGE="${BB_AUTOBAHN_IMAGE:-crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074}"
 CASES="${BB_AUTOBAHN_CASES:-*}"
-EXCLUDE="${BB_AUTOBAHN_EXCLUDE-9.*,12.*,13.*}"
+DEFAULT_EXCLUDE="9.*,12.*,13.*"
+EXCLUDE="${BB_AUTOBAHN_EXCLUDE-$DEFAULT_EXCLUDE}"
 TIMEOUT="${BB_AUTOBAHN_TIMEOUT:-1800}"
 
 BASE_URL="http://127.0.0.1:${PORT}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+EXPECTED="${BB_AUTOBAHN_EXPECTED:-$HERE/autobahn/expected-results.json}"
+
+# The baseline describes the default case selection, so enforce it only for that
+# (a subset or a different exclusion list would show missing or unknown cases).
+if [[ "$CASES" == "*" && "$EXCLUDE" == "$DEFAULT_EXCLUDE" ]]; then
+    default_selection=1
+else
+    default_selection=0
+fi
+ENFORCE="${BB_AUTOBAHN_ENFORCE:-$default_selection}"
 
 # shellcheck source=tests/load/lib.sh
 source "$HERE/lib.sh"
@@ -88,12 +108,28 @@ fi
 stop_server
 
 # ----------------------------------------------------------------- report
+summary_args=(
+    --index "$OUT_DIR/reports/servers/index.json"
+    --results "$OUT_DIR/results.json"
+    --markdown "$OUT_DIR/summary.md"
+)
+if [[ "$ENFORCE" == "1" || "${BB_AUTOBAHN_UPDATE_EXPECTED:-0}" == "1" ]]; then
+    if [[ -f "$EXPECTED" ]]; then
+        summary_args+=(--expected "$EXPECTED")
+        [[ "$default_selection" -eq 1 ]] && summary_args+=(--require-complete)
+        [[ "${BB_AUTOBAHN_UPDATE_EXPECTED:-0}" == "1" ]] && summary_args+=(--update-expected)
+    else
+        fail "baseline file not found: $EXPECTED"
+    fi
+fi
+
 summary_rc=0
-python3 "$HERE/autobahn/autobahn.py" summary \
-    --index "$OUT_DIR/reports/servers/index.json" \
-    --results "$OUT_DIR/results.json" \
-    --markdown "$OUT_DIR/summary.md" || summary_rc=$?
-[[ "$summary_rc" -eq 0 ]] || fail "no usable Autobahn report"
+python3 "$HERE/autobahn/autobahn.py" summary "${summary_args[@]}" || summary_rc=$?
+case "$summary_rc" in
+    0) ;;
+    3) fail "Autobahn conformance regressed against the baseline (see the summary above)" ;;
+    *) fail "no usable Autobahn report" ;;
+esac
 
 if [[ -f "$OUT_DIR/summary.md" ]]; then
     printf '\nImage: `%s`\n' "${IMAGE_DIGEST:-$IMAGE}" >>"$OUT_DIR/summary.md"
@@ -109,4 +145,8 @@ if [[ ${#failures[@]} -ne 0 ]]; then
     printf '  - %s\n' "${failures[@]}" >&2
     exit 1
 fi
-echo "Autobahn run completed (conformance results are report-only)."
+if [[ "$ENFORCE" == "1" ]]; then
+    echo "Autobahn run completed; no conformance regressions against the baseline."
+else
+    echo "Autobahn run completed (conformance was not enforced for this run)."
+fi

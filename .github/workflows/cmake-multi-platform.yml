@@ -251,15 +251,13 @@ jobs:
   # echo endpoint, run against the ASan + UBSan build so it also exercises the
   # WebSocket code under the sanitizers (see tests/load/README.md).
   #
-  # Conformance results are report-only for now: the job fails on infrastructure
-  # problems and sanitizer/leak reports, not on failing Autobahn cases.
-  # continue-on-error keeps this first rollout from blocking merges; remove it
-  # once a CI run has confirmed the Docker/Autobahn setup works.
+  # Gated against a committed baseline (tests/load/autobahn/expected-results.json):
+  # a case that gets worse than its baseline fails the job, known failures do not.
+  # It also fails on infrastructure problems and sanitizer/leak reports.
   autobahn:
-    name: Autobahn / ASan + UBSan (report-only)
+    name: Autobahn / ASan + UBSan
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -293,6 +291,9 @@ jobs:
         run: cmake --build build --target bb-loadtest-server --parallel
         env:
           CCACHE_DIR: ~/.ccache
+
+      - name: Self-test the Autobahn results comparison
+        run: python3 tests/load/autobahn/test_autobahn.py
 
       - name: Run Autobahn
         run: bash tests/load/run_autobahn.sh

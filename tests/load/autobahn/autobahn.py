@@ -5,10 +5,16 @@
       Render the fuzzingclient config from the committed template.
 
   autobahn.py summary --index reports/servers/index.json --results R.json --markdown S.md
-      Summarize Autobahn's index.json. Writes a flat {case: "behavior/behaviorClose"}
-      results file and a markdown summary, prints the counts, and exits 2 if the
-      report is missing, unreadable or empty (an infrastructure problem, as opposed
-      to a protocol conformance failure, which is only reported).
+                      [--expected expected-results.json [--require-complete] [--update-expected]]
+      Summarize Autobahn's index.json: write a flat {case: "behavior/behaviorClose"}
+      results file and a markdown summary, and print the counts.
+
+      With --expected, the run is gated against that baseline: a case that got
+      WORSE than its baseline status is a regression. Known failures do not fail the
+      run, and improvements are reported (refresh the baseline with --update-expected).
+
+Exit status of `summary`: 0 ok, 2 report missing/unreadable/empty (infrastructure
+problem), 3 the gate failed (regressions against the baseline).
 """
 
 import argparse
@@ -16,17 +22,89 @@ import json
 import sys
 
 AGENT = "bluebird"
-BAD = {"FAILED", "UNIMPLEMENTED"}
-ORDER = ["OK", "NON-STRICT", "INFORMATIONAL", "FAILED", "UNIMPLEMENTED"]
 MAX_LISTED = 60
+
+GROUP_NAMES = {
+    "1": "framing",
+    "2": "ping/pong",
+    "3": "reserved bits",
+    "4": "opcodes",
+    "5": "fragmentation",
+    "6": "UTF-8",
+    "7": "close handling",
+    "9": "limits / performance",
+    "10": "misc",
+    "12": "compression",
+    "13": "compression",
+}
+
+
+def rank(status):
+    """0 passing, 1 non-strict, 2 failing. Anything unknown counts as failing."""
+    if status in ("OK", "INFORMATIONAL"):
+        return 0
+    if status == "NON-STRICT":
+        return 1
+    return 2
 
 
 def case_key(case_id):
     return [int(part) if part.isdigit() else 0 for part in case_id.split(".")]
 
 
-def split(value):
+def split_csv(value):
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def split_status(value):
+    behavior, _, close = value.partition("/")
+    return behavior, close
+
+
+def case_rank(value):
+    behavior, close = split_status(value)
+    return max(rank(behavior), rank(close))
+
+
+def compare(results, expected, require_complete):
+    """Return (regressions, improvements, new_passing).
+
+    regressions:  [(case, expected_or_None, now_or_None, reason)]
+    improvements: [(case, expected, now)]
+    new_passing:  [(case, now)]  cases the baseline doesn't know that pass
+    """
+    regressions, improvements, new_passing = [], [], []
+
+    for case_id in sorted(results, key=case_key):
+        now = results[case_id]
+        exp = expected.get(case_id)
+
+        if exp is None:
+            if case_rank(now) >= 2:
+                regressions.append((case_id, None, now, "new case failing (not in the baseline)"))
+            else:
+                new_passing.append((case_id, now))
+            continue
+
+        nb, nc = split_status(now)
+        eb, ec = split_status(exp)
+        worse = rank(nb) > rank(eb) or rank(nc) > rank(ec)
+        better = rank(nb) < rank(eb) or rank(nc) < rank(ec)
+        if worse:
+            regressions.append((case_id, exp, now, "got worse"))
+        elif better:
+            improvements.append((case_id, exp, now))
+
+    if require_complete:
+        for case_id in sorted(expected, key=case_key):
+            if case_id not in results:
+                regressions.append((case_id, expected[case_id], None, "missing from this run"))
+
+    return regressions, improvements, new_passing
+
+
+def group_of(case_id):
+    return case_id.split(".")[0]
 
 
 def cmd_config(args):
@@ -34,12 +112,28 @@ def cmd_config(args):
         config = json.load(f)
 
     config["servers"][0]["url"] = args.url
-    config["cases"] = split(args.cases)
-    config["exclude-cases"] = split(args.exclude)
+    config["cases"] = split_csv(args.cases)
+    config["exclude-cases"] = split_csv(args.exclude)
 
     with open(args.out, "w") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
+
+
+def write_results(path, results):
+    with open(path, "w") as f:
+        json.dump({k: results[k] for k in sorted(results, key=case_key)}, f, indent=2)
+        f.write("\n")
+
+
+def table(header, rows, limit=MAX_LISTED):
+    columns = header.count("|") - 1
+    lines = [header, "|" + "---|" * columns]
+    lines += rows[:limit]
+    if len(rows) > limit:
+        cells = [f"{len(rows) - limit} more, see results.json"] + [""] * (columns - 2)
+        lines.append("| … | " + " | ".join(cells) + " |")
+    return lines
 
 
 def cmd_summary(args):
@@ -56,49 +150,98 @@ def cmd_summary(args):
         return 2
 
     results = {}
-    counts = {name: 0 for name in ORDER}
-    problems = []  # (case, behavior, behaviorClose)
-
-    for case_id in sorted(cases, key=case_key):
-        entry = cases[case_id]
+    behavior_counts = {}
+    for case_id, entry in cases.items():
         behavior = entry.get("behavior", "UNKNOWN")
         close = entry.get("behaviorClose", "UNKNOWN")
         results[case_id] = f"{behavior}/{close}"
-        counts[behavior] = counts.get(behavior, 0) + 1
-        if behavior in BAD or close in BAD or behavior == "NON-STRICT":
-            problems.append((case_id, behavior, close))
+        behavior_counts[behavior] = behavior_counts.get(behavior, 0) + 1
 
-    with open(args.results, "w") as f:
-        json.dump(results, f, indent=2, sort_keys=False)
-        f.write("\n")
+    write_results(args.results, results)
 
-    total = len(cases)
+    total = len(results)
+    ranks = [case_rank(v) for v in results.values()]
+    passing, nonstrict, failing = ranks.count(0), ranks.count(1), ranks.count(2)
+
+    gate = None  # None: no baseline, True: pass, False: fail
+    regressions, improvements, new_passing = [], [], []
+    if args.expected:
+        try:
+            with open(args.expected) as f:
+                expected = json.load(f)
+        except (OSError, ValueError) as err:
+            print(f"error: cannot read expected results {args.expected}: {err}", file=sys.stderr)
+            return 2
+
+        if args.update_expected:
+            write_results(args.expected, results)
+            expected = dict(results)
+            print(f"Updated {args.expected} from this run ({total} cases).")
+
+        regressions, improvements, new_passing = compare(results, expected, args.require_complete)
+        gate = not regressions
+
+    # ------------------------------------------------------------ markdown
     lines = ["### Autobahn WebSocket conformance", ""]
-    lines.append(f"{total} cases run. " + ", ".join(f"{counts.get(n, 0)} {n}" for n in ORDER if counts.get(n, 0)))
-    lines.append("")
+    summary = f"{total} cases run: {passing} passing, {failing} failing"
+    if nonstrict:
+        summary += f", {nonstrict} non-strict"
+    breakdown = ", ".join(f"{n} {b}" for b, n in sorted(behavior_counts.items(), key=lambda kv: -kv[1]))
+    lines += [summary + f" (behavior: {breakdown}).", ""]
 
-    hard = [p for p in problems if p[1] in BAD or p[2] in BAD]
-    soft = [p for p in problems if p not in hard]
+    if gate is True:
+        lines += [f"**Gate: PASS** against the committed baseline "
+                  f"({len(improvements)} improved, {len(new_passing)} new passing).", ""]
+    elif gate is False:
+        lines += [f"**Gate: FAIL**: {len(regressions)} regression(s) against the committed baseline.", ""]
+    else:
+        lines += ["Report only: no baseline was used.", ""]
 
-    if hard:
-        lines += [f"**{len(hard)} failing or unimplemented**", ""]
-        lines += ["| Case | Behavior | Close |", "|---|---|---|"]
-        lines += [f"| {c} | {b} | {cl} |" for c, b, cl in hard[:MAX_LISTED]]
-        if len(hard) > MAX_LISTED:
-            lines.append(f"| … | {len(hard) - MAX_LISTED} more, see results.json | |")
-        lines.append("")
-    if soft:
-        ids = ", ".join(c for c, _, _ in soft[:MAX_LISTED])
-        more = f" (+{len(soft) - MAX_LISTED} more)" if len(soft) > MAX_LISTED else ""
-        lines += [f"{len(soft)} non-strict: {ids}{more}", ""]
-    if not problems:
-        lines += ["All cases OK or informational.", ""]
+    if regressions:
+        rows = [f"| {c} | {e or 'n/a'} | {n or 'missing'} | {why} |" for c, e, n, why in regressions]
+        lines += ["#### Regressions", ""] + table("| Case | Baseline | Now | Why |", rows) + [""]
+
+    if improvements or new_passing:
+        rows = [f"| {c} | {e} | {n} |" for c, e, n in improvements]
+        rows += [f"| {c} | not in baseline | {n} |" for c, n in new_passing]
+        lines += ["#### Improvements (refresh the baseline with `BB_AUTOBAHN_UPDATE_EXPECTED=1`)", ""]
+        lines += table("| Case | Baseline | Now |", rows) + [""]
+
+    groups = {}
+    for case_id, value in results.items():
+        g = groups.setdefault(group_of(case_id), [0, 0])
+        g[1] += 1
+        if case_rank(value) >= 2:
+            g[0] += 1
+    if any(g[0] for g in groups.values()):
+        rows = []
+        for g in sorted(groups, key=lambda x: int(x) if x.isdigit() else 0):
+            bad, tot = groups[g]
+            if bad:
+                rows.append(f"| {g}.* {GROUP_NAMES.get(g, '')} | {bad} / {tot} |")
+        lines += ["#### Failing cases by group", "", "| Group | Failing / total |", "|---|---|"] + rows + [""]
+
+    if gate is None:
+        bad_rows = [f"| {c} | {v} |" for c, v in sorted(results.items(), key=lambda kv: case_key(kv[0]))
+                    if case_rank(v) >= 2]
+        if bad_rows:
+            lines += ["#### Failing cases", ""] + table("| Case | Behavior / close |", bad_rows) + [""]
 
     with open(args.markdown, "w") as f:
         f.write("\n".join(lines))
 
-    print(f"Autobahn: {total} cases - " + ", ".join(f"{counts.get(n, 0)} {n}" for n in ORDER if counts.get(n, 0)))
-    return 0
+    gate_text = {None: "no baseline", True: "gate PASS", False: f"gate FAIL ({len(regressions)} regressions)"}[gate]
+    print(f"Autobahn: {total} cases - {passing} passing, {failing} failing"
+          + (f", {nonstrict} non-strict" if nonstrict else "") + f" | {gate_text}")
+    for c, e, n, why in regressions[:20]:
+        print(f"  regression: {c}: {e or 'n/a'} -> {n or 'missing'} ({why})")
+    if len(regressions) > 20:
+        print(f"  ... and {len(regressions) - 20} more")
+    if improvements or new_passing:
+        print(f"  {len(improvements)} improved, {len(new_passing)} new passing: refresh the baseline with "
+              "BB_AUTOBAHN_UPDATE_EXPECTED=1")
+
+    return 3 if gate is False else 0
 
 
 def main():
@@ -117,6 +260,9 @@ def main():
     s.add_argument("--index", required=True)
     s.add_argument("--results", required=True)
     s.add_argument("--markdown", required=True)
+    s.add_argument("--expected")
+    s.add_argument("--require-complete", action="store_true")
+    s.add_argument("--update-expected", action="store_true")
     s.set_defaults(func=cmd_summary)
 
     args = parser.parse_args()
