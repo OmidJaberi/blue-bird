@@ -102,6 +102,7 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - Request/response abstractions
 - Routing system
 - Middleware pipeline
+- Built-in server metrics with an opt-in Prometheus endpoint (see [docs/web/metrics.md](docs/web/metrics.md))
 - Modular handler architecture
 - Async Request handling
 

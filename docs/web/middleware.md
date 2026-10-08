@@ -52,9 +52,16 @@ Middleware can be used for:
 - logging
 - authentication
 - request validation
-- metrics
 - compression
 - response modification
+
+---
+
+# Middleware and Built-in Metrics
+
+Blue-Bird already counts requests, status classes and latency inside the server, so you don't need middleware for basic metrics. See [Metrics](metrics.md).
+
+The optional metrics endpoint (`bb_server_enable_metrics()`) is a normal route, so pre and post middleware run around it. An authentication middleware therefore protects `/metrics` like any other route. A request rejected by middleware is still counted in the request metrics.
 
 ---
 

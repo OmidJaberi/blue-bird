@@ -9,6 +9,7 @@ It includes:
 - HTTP client support
 - Websockets server and client support
 - optional TLS support (HTTPS and WSS servers)
+- built-in server metrics (opt-in Prometheus endpoint)
 - request and response abstractions
 - routing
 - middleware integration
@@ -245,7 +246,6 @@ Middleware can be used for:
 - authentication
 - request validation
 - CORS
-- metrics
 - rate limiting
 
 Middleware executes before route handlers and can:
@@ -271,6 +271,18 @@ bb_server_t *server = bb_server_create_tls(8443, &tls_config, &err);
 ```
 
 See [TLS, HTTPS & WSS](tls.md) for setup, certificate validation behavior, and architecture details.
+
+---
+
+# Metrics
+
+The server collects built-in metrics (connections, WebSocket sessions, requests by status class and a request latency histogram). They can be read in code with `bb_server_get_metrics()`, or served in the Prometheus text format with one call:
+
+```c
+bb_server_enable_metrics(server, NULL); // GET /metrics
+```
+
+The endpoint is opt-in and is an ordinary route, so middleware (for example authentication) applies to it. See [Metrics](metrics.md) for the API, the exported metrics and what they measure.
 
 ---
 
@@ -318,3 +330,4 @@ It is suitable for:
 - [middleware.md](middleware.md)
 - [websockets.md](websockets.md)
 - [tls.md](tls.md)
+- [metrics.md](metrics.md)
