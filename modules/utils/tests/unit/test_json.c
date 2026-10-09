@@ -5,6 +5,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void test_parse_invalid_numbers(void)
+{
+    printf("\tTesting invalid JSON number formats...\n");
+
+    char *invalid[] = {
+        "01",
+        "-01",
+        "+1",
+        ".5",
+        "1.",
+        "1e",
+        "1e+",
+        "--1",
+        "1abc",
+        "[1, 02]",
+        "[1, 2.]",
+        NULL
+    };
+
+    for (int i = 0; invalid[i] != NULL; i++)
+    {
+        BB_ASSERT(bb_json_parse(invalid[i]) == NULL);
+    }
+}
+
 void test_json_text(void)
 {
     printf("\tTesting JSON text...\n");
@@ -845,6 +870,7 @@ void test_json_load_missing_file(void)
 int main(void)
 {
     printf("Running JSON tests...\n");
+    test_parse_invalid_numbers();
     test_json_text();
     test_json_array();
     test_bb_json_array_remove_at_index();
