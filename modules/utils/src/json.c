@@ -4,6 +4,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <errno.h>
 
 #define BB_JSON_INITIAL_BUCKET_COUNT 8
 #define BB_JSON_MAX_LOAD_NUM 3
@@ -828,37 +830,77 @@ static int parse_json_str_false(bb_json_t **json, char *buffer)
 
 static int parse_json_str_number(bb_json_t **json, char *buffer)
 {
-    bool is_correct = false;
-    (*json) = bb_json_create(BB_JSON_INT);
-    if (!(*json))
-    {
-        return -1;
-    }
+    *json = NULL;
     int index = 0;
+
     if (buffer[index] == '-')
+        index++;
+
+    if (buffer[index] == '0')
     {
         index++;
+        if (buffer[index] >= '0' && buffer[index] <= '9')
+            return -1;
     }
-    while ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '.' && (*json)->type == BB_JSON_INT))
+    else if (buffer[index] >= '1' && buffer[index] <= '9')
     {
-        is_correct = true;
-        if (buffer[index] == '.')
-            (*json)->type = BB_JSON_REAL;
-        index++;
+        while (buffer[index] >= '0' && buffer[index] <= '9')
+            index++;
     }
-    if (!is_correct)
-    {
-        bb_json_destroy(*json);
-        *json = NULL;
+    else
         return -1;
+
+    bool is_real = false;
+
+    if (buffer[index] == '.')
+    {
+        is_real = true;
+        index++;
+
+        if (buffer[index] < '0' || buffer[index] > '9')
+            return -1;
+
+        while (buffer[index] >= '0' && buffer[index] <= '9')
+            index++;
     }
+
     char num_buff[128];
+    if (index >= (int)sizeof(num_buff))
+        return -1;
+
     memcpy(num_buff, buffer, index);
     num_buff[index] = '\0';
-    if ((*json)->type == BB_JSON_INT)
-        (*json)->int_val = atoi(num_buff);
+
+    bb_json_t *result = bb_json_create(is_real ? BB_JSON_REAL : BB_JSON_INT);
+    if (!result)
+        return -1;
+
+    errno = 0;
+    char *end;
+
+    if (is_real)
+    {
+        float value = strtof(num_buff, &end);
+        if (errno == ERANGE || *end != '\0')
+        {
+            bb_json_destroy(result);
+            return -1;
+        }
+        result->real_val = value;
+    }
     else
-        (*json)->real_val = (float)atof(num_buff);
+    {
+        long value = strtol(num_buff, &end, 10);
+        if (errno == ERANGE || *end != '\0' ||
+            value < INT_MIN || value > INT_MAX)
+        {
+            bb_json_destroy(result);
+            return -1;
+        }
+        result->int_val = (int)value;
+    }
+
+    *json = result;
     return index;
 }
 
