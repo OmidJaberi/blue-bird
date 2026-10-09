@@ -4,31 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-void test_parse_invalid_numbers(void)
-{
-    printf("\tTesting invalid JSON number formats...\n");
-
-    char *invalid[] = {
-        "01",
-        "-01",
-        "+1",
-        ".5",
-        "1.",
-        "1e",
-        "1e+",
-        "--1",
-        "1abc",
-        "[1, 02]",
-        "[1, 2.]",
-        NULL
-    };
-
-    for (int i = 0; invalid[i] != NULL; i++)
-    {
-        BB_ASSERT(bb_json_parse(invalid[i]) == NULL);
-    }
-}
+#include <limits.h>
 
 void test_json_text(void)
 {
@@ -296,6 +272,55 @@ void test_serialize_large_json(void)
     free(buffer);
     free(expected);
     bb_json_destroy(json);
+}
+
+void test_parse_invalid_numbers(void)
+{
+    printf("\tTesting invalid JSON number formats...\n");
+
+    char *invalid[] = {
+        "01",
+        "-01",
+        "+1",
+        ".5",
+        "1.",
+        "1e",
+        "1e+",
+        "--1",
+        "1abc",
+        "[1, 02]",
+        "[1, 2.]",
+        NULL
+    };
+
+    for (int i = 0; invalid[i] != NULL; i++)
+    {
+        BB_ASSERT(bb_json_parse(invalid[i]) == NULL);
+    }
+}
+
+void test_parse_integer_boundaries(void)
+{
+    printf("\tTesting JSON integer boundaries...\n");
+
+    char buffer[64];
+
+    snprintf(buffer, sizeof(buffer), "%d", INT_MAX);
+    bb_json_t *json = bb_json_parse(buffer);
+    BB_ASSERT(json != NULL);
+    BB_ASSERT(bb_json_get_type(json) == BB_JSON_INT);
+    BB_ASSERT(bb_json_get_value_integer(json) == INT_MAX);
+    bb_json_destroy(json);
+
+    snprintf(buffer, sizeof(buffer), "%d", INT_MIN);
+    json = bb_json_parse(buffer);
+    BB_ASSERT(json != NULL);
+    BB_ASSERT(bb_json_get_type(json) == BB_JSON_INT);
+    BB_ASSERT(bb_json_get_value_integer(json) == INT_MIN);
+    bb_json_destroy(json);
+
+    BB_ASSERT(bb_json_parse("2147483648") == NULL);
+    BB_ASSERT(bb_json_parse("-2147483649") == NULL);
 }
 
 void test_parse_and_serialize(void)
@@ -870,7 +895,6 @@ void test_json_load_missing_file(void)
 int main(void)
 {
     printf("Running JSON tests...\n");
-    test_parse_invalid_numbers();
     test_json_text();
     test_json_array();
     test_bb_json_array_remove_at_index();
@@ -888,6 +912,8 @@ int main(void)
     test_serialize_object_json();
     test_serialize_large_json();
 
+    test_parse_invalid_numbers();
+    test_parse_integer_boundaries();
     test_parse_and_serialize();
     test_parse_empty_text_json();
     test_parse_empty_array_json();
