@@ -606,6 +606,45 @@ void test_compare_complex_equal_jsons(void)
     bb_json_destroy(json_2);
 }
 
+void test_json_deep_nesting(void)
+{
+    printf("\tTesting deeply nested JSON...\n");
+
+    const int depth = 256;
+    char *buffer = malloc((size_t)(depth * 2 + 2));
+    BB_ASSERT(buffer != NULL);
+
+    for (int i = 0; i < depth; i++)
+        buffer[i] = '[';
+
+    buffer[depth] = '0';
+
+    for (int i = 0; i < depth; i++)
+        buffer[depth + 1 + i] = ']';
+
+    buffer[depth * 2 + 1] = '\0';
+
+    bb_json_t *json = bb_json_parse(buffer);
+    BB_ASSERT(json != NULL);
+
+    char *serialized = NULL;
+    int size = 0;
+    bb_json_serialize(json, &serialized, &size);
+
+    BB_ASSERT(serialized != NULL);
+    BB_ASSERT(strcmp(buffer, serialized) == 0);
+    BB_ASSERT(size == (int)strlen(buffer));
+
+    bb_json_t *clone = bb_json_clone(json);
+    BB_ASSERT(clone != NULL);
+    BB_ASSERT(bb_json_equal(json, clone));
+
+    bb_json_destroy(clone);
+    bb_json_destroy(json);
+    free(serialized);
+    free(buffer);
+}
+
 void test_json_clone(void)
 {
     printf("\tTesting JSON clone...\n");
@@ -943,6 +982,7 @@ int main(void)
     test_compare_jsons_extra_key();
     test_compare_complex_equal_jsons();
 
+    test_json_deep_nesting();
     test_json_clone();
     test_json_clone_independence();
     test_json_object_merge();
