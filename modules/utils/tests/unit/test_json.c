@@ -733,6 +733,33 @@ void test_json_object_merge_invalid_type(void)
     bb_json_destroy(src);
 }
 
+void test_json_control_characters_roundtrip(void)
+{
+    printf("\tTesting JSON control character roundtrip...\n");
+
+    char value[32];
+    for (int i = 1; i < 32; i++)
+        value[i - 1] = (char)i;
+    value[31] = '\0';
+
+    bb_json_t *json = bb_json_new_text(value);
+
+    char *buffer = NULL;
+    int size = 0;
+    bb_json_serialize(json, &buffer, &size);
+
+    BB_ASSERT(buffer != NULL);
+    BB_ASSERT(size == (int)strlen(buffer));
+
+    bb_json_t *parsed = bb_json_parse(buffer);
+    BB_ASSERT(parsed != NULL);
+    BB_ASSERT(bb_json_equal(json, parsed));
+
+    free(buffer);
+    bb_json_destroy(parsed);
+    bb_json_destroy(json);
+}
+
 void test_dump_and_bb_json_load(void)
 {
     printf("\tTesting JSON file load and dump...\n");
@@ -988,6 +1015,8 @@ int main(void)
     test_json_object_merge();
     test_json_object_merge_independence();
     test_json_object_merge_invalid_type();
+
+    test_json_control_characters_roundtrip();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
