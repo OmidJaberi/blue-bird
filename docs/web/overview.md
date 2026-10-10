@@ -246,6 +246,7 @@ Middleware can be used for:
 - authentication
 - request validation
 - CORS
+- metrics
 - rate limiting
 
 Middleware executes before route handlers and can:
@@ -276,13 +277,15 @@ See [TLS, HTTPS & WSS](tls.md) for setup, certificate validation behavior, and a
 
 # Metrics
 
-The server collects built-in metrics (connections, WebSocket sessions, requests by status class and a request latency histogram). They can be read in code with `bb_server_get_metrics()`, or served in the Prometheus text format with one call:
+The server counts connections, requests (by status class), WebSocket sessions and request duration. An opt-in endpoint exposes them in the Prometheus text format:
 
 ```c
 bb_server_enable_metrics(server, NULL); // GET /metrics
 ```
 
-The endpoint is opt-in and is an ordinary route, so middleware (for example authentication) applies to it. See [Metrics](metrics.md) for the API, the exported metrics and what they measure.
+The same values are available in-process through `bb_server_get_metrics()`.
+
+See [Metrics](metrics.md) for the exported series, what the duration histogram does and doesn't measure, example queries, and possible improvements.
 
 ---
 
