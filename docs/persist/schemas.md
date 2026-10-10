@@ -85,4 +85,4 @@ The `examples/todo` app uses this instead of a hand-written schema — see
 Schemas are intended to become a foundation for:
 - scaffolding
 - serialization systems
-- further tooling (migrations, dialect-specific validation)
+- further tooling (dialect-specific validation, generating migrations from schema changes; hand-written migrations already exist, see [bb-migrate](../tools/migrate.md))
