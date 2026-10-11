@@ -105,6 +105,24 @@ bb_server_use_post_middleware(server, logger_middleware);
 - `logger_middleware` (post) logs method, path, and final response status
   after the route handler has run, via `BB_LOG_INFO`.
 
+## Migrations
+
+`migrations/` holds the schema history, applied with
+[`bb-migrate`](../../docs/tools/migrate.md). Persist creates the `tasks` table
+on first use but never alters it, so any later schema change goes in a new
+numbered file:
+
+```bash
+# from the repository root, after building with BUILD_TOOLS=ON
+./build/tools/migrate/bb-migrate status --db build/examples/todo/todo_sqlite.db examples/todo/migrations/*.sql
+./build/tools/migrate/bb-migrate up     --db build/examples/todo/todo_sqlite.db examples/todo/migrations/*.sql
+```
+
+`0001_create_tasks.sql` uses `CREATE TABLE IF NOT EXISTS` so it also adopts a
+`todo_sqlite.db` that Persist already created. When you change
+`schemas/task.schema.json`, add the matching migration yourself and keep the
+two in sync -- nothing checks that yet.
+
 ## Known limitation
 
 `add_task` uses the raw POST body as the task name directly:
