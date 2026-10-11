@@ -2,6 +2,7 @@
 #define BB_MIGRATE_DRIVER_H
 
 #include "migration.h"
+#include "table_spec.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -57,6 +58,12 @@ typedef struct {
      * an empty result, not something to create. This is what lets
      * `status` run safely against any database. */
     int (*load_applied)(bb_migrate_driver_t *d, bb_migrate_applied_set_t *out);
+
+    /* Reports the columns `table` currently has (name, upper-case type,
+     * primary-key flag). A table that doesn't exist yields count == 0,
+     * not an error. Read-only. Used by the schema drift check. */
+    int (*describe_table)(bb_migrate_driver_t *d, const char *table,
+                          bb_migrate_table_spec_t *out);
 
     /* One migration = begin, record, exec, commit (rollback on any
      * failure). Drivers whose database can't roll back DDL should say

@@ -40,4 +40,15 @@ int bb_migrate_up(bb_migrate_driver_t *drv,
                   bb_migrate_progress_cb on_applied, void *user,
                   size_t *applied_count, bb_migrate_err_t *err);
 
+/* Drift check for one table: describes `expected->table` in the database
+ * behind `drv` and reports every difference from `expected` through
+ * `on_diff`. Read-only. `diff_count` (optional) receives the number of
+ * differences; 0 means the schema and the migrations agree. Returns -1
+ * only if the database couldn't be inspected. Typically run against a
+ * scratch database that all migrations were just applied to. */
+int bb_migrate_check_table(bb_migrate_driver_t *drv,
+                           const bb_migrate_table_spec_t *expected,
+                           bb_migrate_diff_cb on_diff, void *user,
+                           size_t *diff_count, bb_migrate_err_t *err);
+
 #endif //BB_MIGRATE_RUNNER_H

@@ -161,6 +161,64 @@ static int drv_load_applied(bb_migrate_driver_t *base, bb_migrate_applied_set_t 
     return 0;
 }
 
+static int drv_describe_table(bb_migrate_driver_t *base, const char *table,
+                              bb_migrate_table_spec_t *out)
+{
+    sqlite_driver_t *d = (sqlite_driver_t *)base;
+
+    memset(out, 0, sizeof *out);
+    snprintf(out->table, sizeof out->table, "%s", table);
+
+    /* pragma_table_info() as a table-valued function lets the table name
+     * be a bound parameter instead of text spliced into SQL. */
+    sqlite3_stmt *st = NULL;
+
+    if (sqlite3_prepare_v2(d->db,
+            "SELECT name, type, pk FROM pragma_table_info(?) ORDER BY cid",
+            -1, &st, NULL) != SQLITE_OK)
+    {
+        set_error_from_db(d, "inspecting table");
+        return -1;
+    }
+
+    sqlite3_bind_text(st, 1, table, -1, SQLITE_TRANSIENT);
+
+    int rc;
+
+    while ((rc = sqlite3_step(st)) == SQLITE_ROW)
+    {
+        if (out->count == BB_MIGRATE_COLUMNS_MAX)
+        {
+            snprintf(d->base.last_error, sizeof d->base.last_error,
+                     "table '%s' has more than %d columns", table, BB_MIGRATE_COLUMNS_MAX);
+            sqlite3_finalize(st);
+            return -1;
+        }
+
+        bb_migrate_column_t *c = &out->columns[out->count++];
+
+        copy_text(c->name, sizeof c->name, sqlite3_column_text(st, 0));
+        copy_text(c->type, sizeof c->type, sqlite3_column_text(st, 1));
+        c->primary_key = sqlite3_column_int64(st, 2) > 0;
+
+        for (char *p = c->type; *p; p++)
+        {
+            if (*p >= 'a' && *p <= 'z')
+                *p = (char)(*p - 'a' + 'A');
+        }
+    }
+
+    sqlite3_finalize(st);
+
+    if (rc != SQLITE_DONE)
+    {
+        set_error_from_db(d, "inspecting table");
+        return -1;
+    }
+
+    return 0;
+}
+
 static int drv_begin(bb_migrate_driver_t *base)
 {
     /* IMMEDIATE takes the write lock now, so concurrent runners queue up
@@ -224,6 +282,7 @@ static const bb_migrate_driver_api_t sqlite_api = {
     .close         = drv_close,
     .ensure_ledger = drv_ensure_ledger,
     .load_applied  = drv_load_applied,
+    .describe_table = drv_describe_table,
     .begin         = drv_begin,
     .record        = drv_record,
     .exec          = drv_exec,

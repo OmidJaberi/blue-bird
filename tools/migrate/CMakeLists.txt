@@ -7,6 +7,7 @@ add_library(bb_migrate_core
     src/migration.c
     src/driver.c
     src/plan.c
+    src/table_spec.c
     src/runner.c
     src/drivers/sqlite_driver.c
 )

@@ -3,9 +3,12 @@
 #include "migration.h"
 #include "plan.h"
 #include "runner.h"
+#include "table_spec.h"
 
 #include <stdio.h>
 #include <string.h>
+
+#define MAX_SCHEMAS 16
 
 static void print_usage(const char *argv0)
 {
@@ -13,24 +16,35 @@ static void print_usage(const char *argv0)
         "usage:\n"
         "  %s status --db <database> <migration.sql> [migration2.sql ...]\n"
         "  %s up     --db <database> <migration.sql> [migration2.sql ...]\n"
+        "  %s verify --schema <manifest.json> [--schema ...] <migration.sql> [...]\n"
         "\n"
         "  status   lists every migration and whether it is applied, pending,\n"
         "           or a problem. Read-only. Exits 1 if any problem is found.\n"
         "  up       applies pending migrations in version order, each in its\n"
         "           own transaction. Refuses to run if status shows a problem.\n"
+        "  verify   applies all migrations to a scratch in-memory database and\n"
+        "           checks that each persist.schema manifest's table matches the\n"
+        "           result (columns, types, primary key). Touches no real\n"
+        "           database. Exits 1 on any difference. Meant for CI.\n"
         "\n"
         "Migration files are named <version>_<name>.sql (e.g. 0002_add_email.sql).\n"
         "Pass them by expanding the glob yourself, e.g.:\n"
         "  %s up --db app.db migrations/*.sql\n"
         "Pass the complete set every time: an applied migration whose file\n"
         "is missing from the list is reported as a problem.\n",
-        argv0, argv0, argv0);
+        argv0, argv0, argv0, argv0);
 }
 
 static void on_applied(const bb_migration_t *m, void *user)
 {
     (void)user;
     printf("applied  %lld  %s\n", (long long)m->version, m->name);
+}
+
+static void on_diff(const char *message, void *user)
+{
+    (void)user;
+    printf("  - %s\n", message);
 }
 
 static int cmd_status(bb_migrate_driver_t *drv, const bb_migration_set_t *set)
@@ -86,6 +100,68 @@ static int cmd_up(bb_migrate_driver_t *drv, const bb_migration_set_t *set)
     return 0;
 }
 
+static int cmd_verify(const char *const *schemas, size_t schema_count,
+                      const bb_migration_set_t *set)
+{
+    bb_migrate_err_t err;
+    bb_migrate_driver_t *scratch = bb_migrate_sqlite_open(":memory:", &err);
+
+    if (!scratch)
+    {
+        fprintf(stderr, "bb-migrate: %s\n", err.msg);
+        return 1;
+    }
+
+    int rc = 1;
+    size_t total = 0;
+
+    if (bb_migrate_up(scratch, set, NULL, NULL, NULL, &err) != 0)
+    {
+        fprintf(stderr, "bb-migrate: migrations do not apply cleanly to an empty database: %s\n",
+                err.msg);
+        goto done;
+    }
+
+    for (size_t i = 0; i < schema_count; i++)
+    {
+        bb_migrate_table_spec_t expected;
+        size_t diffs = 0;
+
+        if (bb_migrate_spec_from_manifest(schemas[i], &expected, &err) != 0)
+        {
+            fprintf(stderr, "bb-migrate: %s\n", err.msg);
+            goto done;
+        }
+
+        printf("%s (table '%s'):\n", schemas[i], expected.table);
+
+        if (bb_migrate_check_table(scratch, &expected, on_diff, NULL, &diffs, &err) != 0)
+        {
+            fprintf(stderr, "bb-migrate: %s\n", err.msg);
+            goto done;
+        }
+
+        if (diffs == 0)
+            printf("  ok\n");
+
+        total += diffs;
+    }
+
+    if (total == 0)
+    {
+        printf("\nschemas match migrations\n");
+        rc = 0;
+    }
+    else
+    {
+        printf("\n%zu difference(s) between schemas and migrations\n", total);
+    }
+
+done:
+    bb_migrate_driver_close(scratch);
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 5)
@@ -95,6 +171,46 @@ int main(int argc, char **argv)
     }
 
     const char *command = argv[1];
+
+    if (strcmp(command, "verify") == 0)
+    {
+        const char *schemas[MAX_SCHEMAS];
+        size_t schema_count = 0;
+        int i = 2;
+
+        while (i + 1 < argc && strcmp(argv[i], "--schema") == 0)
+        {
+            if (schema_count == MAX_SCHEMAS)
+            {
+                fprintf(stderr, "bb-migrate: too many --schema options (max %d)\n", MAX_SCHEMAS);
+                return 2;
+            }
+
+            schemas[schema_count++] = argv[i + 1];
+            i += 2;
+        }
+
+        if (schema_count == 0 || i >= argc)
+        {
+            fprintf(stderr, "bb-migrate: verify needs --schema <manifest> and at least one migration file\n\n");
+            print_usage(argv[0]);
+            return 2;
+        }
+
+        bb_migrate_err_t err;
+        bb_migration_set_t set;
+
+        if (bb_migrate_load_files((const char *const *)&argv[i], (size_t)(argc - i), &set, &err) != 0)
+        {
+            fprintf(stderr, "bb-migrate: %s\n", err.msg);
+            return 1;
+        }
+
+        int rc = cmd_verify(schemas, schema_count, &set);
+        bb_migration_set_free(&set);
+        return rc;
+    }
+
     int is_up;
 
     if (strcmp(command, "status") == 0)

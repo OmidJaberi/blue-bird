@@ -157,3 +157,30 @@ int bb_migrate_up(bb_migrate_driver_t *drv,
 
     return rc;
 }
+
+int bb_migrate_check_table(bb_migrate_driver_t *drv,
+                           const bb_migrate_table_spec_t *expected,
+                           bb_migrate_diff_cb on_diff, void *user,
+                           size_t *diff_count, bb_migrate_err_t *err)
+{
+    if (diff_count)
+        *diff_count = 0;
+
+    if (!drv || !expected)
+    {
+        bb_migrate_err_set(err, "invalid arguments");
+        return -1;
+    }
+
+    bb_migrate_table_spec_t actual;
+
+    if (drv->api->describe_table(drv, expected->table, &actual) != 0)
+        return fail_from_driver(drv, err, "inspecting table");
+
+    size_t n = bb_migrate_spec_compare(expected, &actual, on_diff, user);
+
+    if (diff_count)
+        *diff_count = n;
+
+    return 0;
+}
