@@ -9,7 +9,7 @@ but never alters one. That's fine for version 1 of an app and not enough for
 version 2. `bb-migrate` covers that gap: it owns **schema evolution**, while
 Persist owns **runtime data access**. They only meet at the database file.
 
-> **Status: step 1.** Forward-only `status` and `up` against SQLite. See
+> **Status:** forward-only `status`, `up` and `verify` against SQLite. See
 > [Not Yet](#not-yet) for what's deliberately left out.
 
 ---
@@ -68,6 +68,38 @@ Exit codes: `0` success, `1` failure or a problem found, `2` bad usage.
 
 ---
 
+# Keeping Schemas and Migrations in Sync
+
+Persist builds a table from a `persist.schema` manifest; migrations evolve it.
+Nothing ties the two together except discipline, so `verify` does:
+
+```bash
+bb-migrate verify --schema schemas/task.schema.json migrations/*.sql
+```
+
+It applies every migration to a scratch in-memory database, then compares each
+manifest's table against the result and prints every difference:
+
+```txt
+schemas/task.schema.json (table 'tasks'):
+  - column 'due' (INTEGER) is in the schema but no migration creates it
+
+1 difference(s) between schemas and migrations
+```
+
+It touches no real database, exits `1` on any difference, and also fails if the
+migrations don't apply cleanly from an empty database, so it belongs in CI
+(the todo example has a ctest for it). `--schema` can be repeated.
+
+What is compared mirrors what Persist's SQLite backend actually creates:
+column names, types (`int`→`INTEGER`, `string`/`uuid`→`TEXT`, `blob`→`BLOB`) and
+the primary key. Column **order** is ignored, because `ALTER TABLE ADD COLUMN`
+always appends. `size`, `required` and `unique` are ignored too, since Persist
+emits no constraints for them. If Persist starts emitting constraints, this
+check needs to learn them.
+
+---
+
 # How a Database Knows Its Version
 
 `up` maintains a ledger table, `bb_schema_migrations`, with one row per applied
@@ -123,6 +155,7 @@ SQLite driver
 |---------|----------------------------|--------------------|
 | Source  | file names, contents, hash | databases, ledger  |
 | Planner | versions and checksums     | files, databases   |
+| Table spec | manifest columns, diffing | databases, migrations |
 | Runner  | the order of operations    | SQL, any database  |
 | Driver  | one database engine        | what a plan is     |
 
@@ -160,6 +193,7 @@ Left out on purpose so step 1 stays small. The seams for each already exist:
   (the project builds on Windows too).
 - **Out-of-order opt-in** (`--allow-out-of-order`) for teams merging branches.
 - **Generating migrations** from a change to a `persist.schema` manifest, as a
-  new `bb-codegen` generator kind that writes a numbered `.sql` file.
+  new `bb-codegen` generator kind that writes a numbered `.sql` file. `verify`
+  already detects the drift; this would fix it for you.
 - **Library API / run on app startup.** The core is already a library
   (`bb_migrate_core`); it just isn't a public module yet.
