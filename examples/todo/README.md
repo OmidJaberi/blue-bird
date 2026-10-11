@@ -120,8 +120,15 @@ numbered file:
 
 `0001_create_tasks.sql` uses `CREATE TABLE IF NOT EXISTS` so it also adopts a
 `todo_sqlite.db` that Persist already created. When you change
-`schemas/task.schema.json`, add the matching migration yourself and keep the
-two in sync -- nothing checks that yet.
+`schemas/task.schema.json`, add the matching migration yourself. `ctest`
+runs `bb-migrate verify` (test `examples.todo_migrations_match_schema`), which
+fails if the manifest and the migrations disagree. You can run it directly:
+
+```bash
+./build/tools/migrate/bb-migrate verify \
+    --schema examples/todo/schemas/task.schema.json \
+    examples/todo/migrations/*.sql
+```
 
 ## Known limitation
 
