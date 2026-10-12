@@ -14,11 +14,12 @@
  * bb_migrate_driver_t.
  * --------------------------- */
 
-/* Reads the ledger and plans against `source`. Read-only: never creates
+/* Reads the ledger and plans against `source` (`opts` may be NULL). Read-only: never creates
  * the ledger or changes the database. The caller frees the plan, and
  * `source` must outlive it. */
 int bb_migrate_plan_for(bb_migrate_driver_t *drv,
                         const bb_migration_set_t *source,
+                        const bb_migrate_options_t *opts,
                         bb_migrate_plan_t *out, bb_migrate_err_t *err);
 
 /* Called after each migration commits. Optional. */
@@ -37,6 +38,7 @@ typedef void (*bb_migrate_progress_cb)(const bb_migration_t *m, void *user);
  * failure. */
 int bb_migrate_up(bb_migrate_driver_t *drv,
                   const bb_migration_set_t *source,
+                  const bb_migrate_options_t *opts,
                   bb_migrate_progress_cb on_applied, void *user,
                   size_t *applied_count, bb_migrate_err_t *err);
 

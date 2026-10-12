@@ -14,8 +14,8 @@ static void print_usage(const char *argv0)
 {
     fprintf(stderr,
         "usage:\n"
-        "  %s status --db <database> <migration.sql> [migration2.sql ...]\n"
-        "  %s up     --db <database> <migration.sql> [migration2.sql ...]\n"
+        "  %s status --db <database> [--allow-out-of-order] <migration.sql> [...]\n"
+        "  %s up     --db <database> [--allow-out-of-order] <migration.sql> [...]\n"
         "  %s verify --schema <manifest.json> [--schema ...] <migration.sql> [...]\n"
         "\n"
         "  status   lists every migration and whether it is applied, pending,\n"
@@ -26,6 +26,11 @@ static void print_usage(const char *argv0)
         "           checks that each persist.schema manifest's table matches the\n"
         "           result (columns, types, primary key). Touches no real\n"
         "           database. Exits 1 on any difference. Meant for CI.\n"
+        "\n"
+        "  --allow-out-of-order  apply a migration whose version is older than the\n"
+        "           latest applied one (e.g. a branch merged late) instead of\n"
+        "           treating it as a problem. It runs against a schema that already\n"
+        "           has the newer migrations, so make sure it is compatible.\n"
         "\n"
         "Migration files are named <version>_<name>.sql (e.g. 0002_add_email.sql).\n"
         "Pass them by expanding the glob yourself, e.g.:\n"
@@ -47,12 +52,13 @@ static void on_diff(const char *message, void *user)
     printf("  - %s\n", message);
 }
 
-static int cmd_status(bb_migrate_driver_t *drv, const bb_migration_set_t *set)
+static int cmd_status(bb_migrate_driver_t *drv, const bb_migration_set_t *set,
+                      const bb_migrate_options_t *opts)
 {
     bb_migrate_err_t err;
     bb_migrate_plan_t plan;
 
-    if (bb_migrate_plan_for(drv, set, &plan, &err) != 0)
+    if (bb_migrate_plan_for(drv, set, opts, &plan, &err) != 0)
     {
         fprintf(stderr, "bb-migrate: %s\n", err.msg);
         return 1;
@@ -64,8 +70,9 @@ static int cmd_status(bb_migrate_driver_t *drv, const bb_migration_set_t *set)
     {
         const bb_migrate_entry_t *e = &plan.entries[i];
 
-        printf("%-10lld %-13s %s\n", (long long)e->version,
-               bb_migrate_state_name(e->state), e->name);
+        printf("%-10lld %-13s %s%s\n", (long long)e->version,
+               bb_migrate_state_name(e->state), e->name,
+               (e->late && e->state == BB_MIGRATE_STATE_PENDING) ? "  (out of order)" : "");
     }
 
     printf("\n%zu pending, %zu problem(s)\n", plan.pending_count, plan.problem_count);
@@ -75,12 +82,13 @@ static int cmd_status(bb_migrate_driver_t *drv, const bb_migration_set_t *set)
     return rc;
 }
 
-static int cmd_up(bb_migrate_driver_t *drv, const bb_migration_set_t *set)
+static int cmd_up(bb_migrate_driver_t *drv, const bb_migration_set_t *set,
+                  const bb_migrate_options_t *opts)
 {
     bb_migrate_err_t err;
     size_t applied = 0;
 
-    int rc = bb_migrate_up(drv, set, on_applied, NULL, &applied, &err);
+    int rc = bb_migrate_up(drv, set, opts, on_applied, NULL, &applied, &err);
 
     if (rc != 0)
     {
@@ -115,7 +123,7 @@ static int cmd_verify(const char *const *schemas, size_t schema_count,
     int rc = 1;
     size_t total = 0;
 
-    if (bb_migrate_up(scratch, set, NULL, NULL, NULL, &err) != 0)
+    if (bb_migrate_up(scratch, set, NULL, NULL, NULL, NULL, &err) != 0)
     {
         fprintf(stderr, "bb-migrate: migrations do not apply cleanly to an empty database: %s\n",
                 err.msg);
@@ -232,8 +240,24 @@ int main(int argc, char **argv)
     }
 
     const char *db_path = argv[3];
-    const char *const *files = (const char *const *)&argv[4];
-    size_t file_count = (size_t)(argc - 4);
+    bb_migrate_options_t opts = { 0 };
+    int first_file = 4;
+
+    while (first_file < argc && strcmp(argv[first_file], "--allow-out-of-order") == 0)
+    {
+        opts.allow_out_of_order = 1;
+        first_file++;
+    }
+
+    if (first_file >= argc)
+    {
+        fprintf(stderr, "bb-migrate: no migration files given\n\n");
+        print_usage(argv[0]);
+        return 2;
+    }
+
+    const char *const *files = (const char *const *)&argv[first_file];
+    size_t file_count = (size_t)(argc - first_file);
 
     bb_migrate_err_t err;
     bb_migration_set_t set;
@@ -253,7 +277,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int rc = is_up ? cmd_up(drv, &set) : cmd_status(drv, &set);
+    int rc = is_up ? cmd_up(drv, &set, &opts) : cmd_status(drv, &set, &opts);
 
     bb_migrate_driver_close(drv);
     bb_migration_set_free(&set);

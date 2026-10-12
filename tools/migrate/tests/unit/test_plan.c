@@ -31,7 +31,7 @@ static void test_empty(void)
     bb_migrate_applied_set_t app = { NULL, 0 };
     bb_migrate_plan_t plan;
 
-    BB_ASSERT(bb_migrate_plan_build(&src, &app, &plan, NULL) == 0);
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, NULL) == 0);
     BB_ASSERT(plan.count == 0 && plan.pending_count == 0 && plan.problem_count == 0);
     BB_ASSERT(bb_migrate_plan_first_problem(&plan) == NULL);
     bb_migrate_plan_free(&plan);
@@ -49,7 +49,7 @@ static void test_fresh_database_all_pending(void)
     bb_migrate_applied_set_t app = { NULL, 0 };
     bb_migrate_plan_t plan;
 
-    BB_ASSERT(bb_migrate_plan_build(&src, &app, &plan, NULL) == 0);
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, NULL) == 0);
     BB_ASSERT(plan.count == 2 && plan.pending_count == 2 && plan.problem_count == 0);
     BB_ASSERT(plan.entries[0].state == BB_MIGRATE_STATE_PENDING);
     BB_ASSERT(plan.entries[0].migration == &m[0]);
@@ -74,7 +74,7 @@ static void test_partially_applied(void)
     bb_migrate_applied_set_t app = { a, 2 };
     bb_migrate_plan_t plan;
 
-    BB_ASSERT(bb_migrate_plan_build(&src, &app, &plan, NULL) == 0);
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, NULL) == 0);
     BB_ASSERT(plan.entries[0].state == BB_MIGRATE_STATE_APPLIED);
     BB_ASSERT(plan.entries[1].state == BB_MIGRATE_STATE_APPLIED);
     BB_ASSERT(plan.entries[2].state == BB_MIGRATE_STATE_PENDING);
@@ -97,7 +97,7 @@ static void test_modified(void)
     bb_migrate_applied_set_t app = { a, 1 };
     bb_migrate_plan_t plan;
 
-    BB_ASSERT(bb_migrate_plan_build(&src, &app, &plan, NULL) == 0);
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, NULL) == 0);
     BB_ASSERT(plan.entries[0].state == BB_MIGRATE_STATE_MODIFIED);
     BB_ASSERT(plan.problem_count == 1 && plan.pending_count == 1);
     BB_ASSERT(bb_migrate_plan_first_problem(&plan) == &plan.entries[0]);
@@ -119,7 +119,7 @@ static void test_missing(void)
     bb_migrate_applied_set_t app = { a, 2 };
     bb_migrate_plan_t plan;
 
-    BB_ASSERT(bb_migrate_plan_build(&src, &app, &plan, NULL) == 0);
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, NULL) == 0);
     BB_ASSERT(plan.entries[0].state == BB_MIGRATE_STATE_MISSING);
     BB_ASSERT(plan.entries[0].migration == NULL);
     BB_ASSERT(strcmp(plan.entries[0].name, "gone") == 0);
@@ -144,10 +144,50 @@ static void test_out_of_order(void)
     bb_migrate_applied_set_t app = { a, 2 };
     bb_migrate_plan_t plan;
 
-    BB_ASSERT(bb_migrate_plan_build(&src, &app, &plan, NULL) == 0);
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, NULL) == 0);
     BB_ASSERT(plan.entries[1].version == 2);
     BB_ASSERT(plan.entries[1].state == BB_MIGRATE_STATE_OUT_OF_ORDER);
     BB_ASSERT(plan.pending_count == 0 && plan.problem_count == 1);
+    bb_migrate_plan_free(&plan);
+}
+
+static void test_out_of_order_allowed(void)
+{
+    printf("\tTesting allow_out_of_order turns a late migration into pending...\n");
+
+    bb_migration_t m[3];
+    set_migration(&m[0], 1, "a", "h1");
+    set_migration(&m[1], 2, "late", "h2");
+    set_migration(&m[2], 3, "c", "h3");
+
+    bb_migrate_applied_t a[2];
+    set_applied(&a[0], 1, "a", "h1");
+    set_applied(&a[1], 3, "c", "h3");
+
+    bb_migration_set_t src = { m, 3 };
+    bb_migrate_applied_set_t app = { a, 2 };
+    bb_migrate_options_t opts = { 1 };
+    bb_migrate_plan_t plan;
+
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, &opts, &plan, NULL) == 0);
+    BB_ASSERT(plan.entries[1].state == BB_MIGRATE_STATE_PENDING);
+    BB_ASSERT(plan.entries[1].late == 1);
+    BB_ASSERT(plan.pending_count == 1 && plan.problem_count == 0);
+    BB_ASSERT(plan.entries[0].late == 0 && plan.entries[2].late == 0);
+    bb_migrate_plan_free(&plan);
+
+    /* Same input, default options: still a problem, and still marked late. */
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, NULL) == 0);
+    BB_ASSERT(plan.entries[1].state == BB_MIGRATE_STATE_OUT_OF_ORDER);
+    BB_ASSERT(plan.entries[1].late == 1);
+    BB_ASSERT(plan.problem_count == 1);
+    bb_migrate_plan_free(&plan);
+
+    /* The option does not excuse a modified migration. */
+    set_migration(&m[0], 1, "a", "CHANGED");
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, &opts, &plan, NULL) == 0);
+    BB_ASSERT(plan.entries[0].state == BB_MIGRATE_STATE_MODIFIED);
+    BB_ASSERT(plan.problem_count == 1);
     bb_migrate_plan_free(&plan);
 }
 
@@ -164,7 +204,7 @@ static void test_unsorted_input_rejected(void)
     bb_migrate_plan_t plan;
     bb_migrate_err_t err;
 
-    BB_ASSERT(bb_migrate_plan_build(&src, &app, &plan, &err) != 0);
+    BB_ASSERT(bb_migrate_plan_build(&src, &app, NULL, &plan, &err) != 0);
     BB_ASSERT(err.msg[0] != '\0');
 }
 
@@ -190,6 +230,7 @@ int main(void)
     test_modified();
     test_missing();
     test_out_of_order();
+    test_out_of_order_allowed();
     test_unsorted_input_rejected();
     test_state_names();
 

@@ -107,7 +107,7 @@ static void test_status_is_read_only(void)
     bb_migrate_plan_t plan;
     bb_migrate_err_t err;
 
-    BB_ASSERT(bb_migrate_plan_for(d, &set, &plan, &err) == 0);
+    BB_ASSERT(bb_migrate_plan_for(d, &set, NULL, &plan, &err) == 0);
     BB_ASSERT(plan.pending_count == 2 && plan.problem_count == 0);
     bb_migrate_plan_free(&plan);
     bb_migrate_driver_close(d);
@@ -130,7 +130,7 @@ static void test_up_applies_and_is_idempotent(void)
     bb_migrate_err_t err;
     size_t applied = 99;
 
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, &applied, &err) == 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &applied, &err) == 0);
     BB_ASSERT(applied == 2);
     BB_ASSERT(table_exists("users") == 1);
     BB_ASSERT(table_exists("posts") == 1);
@@ -142,13 +142,13 @@ static void test_up_applies_and_is_idempotent(void)
     BB_ASSERT(scalar("SELECT MAX(version) FROM bb_schema_migrations") == 2);
 
     /* Second run, same driver. */
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, &applied, &err) == 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &applied, &err) == 0);
     BB_ASSERT(applied == 0);
     bb_migrate_driver_close(d);
 
     /* Third run, brand-new connection: state lives in the database. */
     d = open_driver();
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, &applied, &err) == 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &applied, &err) == 0);
     BB_ASSERT(applied == 0);
     BB_ASSERT(ledger_rows() == 2);
     bb_migrate_driver_close(d);
@@ -181,7 +181,7 @@ static void test_version_upgrade_applies_only_new(void)
     size_t applied = 0;
     int progress = 0;
 
-    BB_ASSERT(bb_migrate_up(d, &set, count_progress, &progress, &applied, &err) == 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, count_progress, &progress, &applied, &err) == 0);
     BB_ASSERT(applied == 1);
     BB_ASSERT(progress == 1);
     BB_ASSERT(scalar("SELECT COUNT(*) FROM users") == 1);
@@ -219,7 +219,7 @@ static void test_failed_migration_rolls_back(void)
     bb_migrate_err_t err;
     size_t applied = 99;
 
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, &applied, &err) != 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &applied, &err) != 0);
     BB_ASSERT(applied == 0);
     BB_ASSERT(strstr(err.msg, "migration 4 (broken) failed") != NULL);
     BB_ASSERT(strstr(err.msg, "table_that_does_not_exist") != NULL);
@@ -252,7 +252,7 @@ static void test_fix_and_rerun_recovers(void)
     bb_migrate_err_t err;
     size_t applied = 0;
 
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, &applied, &err) == 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &applied, &err) == 0);
     BB_ASSERT(applied == 2);
     BB_ASSERT(table_exists("half_done") == 1);
     BB_ASSERT(table_exists("should_not_exist") == 1);
@@ -281,7 +281,7 @@ static void test_modified_migration_blocks_up(void)
     bb_migrate_err_t err;
     size_t applied = 99;
 
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, &applied, &err) != 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &applied, &err) != 0);
     BB_ASSERT(applied == 0);
     BB_ASSERT(strstr(err.msg, "refusing to migrate") != NULL);
     BB_ASSERT(strstr(err.msg, "migration 1 (create_users) was modified") != NULL);
@@ -291,7 +291,7 @@ static void test_modified_migration_blocks_up(void)
     BB_ASSERT(ledger_rows() == 5);
 
     bb_migrate_plan_t plan;
-    BB_ASSERT(bb_migrate_plan_for(d, &set, &plan, &err) == 0);
+    BB_ASSERT(bb_migrate_plan_for(d, &set, NULL, &plan, &err) == 0);
     BB_ASSERT(plan.entries[0].state == BB_MIGRATE_STATE_MODIFIED);
     BB_ASSERT(plan.problem_count == 1 && plan.pending_count == 1);
     bb_migrate_plan_free(&plan);
@@ -317,7 +317,7 @@ static void test_missing_file_blocks_up(void)
     bb_migrate_err_t err;
     size_t applied = 99;
 
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, &applied, &err) != 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &applied, &err) != 0);
     BB_ASSERT(applied == 0);
     BB_ASSERT(strstr(err.msg, "file was not provided") != NULL);
     BB_ASSERT(strstr(err.msg, "more problem") != NULL); /* 2..5 are missing too */

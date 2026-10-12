@@ -46,7 +46,7 @@ static bb_migrate_driver_t *scratch_with(const char *const *paths, size_t n)
     BB_ASSERT(bb_migrate_load_files(paths, n, &set, &err) == 0);
 
     bb_migrate_driver_t *d = scratch();
-    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, &err) == 0);
+    BB_ASSERT(bb_migrate_up(d, &set, NULL, NULL, NULL, NULL, &err) == 0);
 
     bb_migration_set_free(&set);
     return d;

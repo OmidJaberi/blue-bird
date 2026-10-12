@@ -9,6 +9,7 @@ static int fail_from_driver(const bb_migrate_driver_t *drv,
 
 int bb_migrate_plan_for(bb_migrate_driver_t *drv,
                         const bb_migration_set_t *source,
+                        const bb_migrate_options_t *opts,
                         bb_migrate_plan_t *out, bb_migrate_err_t *err)
 {
     if (!drv || !source || !out)
@@ -23,7 +24,7 @@ int bb_migrate_plan_for(bb_migrate_driver_t *drv,
         return fail_from_driver(drv, err, "reading migration ledger");
 
     /* Plan entries copy what they need from `applied`, so it can go. */
-    int rc = bb_migrate_plan_build(source, &applied, out, err);
+    int rc = bb_migrate_plan_build(source, &applied, opts, out, err);
     bb_migrate_applied_set_free(&applied);
     return rc;
 }
@@ -46,7 +47,7 @@ static void describe_problem(const bb_migrate_plan_t *plan, bb_migrate_err_t *er
             what = "was applied, but its file was not provided";
             break;
         case BB_MIGRATE_STATE_OUT_OF_ORDER:
-            what = "is older than the latest applied migration but was never applied";
+            what = "is older than the latest applied migration but was never applied (pass --allow-out-of-order to apply it)";
             break;
         default:
             break;
@@ -101,6 +102,7 @@ static int apply_one(bb_migrate_driver_t *drv, const bb_migration_t *m,
 
 int bb_migrate_up(bb_migrate_driver_t *drv,
                   const bb_migration_set_t *source,
+                  const bb_migrate_options_t *opts,
                   bb_migrate_progress_cb on_applied, void *user,
                   size_t *applied_count, bb_migrate_err_t *err)
 {
@@ -118,7 +120,7 @@ int bb_migrate_up(bb_migrate_driver_t *drv,
 
     bb_migrate_plan_t plan;
 
-    if (bb_migrate_plan_for(drv, source, &plan, err) != 0)
+    if (bb_migrate_plan_for(drv, source, opts, &plan, err) != 0)
         return -1;
 
     if (plan.problem_count > 0)

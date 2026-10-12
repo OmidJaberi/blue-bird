@@ -25,7 +25,7 @@ int bb_migrate_state_is_problem(bb_migrate_state_t state)
 }
 
 static void add_entry(bb_migrate_plan_t *plan, int64_t version, const char *name,
-                      bb_migrate_state_t state, const bb_migration_t *migration)
+                      bb_migrate_state_t state, const bb_migration_t *migration, int late)
 {
     bb_migrate_entry_t *e = &plan->entries[plan->count++];
 
@@ -34,6 +34,7 @@ static void add_entry(bb_migrate_plan_t *plan, int64_t version, const char *name
     e->name[sizeof e->name - 1] = '\0';
     e->state = state;
     e->migration = migration;
+    e->late = late;
 
     if (state == BB_MIGRATE_STATE_PENDING)
         plan->pending_count++;
@@ -43,6 +44,7 @@ static void add_entry(bb_migrate_plan_t *plan, int64_t version, const char *name
 
 int bb_migrate_plan_build(const bb_migration_set_t *source,
                           const bb_migrate_applied_set_t *applied,
+                          const bb_migrate_options_t *opts,
                           bb_migrate_plan_t *out, bb_migrate_err_t *err)
 {
     if (!source || !applied || !out)
@@ -84,6 +86,8 @@ int bb_migrate_plan_build(const bb_migration_set_t *source,
         return -1;
     }
 
+    int allow_late = opts && opts->allow_out_of_order;
+
     int64_t latest_applied = applied->count > 0
         ? applied->items[applied->count - 1].version
         : -1;
@@ -100,17 +104,18 @@ int bb_migrate_plan_build(const bb_migration_set_t *source,
         if (s && (!a || s->version < a->version))
         {
             /* On disk, never applied. */
-            bb_migrate_state_t state = s->version < latest_applied
+            int late = s->version < latest_applied;
+            bb_migrate_state_t state = (late && !allow_late)
                 ? BB_MIGRATE_STATE_OUT_OF_ORDER
                 : BB_MIGRATE_STATE_PENDING;
 
-            add_entry(out, s->version, s->name, state, s);
+            add_entry(out, s->version, s->name, state, s, late);
             i++;
         }
         else if (a && (!s || a->version < s->version))
         {
             /* Applied, but no file for it. */
-            add_entry(out, a->version, a->name, BB_MIGRATE_STATE_MISSING, NULL);
+            add_entry(out, a->version, a->name, BB_MIGRATE_STATE_MISSING, NULL, 0);
             j++;
         }
         else
@@ -119,7 +124,7 @@ int bb_migrate_plan_build(const bb_migration_set_t *source,
                 ? BB_MIGRATE_STATE_APPLIED
                 : BB_MIGRATE_STATE_MODIFIED;
 
-            add_entry(out, s->version, s->name, state, s);
+            add_entry(out, s->version, s->name, state, s, 0);
             i++;
             j++;
         }

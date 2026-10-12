@@ -20,8 +20,13 @@
  *   MISSING        in the ledger only: an applied       PROBLEM
  *                  migration's file isn't in the input.
  *   OUT_OF_ORDER   on disk only, but OLDER than the     PROBLEM
- *                  latest applied version (e.g. a
+ *                  latest applied version (e.g. a      (unless allowed)
  *                  branch merged late).
+ *
+ * With options.allow_out_of_order, a late migration is PENDING instead
+ * (it will be applied) but its entry keeps `late` set, so `status` can
+ * still say so. Note the late migration then runs against a schema that
+ * already contains the newer ones; its author is responsible for that.
  *
  * The runner refuses to apply anything while a PROBLEM exists. That is
  * the whole point of the ledger: history is append-only, and the tool
@@ -37,9 +42,19 @@ typedef enum {
 } bb_migrate_state_t;
 
 typedef struct {
+    /* Apply migrations that are older than the latest applied one
+     * instead of treating them as a problem. Default: 0. */
+    int allow_out_of_order;
+} bb_migrate_options_t;
+
+typedef struct {
     int64_t version;
     char name[BB_MIGRATE_NAME_MAX];
     bb_migrate_state_t state;
+
+    /* 1 if this migration is older than the latest applied version and
+     * was never applied, whether or not that is allowed. */
+    int late;
 
     /* The source migration, or NULL for MISSING. Points into the
      * bb_migration_set_t the plan was built from, which must outlive
@@ -55,9 +70,11 @@ typedef struct {
 } bb_migrate_plan_t;
 
 /* Both inputs must be sorted by strictly ascending version (the loader
- * and drivers guarantee this); otherwise returns -1. */
+ * and drivers guarantee this); otherwise returns -1. `opts` may be NULL
+ * for the defaults. */
 int bb_migrate_plan_build(const bb_migration_set_t *source,
                           const bb_migrate_applied_set_t *applied,
+                          const bb_migrate_options_t *opts,
                           bb_migrate_plan_t *out, bb_migrate_err_t *err);
 
 void bb_migrate_plan_free(bb_migrate_plan_t *plan);
