@@ -47,6 +47,9 @@ bb-migrate status --db app.db migrations/*.sql
 bb-migrate up     --db app.db migrations/*.sql
 ```
 
+Both accept `--allow-out-of-order` after the database path (see
+[Safety Rules](#safety-rules)).
+
 As with `bb-codegen`, the shell expands the glob; the tool does no directory
 scanning of its own. Always pass the **complete** set of files.
 
@@ -130,6 +133,21 @@ run while any of these exist:
 The fix for `MODIFIED` is to leave the old file alone and add a new migration.
 The tool never guesses.
 
+**Late merges.** Two branches each add a migration; one ships and is applied,
+then the other is merged with an *older* version number. By default that is
+`OUT-OF-ORDER` and blocks `up`. If you know it is safe, opt in per run:
+
+```bash
+bb-migrate status --db app.db --allow-out-of-order migrations/*.sql
+bb-migrate up     --db app.db --allow-out-of-order migrations/*.sql
+```
+
+The late migration is then treated as pending (`status` still marks it
+`(out of order)`) and runs after the newer ones. It executes against a schema
+that already contains them, so its author has to make sure it still works
+there. The option does not relax `MODIFIED` or `MISSING`, and once the late
+migration is applied you don't need the flag again.
+
 ---
 
 # Architecture
@@ -190,8 +208,8 @@ Left out on purpose so step 1 stays small. The seams for each already exist:
   DDL (e.g. MySQL) can't give the same per-migration atomicity — the driver
   should document what it can guarantee.
 - **Directory scanning (`--dir`).** Needs a portable directory-listing helper
-  (the project builds on Windows too).
-- **Out-of-order opt-in** (`--allow-out-of-order`) for teams merging branches.
+  (POSIX `opendir` and Windows `FindFirstFile`). The project has none yet, and
+  the Windows half should be built and tested on Windows before merging.
 - **Generating migrations** from a change to a `persist.schema` manifest, as a
   new `bb-codegen` generator kind that writes a numbered `.sql` file. `verify`
   already detects the drift; this would fix it for you.
