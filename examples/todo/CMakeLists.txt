@@ -61,15 +61,12 @@ if(BUILD_TOOLS)
         # Migrations must reproduce the table Persist expects from the
         # manifest. Fails if task.schema.json changed without a matching
         # migration (or the reverse). See docs/tools/migrate.md.
-        file(GLOB TODO_MIGRATIONS CONFIGURE_DEPENDS
-            ${CMAKE_CURRENT_SOURCE_DIR}/migrations/*.sql)
-
         add_test(
             NAME "examples.todo_migrations_match_schema"
             COMMAND
                 $<TARGET_FILE:bb-migrate> verify
                     --schema ${CMAKE_CURRENT_SOURCE_DIR}/schemas/task.schema.json
-                    ${TODO_MIGRATIONS}
+                    --dir ${CMAKE_CURRENT_SOURCE_DIR}/migrations
         )
     endif()
 endif()

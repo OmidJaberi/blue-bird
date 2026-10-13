@@ -48,6 +48,26 @@ int bb_migrate_parse_filename(const char *path, int64_t *version,
 void bb_migrate_checksum(const char *data, size_t len,
                          char out[BB_MIGRATE_CHECKSUM_LEN + 1]);
 
+/* Builds the list of migration file paths to load from a directory
+ * and/or explicit files, so callers don't depend on shell globbing.
+ *
+ *  - `dir` (may be NULL): every entry ending in ".sql" is included, as
+ *    "<dir>/<name>". Other files (README.md, ...) are ignored, EXCEPT an
+ *    entry whose name starts with a digit but doesn't end in ".sql"
+ *    (e.g. "0003_add_index.SQL"): that is almost certainly a migration
+ *    that would otherwise be silently skipped, so it is an error.
+ *  - `files` are appended as given.
+ *
+ * If `dir` is given and yields no .sql files and `files` is empty, that
+ * is an error too (a mistyped directory shouldn't look like "nothing to
+ * do"). The result is owned by the caller: bb_migrate_paths_free(). */
+int bb_migrate_collect_paths(const char *dir,
+                             const char *const *files, size_t file_count,
+                             char ***out_paths, size_t *out_count,
+                             bb_migrate_err_t *err);
+
+void bb_migrate_paths_free(char **paths, size_t count);
+
 /* Loads every file, sorts by version, rejects duplicate versions.
  * `paths` order doesn't matter (shell globs sort by locale; we sort by
  * number). On success the caller owns `out` and must call

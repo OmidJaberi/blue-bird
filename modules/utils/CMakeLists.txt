@@ -7,6 +7,7 @@ add_library(bluebird_utils
     src/platform.c
     src/encoding.c
     src/bb_config.c
+    src/dir.c
 )
 
 target_include_directories(bluebird_utils

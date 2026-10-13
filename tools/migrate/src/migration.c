@@ -1,5 +1,6 @@
 #include "migration.h"
 
+#include <blue-bird/utils/dir.h>
 #include <blue-bird/utils/hash.h>
 
 #include <stdint.h>
@@ -144,6 +145,144 @@ void bb_migrate_checksum(const char *data, size_t len,
     }
 
     out[BB_MIGRATE_CHECKSUM_LEN] = '\0';
+}
+
+/* ---------------------------
+ * Collecting paths (--dir)
+ * --------------------------- */
+
+static char *dup_string(const char *s, size_t extra)
+{
+    size_t len = strlen(s);
+    char *copy = malloc(len + extra + 1);
+
+    if (copy)
+        memcpy(copy, s, len + 1);
+
+    return copy;
+}
+
+static int has_sql_suffix(const char *name)
+{
+    size_t len = strlen(name);
+
+    return len > 4 && strcmp(name + len - 4, ".sql") == 0;
+}
+
+void bb_migrate_paths_free(char **paths, size_t count)
+{
+    if (!paths)
+        return;
+
+    for (size_t i = 0; i < count; i++)
+        free(paths[i]);
+
+    free(paths);
+}
+
+int bb_migrate_collect_paths(const char *dir,
+                             const char *const *files, size_t file_count,
+                             char ***out_paths, size_t *out_count,
+                             bb_migrate_err_t *err)
+{
+    if (!out_paths || !out_count || (file_count > 0 && !files))
+    {
+        bb_migrate_err_set(err, "invalid arguments");
+        return -1;
+    }
+
+    *out_paths = NULL;
+    *out_count = 0;
+
+    char **names = NULL;
+    size_t name_count = 0;
+
+    if (dir && bb_dir_list(dir, &names, &name_count) != 0)
+    {
+        bb_migrate_err_set(err, "cannot read directory '%s'", dir);
+        return -1;
+    }
+
+    char **paths = calloc(name_count + file_count + 1, sizeof *paths);
+    size_t count = 0;
+
+    if (!paths)
+    {
+        bb_dir_list_free(names, name_count);
+        bb_migrate_err_set(err, "out of memory");
+        return -1;
+    }
+
+    if (dir)
+    {
+        size_t dir_len = strlen(dir);
+        int has_sep = dir_len > 0 && (dir[dir_len - 1] == '/' || dir[dir_len - 1] == '\\');
+
+        for (size_t i = 0; i < name_count; i++)
+        {
+            const char *name = names[i];
+
+            if (!has_sql_suffix(name))
+            {
+                if (name[0] >= '0' && name[0] <= '9')
+                {
+                    bb_migrate_err_set(err,
+                        "'%s' in '%s' looks like a migration but does not end in .sql",
+                        name, dir);
+                    goto fail;
+                }
+
+                continue;
+            }
+
+            size_t name_len = strlen(name);
+            char *path = malloc(dir_len + 1 + name_len + 1);
+
+            if (!path)
+            {
+                bb_migrate_err_set(err, "out of memory");
+                goto fail;
+            }
+
+            memcpy(path, dir, dir_len);
+            path[dir_len] = '\0';
+
+            if (!has_sep)
+                strcat(path, "/");
+
+            strcat(path, name);
+            paths[count++] = path;
+        }
+
+        if (count == 0 && file_count == 0)
+        {
+            bb_migrate_err_set(err, "no .sql migration files found in '%s'", dir);
+            goto fail;
+        }
+    }
+
+    for (size_t i = 0; i < file_count; i++)
+    {
+        paths[count] = dup_string(files[i], 0);
+
+        if (!paths[count])
+        {
+            bb_migrate_err_set(err, "out of memory");
+            goto fail;
+        }
+
+        count++;
+    }
+
+    bb_dir_list_free(names, name_count);
+    *out_paths = paths;
+    *out_count = count;
+    return 0;
+
+fail:
+    bb_migrate_paths_free(paths, count);
+    bb_dir_list_free(names, name_count);
+    return -1;
 }
 
 /* ---------------------------
