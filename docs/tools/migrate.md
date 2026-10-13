@@ -43,15 +43,24 @@ ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'open';
 # Using It
 
 ```bash
-bb-migrate status --db app.db migrations/*.sql
-bb-migrate up     --db app.db migrations/*.sql
+bb-migrate status --db app.db --dir migrations
+bb-migrate up     --db app.db --dir migrations
 ```
 
-Both accept `--allow-out-of-order` after the database path (see
-[Safety Rules](#safety-rules)).
+`--dir` uses every `*.sql` file in the directory. You can instead list files
+(or let the shell expand a glob, as with `bb-codegen`), or combine both: explicit
+files are added to the directory's. Options can come in any order. Always
+provide the **complete** set of migrations.
 
-As with `bb-codegen`, the shell expands the glob; the tool does no directory
-scanning of its own. Always pass the **complete** set of files.
+Files in the directory that aren't `.sql` (a `README.md`, a `.gitkeep`) are
+ignored, with one exception: a name that starts with a digit but doesn't end in
+`.sql` (say `0003_add_index.SQL`) is an error. It is almost certainly a
+migration, and silently skipping it is the worst outcome. A directory with no
+`.sql` files at all is also an error, so a mistyped path can't look like
+"nothing to do".
+
+`status` and `up` also accept `--allow-out-of-order` (see
+[Safety Rules](#safety-rules)).
 
 `status` is read-only and works on any database, including a brand-new one:
 
@@ -77,7 +86,7 @@ Persist builds a table from a `persist.schema` manifest; migrations evolve it.
 Nothing ties the two together except discipline, so `verify` does:
 
 ```bash
-bb-migrate verify --schema schemas/task.schema.json migrations/*.sql
+bb-migrate verify --schema schemas/task.schema.json --dir migrations
 ```
 
 It applies every migration to a scratch in-memory database, then compares each
@@ -138,8 +147,8 @@ then the other is merged with an *older* version number. By default that is
 `OUT-OF-ORDER` and blocks `up`. If you know it is safe, opt in per run:
 
 ```bash
-bb-migrate status --db app.db --allow-out-of-order migrations/*.sql
-bb-migrate up     --db app.db --allow-out-of-order migrations/*.sql
+bb-migrate status --db app.db --dir migrations --allow-out-of-order
+bb-migrate up     --db app.db --dir migrations --allow-out-of-order
 ```
 
 The late migration is then treated as pending (`status` still marks it
@@ -207,9 +216,6 @@ Left out on purpose so step 1 stays small. The seams for each already exist:
 - **Other databases.** Add a driver. Note that databases without transactional
   DDL (e.g. MySQL) can't give the same per-migration atomicity — the driver
   should document what it can guarantee.
-- **Directory scanning (`--dir`).** Needs a portable directory-listing helper
-  (POSIX `opendir` and Windows `FindFirstFile`). The project has none yet, and
-  the Windows half should be built and tested on Windows before merging.
 - **Generating migrations** from a change to a `persist.schema` manifest, as a
   new `bb-codegen` generator kind that writes a numbered `.sql` file. `verify`
   already detects the drift; this would fix it for you.

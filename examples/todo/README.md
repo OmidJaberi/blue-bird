@@ -114,8 +114,8 @@ numbered file:
 
 ```bash
 # from the repository root, after building with BUILD_TOOLS=ON
-./build/tools/migrate/bb-migrate status --db build/examples/todo/todo_sqlite.db examples/todo/migrations/*.sql
-./build/tools/migrate/bb-migrate up     --db build/examples/todo/todo_sqlite.db examples/todo/migrations/*.sql
+./build/tools/migrate/bb-migrate status --db build/examples/todo/todo_sqlite.db --dir examples/todo/migrations
+./build/tools/migrate/bb-migrate up     --db build/examples/todo/todo_sqlite.db --dir examples/todo/migrations
 ```
 
 `0001_create_tasks.sql` uses `CREATE TABLE IF NOT EXISTS` so it also adopts a
@@ -127,7 +127,7 @@ fails if the manifest and the migrations disagree. You can run it directly:
 ```bash
 ./build/tools/migrate/bb-migrate verify \
     --schema examples/todo/schemas/task.schema.json \
-    examples/todo/migrations/*.sql
+    --dir examples/todo/migrations
 ```
 
 ## Known limitation
