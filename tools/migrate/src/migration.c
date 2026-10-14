@@ -182,6 +182,7 @@ void bb_migrate_paths_free(char **paths, size_t count)
 
 int bb_migrate_collect_paths(const char *dir,
                              const char *const *files, size_t file_count,
+                             int allow_empty,
                              char ***out_paths, size_t *out_count,
                              bb_migrate_err_t *err)
 {
@@ -254,7 +255,7 @@ int bb_migrate_collect_paths(const char *dir,
             paths[count++] = path;
         }
 
-        if (count == 0 && file_count == 0)
+        if (count == 0 && file_count == 0 && !allow_empty)
         {
             bb_migrate_err_set(err, "no .sql migration files found in '%s'", dir);
             goto fail;
@@ -451,4 +452,89 @@ void bb_migration_set_free(bb_migration_set_t *set)
     free(set->items);
     set->items = NULL;
     set->count = 0;
+}
+
+/* ---------------------------
+ * Naming new migrations
+ * --------------------------- */
+
+int64_t bb_migrate_next_version(const bb_migration_set_t *set)
+{
+    if (!set || set->count == 0)
+        return 1;
+
+    return set->items[set->count - 1].version + 1; /* set is sorted ascending */
+}
+
+static int digit_count(int64_t v)
+{
+    int n = 1;
+
+    while (v >= 10)
+    {
+        v /= 10;
+        n++;
+    }
+
+    return n;
+}
+
+int bb_migrate_format_filename(const bb_migration_set_t *set, int64_t version,
+                               const char *name, char *out, size_t cap,
+                               bb_migrate_err_t *err)
+{
+    if (!name || !out || cap == 0 || version < 0)
+    {
+        bb_migrate_err_set(err, "invalid arguments");
+        return -1;
+    }
+
+    /* Check the name's characters directly. Round-tripping through the
+     * filename parser below is not enough on its own: that parser only
+     * looks at the final path component, so "x/0005_y" would pass it. */
+    if (name[0] == '\0')
+    {
+        bb_migrate_err_set(err, "migration name must not be empty");
+        return -1;
+    }
+
+    for (const char *p = name; *p; p++)
+    {
+        if (!is_name_char(*p))
+        {
+            bb_migrate_err_set(err,
+                "migration name '%s' may only contain letters, digits, '_' and '-'", name);
+            return -1;
+        }
+    }
+
+    int width = 4;
+
+    if (set && set->count > 0)
+    {
+        int existing = digit_count(set->items[set->count - 1].version);
+
+        if (existing > width)
+            width = existing;
+    }
+
+    char file[BB_MIGRATE_NAME_MAX + 64];
+    int n = snprintf(file, sizeof file, "%0*lld_%s.sql", width, (long long)version, name);
+
+    if (n < 0 || (size_t)n >= sizeof file || (size_t)n >= cap)
+    {
+        bb_migrate_err_set(err, "migration name '%s' is too long", name);
+        return -1;
+    }
+
+    /* Belt and braces: also run the result through the loader's own parser,
+     * which additionally enforces the length limit. */
+    int64_t parsed_version;
+    char parsed_name[BB_MIGRATE_NAME_MAX];
+
+    if (bb_migrate_parse_filename(file, &parsed_version, parsed_name, sizeof parsed_name, err) != 0)
+        return -1;
+
+    memcpy(out, file, (size_t)n + 1);
+    return 0;
 }

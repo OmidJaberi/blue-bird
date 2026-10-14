@@ -61,7 +61,7 @@ static void test_picks_only_sql_files(void)
     size_t count = 0;
     bb_migrate_err_t err;
 
-    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, &paths, &count, &err) == 0);
+    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, 0, &paths, &count, &err) == 0);
     BB_ASSERT(count == 3);
     BB_ASSERT(strcmp(paths[0], DIR_NAME "/0001_a.sql") == 0);
     BB_ASSERT(strcmp(paths[1], DIR_NAME "/0002_b.sql") == 0);
@@ -75,7 +75,7 @@ static void test_picks_only_sql_files(void)
     bb_migrate_paths_free(paths, count);
 
     /* A trailing separator doesn't produce "//". */
-    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME "/", NULL, 0, &paths, &count, &err) == 0);
+    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME "/", NULL, 0, 0, &paths, &count, &err) == 0);
     BB_ASSERT(count == 3 && strcmp(paths[0], DIR_NAME "/0001_a.sql") == 0);
     bb_migrate_paths_free(paths, count);
 
@@ -98,7 +98,7 @@ static void test_dir_plus_explicit_files(void)
     size_t count = 0;
     bb_migrate_err_t err;
 
-    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, files, 1, &paths, &count, &err) == 0);
+    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, files, 1, 0, &paths, &count, &err) == 0);
     BB_ASSERT(count == 2);
     BB_ASSERT(strcmp(paths[0], DIR_NAME "/0001_a.sql") == 0);
     BB_ASSERT(strcmp(paths[1], "somewhere/0009_extra.sql") == 0);
@@ -106,7 +106,7 @@ static void test_dir_plus_explicit_files(void)
     bb_migrate_paths_free(paths, count);
 
     /* No directory at all: just the files. */
-    BB_ASSERT(bb_migrate_collect_paths(NULL, files, 1, &paths, &count, &err) == 0);
+    BB_ASSERT(bb_migrate_collect_paths(NULL, files, 1, 0, &paths, &count, &err) == 0);
     BB_ASSERT(count == 1 && strcmp(paths[0], files[0]) == 0);
     bb_migrate_paths_free(paths, count);
 
@@ -129,7 +129,7 @@ static void test_mistyped_extension_is_an_error(void)
         size_t count = 0;
         bb_migrate_err_t err;
 
-        BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, &paths, &count, &err) != 0);
+        BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, 0, &paths, &count, &err) != 0);
         BB_ASSERT(strstr(err.msg, bad[i]) != NULL);
         BB_ASSERT(strstr(err.msg, "does not end in .sql") != NULL);
         BB_ASSERT(paths == NULL && count == 0);
@@ -149,21 +149,26 @@ static void test_empty_and_missing_directory(void)
     bb_migrate_err_t err;
 
     /* Empty directory and nothing else: refuse, don't pretend "nothing to do". */
-    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, &paths, &count, &err) != 0);
+    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, 0, &paths, &count, &err) != 0);
     BB_ASSERT(strstr(err.msg, "no .sql migration files found") != NULL);
 
     put("README.md", "docs");
-    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, &paths, &count, &err) != 0);
+    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, 0, &paths, &count, &err) != 0);
     BB_ASSERT(strstr(err.msg, "no .sql migration files found") != NULL);
+
+    /* generate needs to start from an empty directory: allow_empty. */
+    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, NULL, 0, 1, &paths, &count, &err) == 0);
+    BB_ASSERT(count == 0);
+    bb_migrate_paths_free(paths, count);
 
     /* ...but explicit files make that acceptable. */
     const char *files[] = { "0001_a.sql" };
-    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, files, 1, &paths, &count, &err) == 0);
+    BB_ASSERT(bb_migrate_collect_paths(DIR_NAME, files, 1, 0, &paths, &count, &err) == 0);
     BB_ASSERT(count == 1);
     bb_migrate_paths_free(paths, count);
     drop("README.md");
 
-    BB_ASSERT(bb_migrate_collect_paths("test_migrate_no_such_dir", NULL, 0, &paths, &count, &err) != 0);
+    BB_ASSERT(bb_migrate_collect_paths("test_migrate_no_such_dir", NULL, 0, 0, &paths, &count, &err) != 0);
     BB_ASSERT(strstr(err.msg, "cannot read directory") != NULL);
 
     bb_migrate_paths_free(NULL, 0); /* NULL-safe */
