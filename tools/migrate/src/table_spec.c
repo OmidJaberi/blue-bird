@@ -148,19 +148,22 @@ static const bb_migrate_column_t *find_column(const bb_migrate_table_spec_t *spe
     return NULL;
 }
 
-size_t bb_migrate_spec_compare(const bb_migrate_table_spec_t *expected,
-                               const bb_migrate_table_spec_t *actual,
-                               bb_migrate_diff_cb on_diff, void *user)
+size_t bb_migrate_spec_diff(const bb_migrate_table_spec_t *expected,
+                            const bb_migrate_table_spec_t *actual,
+                            bb_migrate_diff_visit_cb on_diff, void *user)
 {
-    char msg[BB_MIGRATE_ERR_MAX];
     size_t diffs = 0;
 
-#define REPORT(...) \
-    do { snprintf(msg, sizeof msg, __VA_ARGS__); diffs++; if (on_diff) on_diff(msg, user); } while (0)
+#define EMIT(...) \
+    do { \
+        bb_migrate_diff_t d_ = { __VA_ARGS__ }; \
+        diffs++; \
+        if (on_diff) on_diff(&d_, user); \
+    } while (0)
 
     if (actual->count == 0)
     {
-        REPORT("table '%s' does not exist after applying all migrations", expected->table);
+        EMIT(BB_MIGRATE_DIFF_TABLE_MISSING, expected->table, NULL, NULL, NULL, 0);
         return diffs;
     }
 
@@ -171,33 +174,86 @@ size_t bb_migrate_spec_compare(const bb_migrate_table_spec_t *expected,
 
         if (!a)
         {
-            REPORT("column '%s' (%s) is in the schema but no migration creates it",
-                   e->name, e->type);
+            EMIT(BB_MIGRATE_DIFF_COLUMN_MISSING, expected->table, e->name,
+                 e->type, NULL, e->primary_key);
             continue;
         }
 
         if (strcmp(e->type, a->type) != 0)
         {
-            REPORT("column '%s' is %s in the schema but %s in the database",
-                   e->name, e->type, a->type);
+            EMIT(BB_MIGRATE_DIFF_TYPE_MISMATCH, expected->table, e->name,
+                 e->type, a->type, 0);
         }
 
         if (e->primary_key && !a->primary_key)
-            REPORT("column '%s' is the primary key in the schema but not in the database", e->name);
+            EMIT(BB_MIGRATE_DIFF_PK_MISSING, expected->table, e->name, NULL, NULL, 0);
         else if (!e->primary_key && a->primary_key)
-            REPORT("column '%s' is a primary key in the database but not in the schema", e->name);
+            EMIT(BB_MIGRATE_DIFF_PK_EXTRA, expected->table, e->name, NULL, NULL, 0);
     }
 
     for (size_t i = 0; i < actual->count; i++)
     {
         if (!find_column(expected, actual->columns[i].name))
         {
-            REPORT("column '%s' is in the database but not in the schema",
-                   actual->columns[i].name);
+            EMIT(BB_MIGRATE_DIFF_COLUMN_EXTRA, expected->table, actual->columns[i].name,
+                 NULL, actual->columns[i].type, 0);
         }
     }
 
-#undef REPORT
+#undef EMIT
 
     return diffs;
+}
+
+void bb_migrate_diff_describe(const bb_migrate_diff_t *d, char *buf, size_t cap)
+{
+    switch (d->kind)
+    {
+        case BB_MIGRATE_DIFF_TABLE_MISSING:
+            snprintf(buf, cap, "table '%s' does not exist after applying all migrations", d->table);
+            break;
+        case BB_MIGRATE_DIFF_COLUMN_MISSING:
+            snprintf(buf, cap, "column '%s' (%s) is in the schema but no migration creates it",
+                     d->column, d->expected_type);
+            break;
+        case BB_MIGRATE_DIFF_COLUMN_EXTRA:
+            snprintf(buf, cap, "column '%s' is in the database but not in the schema", d->column);
+            break;
+        case BB_MIGRATE_DIFF_TYPE_MISMATCH:
+            snprintf(buf, cap, "column '%s' is %s in the schema but %s in the database",
+                     d->column, d->expected_type, d->actual_type);
+            break;
+        case BB_MIGRATE_DIFF_PK_MISSING:
+            snprintf(buf, cap, "column '%s' is the primary key in the schema but not in the database",
+                     d->column);
+            break;
+        case BB_MIGRATE_DIFF_PK_EXTRA:
+            snprintf(buf, cap, "column '%s' is a primary key in the database but not in the schema",
+                     d->column);
+            break;
+    }
+}
+
+typedef struct {
+    bb_migrate_diff_cb on_message;
+    void *user;
+} describe_ctx_t;
+
+static void describe_and_forward(const bb_migrate_diff_t *d, void *user)
+{
+    describe_ctx_t *ctx = user;
+    char msg[BB_MIGRATE_ERR_MAX];
+
+    bb_migrate_diff_describe(d, msg, sizeof msg);
+
+    if (ctx->on_message)
+        ctx->on_message(msg, ctx->user);
+}
+
+size_t bb_migrate_spec_compare(const bb_migrate_table_spec_t *expected,
+                               const bb_migrate_table_spec_t *actual,
+                               bb_migrate_diff_cb on_diff, void *user)
+{
+    describe_ctx_t ctx = { on_diff, user };
+    return bb_migrate_spec_diff(expected, actual, describe_and_forward, &ctx);
 }

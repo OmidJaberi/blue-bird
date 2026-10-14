@@ -60,9 +60,11 @@ void bb_migrate_checksum(const char *data, size_t len,
  *
  * If `dir` is given and yields no .sql files and `files` is empty, that
  * is an error too (a mistyped directory shouldn't look like "nothing to
- * do"). The result is owned by the caller: bb_migrate_paths_free(). */
+ * do") unless `allow_empty` is set, which `generate` uses to create the
+ * very first migration in an empty directory. The result is owned by the caller: bb_migrate_paths_free(). */
 int bb_migrate_collect_paths(const char *dir,
                              const char *const *files, size_t file_count,
+                             int allow_empty,
                              char ***out_paths, size_t *out_count,
                              bb_migrate_err_t *err);
 
@@ -76,5 +78,18 @@ int bb_migrate_load_files(const char *const *paths, size_t count,
                           bb_migration_set_t *out, bb_migrate_err_t *err);
 
 void bb_migration_set_free(bb_migration_set_t *set);
+
+/* The version a newly generated migration should get: one more than the
+ * highest in `set` (1 for an empty set). Counter-style numbering. */
+int64_t bb_migrate_next_version(const bb_migration_set_t *set);
+
+/* Writes "<version>_<name>.sql" with the version zero-padded to at least 4
+ * digits (or the digit count of the highest existing version, so a set
+ * numbered 20261009120000_... stays that width). Validates `name` with the
+ * same rules as loading, so a file this produces is always loadable.
+ * Returns 0 or -1 (with `err`). */
+int bb_migrate_format_filename(const bb_migration_set_t *set, int64_t version,
+                               const char *name, char *out, size_t cap,
+                               bb_migrate_err_t *err);
 
 #endif //BB_MIGRATE_MIGRATION_H
