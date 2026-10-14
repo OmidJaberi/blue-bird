@@ -160,7 +160,7 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - `bb-codegen`: generates Persist schemas from a JSON manifest (struct + field metadata), instead of hand-written `offsetof()` bookkeeping
 - Built around a `kind`-dispatched manifest format so new generators (routes, policies, etc.) can register without touching the core tool
 - See [docs/tools/codegen.md](docs/tools/codegen.md)
-- `bb-migrate`: versioned SQL schema migrations with a ledger table, safe forward upgrades (`status` / `up`), and drift detection; SQLite first, driver-based so other databases can follow
+- `bb-migrate`: versioned SQL schema migrations with a ledger table, safe forward upgrades (`status` / `up`), drift detection (`verify`), and generating migrations from `persist.schema` changes (`generate`); SQLite first, driver-based so other databases can follow
 - See [docs/tools/migrate.md](docs/tools/migrate.md)
 
 ---
