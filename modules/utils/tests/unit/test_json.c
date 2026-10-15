@@ -73,6 +73,29 @@ void test_json_array_multi_remove_at_index(void)
     bb_json_destroy(arr);
 }
 
+void test_json_array_remove_boundaries(void)
+{
+    printf("\tTesting JSON array removal at boundaries...\n");
+
+    bb_json_t *arr = bb_json_parse("[10, 20, 30, 40, 50]");
+    BB_ASSERT(arr != NULL);
+
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 0)));
+    BB_ASSERT(bb_json_get_size(arr) == 4);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 0)) == 20);
+
+    BB_ASSERT(!BB_FAILED(
+        bb_json_array_remove_at_index(arr, bb_json_get_size(arr) - 1)
+    ));
+
+    BB_ASSERT(bb_json_get_size(arr) == 3);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 0)) == 20);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 1)) == 30);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 2)) == 40);
+
+    bb_json_destroy(arr);
+}
+
 void test_json_object(void)
 {
     printf("\tTesting JSON object...\n");
@@ -965,6 +988,7 @@ int main(void)
     test_json_array();
     test_bb_json_array_remove_at_index();
     test_json_array_multi_remove_at_index();
+    test_json_array_remove_boundaries();
     test_json_object();
     test_object_key_overwrite();
     test_parse_duplicate_object_key();
