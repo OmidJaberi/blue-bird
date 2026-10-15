@@ -703,6 +703,49 @@ void test_json_clone_independence(void)
     bb_json_destroy(clone);
 }
 
+void test_json_clone_array_independence(void)
+{
+    printf("\tTesting JSON clone array independence...\n");
+
+    bb_json_t *json = bb_json_parse(
+        "{\"values\": [10, 20, 30], \"nested\": [[1, 2], [3, 4]]}"
+    );
+    BB_ASSERT(json != NULL);
+
+    bb_json_t *clone = bb_json_clone(json);
+    BB_ASSERT(clone != NULL);
+
+    bb_json_t *clone_values = bb_json_object_get_value(clone, "values");
+    bb_json_t *clone_nested = bb_json_object_get_value(clone, "nested");
+
+    bb_json_set_value_integer(bb_json_array_get_index(clone_values, 0), 100);
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(clone_values, 1)));
+    bb_json_set_value_integer(
+        bb_json_array_get_index(bb_json_array_get_index(clone_nested, 0), 0),
+        999
+    );
+
+    bb_json_t *original_values = bb_json_object_get_value(json, "values");
+    bb_json_t *original_nested = bb_json_object_get_value(json, "nested");
+
+    BB_ASSERT(bb_json_get_size(original_values) == 3);
+    BB_ASSERT(bb_json_get_value_integer(
+        bb_json_array_get_index(original_values, 0)
+    ) == 10);
+    BB_ASSERT(bb_json_get_value_integer(
+        bb_json_array_get_index(original_values, 1)
+    ) == 20);
+
+    BB_ASSERT(bb_json_get_value_integer(
+        bb_json_array_get_index(
+            bb_json_array_get_index(original_nested, 0), 0
+        )
+    ) == 1);
+
+    bb_json_destroy(json);
+    bb_json_destroy(clone);
+}
+
 void test_json_object_merge(void)
 {
     printf("\tTesting JSON object merge...\n");
@@ -1036,6 +1079,7 @@ int main(void)
     test_json_deep_nesting();
     test_json_clone();
     test_json_clone_independence();
+    test_json_clone_array_independence();
     test_json_object_merge();
     test_json_object_merge_independence();
     test_json_object_merge_invalid_type();
