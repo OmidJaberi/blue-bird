@@ -143,20 +143,45 @@ set keeps its width). `--dry-run` prints the SQL and writes nothing. `--schema`
 can be repeated; all tables go into one migration. Review the file and commit
 it like any other.
 
-**What it will and won't write.** Only changes that cannot lose data:
+**What it will and won't write.** Only changes that cannot lose data, plus a
+rename when you say it is one:
 
-| Change in the manifest         | Result                                   |
-|--------------------------------|------------------------------------------|
-| table doesn't exist yet        | `CREATE TABLE IF NOT EXISTS ...`         |
-| new column                     | `ALTER TABLE ... ADD COLUMN ...`         |
-| column removed                 | **refused**                              |
-| column renamed                 | **refused** (it looks like remove + add) |
-| column type changed            | **refused** (needs a table rebuild)      |
-| primary key changed or added   | **refused** (SQLite can't ALTER one)     |
+| Change in the manifest         | Result                                              |
+|--------------------------------|-----------------------------------------------------|
+| table doesn't exist yet        | `CREATE TABLE IF NOT EXISTS ...`                    |
+| new column                     | `ALTER TABLE ... ADD COLUMN ...`                    |
+| column renamed                 | `ALTER TABLE ... RENAME COLUMN ...` **with `--rename`**, otherwise refused |
+| column removed                 | **refused**                                         |
+| column type changed            | **refused** (needs a table rebuild)                 |
+| primary key changed or added   | **refused** (SQLite can't ALTER one)                |
 
 A refusal explains why, writes nothing at all (never half a migration), and
 leaves you to write that migration by hand, after which `verify` confirms it.
-This is deliberate: a tool that guesses at a rename destroys a column.
+
+**Renames.** A renamed column looks identical to "one column dropped, another
+added", and guessing wrong destroys data. So the tool never guesses; you tell it:
+
+```bash
+bb-migrate generate --schema schemas/task.schema.json --dir migrations \
+    --name rename_status --rename tasks.status=state
+```
+
+```sql
+ALTER TABLE tasks RENAME COLUMN status TO state;
+```
+
+The column's data is kept (needs SQLite 3.25 or newer, and if yours is older the
+self-check below fails and nothing is written). When a column disappears and
+exactly one new column of the same type appeared, the refusal suggests the
+precise flag to use. The hint is `<table>.<old>=<new>`, may be repeated, and is
+checked against the real difference. It is an error, never silently ignored, if:
+
+- the database has no column `<old>`, or the schema has no column `<new>`
+- the schema still has `<old>`, or the database already has `<new>`
+- the type or primary key also changes (a rename plus a change isn't generated;
+  split it into two migrations or write it by hand)
+- two hints claim the same column
+- no `--schema` defines `<table>`
 
 Before writing anything, `generate` applies its SQL to the scratch database and
 re-checks every manifest. A migration that wouldn't actually reconcile the
@@ -271,9 +296,9 @@ Left out on purpose so step 1 stays small. The seams for each already exist:
 - **Other databases.** Add a driver. Note that databases without transactional
   DDL (e.g. MySQL) can't give the same per-migration atomicity — the driver
   should document what it can guarantee.
-- **Generating the unsafe changes** (drops, renames, type changes). They need
-  the developer to say what they mean, for example a `--rename old=new` hint
-  that emits `ALTER TABLE ... RENAME COLUMN`, or a table-rebuild template.
-  Until then they are refused and written by hand.
+- **Generating the remaining unsafe changes** (drops, type changes, primary key
+  changes). Like renames, they would need the developer to say what they mean,
+  for example an explicit `--drop tasks.legacy` hint, or a table-rebuild
+  template for type changes. Until then they are refused and written by hand.
 - **Library API / run on app startup.** The core is already a library
   (`bb_migrate_core`); it just isn't a public module yet.

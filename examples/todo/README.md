@@ -130,8 +130,10 @@ migration, then review it and apply it:
     --dir examples/todo/migrations --name add_due
 ```
 
-It generates new tables and new columns. Removing, renaming or retyping a column
-is refused (those can lose data), so write that migration by hand. Either way,
+It generates new tables and new columns. A rename is generated when you say so
+(`--rename tasks.status=state`), because it can't be told apart from a drop. A
+removed or retyped column is refused (those can lose data), so write that
+migration by hand. Either way,
 `ctest` runs `bb-migrate verify` (test `examples.todo_migrations_match_schema`),
 which fails if the manifest and the migrations disagree. You can run it
 directly:
