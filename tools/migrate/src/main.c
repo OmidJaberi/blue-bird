@@ -19,7 +19,7 @@ static void print_usage(const char *argv0)
         "  %s status --db <database> [options] [migration.sql ...]\n"
         "  %s up     --db <database> [options] [migration.sql ...]\n"
         "  %s verify   --schema <manifest.json> [--schema ...] [options] [migration.sql ...]\n"
-        "  %s generate --schema <manifest.json> [--schema ...] --dir <directory> --name <name> [--dry-run]\n"
+        "  %s generate --schema <manifest.json> [--schema ...] --dir <directory> --name <name> [--rename <table>.<old>=<new> ...] [--dry-run]\n"
         "\n"
         "  status   lists every migration and whether it is applied, pending,\n"
         "           or a problem. Read-only. Exits 1 if any problem is found.\n"
@@ -33,9 +33,10 @@ static void print_usage(const char *argv0)
         "           the migrations produce what each manifest expects. It replays the\n"
         "           existing migrations, diffs against the manifest, and only generates\n"
         "           changes that cannot lose data: a missing table, or a new column.\n"
-        "           A dropped, renamed or retyped column, or a primary key change, is\n"
-        "           refused with an explanation and nothing is written: write those by\n"
-        "           hand. --dry-run prints the SQL without writing a file.\n"
+        "           A dropped or retyped column, or a primary key change, is refused\n"
+        "           with an explanation and nothing is written: write those by hand.\n"
+        "           A rename can't be told from a drop, so say so with --rename.\n"
+        "           --dry-run prints the SQL without writing a file.\n"
         "\n"
         "options:\n"
         "  --dir <directory>     use every *.sql file in the directory (in addition to\n"
@@ -50,6 +51,9 @@ static void print_usage(const char *argv0)
         "\n"
         "Migration files are named <version>_<name>.sql (e.g. 0002_add_email.sql).\n"
         "  --name <name>         (generate) the migration's name, e.g. add_due\n"
+        "  --rename <t>.<a>=<b>  (generate) in table t, column a was renamed to b\n"
+        "                        (ALTER TABLE ... RENAME COLUMN, data preserved, SQLite\n"
+        "                        3.25+). Repeatable. Must match the real difference.\n"
         "  --dry-run             (generate) print the SQL, write nothing\n"
         "\n"
         "Give the directory, or expand a glob yourself:\n"
@@ -197,6 +201,8 @@ typedef struct {
     const char *name;
     const char *schemas[MAX_SCHEMAS];
     size_t schema_count;
+    bb_migrate_rename_t renames[BB_MIGRATE_RENAMES_MAX];
+    size_t rename_count;
     int dry_run;
     bb_migrate_options_t opts;
     int first_file; /* index in argv of the first positional migration file */
@@ -322,6 +328,7 @@ static int cmd_generate(const cli_args_t *args, const bb_migration_set_t *set)
     size_t sections = 0;
     size_t refused = 0;
     size_t body_start = content_len;
+    unsigned char hint_matched[BB_MIGRATE_RENAMES_MAX] = { 0 };
 
     for (size_t i = 0; i < args->schema_count; i++)
     {
@@ -341,7 +348,14 @@ static int cmd_generate(const cli_args_t *args, const bb_migration_set_t *set)
             goto done;
         }
 
-        int gen = bb_migrate_generate_sql(&expected, &actual, &sql, &err);
+        for (size_t r = 0; r < args->rename_count; r++)
+        {
+            if (strcmp(args->renames[r].table, expected.table) == 0)
+                hint_matched[r] = 1;
+        }
+
+        int gen = bb_migrate_generate_sql(&expected, &actual, args->renames, args->rename_count,
+                                          &sql, &err);
 
         if (gen == BB_MIGRATE_GEN_REFUSED)
         {
@@ -369,6 +383,18 @@ static int cmd_generate(const cli_args_t *args, const bb_migration_set_t *set)
             goto oom;
 
         sections++;
+    }
+
+    /* A hint for a table no --schema defines is a typo, not something to ignore. */
+    for (size_t r = 0; r < args->rename_count; r++)
+    {
+        if (!hint_matched[r])
+        {
+            fprintf(stderr, "bb-migrate: --rename %s.%s=%s: none of the --schema manifests defines table '%s'\n",
+                    args->renames[r].table, args->renames[r].from, args->renames[r].to,
+                    args->renames[r].table);
+            refused++;
+        }
     }
 
     if (refused > 0)
@@ -503,8 +529,9 @@ static int parse_args(int argc, char **argv, cli_args_t *a)
         int is_dir = strcmp(opt, "--dir") == 0;
         int is_schema = strcmp(opt, "--schema") == 0;
         int is_name = strcmp(opt, "--name") == 0;
+        int is_rename = strcmp(opt, "--rename") == 0;
 
-        if (!is_db && !is_dir && !is_schema && !is_name)
+        if (!is_db && !is_dir && !is_schema && !is_name && !is_rename)
             return usage_error("unknown option '%s'", opt);
 
         if (i + 1 >= argc)
@@ -521,10 +548,25 @@ static int parse_args(int argc, char **argv, cli_args_t *a)
         if (is_name && !is_generate)
             return usage_error("--name only applies to generate%s", "");
 
+        if (is_rename && !is_generate)
+            return usage_error("--rename only applies to generate%s", "");
+
         if ((is_db && a->db) || (is_dir && a->dir) || (is_name && a->name))
             return usage_error("%s given more than once", opt);
 
-        if (is_db)
+        if (is_rename)
+        {
+            if (a->rename_count == BB_MIGRATE_RENAMES_MAX)
+                return usage_error("too many --rename options (max %d)", "32");
+
+            bb_migrate_err_t rename_err;
+
+            if (bb_migrate_parse_rename(value, &a->renames[a->rename_count], &rename_err) != 0)
+                return usage_error("%s", rename_err.msg);
+
+            a->rename_count++;
+        }
+        else if (is_db)
             a->db = value;
         else if (is_dir)
             a->dir = value;

@@ -88,12 +88,110 @@ static int is_plain_identifier(const char *s)
 }
 
 /* ---------------------------
+ * --rename parsing
+ * --------------------------- */
+
+int bb_migrate_parse_rename(const char *arg, bb_migrate_rename_t *out, bb_migrate_err_t *err)
+{
+    if (!arg || !out)
+    {
+        bb_migrate_err_set(err, "invalid arguments");
+        return -1;
+    }
+
+    memset(out, 0, sizeof *out);
+
+    const char *eq = strchr(arg, '=');
+    const char *dot = strchr(arg, '.');
+
+    /* Exactly one '.', and it must come before the '='. */
+    if (!eq || !dot || dot > eq)
+        goto bad;
+
+    const char *second_dot = strchr(dot + 1, '.');
+
+    if (second_dot && second_dot < eq)
+        goto bad;
+
+    size_t table_len = (size_t)(dot - arg);
+    size_t from_len = (size_t)(eq - dot - 1);
+    size_t to_len = strlen(eq + 1);
+
+    if (table_len == 0 || from_len == 0 || to_len == 0 ||
+        table_len >= sizeof out->table || from_len >= sizeof out->from || to_len >= sizeof out->to)
+        goto bad;
+
+    memcpy(out->table, arg, table_len);
+    memcpy(out->from, dot + 1, from_len);
+    memcpy(out->to, eq + 1, to_len);
+
+    if (!is_plain_identifier(out->table) || !is_plain_identifier(out->from) ||
+        !is_plain_identifier(out->to))
+        goto bad;
+
+    return 0;
+
+bad:
+    memset(out, 0, sizeof *out);
+    bb_migrate_err_set(err,
+        "--rename expects <table>.<old column>=<new column> (plain identifiers), got '%s'", arg);
+    return -1;
+}
+
+/* ---------------------------
+ * Per-table generation state
+ * --------------------------- */
+
+typedef struct {
+    const bb_migrate_table_spec_t *expected;
+    const bb_migrate_table_spec_t *actual;
+    const bb_migrate_rename_t *renames;
+    size_t rename_count;
+    unsigned char mine[BB_MIGRATE_RENAMES_MAX];  /* hint is for this table      */
+    unsigned char valid[BB_MIGRATE_RENAMES_MAX]; /* ...and is consistent        */
+} gen_ctx_t;
+
+static const bb_migrate_column_t *find_col(const bb_migrate_table_spec_t *spec, const char *name)
+{
+    for (size_t i = 0; i < spec->count; i++)
+    {
+        if (strcmp(spec->columns[i].name, name) == 0)
+            return &spec->columns[i];
+    }
+
+    return NULL;
+}
+
+/* A valid rename accounts for BOTH of its diffs: `from` shows up as a
+ * database-only column and `to` as a schema-only column. */
+static int consumed_from(const gen_ctx_t *g, const char *column)
+{
+    for (size_t i = 0; i < g->rename_count; i++)
+    {
+        if (g->mine[i] && g->valid[i] && strcmp(g->renames[i].from, column) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+static int consumed_to(const gen_ctx_t *g, const char *column)
+{
+    for (size_t i = 0; i < g->rename_count; i++)
+    {
+        if (g->mine[i] && g->valid[i] && strcmp(g->renames[i].to, column) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+/* ---------------------------
  * Collecting refusals
  * --------------------------- */
 
 typedef struct {
     bb_migrate_err_t *err;
-    const char *table;
     size_t count;
     size_t truncated;
 } refusals_t;
@@ -129,13 +227,135 @@ static void refuse(refusals_t *r, const char *fmt, ...)
     memcpy(r->err->msg + used + bullet_len, line, line_len + 1);
 }
 
+static void validate_renames(gen_ctx_t *g, refusals_t *r)
+{
+    const bb_migrate_table_spec_t *exp = g->expected;
+    const bb_migrate_table_spec_t *act = g->actual;
+
+    for (size_t i = 0; i < g->rename_count; i++)
+    {
+        const bb_migrate_rename_t *rn = &g->renames[i];
+
+        if (strcmp(rn->table, exp->table) != 0)
+            continue;
+
+        g->mine[i] = 1;
+
+        if (!is_plain_identifier(rn->from) || !is_plain_identifier(rn->to))
+        {
+            refuse(r, "--rename %s.%s=%s: names must be plain identifiers", rn->table, rn->from, rn->to);
+            continue;
+        }
+
+        const bb_migrate_column_t *a_from = find_col(act, rn->from);
+        const bb_migrate_column_t *e_to = find_col(exp, rn->to);
+
+        if (!a_from)
+        {
+            refuse(r, "--rename %s.%s=%s: the database has no column '%s'",
+                   rn->table, rn->from, rn->to, rn->from);
+            continue;
+        }
+
+        if (!e_to)
+        {
+            refuse(r, "--rename %s.%s=%s: the schema has no column '%s'",
+                   rn->table, rn->from, rn->to, rn->to);
+            continue;
+        }
+
+        if (find_col(exp, rn->from))
+        {
+            refuse(r, "--rename %s.%s=%s: the schema still has a column '%s', so it wasn't renamed",
+                   rn->table, rn->from, rn->to, rn->from);
+            continue;
+        }
+
+        if (find_col(act, rn->to))
+        {
+            refuse(r, "--rename %s.%s=%s: the database already has a column '%s'",
+                   rn->table, rn->from, rn->to, rn->to);
+            continue;
+        }
+
+        if (strcmp(a_from->type, e_to->type) != 0 || a_from->primary_key != e_to->primary_key)
+        {
+            refuse(r, "--rename %s.%s=%s: the type or primary key also changes (%s -> %s); "
+                      "a rename plus a change is not generated, split it up or write it by hand",
+                   rn->table, rn->from, rn->to, a_from->type, e_to->type);
+            continue;
+        }
+
+        int conflict = 0;
+
+        for (size_t j = 0; j < i; j++)
+        {
+            if (g->mine[j] && (strcmp(g->renames[j].from, rn->from) == 0 ||
+                               strcmp(g->renames[j].to, rn->to) == 0))
+                conflict = 1;
+        }
+
+        if (conflict)
+        {
+            refuse(r, "--rename %s.%s=%s: conflicts with another --rename for the same column",
+                   rn->table, rn->from, rn->to);
+            continue;
+        }
+
+        g->valid[i] = 1;
+    }
+}
+
+/* ---------------------------
+ * Scanning differences for refusals
+ * --------------------------- */
+
 typedef struct {
+    gen_ctx_t *g;
     refusals_t *refusals;
 } scan_ctx_t;
 
+/* A database-only column plus a schema-only column of the same type is
+ * probably a rename. Offer the specific hint only when it is unambiguous. */
+static void refuse_extra_column(scan_ctx_t *c, const bb_migrate_diff_t *d, const char *desc)
+{
+    const bb_migrate_column_t *extra = find_col(c->g->actual, d->column);
+    const bb_migrate_column_t *candidate = NULL;
+    size_t candidates = 0;
+
+    for (size_t i = 0; extra && i < c->g->expected->count; i++)
+    {
+        const bb_migrate_column_t *e = &c->g->expected->columns[i];
+
+        if (!find_col(c->g->actual, e->name) && !consumed_to(c->g, e->name) &&
+            strcmp(e->type, extra->type) == 0 && e->primary_key == extra->primary_key)
+        {
+            candidate = e;
+            candidates++;
+        }
+    }
+
+    if (candidates == 1)
+    {
+        refuse(c->refusals, "%s; if it was renamed to '%s', add --rename %s.%s=%s; "
+                            "if it was dropped, that can lose data",
+               desc, candidate->name, d->table, d->column, candidate->name);
+    }
+    else if (candidates > 1)
+    {
+        refuse(c->refusals, "%s; if it was renamed, add --rename %s.%s=<new name>; "
+                            "if it was dropped, that can lose data",
+               desc, d->table, d->column);
+    }
+    else
+    {
+        refuse(c->refusals, "%s; dropping a column can lose data", desc);
+    }
+}
+
 static void scan_for_refusals(const bb_migrate_diff_t *d, void *user)
 {
-    refusals_t *r = ((scan_ctx_t *)user)->refusals;
+    scan_ctx_t *c = user;
     char desc[BB_MIGRATE_ERR_MAX];
 
     bb_migrate_diff_describe(d, desc, sizeof desc);
@@ -146,21 +366,27 @@ static void scan_for_refusals(const bb_migrate_diff_t *d, void *user)
             break; /* supported */
 
         case BB_MIGRATE_DIFF_COLUMN_MISSING:
+            if (consumed_to(c->g, d->column))
+                break; /* a rename creates it */
+
             if (d->expected_pk)
-                refuse(r, "%s; SQLite can't add a primary key column with ALTER TABLE", desc);
+                refuse(c->refusals, "%s; SQLite can't add a primary key column with ALTER TABLE", desc);
             break;
 
         case BB_MIGRATE_DIFF_COLUMN_EXTRA:
-            refuse(r, "%s; this could be a dropped or a renamed column and either can lose data", desc);
+            if (consumed_from(c->g, d->column))
+                break; /* a rename accounts for it */
+
+            refuse_extra_column(c, d, desc);
             break;
 
         case BB_MIGRATE_DIFF_TYPE_MISMATCH:
-            refuse(r, "%s; changing a column's type needs a table rebuild", desc);
+            refuse(c->refusals, "%s; changing a column's type needs a table rebuild", desc);
             break;
 
         case BB_MIGRATE_DIFF_PK_MISSING:
         case BB_MIGRATE_DIFF_PK_EXTRA:
-            refuse(r, "%s; SQLite can't change a primary key with ALTER TABLE", desc);
+            refuse(c->refusals, "%s; SQLite can't change a primary key with ALTER TABLE", desc);
             break;
     }
 }
@@ -187,21 +413,24 @@ static void emit_create_table(strbuf_t *sb, const bb_migrate_table_spec_t *spec)
 
 typedef struct {
     strbuf_t *sb;
+    const gen_ctx_t *g;
 } emit_ctx_t;
 
 static void emit_alter(const bb_migrate_diff_t *d, void *user)
 {
-    strbuf_t *sb = ((emit_ctx_t *)user)->sb;
+    emit_ctx_t *c = user;
 
-    if (d->kind == BB_MIGRATE_DIFF_COLUMN_MISSING)
-        sb_appendf(sb, "ALTER TABLE %s ADD COLUMN %s %s;\n", d->table, d->column, d->expected_type);
+    if (d->kind == BB_MIGRATE_DIFF_COLUMN_MISSING && !consumed_to(c->g, d->column))
+        sb_appendf(c->sb, "ALTER TABLE %s ADD COLUMN %s %s;\n", d->table, d->column, d->expected_type);
 }
 
 int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
                             const bb_migrate_table_spec_t *actual,
+                            const bb_migrate_rename_t *renames, size_t rename_count,
                             char **sql_out, bb_migrate_err_t *err)
 {
-    if (!expected || !actual || !sql_out)
+    if (!expected || !actual || !sql_out || (rename_count > 0 && !renames) ||
+        rename_count > BB_MIGRATE_RENAMES_MAX)
     {
         bb_migrate_err_set(err, "invalid arguments");
         return BB_MIGRATE_GEN_REFUSED;
@@ -223,12 +452,23 @@ int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
         return BB_MIGRATE_GEN_REFUSED;
     }
 
-    /* Pass 1: is every difference one we are willing to generate? */
+    gen_ctx_t g;
+    memset(&g, 0, sizeof g);
+    g.expected = expected;
+    g.actual = actual;
+    g.renames = renames;
+    g.rename_count = rename_count;
+
     if (err)
         snprintf(err->msg, sizeof err->msg, "table '%s' can't be generated automatically:", expected->table);
 
-    refusals_t refusals = { err, expected->table, 0, 0 };
-    scan_ctx_t scan = { &refusals };
+    refusals_t refusals = { err, 0, 0 };
+
+    /* Pass 0: do the rename hints for this table hold? */
+    validate_renames(&g, &refusals);
+
+    /* Pass 1: is every remaining difference one we are willing to generate? */
+    scan_ctx_t scan = { &g, &refusals };
     size_t diffs = bb_migrate_spec_diff(expected, actual, scan_for_refusals, &scan);
 
     if (refusals.count > 0)
@@ -261,7 +501,20 @@ int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
     }
     else
     {
-        emit_ctx_t ctx = { &sb };
+        /* Renames first, then additions. (Order doesn't change the outcome:
+         * validation already refused any case where an added column would
+         * reuse a renamed column's old name, since that is indistinguishable
+         * from a type change. It just reads in the order a human would.) */
+        for (size_t i = 0; i < rename_count; i++)
+        {
+            if (g.mine[i] && g.valid[i])
+            {
+                sb_appendf(&sb, "ALTER TABLE %s RENAME COLUMN %s TO %s;\n",
+                           expected->table, renames[i].from, renames[i].to);
+            }
+        }
+
+        emit_ctx_t ctx = { &sb, &g };
         bb_migrate_spec_diff(expected, actual, emit_alter, &ctx);
     }
 
