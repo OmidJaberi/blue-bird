@@ -56,6 +56,11 @@ bb_json_t *bb_json_create(bb_json_type_t type)
             json->object.bucket_count = BB_JSON_INITIAL_BUCKET_COUNT;
             json->object.item_count = 0;
             json->object.buckets = calloc(json->object.bucket_count, sizeof(*json->object.buckets));
+            if (!json->object.buckets)
+            {
+                free(json);
+                return NULL;
+            }
             json->object.order_head = NULL;
             json->object.order_tail = NULL;
             break;
@@ -394,6 +399,11 @@ bb_error_t bb_json_object_set_value(bb_json_t *json_object, const char *key, bb_
     }
 
     node->key = bb_strdup(key);
+    if (!node->key)
+    {
+        free(node);
+        return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
+    }
     node->value = value;
 
     // Insert into bucket chain
