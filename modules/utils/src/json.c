@@ -2,9 +2,12 @@
 #include "blue-bird/utils/platform.h"
 #include "blue-bird/error/assert.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <float.h>
+#include <math.h>
 #include <errno.h>
 
 #define BB_JSON_INITIAL_BUCKET_COUNT 8
@@ -560,96 +563,130 @@ static int serialize_bool_json(bb_json_t *json, char *buffer)
     return size;
 }
 
+// Writes `n` bytes of `s` as the body of a JSON string (no surrounding quotes).
+// When `out` is NULL nothing is written; the required length is returned either way.
+static size_t json_escape_string(const char *s, size_t n, char *out)
+{
+    static const char hex[] = "0123456789abcdef";
+    size_t len = 0;
+    for (size_t i = 0; i < n; i++)
+    {
+        unsigned char c = (unsigned char)s[i];
+        char short_esc = 0;
+        switch (c)
+        {
+            case '\\': short_esc = '\\'; break;
+            case '\"': short_esc = '\"'; break;
+            case '\n': short_esc = 'n'; break;
+            case '\t': short_esc = 't'; break;
+            case '\r': short_esc = 'r'; break;
+            case '\b': short_esc = 'b'; break;
+            case '\f': short_esc = 'f'; break;
+            default: break;
+        }
+        if (short_esc)
+        {
+            if (out)
+            {
+                out[len] = '\\';
+                out[len + 1] = short_esc;
+            }
+            len += 2;
+        }
+        else if (c < 0x20)
+        {
+            // other control characters -> \u00XX
+            if (out)
+            {
+                memcpy(out + len, "\\u00", 4);
+                out[len + 4] = hex[c >> 4];
+                out[len + 5] = hex[c & 0x0f];
+            }
+            len += 6;
+        }
+        else
+        {
+            // Everything else (including UTF-8 multi-byte sequences) is copied verbatim.
+            if (out)
+                out[len] = (char)c;
+            len++;
+        }
+    }
+    return len;
+}
+
 static int serialize_int_json(bb_json_t *json, char *buffer, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_INT, "Invalid JSON type.");
     if (buffer)
         return snprintf(buffer, buffer_size, "%d", json->int_val);
-    int val = json->int_val, len = 0;
-    if (val < 0)
+    return snprintf(NULL, 0, "%d", json->int_val);
+}
+
+// Formats a float as the shortest valid JSON number that parses back to the same
+// float and still reads as a real (always contains '.' or an exponent).
+// NaN and infinities have no JSON representation and are written as null.
+static int format_real(float v, char *out, size_t out_size)
+{
+    if (v != v || v > FLT_MAX || v < -FLT_MAX)
+        return snprintf(out, out_size, "null");
+    if (v == 0.0f)
+        return snprintf(out, out_size, signbit(v) ? "-0.0" : "0.0");
+
+    char tmp[48];
+    int digits;
+    for (digits = 1; digits < 9; digits++)
     {
-        val *= -1;
-        len++;
+        snprintf(tmp, sizeof(tmp), "%.*e", digits - 1, (double)v);
+        if (strtof(tmp, NULL) == v)
+            break;
     }
-    while (val > 0)
+    snprintf(tmp, sizeof(tmp), "%.*e", digits - 1, (double)v);
+
+    int exponent = atoi(strchr(tmp, 'e') + 1);
+    if (exponent >= -5 && exponent < 9)
     {
-        val /= 10;
-        len += 1;
+        int decimals = digits - 1 - exponent;
+        if (decimals < 0)
+            decimals = 0;
+        int n = snprintf(out, out_size, "%.*f", decimals, (double)v);
+        if (decimals == 0 && n >= 0 && (size_t)n + 2 < out_size)
+            n += snprintf(out + n, out_size - (size_t)n, ".0");
+        return n;
     }
-    return len == 0 ? 1 : len;
+    return snprintf(out, out_size, "%s", tmp);
 }
 
 static int serialize_real_json(bb_json_t *json, char *buffer, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_REAL, "Invalid JSON type.");
-    char s[128];
-    int index = snprintf(s, sizeof(s), "%f", json->real_val) - 1;
-    while (index >= 0 && s[index] == '0')
-    {
-        s[index] = '\0';
-        index--;
-    }
-    index++;
-    if (buffer)
-    {
-        size_t copy_len = (size_t)(index + 1) < buffer_size ? (size_t)(index + 1) : buffer_size;
-        if (copy_len > 0)
-        {
-            memcpy(buffer, s, copy_len);
-            buffer[copy_len - 1] = '\0';
-        }
-    }
-    return index;
+    char s[64];
+    int n = format_real(json->real_val, s, sizeof(s));
+    if (buffer && buffer_size > (size_t)n)
+        memcpy(buffer, s, (size_t)n + 1);
+    else if (buffer && buffer_size > 0)
+        buffer[0] = '\0';
+    return n;
 }
 
 static int serialize_text_json(bb_json_t *json, char *buffer, size_t buffer_size)
 {
     BB_ASSERT_MSG(json->type == BB_JSON_TEXT, "Invalid JSON type.");
-    size_t alloc_size = json->size * 6 + 3;
-    char *s = (char*)malloc(alloc_size * sizeof(char));
-    if (!s)
-        return -1;
-    int index = 0;
-    index += snprintf(s + index, alloc_size - (size_t)index, "\"");
-
-    for (unsigned int i = 0; i < json->size; i++)
+    const char *text = json->text_val ? json->text_val : "";
+    size_t escaped_len = json_escape_string(text, json->size, NULL);
+    size_t total = escaped_len + 2;
+    if (buffer && buffer_size > total)
     {
-        char c = json->text_val[i];
-        switch (c)
-        {
-            case '\\': index += snprintf(s + index, alloc_size - (size_t)index, "\\\\"); break;
-            case '\"': index += snprintf(s + index, alloc_size - (size_t)index, "\\\""); break;
-            case '\n': index += snprintf(s + index, alloc_size - (size_t)index, "\\n"); break;
-            case '\t': index += snprintf(s + index, alloc_size - (size_t)index, "\\t"); break;
-            case '\r': index += snprintf(s + index, alloc_size - (size_t)index, "\\r"); break;
-            case '\b': index += snprintf(s + index, alloc_size - (size_t)index, "\\b"); break;
-            case '\f': index += snprintf(s + index, alloc_size - (size_t)index, "\\f"); break;
-            default:
-                if (c < 0x20)
-                {
-                    // control char → \u00XX
-                    index += snprintf(s + index, alloc_size - (size_t)index, "\\u%04x", c);
-                }
-                else
-                {
-                    s[index++] = c;
-                }
-        }
+        buffer[0] = '\"';
+        json_escape_string(text, json->size, buffer + 1);
+        buffer[total - 1] = '\"';
+        buffer[total] = '\0';
     }
-
-    index += snprintf(s + index, alloc_size - (size_t)index, "\"");
-    s[index] = '\0';
-    if (buffer)
+    else if (buffer && buffer_size > 0)
     {
-        size_t copy_len = (size_t)(index + 1) < buffer_size ? (size_t)(index + 1) : buffer_size;
-        if (copy_len > 0)
-        {
-            memcpy(buffer, s, copy_len);
-            buffer[copy_len - 1] = '\0';
-        }
+        buffer[0] = '\0';
     }
-    free(s);
-    return index;
+    return (int)total;
 }
 
 static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent, size_t buffer_size);
@@ -697,7 +734,17 @@ static int serialize_object_json(bb_json_t *json, char *buffer, int indent, bool
         first = false;
         for (int j = 0; has_indent && j < indent + 1; j++)
             len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\t") : 1;
-        len += buffer ? (size_t)snprintf(buffer + len, buffer_size > len ? buffer_size - len : 0, "\"%s\": ", node->key) : strlen(node->key) + 4;
+        size_t key_len = strlen(node->key);
+        size_t escaped_key_len = json_escape_string(node->key, key_len, NULL);
+        if (buffer && buffer_size > len + escaped_key_len + 4)
+        {
+            char *p = buffer + len;
+            *p++ = '\"';
+            json_escape_string(node->key, key_len, p);
+            p += escaped_key_len;
+            memcpy(p, "\": ", 4); // '"', ':', ' ' and the terminating NUL
+        }
+        len += escaped_key_len + 4;
         char *child_buffer = buffer ? buffer + len : NULL;
         size_t child_buffer_size = buffer_size > len ? buffer_size - len : 0;
         int serialize_child = has_indent ? serialize_json_with_indent(node->value, child_buffer, indent + 1, child_buffer_size) : serialize_json_to_allocated_buffer(node->value, child_buffer, child_buffer_size);
@@ -759,10 +806,19 @@ static int serialize_json_with_indent(bb_json_t *json, char *buffer, int indent,
 
 bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size)
 {
+    if (!size)
+    {
+        return BB_ERROR(BB_ERR_NULL, "Null size reference.");
+    }
     *size = serialize_json_to_allocated_buffer(json, NULL, 0);
     if (!buffer)
     {
         return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
+    }
+    if (*size < 0)
+    {
+        *buffer = NULL;
+        return BB_ERROR(BB_ERR_NULL, "Nothing to serialize.");
     }
     *buffer = (char*)malloc((*size + 1) * sizeof(char));
     if (!*buffer)
@@ -775,10 +831,18 @@ bb_error_t bb_json_serialize(bb_json_t *json, char **buffer, int *size)
 
 bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
 {
+    if (!size)
+    {
+        return BB_ERROR(BB_ERR_NULL, "Null size reference.");
+    }
     *size = serialize_json_with_indent(json, NULL, 0, 0);
     if (!buffer)
     {
         return BB_ERROR(BB_ERR_NULL, "Null buffer reference.");
+    }
+    if (*size < 0)
+    {
+        return BB_ERROR(BB_ERR_NULL, "Nothing to serialize.");
     }
     char *new_buf = (char*)malloc((*size + 1) * sizeof(char));
     if (!new_buf)
@@ -794,9 +858,17 @@ bb_error_t bb_json_serialize_indented(bb_json_t *json, char **buffer, int *size)
     return BB_SUCCESS();
 }
 
+// Maximum container nesting accepted by the parser (guards against stack exhaustion).
+#define BB_JSON_MAX_DEPTH 512
+
+static bool is_digit(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
 static int parse_json_str_null(bb_json_t **json, char *buffer)
 {
-    if (memcmp(buffer, "null", 4) != 0)
+    if (strncmp(buffer, "null", 4) != 0)
     {
         return -1;
     }
@@ -810,7 +882,7 @@ static int parse_json_str_null(bb_json_t **json, char *buffer)
 
 static int parse_json_str_true(bb_json_t **json, char *buffer)
 {
-    if (memcmp(buffer, "true", 4) != 0)
+    if (strncmp(buffer, "true", 4) != 0)
     {
         return -1;
     }
@@ -825,7 +897,7 @@ static int parse_json_str_true(bb_json_t **json, char *buffer)
 
 static int parse_json_str_false(bb_json_t **json, char *buffer)
 {
-    if (memcmp(buffer, "false", 5) != 0)
+    if (strncmp(buffer, "false", 5) != 0)
     {
         return -1;
     }
@@ -838,6 +910,7 @@ static int parse_json_str_false(bb_json_t **json, char *buffer)
     return 5;
 }
 
+// number = [ "-" ] int [ frac ] [ exp ]
 static int parse_json_str_number(bb_json_t **json, char *buffer)
 {
     *json = NULL;
@@ -849,12 +922,12 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
     if (buffer[index] == '0')
     {
         index++;
-        if (buffer[index] >= '0' && buffer[index] <= '9')
+        if (is_digit(buffer[index]))
             return -1;
     }
     else if (buffer[index] >= '1' && buffer[index] <= '9')
     {
-        while (buffer[index] >= '0' && buffer[index] <= '9')
+        while (is_digit(buffer[index]))
             index++;
     }
     else
@@ -867,23 +940,44 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
         is_real = true;
         index++;
 
-        if (buffer[index] < '0' || buffer[index] > '9')
+        if (!is_digit(buffer[index]))
             return -1;
 
-        while (buffer[index] >= '0' && buffer[index] <= '9')
+        while (is_digit(buffer[index]))
             index++;
     }
 
-    char num_buff[128];
-    if (index >= (int)sizeof(num_buff))
-        return -1;
+    if (buffer[index] == 'e' || buffer[index] == 'E')
+    {
+        is_real = true;
+        index++;
 
-    memcpy(num_buff, buffer, index);
+        if (buffer[index] == '+' || buffer[index] == '-')
+            index++;
+
+        if (!is_digit(buffer[index]))
+            return -1;
+
+        while (is_digit(buffer[index]))
+            index++;
+    }
+
+    // Copy the token so strtol/strtof can never read past it (e.g. hex floats, "inf").
+    char stack_buff[128];
+    char *num_buff = stack_buff;
+    if (index >= (int)sizeof(stack_buff))
+    {
+        num_buff = malloc((size_t)index + 1);
+        if (!num_buff)
+            return -1;
+    }
+    memcpy(num_buff, buffer, (size_t)index);
     num_buff[index] = '\0';
 
+    int ret = -1;
     bb_json_t *result = bb_json_create(is_real ? BB_JSON_REAL : BB_JSON_INT);
     if (!result)
-        return -1;
+        goto done;
 
     errno = 0;
     char *end;
@@ -891,10 +985,11 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
     if (is_real)
     {
         float value = strtof(num_buff, &end);
-        if (errno == ERANGE || *end != '\0')
+        // Overflow (+-inf) is not representable; underflow to 0/denormal is fine.
+        if (*end != '\0' || value > FLT_MAX || value < -FLT_MAX)
         {
             bb_json_destroy(result);
-            return -1;
+            goto done;
         }
         result->real_val = value;
     }
@@ -905,13 +1000,17 @@ static int parse_json_str_number(bb_json_t **json, char *buffer)
             value < INT_MIN || value > INT_MAX)
         {
             bb_json_destroy(result);
-            return -1;
+            goto done;
         }
         result->int_val = (int)value;
     }
 
     *json = result;
-    return index;
+    ret = index;
+done:
+    if (num_buff != stack_buff)
+        free(num_buff);
+    return ret;
 }
 
 static int hex_char_to_int(char c)
@@ -922,81 +1021,158 @@ static int hex_char_to_int(char c)
     return -1;
 }
 
+// Reads exactly four hex digits (stops at the first non-hex char, including '\0').
+static bool parse_hex4(const char *p, unsigned int *out)
+{
+    unsigned int value = 0;
+    for (int k = 0; k < 4; k++)
+    {
+        int digit = hex_char_to_int(p[k]);
+        if (digit < 0)
+            return false;
+        value = (value << 4) | (unsigned int)digit;
+    }
+    *out = value;
+    return true;
+}
+
+static int utf8_encode(unsigned int cp, char *out)
+{
+    if (cp < 0x80)
+    {
+        out[0] = (char)cp;
+        return 1;
+    }
+    if (cp < 0x800)
+    {
+        out[0] = (char)(0xC0 | (cp >> 6));
+        out[1] = (char)(0x80 | (cp & 0x3F));
+        return 2;
+    }
+    if (cp < 0x10000)
+    {
+        out[0] = (char)(0xE0 | (cp >> 12));
+        out[1] = (char)(0x80 | ((cp >> 6) & 0x3F));
+        out[2] = (char)(0x80 | (cp & 0x3F));
+        return 3;
+    }
+    out[0] = (char)(0xF0 | (cp >> 18));
+    out[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
+    out[2] = (char)(0x80 | ((cp >> 6) & 0x3F));
+    out[3] = (char)(0x80 | (cp & 0x3F));
+    return 4;
+}
+
+// Parses a JSON string literal starting at buffer[0] == '"'. On success *out holds a
+// malloc'd NUL-terminated UTF-8 string, *out_len its length, and the number of input
+// characters consumed (including both quotes) is returned. Returns -1 on any error.
+static int parse_json_string_raw(const char *buffer, char **out, size_t *out_len)
+{
+    // Pass 1: find the closing quote (an escaped char never terminates the string).
+    size_t i = 1;
+    while (buffer[i] != '\0' && buffer[i] != '\"')
+    {
+        if (buffer[i] == '\\')
+        {
+            i++;
+            if (buffer[i] == '\0')
+                return -1;
+        }
+        i++;
+    }
+    if (buffer[i] != '\"')
+        return -1;
+
+    // Decoded output is never longer than the raw text (\uXXXX -> <= 3 bytes,
+    // surrogate pair -> 4 bytes).
+    char *dst = malloc(i);
+    if (!dst)
+        return -1;
+
+    size_t j = 0;
+    size_t k = 1;
+    while (k < i)
+    {
+        unsigned char c = (unsigned char)buffer[k];
+        if (c < 0x20)
+            goto failure; // raw control characters must be escaped
+        if (c != '\\')
+        {
+            dst[j++] = (char)c;
+            k++;
+            continue;
+        }
+
+        k++; // skip backslash
+        switch (buffer[k])
+        {
+            case '\"': dst[j++] = '\"'; k++; break;
+            case '\\': dst[j++] = '\\'; k++; break;
+            case '/':  dst[j++] = '/';  k++; break;
+            case 'b':  dst[j++] = '\b'; k++; break;
+            case 'f':  dst[j++] = '\f'; k++; break;
+            case 'n':  dst[j++] = '\n'; k++; break;
+            case 'r':  dst[j++] = '\r'; k++; break;
+            case 't':  dst[j++] = '\t'; k++; break;
+            case 'u':
+            {
+                unsigned int cp;
+                if (!parse_hex4(buffer + k + 1, &cp))
+                    goto failure;
+                k += 5;
+                if (cp >= 0xD800 && cp <= 0xDBFF)
+                {
+                    // High surrogate: must be followed by \uDC00..\uDFFF.
+                    unsigned int low;
+                    if (buffer[k] != '\\' || buffer[k + 1] != 'u' ||
+                        !parse_hex4(buffer + k + 2, &low) ||
+                        low < 0xDC00 || low > 0xDFFF)
+                        goto failure;
+                    cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                    k += 6;
+                }
+                else if (cp >= 0xDC00 && cp <= 0xDFFF)
+                {
+                    goto failure; // lone low surrogate
+                }
+                if (cp == 0)
+                    goto failure; // strings are NUL-terminated; U+0000 is unrepresentable
+                j += (size_t)utf8_encode(cp, dst + j);
+                break;
+            }
+            default:
+                goto failure; // invalid escape
+        }
+    }
+
+    dst[j] = '\0';
+    *out = dst;
+    *out_len = j;
+    return (int)(i + 1);
+failure:
+    free(dst);
+    return -1;
+}
+
 static int parse_json_str_text(bb_json_t **json, char *buffer)
 {
-    BB_ASSERT_MSG(buffer[0] == '"', "Invalid str quotation.");
+    BB_ASSERT_MSG(buffer[0] == '\"', "Invalid str quotation.");
+    char *text = NULL;
+    size_t text_len = 0;
+    int consumed = parse_json_string_raw(buffer, &text, &text_len);
+    if (consumed < 0)
+    {
+        return -1;
+    }
     (*json) = bb_json_create(BB_JSON_TEXT);
     if (!(*json))
     {
+        free(text);
         return -1;
     }
-
-    int len = (int)strlen(buffer);
-    char *out = malloc(len); // maximum possible length
-    if (!out)
-    {
-        bb_json_destroy(*json);
-        *json = NULL;
-        return -1;
-    }
-
-    int i = 1; // input index (skip opening quote)
-    int j = 0; // output index
-
-    while (buffer[i] != '"' && buffer[i] != '\0')
-    {
-        if (buffer[i] == '\\') // escape sequence
-        {
-            i++;
-            switch (buffer[i])
-            {
-                case '"': out[j++] = '"'; break;
-                case '\\': out[j++] = '\\'; break;
-                case '/': out[j++] = '/'; break;
-                case 'b': out[j++] = '\b'; break;
-                case 'f': out[j++] = '\f'; break;
-                case 'n': out[j++] = '\n'; break;
-                case 'r': out[j++] = '\r'; break;
-                case 't': out[j++] = '\t'; break;
-                case 'u':
-                {
-                    // parse \uXXXX
-                    if (i + 4 >= len) { goto failure; }
-                    int value = 0;
-                    for (int k = 1; k <= 4; k++)
-                    {
-                        int digit = hex_char_to_int(buffer[i + k]);
-                        if (digit < 0) { goto failure; }
-                        value = (value << 4) | digit;
-                    }
-                    i += 4;
-                    if (value > 0xFF) { goto failure; } // simple one-byte support
-                    out[j++] = (char)value;
-                    break;
-                }
-                default:
-                    goto failure; // invalid escape
-            }
-            i++;
-        }
-        else
-        {
-            out[j++] = buffer[i++];
-        }
-    }
-
-    if (buffer[i] != '"') { goto failure; }
-
-    out[j] = '\0';
-    (*json)->text_val = out;
-    (*json)->size = j;
-
-    return i + 1; // number of characters consumed including quotes
-failure:
-    bb_json_destroy(*json);
-    *json = NULL;
-    free(out);
-    return -1;
+    (*json)->text_val = text;
+    (*json)->size = text_len;
+    return consumed;
 }
 
 static bool white_space(char c)
@@ -1004,11 +1180,13 @@ static bool white_space(char c)
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-static int parse_json_str_partial(bb_json_t **json, char *buffer);
+static int parse_json_str_partial(bb_json_t **json, char *buffer, int depth);
 
-static int parse_json_str_array(bb_json_t **json, char *buffer)
+static int parse_json_str_array(bb_json_t **json, char *buffer, int depth)
 {
     BB_ASSERT_MSG(buffer[0] == '[', "Invalid array start.");
+    if (depth >= BB_JSON_MAX_DEPTH)
+        return -1;
     (*json) = bb_json_create(BB_JSON_ARRAY);
     if (!(*json))
     {
@@ -1024,7 +1202,7 @@ static int parse_json_str_array(bb_json_t **json, char *buffer)
     while (buffer[index] != '\0')
     {
         bb_json_t *child = NULL;
-        int res = parse_json_str_partial(&child, buffer + index);
+        int res = parse_json_str_partial(&child, buffer + index, depth + 1);
         if (res < 0)
         {
             goto failure;
@@ -1052,37 +1230,34 @@ failure:
     return -1;
 }
 
-static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
+static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer, int depth)
 {
     BB_ASSERT_MSG(object->type == BB_JSON_OBJECT, "Invalid JSON type.");
     if (buffer[0] != '\"')
     {
         return -1;
     }
-    int index = 1;
-    while (buffer[index] != '\"' && buffer[index] != '\0')
-        index++;
-    if (buffer[index] != '\"')
+    char *key = NULL;
+    size_t key_len = 0;
+    int index = parse_json_string_raw(buffer, &key, &key_len);
+    if (index < 0)
         return -1;
-    int key_end = index;
-    index++;
     while (white_space(buffer[index])) index++;
     if (buffer[index] != ':')
-        return -1;
-    index++;
-    while (white_space(buffer[index])) index++;
-    bb_json_t *value;
-    int res = parse_json_str_partial(&value, buffer + index);
-    if (res < 0) return -1;
-
-    char *key = malloc(key_end);
-    if (!key)
     {
-        bb_json_destroy(value);
+        free(key);
         return -1;
     }
-    memcpy(key, buffer + 1, key_end - 1);
-    key[key_end - 1] = '\0';
+    index++;
+    while (white_space(buffer[index])) index++;
+    bb_json_t *value = NULL;
+    int res = parse_json_str_partial(&value, buffer + index, depth + 1);
+    if (res < 0)
+    {
+        free(key);
+        return -1;
+    }
+
     bb_error_t err = bb_json_object_set_value(object, key, value);
     free(key);
     if (BB_FAILED(err))
@@ -1093,9 +1268,11 @@ static int parse_and_add_json_object_pair(bb_json_t *object, char *buffer)
     return res + index;
 }
 
-static int parse_json_str_object(bb_json_t **json, char *buffer)
+static int parse_json_str_object(bb_json_t **json, char *buffer, int depth)
 {
     BB_ASSERT_MSG(buffer[0] == '{', "Invalid object start.");
+    if (depth >= BB_JSON_MAX_DEPTH)
+        return -1;
     (*json) = bb_json_create(BB_JSON_OBJECT);
     if (!(*json))
     {
@@ -1111,7 +1288,7 @@ static int parse_json_str_object(bb_json_t **json, char *buffer)
     while (buffer[index] != '\0')
     {
         // A key/value pair is required here, so "{"a":1,}" fails: '}' is not a valid key.
-        int res = parse_and_add_json_object_pair(*json, buffer + index);
+        int res = parse_and_add_json_object_pair(*json, buffer + index, depth);
         if (res < 0) goto failure;
         index += res;
         while (white_space(buffer[index])) index++;
@@ -1130,7 +1307,7 @@ failure:
     return -1;
 }
 
-static int parse_json_str_partial(bb_json_t **json, char *buffer)
+static int parse_json_str_partial(bb_json_t **json, char *buffer, int depth)
 {
     int index = 0;
     while (white_space(buffer[index])) index++;
@@ -1138,10 +1315,10 @@ static int parse_json_str_partial(bb_json_t **json, char *buffer)
     switch (buffer[index])
     {
         case '{':
-            res = parse_json_str_object(json, buffer + index);
+            res = parse_json_str_object(json, buffer + index, depth);
             break;
         case '[':
-            res = parse_json_str_array(json, buffer + index);
+            res = parse_json_str_array(json, buffer + index, depth);
             break;
         case 'n':
             res = parse_json_str_null(json, buffer + index);
@@ -1156,7 +1333,7 @@ static int parse_json_str_partial(bb_json_t **json, char *buffer)
             res = parse_json_str_text(json, buffer + index);
             break;
         default:
-            if ((buffer[index] >= '0' && buffer[index] <= '9') || (buffer[index] == '-' && buffer[index + 1] >= '0' && buffer[index + 1] <= '9'))
+            if (is_digit(buffer[index]) || (buffer[index] == '-' && is_digit(buffer[index + 1])))
             {
                 res = parse_json_str_number(json, buffer + index);
                 break;
@@ -1168,8 +1345,12 @@ static int parse_json_str_partial(bb_json_t **json, char *buffer)
 
 bb_json_t *bb_json_parse(char *buffer)
 {
+    if (!buffer)
+    {
+        return NULL;
+    }
     bb_json_t *json = NULL;
-    int res = parse_json_str_partial(&json, buffer);
+    int res = parse_json_str_partial(&json, buffer, 0);
     if (res < 1)
     {
         return NULL;
@@ -1333,25 +1514,46 @@ bb_json_t *bb_json_clone(bb_json_t *json)
 bb_json_t *bb_json_load(const char *path)
 {
     FILE *f = fopen(path, "rb");
-    
+
     if (!f) return NULL;
-    
-    fseek(f, 0, SEEK_END);
+
+    if (fseek(f, 0, SEEK_END) != 0)
+    {
+        fclose(f);
+        return NULL;
+    }
     long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    
-    char *buffer = (char*)malloc((size + 1) * sizeof(char));
+    if (size < 0 || fseek(f, 0, SEEK_SET) != 0)
+    {
+        fclose(f);
+        return NULL;
+    }
+
+    char *buffer = (char*)malloc((size_t)size + 1);
     if (!buffer)
     {
         fclose(f);
         return NULL;
     }
 
-    fread(buffer, 1, size, f);
-    buffer[size] = '\0';
+    size_t read = fread(buffer, 1, (size_t)size, f);
     fclose(f);
+    buffer[read] = '\0';
 
-    bb_json_t *json = bb_json_parse(buffer);
+    // A short read or an embedded NUL would silently truncate the document.
+    if (read != (size_t)size || memchr(buffer, '\0', read) != NULL ||
+        strlen(buffer) != read)
+    {
+        free(buffer);
+        return NULL;
+    }
+
+    // Tolerate a UTF-8 byte order mark (RFC 8259 allows parsers to skip it).
+    char *start = buffer;
+    if (read >= 3 && memcmp(buffer, "\xEF\xBB\xBF", 3) == 0)
+        start += 3;
+
+    bb_json_t *json = bb_json_parse(start);
     free(buffer);
     return json;
 }
