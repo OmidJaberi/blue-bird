@@ -7,6 +7,7 @@
 #include "blue-bird/error/error.h"
 #include "blue-bird/utils/encoding.h"
 #include "blue-bird/utils/hash.h"
+#include "blue-bird/utils/random.h"
 
 #include "http/parser.h"
 
@@ -316,8 +317,15 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
 
     uint8_t nonce[16];
 
-    for (size_t i = 0; i < sizeof(nonce); i++)
-        nonce[i] = rand() & 0xff;
+    if (bb_random_bytes(nonce, sizeof(nonce)) != 0)
+    {
+        connect_callback(NULL, BB_ERROR(BB_ERR_NETWORK, "Random generation failed"), userdata);
+        free(host);
+        free(path);
+        free(data);
+        bb_async_connection_destroy(async_conn);
+        return;
+    }
 
     char *key = bb_base64_encode(nonce, sizeof(nonce));
     if (!key)
@@ -901,10 +909,12 @@ bb_error_t bb_websocket_queue_frame(bb_websocket_t *ws, const bb_ws_frame_t *fra
     {
         uint8_t mask[4];
 
-        mask[0] = rand() & 0xff;
-        mask[1] = rand() & 0xff;
-        mask[2] = rand() & 0xff;
-        mask[3] = rand() & 0xff;
+        /* RFC 6455 5.3: the masking key must be unpredictable. */
+        if (bb_random_bytes(mask, sizeof(mask)) != 0)
+        {
+            free(buffer);
+            return BB_ERROR(BB_ERR_NETWORK, "Random generation failed");
+        }
 
         memcpy(out + pos, mask, 4);
         pos += 4;

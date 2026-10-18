@@ -1,37 +1,13 @@
 #include "blue-bird/utils/uuid.h"
 #include "blue-bird/utils/platform.h"
+#include "blue-bird/utils/random.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <bcrypt.h>
-#pragma comment(lib, "bcrypt.lib")
-#else
-#include <fcntl.h>
-#include <unistd.h>
-#endif
-
 static int bb_uuid_random_bytes(uint8_t *buf, size_t len)
 {
-#if defined(_WIN32)
-    return BCryptGenRandom(NULL,
-                            buf,
-                            (ULONG)len,
-                            BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0
-           ? 0
-           : 1;
-#else
-    bb_socket_t fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0)
-        return 1;
-
-    ssize_t r = read(fd, buf, len);
-    close(fd);
-
-    return r == (ssize_t)len ? 0 : 1;
-#endif
+    return bb_random_bytes(buf, len);
 }
 
 /* ---------- UUID v4 ---------- */
