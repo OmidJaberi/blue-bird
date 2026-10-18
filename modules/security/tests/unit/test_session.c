@@ -230,6 +230,49 @@ void test_session_config_lifetime_default_used_by_login(void)
     BB_ASSERT(session.expires_at >= before + 120);
 }
 
+void test_session_rejects_oversized_ttl(void)
+{
+    printf("\tTesting that ttl above the configured ceiling is rejected...\n");
+
+    bb_session_t session;
+
+    bb_error_t err = bb_session_create("user-big-ttl", (time_t)1 << 40, &session);
+
+    BB_ASSERT(err.code != BB_OK);
+    BB_ASSERT(session.id[0] == '\0');
+}
+
+void test_session_rejects_overlong_user_id(void)
+{
+    printf("\tTesting that over-long user IDs are rejected, not truncated...\n");
+
+    char long_id[BB_USER_ID_SIZE + 8];
+    memset(long_id, 'u', sizeof(long_id) - 1);
+    long_id[sizeof(long_id) - 1] = '\0';
+
+    bb_session_t session;
+    size_t before = _bb_session_store_count();
+
+    BB_ASSERT(bb_session_create(long_id, 3600, &session).code != BB_OK);
+    BB_ASSERT(bb_session_create("", 3600, &session).code != BB_OK);
+    BB_ASSERT(_bb_session_store_count() == before);
+}
+
+void test_session_relogin_issues_new_id_and_logout_is_per_session(void)
+{
+    printf("\tTesting that repeated creation never reuses an ID and destroy is per-session...\n");
+
+    bb_session_t a, b, fetched;
+
+    BB_ASSERT(bb_session_create("user-fix", 3600, &a).code == BB_OK);
+    BB_ASSERT(bb_session_create("user-fix", 3600, &b).code == BB_OK);
+    BB_ASSERT(strcmp(a.id, b.id) != 0);
+
+    BB_ASSERT(bb_session_destroy(a.id).code == BB_OK);
+    BB_ASSERT(bb_session_get(a.id, &fetched).code == BB_ERR_SESSION_NOT_FOUND);
+    BB_ASSERT(bb_session_get(b.id, &fetched).code == BB_OK);
+}
+
 int main(void)
 {
     printf("Running Session tests...\n");
@@ -247,6 +290,9 @@ int main(void)
     test_session_cleanup_removes_only_expired();
     test_session_config_id_length_is_used();
     test_session_config_lifetime_default_used_by_login();
+    test_session_rejects_oversized_ttl();
+    test_session_rejects_overlong_user_id();
+    test_session_relogin_issues_new_id_and_logout_is_per_session();
 
     printf("All tests passed.\n");
 
