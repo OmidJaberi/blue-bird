@@ -13,6 +13,7 @@
 
 #include "../internal/random.h"
 #include "../internal/session_store.h"
+#include "../internal/security_internal.h"
 #include "blue-bird/security/config.h"
 
 bb_error_t bb_session_create(const char *user_id, time_t ttl, bb_session_t *session)
@@ -22,7 +23,21 @@ bb_error_t bb_session_create(const char *user_id, time_t ttl, bb_session_t *sess
 
     memset(session, 0, sizeof(*session));
 
-    strncpy(session->user_id, user_id, sizeof(session->user_id) - 1);
+    /* Reject rather than silently truncate: two distinct long user IDs
+     * sharing a 63-byte prefix would otherwise collapse into one identity. */
+    size_t user_id_len = strlen(user_id);
+
+    if (user_id_len == 0 || user_id_len >= sizeof(session->user_id))
+        return BB_ERROR(BB_ERR_INVALID_SECURITY_CONFIG, "invalid user id");
+
+    /* ttl is caller-supplied and bypasses bb_security_config_t, so it gets
+     * the same ceiling here (also keeps time(NULL) + ttl from overflowing).
+     * A ttl <= 0 is allowed: it just yields an already-expired session,
+     * which bb_session_get() rejects (the regression tests rely on this). */
+    if (ttl > BB_SESSION_LIFETIME_MAX_SECONDS)
+        return BB_ERROR(BB_ERR_INVALID_SECURITY_CONFIG, "session ttl exceeds maximum lifetime");
+
+    memcpy(session->user_id, user_id, user_id_len);
 
     const bb_security_config_t *config = bb_security_config_get();
 
@@ -32,11 +47,20 @@ bb_error_t bb_session_create(const char *user_id, time_t ttl, bb_session_t *sess
     bb_error_t err = _bb_random_hex(session->id, config->session_id_length + 1);
 
     if (BB_FAILED(err))
+    {
+        memset(session, 0, sizeof(*session));
         return err;
+    }
 
     session->expires_at = time(NULL) + ttl;
 
-    return _bb_session_store_create(session);
+    err = _bb_session_store_create(session);
+
+    /* Never hand back an ID that isn't actually in the store. */
+    if (BB_FAILED(err))
+        memset(session, 0, sizeof(*session));
+
+    return err;
 }
 
 bb_error_t bb_session_get(const char *id, bb_session_t *session)
