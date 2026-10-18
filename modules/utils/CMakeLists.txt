@@ -2,6 +2,7 @@ add_library(bluebird_utils
     src/json.c
     src/time.c
     src/uuid.c
+    src/random.c
     src/hash.c
     src/asset.c
     src/platform.c
