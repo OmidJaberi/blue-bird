@@ -98,6 +98,48 @@ void test_json_array_remove_boundaries(void)
     bb_json_destroy(arr);
 }
 
+void test_json_array_remove_empty_and_reuse(void)
+{
+    printf("\tTesting JSON array removal on empty array and reuse after emptying...\n");
+
+    bb_json_t *arr = bb_json_new_array();
+
+    // Removing from an empty array must fail cleanly (no unsigned underflow, no crash).
+    bb_error_t err = bb_json_array_remove_at_index(arr, 0);
+    BB_ASSERT(err.code == BB_ERR_JSON_OVERFLOW);
+    BB_ASSERT(bb_json_get_size(arr) == 0);
+    BB_ASSERT(bb_json_array_get_index(arr, 0) == NULL);
+    BB_ASSERT(bb_json_array_get_index(arr, UINT_MAX) == NULL);
+
+    // Remove the only element, then the array must still be usable.
+    BB_ASSERT(!BB_FAILED(bb_json_array_push(arr, bb_json_new_int(42))));
+    BB_ASSERT(bb_json_get_size(arr) == 1);
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 0)));
+    BB_ASSERT(bb_json_get_size(arr) == 0);
+
+    err = bb_json_array_remove_at_index(arr, 0);
+    BB_ASSERT(err.code == BB_ERR_JSON_OVERFLOW);
+
+    for (int i = 0; i < 50; i++)
+        BB_ASSERT(!BB_FAILED(bb_json_array_push(arr, bb_json_new_int(i))));
+    BB_ASSERT(bb_json_get_size(arr) == 50);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 0)) == 0);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 49)) == 49);
+
+    // Empty it completely again and make sure it serializes as an empty array.
+    while (bb_json_get_size(arr) > 0)
+        BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 0)));
+
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(arr, &buffer, &size)));
+    BB_ASSERT(strcmp(buffer, "[]") == 0);
+    BB_ASSERT(size == 2);
+    free(buffer);
+
+    bb_json_destroy(arr);
+}
+
 void test_json_object(void)
 {
     printf("\tTesting JSON object...\n");
@@ -1784,6 +1826,7 @@ int main(void)
     test_bb_json_array_remove_at_index();
     test_json_array_multi_remove_at_index();
     test_json_array_remove_boundaries();
+    test_json_array_remove_empty_and_reuse();
     test_json_object();
     test_object_key_overwrite();
     test_parse_duplicate_object_key();
