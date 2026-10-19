@@ -1062,6 +1062,43 @@ void test_object_remove_missing_key(void)
     bb_json_destroy(obj);
 }
 
+void test_object_key_order_after_overwrite_and_remove(void)
+{
+    printf("\tTesting JSON object key order after overwrite and remove...\n");
+
+    bb_json_t *obj = bb_json_parse("{\"a\": 1, \"b\": 2, \"c\": 3}");
+    BB_ASSERT(obj != NULL);
+
+    // Overwriting an existing key keeps its original position.
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, "a", bb_json_new_int(10))));
+    BB_ASSERT(bb_json_get_size(obj) == 3);
+
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(obj, &buffer, &size)));
+    BB_ASSERT(strcmp(buffer, "{\"a\": 10, \"b\": 2, \"c\": 3}") == 0);
+    free(buffer);
+
+    // Removing a key and adding it back places it at the end.
+    BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, "a")));
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, "a", bb_json_new_int(4))));
+    BB_ASSERT(bb_json_get_size(obj) == 3);
+
+    buffer = NULL;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(obj, &buffer, &size)));
+    BB_ASSERT(strcmp(buffer, "{\"b\": 2, \"c\": 3, \"a\": 4}") == 0);
+    BB_ASSERT(size == (int)strlen(buffer));
+    free(buffer);
+
+    // Removing the last key and the first key leaves the middle one intact.
+    BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, "a")));
+    BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, "b")));
+    BB_ASSERT(bb_json_get_size(obj) == 1);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(obj, "c")) == 3);
+
+    bb_json_destroy(obj);
+}
+
 void test_parse_literals_and_whitespace(void)
 {
     printf("\tTesting JSON parsing of literals and surrounding whitespace...\n");
@@ -1832,6 +1869,7 @@ int main(void)
     test_parse_duplicate_object_key();
     test_object_key_deletion();
     test_object_remove_missing_key();
+    test_object_key_order_after_overwrite_and_remove();
     test_json_type_mismatch();
 
     test_serialize_integer_json();
