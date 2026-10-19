@@ -631,6 +631,63 @@ void test_compare_complex_equal_jsons(void)
     bb_json_destroy(json_2);
 }
 
+void test_compare_jsons_different_structure(void)
+{
+    printf("\tTesting comparison of structurally different JSONs...\n");
+
+    // Same size, same values, but different keys (catches one-directional key lookups).
+    bb_json_t *a = bb_json_parse("{\"a\": 1, \"b\": 2}");
+    bb_json_t *b = bb_json_parse("{\"a\": 1, \"c\": 2}");
+    BB_ASSERT(a != NULL && b != NULL);
+    BB_ASSERT(!bb_json_equal(a, b));
+    BB_ASSERT(!bb_json_equal(b, a));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+
+    // Same elements, different order: arrays are ordered.
+    a = bb_json_parse("[1, 2, 3]");
+    b = bb_json_parse("[3, 2, 1]");
+    BB_ASSERT(a != NULL && b != NULL);
+    BB_ASSERT(!bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+
+    // Different lengths with a common prefix.
+    a = bb_json_parse("[1, 2]");
+    b = bb_json_parse("[1, 2, 3]");
+    BB_ASSERT(!bb_json_equal(a, b));
+    BB_ASSERT(!bb_json_equal(b, a));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+
+    // Different types that look alike.
+    a = bb_json_parse("null");
+    b = bb_json_parse("false");
+    BB_ASSERT(!bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+
+    a = bb_json_parse("\"1\"");
+    b = bb_json_parse("1");
+    BB_ASSERT(!bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+
+    a = bb_json_parse("[]");
+    b = bb_json_parse("{}");
+    BB_ASSERT(!bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+
+    // A single difference buried deep inside an otherwise identical document.
+    a = bb_json_parse("{\"x\": [1, {\"y\": [true, {\"z\": \"deep\"}]}]}");
+    b = bb_json_parse("{\"x\": [1, {\"y\": [true, {\"z\": \"deeP\"}]}]}");
+    BB_ASSERT(a != NULL && b != NULL);
+    BB_ASSERT(!bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+}
+
 void test_json_deep_nesting(void)
 {
     printf("\tTesting deeply nested JSON...\n");
@@ -1770,6 +1827,7 @@ int main(void)
     test_compare_jsons_missing_key();
     test_compare_jsons_extra_key();
     test_compare_complex_equal_jsons();
+    test_compare_jsons_different_structure();
 
     test_json_deep_nesting();
     test_json_clone();
