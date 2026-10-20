@@ -1211,6 +1211,51 @@ void test_parser_byte_at_a_time_delivery(void)
     assert_server_healthy();
 }
 
+void test_parser_truncated_and_aborted_requests(void)
+{
+    printf("Testing truncated bodies and clients that disconnect mid-request...\n");
+
+    char resp[4096];
+
+    /* Content-Length promises 100 bytes but only 5 arrive: the handler must
+     * never run on a partial body. */
+    const char *truncated_body =
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\nhello";
+    (void)raw_http_exchange(truncated_body, strlen(truncated_body), resp, sizeof(resp));
+    BB_ASSERT(strstr(resp, " 200 ") == NULL);
+    BB_ASSERT(strstr(resp, "body:") == NULL);
+
+    /* Same for a chunked body that never sends its terminating 0-chunk. */
+    const char *truncated_chunked =
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n";
+    (void)raw_http_exchange(truncated_chunked, strlen(truncated_chunked), resp, sizeof(resp));
+    BB_ASSERT(strstr(resp, " 200 ") == NULL);
+    BB_ASSERT(strstr(resp, "body:") == NULL);
+
+    /* Clients that vanish at awkward points: mid request line, mid header,
+     * and mid body. The server must clean up each connection and keep serving. */
+    static const char *const fragments[] = {
+        "GET /par",
+        "GET / HTTP/1.1\r\nHost: loc",
+        "GET / HTTP/1.1\r\nHost: localhost\r\n",
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nContent-Length: 50\r\n\r\npartial",
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhel",
+    };
+
+    for (int round = 0; round < 20; round++)
+    {
+        for (size_t i = 0; i < sizeof(fragments) / sizeof(fragments[0]); i++)
+        {
+            bb_socket_t fd = raw_connect();
+            send(fd, fragments[i], strlen(fragments[i]), MSG_NOSIGNAL);
+            bb_socket_close(fd);
+        }
+    }
+
+    bb_usleep(50000); /* let the server observe the disconnects */
+    assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1458,6 +1503,7 @@ int main(void)
     test_parser_pipelined_requests();
     test_parser_chunked_extensions_and_trailers();
     test_parser_byte_at_a_time_delivery();
+    test_parser_truncated_and_aborted_requests();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
