@@ -1177,6 +1177,40 @@ void test_parser_chunked_extensions_and_trailers(void)
     assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
 }
 
+void test_parser_byte_at_a_time_delivery(void)
+{
+    printf("Testing request with body delivered one byte at a time...\n");
+
+    /* Exercises the incremental parser across every state boundary (request
+     * line, headers, fixed-length body) and the server's parsed_offset
+     * bookkeeping. Header names are lower-case on purpose. */
+    const char *req =
+        "GET /body HTTP/1.1\r\n"
+        "host: localhost\r\n"
+        "content-length: 11\r\n"
+        "\r\n"
+        "hello world";
+    size_t len = strlen(req);
+
+    bb_socket_t fd = raw_connect();
+
+    for (size_t i = 0; i < len; i++)
+    {
+        BB_ASSERT(send(fd, req + i, 1, MSG_NOSIGNAL) == 1);
+        bb_usleep(1000);
+    }
+
+    char resp[4096];
+    size_t n = raw_read_response(fd, resp, sizeof(resp));
+    bb_socket_close(fd);
+
+    BB_ASSERT(n > 0);
+    BB_ASSERT(strstr(resp, " 200 ") != NULL);
+    BB_ASSERT(strstr(resp, "body: hello world") != NULL);
+
+    assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1423,6 +1457,7 @@ int main(void)
     test_parser_chunked_body();
     test_parser_pipelined_requests();
     test_parser_chunked_extensions_and_trailers();
+    test_parser_byte_at_a_time_delivery();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
