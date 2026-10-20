@@ -1048,6 +1048,93 @@ void test_parser_chunked_body(void)
     BB_ASSERT(strstr(resp, "body: hello world") != NULL);
 }
 
+/* ------------------------------------------------------------------ */
+/* Additional raw-socket helpers (persistent connection, read-to-close)  */
+/* ------------------------------------------------------------------ */
+
+static bb_socket_t raw_connect(void)
+{
+    bb_socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(8080);
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    BB_ASSERT(connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+#ifdef _WIN32
+    DWORD tv = 2000;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
+#else
+    struct timeval tv = {.tv_sec = 2, .tv_usec = 0};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+    return fd;
+}
+
+/* Reads until the peer closes, the receive timeout fires or `cap` is full. */
+static size_t raw_read_response(bb_socket_t fd, char *resp, size_t cap)
+{
+    size_t total = 0;
+
+    while (total + 1 < cap)
+    {
+        ssize_t n = recv(fd, resp + total, cap - total - 1, 0);
+        if (n <= 0)
+            break;
+        total += (size_t)n;
+    }
+
+    resp[total] = '\0';
+    return total;
+}
+
+static size_t count_occurrences(const char *haystack, const char *needle)
+{
+    size_t count = 0;
+    size_t nlen = strlen(needle);
+
+    for (const char *p = strstr(haystack, needle); p; p = strstr(p + nlen, needle))
+        count++;
+
+    return count;
+}
+
+void test_parser_pipelined_requests(void)
+{
+    printf("Testing back-to-back (pipelined) requests on one connection...\n");
+
+    /* The server answers one request per connection and then closes. A second
+     * request that arrives in the same TCP segment must not be executed, must
+     * not corrupt the first response, and must not crash or wedge the server. */
+    const char *two_requests =
+        "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        "GET /param/second HTTP/1.1\r\nHost: localhost\r\n\r\n";
+
+    char resp[4096];
+    raw_result_t r = raw_http_exchange(two_requests, strlen(two_requests), resp, sizeof(resp));
+
+    BB_ASSERT(r == RAW_PEER_CLOSED);
+    BB_ASSERT(strstr(resp, " 200 ") != NULL);
+    BB_ASSERT(count_occurrences(resp, "Hello, Blue-Bird :)") == 1);
+    BB_ASSERT(strstr(resp, "name: second") == NULL);
+
+    /* A pipelined request that is itself malformed must not turn the first,
+     * valid response into an error or leak the bad request's effects. */
+    const char *good_then_bad =
+        "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        "GET /../etc/passwd HTTP/1.1\r\nHost: localhost\r\n\r\n";
+
+    r = raw_http_exchange(good_then_bad, strlen(good_then_bad), resp, sizeof(resp));
+    BB_ASSERT(r == RAW_PEER_CLOSED);
+    BB_ASSERT(count_occurrences(resp, "Hello, Blue-Bird :)") == 1);
+    BB_ASSERT(strstr(resp, "passwd") == NULL);
+
+    assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1292,6 +1379,7 @@ int main(void)
     test_parser_ambiguous_framing();
     test_parser_header_limits();
     test_parser_chunked_body();
+    test_parser_pipelined_requests();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
