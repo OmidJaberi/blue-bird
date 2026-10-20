@@ -1135,6 +1135,48 @@ void test_parser_pipelined_requests(void)
     assert_server_healthy();
 }
 
+void test_parser_chunked_extensions_and_trailers(void)
+{
+    printf("Testing chunk extensions, uppercase hex sizes and trailers...\n");
+
+    /* chunk extension, uppercase hex size (0xA = 10) and a legal trailer field */
+    const char *req =
+        "GET /body HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Transfer-Encoding: Chunked\r\n" /* coding names are case-insensitive */
+        "\r\n"
+        "5;name=value\r\nhello\r\n"
+        "A\r\n,blue-bird\r\n"  /* exactly 10 bytes */
+        "0\r\n"
+        "X-Checksum: abc123\r\n"
+        "\r\n";
+
+    char resp[4096];
+    (void)raw_http_exchange(req, strlen(req), resp, sizeof(resp));
+
+    BB_ASSERT(strstr(resp, " 200 ") != NULL);
+    BB_ASSERT(strstr(resp, "body: hello,blue-bird") != NULL);
+
+    /* Framing fields are forbidden in trailers, and chunk data must be
+     * followed by exactly CRLF: both are smuggling vectors. */
+    static const char *const payloads[] = {
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+        "5\r\nhello\r\n0\r\nContent-Length: 5\r\n\r\n",
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+        "5\r\nhello\r\n0\r\nTransfer-Encoding: chunked\r\n\r\n",
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+        "5\r\nhelloXX\r\n0\r\n\r\n",                       /* data longer than chunk size */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+        "5 \r\nhello\r\n0\r\n\r\n",                        /* whitespace after size */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+        "FFFFFFFFFFFFFFFFF\r\nhello\r\n0\r\n\r\n",         /* chunk-size overflow */
+        "GET /body HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+        "1000001\r\nhello\r\n0\r\n\r\n",                   /* chunk above the 16 MiB limit */
+    };
+
+    assert_all_rejected(payloads, sizeof(payloads) / sizeof(payloads[0]));
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1380,6 +1422,7 @@ int main(void)
     test_parser_header_limits();
     test_parser_chunked_body();
     test_parser_pipelined_requests();
+    test_parser_chunked_extensions_and_trailers();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
