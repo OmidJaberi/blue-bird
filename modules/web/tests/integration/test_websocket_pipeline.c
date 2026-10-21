@@ -828,6 +828,201 @@ static void websocket_silent_dead_connection_test(void)
 }
 
 /* ============================================================
+ * Raw-socket protocol tests (wire level, bypassing bb_websocket)
+ * ============================================================ */
+
+#define RAW_WS_KEY_SAMPLE    "dGhlIHNhbXBsZSBub25jZQ=="
+#define RAW_WS_ACCEPT_SAMPLE "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=" /* RFC 6455 section 1.3 */
+
+static bb_socket_t raw_ws_connect(int timeout_ms)
+{
+    bb_socket_t fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(TEST_PORT);
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    BB_ASSERT(connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+#ifdef _WIN32
+    DWORD tv = (DWORD)timeout_ms;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
+#else
+    struct timeval tv = {.tv_sec = timeout_ms / 1000, .tv_usec = (timeout_ms % 1000) * 1000};
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+    return fd;
+}
+
+/* Reads until the peer closes or the receive timeout fires. */
+static size_t raw_ws_read_all(bb_socket_t fd, char *buf, size_t cap)
+{
+    size_t total = 0;
+
+    while (total + 1 < cap)
+    {
+        ssize_t n = recv(fd, buf + total, cap - total - 1, 0);
+        if (n <= 0)
+            break;
+        total += (size_t)n;
+    }
+
+    buf[total] = '\0';
+    return total;
+}
+
+static bool raw_ws_contains_ci(const char *haystack, const char *needle)
+{
+    size_t nlen = strlen(needle);
+
+    for (; *haystack; haystack++)
+    {
+        if (bb_strncasecmp(haystack, needle, nlen) == 0)
+            return true;
+    }
+    return false;
+}
+
+static void raw_ws_send_all(bb_socket_t fd, const void *data, size_t len)
+{
+    BB_ASSERT(send(fd, data, len, MSG_NOSIGNAL) == (ssize_t)len);
+}
+
+/* Reads exactly `len` bytes; false if the peer closed or the timeout fired first. */
+static bool raw_ws_recv_exact(bb_socket_t fd, void *buf, size_t len)
+{
+    size_t got = 0;
+
+    while (got < len)
+    {
+        ssize_t n = recv(fd, (char *)buf + got, len - got, 0);
+        if (n <= 0)
+            return false;
+        got += (size_t)n;
+    }
+    return true;
+}
+
+/* Sends a handshake for `path` with the RFC sample key and returns the socket
+ * after the HTTP response headers have been consumed (so frames follow). */
+static bb_socket_t raw_ws_open(const char *path)
+{
+    bb_socket_t fd = raw_ws_connect(2000);
+
+    char req[512];
+    int n = snprintf(req, sizeof(req),
+                     "GET %s HTTP/1.1\r\n"
+                     "Host: 127.0.0.1:%d\r\n"
+                     "Upgrade: websocket\r\n"
+                     "Connection: Upgrade\r\n"
+                     "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\n"
+                     "Sec-WebSocket-Version: 13\r\n"
+                     "\r\n",
+                     path, TEST_PORT);
+    raw_ws_send_all(fd, req, (size_t)n);
+
+    /* Byte-wise so nothing after the blank line (i.e. frame data) is swallowed. */
+    char resp[1024];
+    size_t len = 0;
+    while (len < sizeof(resp) - 1)
+    {
+        BB_ASSERT(raw_ws_recv_exact(fd, resp + len, 1));
+        len++;
+        if (len >= 4 && memcmp(resp + len - 4, "\r\n\r\n", 4) == 0)
+            break;
+    }
+    resp[len] = '\0';
+
+    BB_ASSERT(strncmp(resp, "HTTP/1.1 101", 12) == 0);
+    return fd;
+}
+
+/* Builds one masked client frame into `out` (payload <= 65535) and returns its size. */
+static size_t raw_ws_build_frame(uint8_t *out, uint8_t first_byte, const void *payload, size_t len)
+{
+    static const uint8_t mask[4] = {0x37, 0xfa, 0x21, 0x3d};
+    size_t pos = 0;
+
+    out[pos++] = first_byte;
+
+    if (len < 126)
+    {
+        out[pos++] = 0x80 | (uint8_t)len;
+    }
+    else
+    {
+        out[pos++] = 0x80 | 126;
+        out[pos++] = (uint8_t)(len >> 8);
+        out[pos++] = (uint8_t)(len & 0xff);
+    }
+
+    memcpy(out + pos, mask, 4);
+    pos += 4;
+
+    for (size_t i = 0; i < len; i++)
+        out[pos + i] = ((const uint8_t *)payload)[i] ^ mask[i & 3];
+
+    return pos + len;
+}
+
+/* Reads one server frame (must be unmasked, per RFC 6455 section 5.1). Returns
+ * false if the connection closed or timed out before a full frame arrived. */
+static bool raw_ws_read_frame(bb_socket_t fd, uint8_t *first_byte, uint8_t *payload, size_t cap, size_t *len_out)
+{
+    uint8_t hdr[2];
+    if (!raw_ws_recv_exact(fd, hdr, 2))
+        return false;
+
+    BB_ASSERT((hdr[1] & 0x80) == 0); /* server-to-client frames are never masked */
+
+    size_t len = hdr[1] & 0x7f;
+    if (len == 126)
+    {
+        uint8_t ext[2];
+        if (!raw_ws_recv_exact(fd, ext, 2))
+            return false;
+        len = ((size_t)ext[0] << 8) | ext[1];
+    }
+    BB_ASSERT(len != 127 && len <= cap); /* tests here never need 64-bit lengths */
+
+    if (!raw_ws_recv_exact(fd, payload, len))
+        return false;
+
+    *first_byte = hdr[0];
+    *len_out = len;
+    return true;
+}
+
+/* Expects the next frame to be `first_byte` carrying exactly `expected`. */
+static void raw_ws_expect_frame(bb_socket_t fd, uint8_t first_byte, const void *expected, size_t expected_len)
+{
+    uint8_t buf[1024];
+    uint8_t got_first = 0;
+    size_t got_len = 0;
+
+    BB_ASSERT(raw_ws_read_frame(fd, &got_first, buf, sizeof(buf), &got_len));
+    BB_ASSERT(got_first == first_byte);
+    BB_ASSERT(got_len == expected_len);
+    BB_ASSERT(expected_len == 0 || memcmp(buf, expected, expected_len) == 0);
+}
+
+/* A fresh well-behaved client must still get an echo: proves the server is alive. */
+static void raw_ws_assert_echo_works(void)
+{
+    bb_socket_t fd = raw_ws_open("/echo");
+
+    uint8_t frame[64];
+    size_t n = raw_ws_build_frame(frame, 0x81, "still alive", 11);
+    raw_ws_send_all(fd, frame, n);
+    raw_ws_expect_frame(fd, 0x81, "still alive", 11);
+
+    bb_socket_close(fd);
+    check_server();
+}
+
+/* ============================================================
  * Main
  * ============================================================ */
 
