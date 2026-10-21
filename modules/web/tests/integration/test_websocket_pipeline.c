@@ -1022,6 +1022,86 @@ static void raw_ws_assert_echo_works(void)
     check_server();
 }
 
+static void websocket_handshake_validation_test(void)
+{
+    printf("\tTesting WebSocket handshake accept key and invalid upgrade rejection...\n");
+
+    /* ---- valid upgrade: exact RFC 6455 sample accept value ---- */
+    {
+        bb_socket_t fd = raw_ws_connect(2000);
+        const char *req =
+            "GET /echo HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "\r\n";
+        raw_ws_send_all(fd, req, strlen(req));
+
+        char resp[1024];
+        char *p = resp;
+        while ((size_t)(p - resp) < sizeof(resp) - 1)
+        {
+            BB_ASSERT(raw_ws_recv_exact(fd, p, 1));
+            p++;
+            if ((p - resp) >= 4 && memcmp(p - 4, "\r\n\r\n", 4) == 0)
+                break;
+        }
+        *p = '\0';
+
+        BB_ASSERT(strncmp(resp, "HTTP/1.1 101", 12) == 0);
+        BB_ASSERT(raw_ws_contains_ci(resp, "Upgrade: websocket"));
+        BB_ASSERT(raw_ws_contains_ci(resp, "Sec-WebSocket-Accept: " RAW_WS_ACCEPT_SAMPLE));
+
+        bb_socket_close(fd);
+        check_server();
+    }
+
+    /* ---- invalid upgrades: none may produce a 101 or leave a session behind ---- */
+    static const char *const bad_requests[] = {
+        /* missing Sec-WebSocket-Key */
+        "GET /echo HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        "Sec-WebSocket-Version: 13\r\n\r\n",
+        /* unsupported version */
+        "GET /echo HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\nSec-WebSocket-Version: 8\r\n\r\n",
+        /* missing version */
+        "GET /echo HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\n\r\n",
+        /* wrong Upgrade token */
+        "GET /echo HTTP/1.1\r\nHost: x\r\nUpgrade: h2c\r\nConnection: Upgrade\r\n"
+        "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\nSec-WebSocket-Version: 13\r\n\r\n",
+        /* Connection header does not include Upgrade */
+        "GET /echo HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: keep-alive\r\n"
+        "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\nSec-WebSocket-Version: 13\r\n\r\n",
+        /* plain HTTP GET to a websocket route */
+        "GET /echo HTTP/1.1\r\nHost: x\r\n\r\n",
+        /* valid upgrade headers, but no such route */
+        "GET /does-not-exist HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\nSec-WebSocket-Version: 13\r\n\r\n",
+    };
+
+    for (size_t i = 0; i < sizeof(bad_requests) / sizeof(bad_requests[0]); i++)
+    {
+        bb_socket_t fd = raw_ws_connect(500);
+        raw_ws_send_all(fd, bad_requests[i], strlen(bad_requests[i]));
+
+        char resp[2048];
+        (void)raw_ws_read_all(fd, resp, sizeof(resp));
+        bb_socket_close(fd);
+
+        if (strstr(resp, " 101 ") != NULL)
+            fprintf(stderr, "bad upgrade request #%zu was accepted:\n%s\n", i, bad_requests[i]);
+
+        BB_ASSERT(strstr(resp, " 101 ") == NULL);
+        BB_ASSERT(raw_ws_contains_ci(resp, "Sec-WebSocket-Accept") == false);
+    }
+
+    check_server();
+    raw_ws_assert_echo_works();
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -1187,6 +1267,7 @@ int main(void)
     websocket_dead_connection_test();
     websocket_multiple_dead_connections_test();
     websocket_silent_dead_connection_test();
+    websocket_handshake_validation_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
