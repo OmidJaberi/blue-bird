@@ -1213,6 +1213,73 @@ static void websocket_split_and_coalesced_frames_test(void)
     check_server();
 }
 
+static void websocket_aborted_and_garbage_input_test(void)
+{
+    printf("\tTesting WebSocket server survives truncated frames and unknown opcodes...\n");
+
+    /* Peer vanishes mid-frame: header promises 100 bytes, only 10 arrive. */
+    for (int i = 0; i < 10; i++)
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+
+        uint8_t frame[256];
+        uint8_t full[100];
+        memset(full, 'x', sizeof(full));
+        BB_ASSERT(raw_ws_build_frame(frame, 0x81, full, sizeof(full)) > 16);
+
+        raw_ws_send_all(fd, frame, 6 + 10); /* 2 header + 4 mask + 10 payload bytes */
+        bb_usleep(5000);
+        bb_socket_close(fd);
+    }
+    check_server();
+
+    /* Peer vanishes mid-header (a lone first byte) and right after the handshake. */
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        const uint8_t lone = 0x81;
+        raw_ws_send_all(fd, &lone, 1);
+        bb_usleep(5000);
+        bb_socket_close(fd);
+    }
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        bb_socket_close(fd);
+    }
+    check_server();
+
+    /* Reserved/unknown opcodes must not wedge or crash the session: a valid
+     * frame sent afterwards on the same connection is still echoed. */
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        uint8_t frame[64];
+        size_t n;
+
+        n = raw_ws_build_frame(frame, 0x83, "reserved", 8); /* reserved data opcode 3 */
+        raw_ws_send_all(fd, frame, n);
+        n = raw_ws_build_frame(frame, 0x8B, "reserved", 8); /* reserved control opcode 11 */
+        raw_ws_send_all(fd, frame, n);
+
+        n = raw_ws_build_frame(frame, 0x81, "after", 5);
+        raw_ws_send_all(fd, frame, n);
+
+        /* The server may answer or drop the connection; it must never echo the
+         * reserved frames back as data. */
+        uint8_t buf[64];
+        uint8_t first = 0;
+        size_t len = 0;
+        if (raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len))
+        {
+            BB_ASSERT((first & 0x0F) != 0x3 && (first & 0x0F) != 0xB);
+            BB_ASSERT(!(len == 8 && memcmp(buf, "reserved", 8) == 0));
+        }
+
+        bb_socket_close(fd);
+        check_server();
+    }
+
+    raw_ws_assert_echo_works();
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -1381,6 +1448,7 @@ int main(void)
     websocket_handshake_validation_test();
     websocket_control_frames_test();
     websocket_split_and_coalesced_frames_test();
+    websocket_aborted_and_garbage_input_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
