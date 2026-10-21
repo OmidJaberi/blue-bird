@@ -1161,6 +1161,58 @@ static void websocket_control_frames_test(void)
     check_server();
 }
 
+static void websocket_split_and_coalesced_frames_test(void)
+{
+    printf("\tTesting WebSocket frames split across and coalesced within TCP segments...\n");
+
+    bb_socket_t fd = raw_ws_open("/echo");
+    uint8_t frame[1024];
+    size_t n;
+
+    /* A 5-byte text frame delivered one byte at a time. */
+    n = raw_ws_build_frame(frame, 0x81, "hello", 5);
+    for (size_t i = 0; i < n; i++)
+    {
+        raw_ws_send_all(fd, frame + i, 1);
+        bb_usleep(1000);
+    }
+    raw_ws_expect_frame(fd, 0x81, "hello", 5);
+
+    /* A 300-byte frame (16-bit length) split inside its extended length field
+     * (after 3 of the 4 header bytes), then inside the masking key and payload. */
+    uint8_t payload[300];
+    for (size_t i = 0; i < sizeof(payload); i++)
+        payload[i] = (uint8_t)('A' + (i % 26));
+
+    n = raw_ws_build_frame(frame, 0x82, payload, sizeof(payload));
+    raw_ws_send_all(fd, frame, 3);
+    bb_usleep(20000);
+    raw_ws_send_all(fd, frame + 3, 3); /* rest of length + part of the mask key */
+    bb_usleep(20000);
+    raw_ws_send_all(fd, frame + 6, 100);
+    bb_usleep(20000);
+    raw_ws_send_all(fd, frame + 106, n - 106);
+    raw_ws_expect_frame(fd, 0x82, payload, sizeof(payload));
+
+    /* Three frames in one segment, with the last one cut off mid-payload. */
+    uint8_t batch[256];
+    size_t batch_len = 0;
+    batch_len += raw_ws_build_frame(batch + batch_len, 0x81, "one", 3);
+    batch_len += raw_ws_build_frame(batch + batch_len, 0x81, "two", 3);
+    size_t third_start = batch_len;
+    batch_len += raw_ws_build_frame(batch + batch_len, 0x81, "three", 5);
+
+    raw_ws_send_all(fd, batch, third_start + 8); /* "one", "two", header+mask+1 byte of "three" */
+    raw_ws_expect_frame(fd, 0x81, "one", 3);
+    raw_ws_expect_frame(fd, 0x81, "two", 3);
+    bb_usleep(20000);
+    raw_ws_send_all(fd, batch + third_start + 8, batch_len - third_start - 8);
+    raw_ws_expect_frame(fd, 0x81, "three", 5);
+
+    bb_socket_close(fd);
+    check_server();
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -1328,6 +1380,7 @@ int main(void)
     websocket_silent_dead_connection_test();
     websocket_handshake_validation_test();
     websocket_control_frames_test();
+    websocket_split_and_coalesced_frames_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
