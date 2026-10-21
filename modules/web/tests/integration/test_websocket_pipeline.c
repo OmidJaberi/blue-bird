@@ -1102,6 +1102,65 @@ static void websocket_handshake_validation_test(void)
     raw_ws_assert_echo_works();
 }
 
+static void websocket_control_frames_test(void)
+{
+    printf("\tTesting WebSocket server answers Ping with Pong and Close with Close...\n");
+
+    bb_socket_t fd = raw_ws_open("/echo");
+    uint8_t frame[256];
+    size_t n;
+
+    /* Ping payload must be echoed back verbatim in the Pong. */
+    n = raw_ws_build_frame(frame, 0x89, "heartbeat", 9);
+    raw_ws_send_all(fd, frame, n);
+    raw_ws_expect_frame(fd, 0x8A, "heartbeat", 9);
+
+    /* Empty ping, and the 125-byte maximum control payload. */
+    n = raw_ws_build_frame(frame, 0x89, "", 0);
+    raw_ws_send_all(fd, frame, n);
+    raw_ws_expect_frame(fd, 0x8A, "", 0);
+
+    uint8_t max_payload[125];
+    for (size_t i = 0; i < sizeof(max_payload); i++)
+        max_payload[i] = (uint8_t)('a' + (i % 26));
+
+    n = raw_ws_build_frame(frame, 0x89, max_payload, sizeof(max_payload));
+    raw_ws_send_all(fd, frame, n);
+    raw_ws_expect_frame(fd, 0x8A, max_payload, sizeof(max_payload));
+
+    /* A ping sandwiched between data frames must not disturb message order. */
+    uint8_t burst[256];
+    size_t burst_len = 0;
+    burst_len += raw_ws_build_frame(burst + burst_len, 0x81, "first", 5);
+    burst_len += raw_ws_build_frame(burst + burst_len, 0x89, "mid", 3);
+    burst_len += raw_ws_build_frame(burst + burst_len, 0x81, "last", 4);
+    raw_ws_send_all(fd, burst, burst_len);
+
+    /* Frames in one batch are processed in order: echo, pong, echo. */
+    raw_ws_expect_frame(fd, 0x81, "first", 5);
+    raw_ws_expect_frame(fd, 0x8A, "mid", 3);
+    raw_ws_expect_frame(fd, 0x81, "last", 4);
+
+    /* Close handshake: server answers with a Close frame, then drops the TCP connection. */
+    const uint8_t close_payload[2] = {0x03, 0xE8}; /* 1000 */
+    n = raw_ws_build_frame(frame, 0x88, close_payload, sizeof(close_payload));
+    raw_ws_send_all(fd, frame, n);
+
+    uint8_t buf[256];
+    uint8_t first = 0;
+    size_t len = 0;
+    BB_ASSERT(raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len));
+    BB_ASSERT(first == 0x88);
+    BB_ASSERT(len >= 2);
+    BB_ASSERT(((buf[0] << 8) | buf[1]) == 1000);
+
+    uint8_t dummy;
+    BB_ASSERT(recv(fd, &dummy, 1, 0) <= 0); /* connection closed after the Close frame */
+
+    bb_socket_close(fd);
+    check_server();
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -1268,6 +1327,7 @@ int main(void)
     websocket_multiple_dead_connections_test();
     websocket_silent_dead_connection_test();
     websocket_handshake_validation_test();
+    websocket_control_frames_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
