@@ -7,6 +7,7 @@
 
 #include <blue-bird/error/assert.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -1280,6 +1281,52 @@ static void websocket_aborted_and_garbage_input_test(void)
     raw_ws_assert_echo_works();
 }
 
+static void websocket_session_isolation_test(void)
+{
+    printf("\tTesting WebSocket sessions stay isolated from each other...\n");
+
+    bb_socket_t a = raw_ws_open("/echo");
+    bb_socket_t b = raw_ws_open("/echo");
+    uint8_t frame[128];
+    size_t n;
+
+    /* Interleave traffic: each peer must only ever see its own echoes, in order. */
+    for (int i = 0; i < 20; i++)
+    {
+        char ma[32], mb[32];
+        int la = snprintf(ma, sizeof(ma), "A-%d", i);
+        int lb = snprintf(mb, sizeof(mb), "B-%d", i);
+
+        n = raw_ws_build_frame(frame, 0x81, ma, (size_t)la);
+        raw_ws_send_all(a, frame, n);
+        n = raw_ws_build_frame(frame, 0x81, mb, (size_t)lb);
+        raw_ws_send_all(b, frame, n);
+
+        raw_ws_expect_frame(b, 0x81, mb, (size_t)lb);
+        raw_ws_expect_frame(a, 0x81, ma, (size_t)la);
+    }
+
+    /* A leaves with a proper close handshake; B must be unaffected. */
+    const uint8_t code[2] = {0x03, 0xE8};
+    n = raw_ws_build_frame(frame, 0x88, code, sizeof(code));
+    raw_ws_send_all(a, frame, n);
+
+    uint8_t buf[64];
+    uint8_t first = 0;
+    size_t len = 0;
+    BB_ASSERT(raw_ws_read_frame(a, &first, buf, sizeof(buf), &len));
+    BB_ASSERT(first == 0x88);
+    bb_socket_close(a);
+
+    n = raw_ws_build_frame(frame, 0x81, "B still here", 12);
+    raw_ws_send_all(b, frame, n);
+    raw_ws_expect_frame(b, 0x81, "B still here", 12);
+
+    /* Then B vanishes abruptly; both sessions must be reaped. */
+    bb_socket_close(b);
+    check_server();
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -1449,6 +1496,7 @@ int main(void)
     websocket_control_frames_test();
     websocket_split_and_coalesced_frames_test();
     websocket_aborted_and_garbage_input_test();
+    websocket_session_isolation_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
