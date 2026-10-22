@@ -1389,6 +1389,55 @@ static void websocket_heartbeat_keepalive_test(void)
     check_server();
 }
 
+static void websocket_close_semantics_test(void)
+{
+    printf("\tTesting WebSocket Close without a body and data after Close...\n");
+
+    uint8_t frame[128];
+    uint8_t buf[64];
+    uint8_t first = 0;
+    size_t len = 0;
+    uint8_t dummy;
+
+    /* A Close frame with no status code is legal (RFC 6455 5.5.1). */
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        size_t n = raw_ws_build_frame(frame, 0x88, "", 0);
+        raw_ws_send_all(fd, frame, n);
+
+        BB_ASSERT(raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len));
+        BB_ASSERT(first == 0x88);
+        BB_ASSERT(recv(fd, &dummy, 1, 0) <= 0);
+
+        bb_socket_close(fd);
+        check_server();
+    }
+
+    /* Frames that follow a Close in the same segment must be ignored: after
+     * Close the server may not process or echo any further data. */
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        uint8_t seg[128];
+        size_t n = 0;
+        const uint8_t code[2] = {0x03, 0xE8};
+
+        n += raw_ws_build_frame(seg + n, 0x88, code, sizeof(code));
+        n += raw_ws_build_frame(seg + n, 0x81, "late", 4);
+        raw_ws_send_all(fd, seg, n);
+
+        BB_ASSERT(raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len));
+        BB_ASSERT(first == 0x88);
+
+        /* Nothing else may arrive before the connection is closed. */
+        BB_ASSERT(!raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len));
+
+        bb_socket_close(fd);
+        check_server();
+    }
+
+    raw_ws_assert_echo_works();
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -1560,6 +1609,7 @@ int main(void)
     websocket_aborted_and_garbage_input_test();
     websocket_session_isolation_test();
     websocket_heartbeat_keepalive_test();
+    websocket_close_semantics_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
