@@ -1281,6 +1281,14 @@ static void websocket_aborted_and_garbage_input_test(void)
     raw_ws_assert_echo_works();
 }
 
+/* Sends a masked Pong; used to answer server heartbeat Pings by hand. */
+static void raw_ws_send_pong(bb_socket_t fd, const void *payload, size_t len)
+{
+    uint8_t frame[256];
+    size_t n = raw_ws_build_frame(frame, 0x8A, payload, len);
+    raw_ws_send_all(fd, frame, n);
+}
+
 static void websocket_session_isolation_test(void)
 {
     printf("\tTesting WebSocket sessions stay isolated from each other...\n");
@@ -1324,6 +1332,60 @@ static void websocket_session_isolation_test(void)
 
     /* Then B vanishes abruptly; both sessions must be reaped. */
     bb_socket_close(b);
+    check_server();
+}
+
+static void websocket_heartbeat_keepalive_test(void)
+{
+    printf("\tTesting WebSocket heartbeat keeps a responsive client connected...\n");
+
+    const uint32_t interval_ms = 50;
+    const uint32_t max_missed = 2;
+
+    bb_server_set_websocket_heartbeat(server, interval_ms, max_missed);
+
+    bb_socket_t fd = raw_ws_open("/echo");
+
+    /* Answer well over max_missed pings. A client that pongs must never be
+     * dropped, otherwise healthy-but-idle connections would be killed. */
+    for (int i = 0; i < 8; i++)
+    {
+        uint8_t buf[128];
+        uint8_t first = 0;
+        size_t len = 0;
+
+        BB_ASSERT(raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len));
+        BB_ASSERT(first == 0x89);
+        raw_ws_send_pong(fd, buf, len);
+    }
+
+    /* Still alive: data frames are echoed (heartbeat Pings may interleave). */
+    uint8_t frame[64];
+    size_t n = raw_ws_build_frame(frame, 0x81, "alive", 5);
+    raw_ws_send_all(fd, frame, n);
+
+    for (;;)
+    {
+        uint8_t buf[128];
+        uint8_t first = 0;
+        size_t len = 0;
+
+        BB_ASSERT(raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len));
+
+        if (first == 0x89)
+        {
+            raw_ws_send_pong(fd, buf, len);
+            continue;
+        }
+
+        BB_ASSERT(first == 0x81);
+        BB_ASSERT(len == 5 && memcmp(buf, "alive", 5) == 0);
+        break;
+    }
+
+    /* Restore default (disabled) before tearing down. */
+    bb_server_set_websocket_heartbeat(server, 0, 0);
+    bb_socket_close(fd);
     check_server();
 }
 
@@ -1497,6 +1559,7 @@ int main(void)
     websocket_split_and_coalesced_frames_test();
     websocket_aborted_and_garbage_input_test();
     websocket_session_isolation_test();
+    websocket_heartbeat_keepalive_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
