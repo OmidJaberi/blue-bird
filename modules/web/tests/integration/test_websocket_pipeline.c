@@ -1438,6 +1438,167 @@ static void websocket_close_semantics_test(void)
     raw_ws_assert_echo_works();
 }
 
+/* ------------------------------------------------------------------ */
+/* Strict RFC 6455 conformance (known gaps: opt in with BB_WS_STRICT_RFC=1) */
+/* ------------------------------------------------------------------ */
+
+static int strict_failures = 0;
+
+#define STRICT_CHECK(name, cond)                                         \
+    do                                                                   \
+    {                                                                    \
+        if (!(cond))                                                     \
+        {                                                                \
+            fprintf(stderr, "\t  STRICT RFC 6455 FAIL: %s\n", (name));   \
+            strict_failures++;                                           \
+        }                                                                \
+    } while (0)
+
+/* After a protocol violation the server must "fail the connection": it may send
+ * a Close frame, but nothing else, and it must then drop the TCP connection. */
+static bool raw_ws_connection_failed_cleanly(bb_socket_t fd)
+{
+    for (int i = 0; i < 4; i++)
+    {
+        uint8_t buf[256];
+        uint8_t first = 0;
+        size_t len = 0;
+
+        if (!raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len))
+            return false; /* closed or timed out */
+
+        if ((first & 0x0F) != 0x8)
+            return false; /* echoed data, answered a Ping, etc. */
+
+        uint8_t dummy;
+        if (recv(fd, &dummy, 1, 0) <= 0)
+            return true;
+    }
+    return false;
+}
+
+static bool raw_ws_violation_rejected(const uint8_t *data, size_t len)
+{
+    bb_socket_t fd = raw_ws_open("/echo");
+    raw_ws_send_all(fd, data, len);
+    bool ok = raw_ws_connection_failed_cleanly(fd);
+    bb_socket_close(fd);
+    return ok;
+}
+
+static void websocket_strict_rfc_conformance_test(void)
+{
+    if (getenv("BB_WS_STRICT_RFC") == NULL)
+    {
+        printf("\tSkipping strict RFC 6455 conformance tests (set BB_WS_STRICT_RFC=1 to run).\n");
+        return;
+    }
+
+    printf("\tTesting strict RFC 6455 conformance (fragmentation, masking, UTF-8, control frames)...\n");
+
+    strict_failures = 0;
+    uint8_t f[512];
+    size_t n;
+
+    /* 5.4: fragmented messages are reassembled into ONE message. */
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        n = raw_ws_build_frame(f, 0x01, "hello ", 6);        /* text, FIN=0 */
+        n += raw_ws_build_frame(f + n, 0x00, "wor", 3);      /* continuation, FIN=0 */
+        n += raw_ws_build_frame(f + n, 0x80, "ld", 2);       /* continuation, FIN=1 */
+        raw_ws_send_all(fd, f, n);
+
+        uint8_t buf[256];
+        uint8_t first = 0;
+        size_t len = 0;
+        bool got = raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len);
+        STRICT_CHECK("fragmented text message is reassembled and echoed whole",
+                     got && first == 0x81 && len == 11 && memcmp(buf, "hello world", 11) == 0);
+        bb_socket_close(fd);
+    }
+
+    /* 5.4: a control frame may be injected between fragments. */
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        n = raw_ws_build_frame(f, 0x01, "ab", 2);
+        n += raw_ws_build_frame(f + n, 0x89, "p", 1);
+        n += raw_ws_build_frame(f + n, 0x80, "cd", 2);
+        raw_ws_send_all(fd, f, n);
+
+        uint8_t buf[256];
+        uint8_t first = 0;
+        size_t len = 0;
+        bool pong = raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len) && first == 0x8A;
+        bool text = raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len) &&
+                    first == 0x81 && len == 4 && memcmp(buf, "abcd", 4) == 0;
+        STRICT_CHECK("Ping between fragments is answered and the message still arrives whole", pong && text);
+        bb_socket_close(fd);
+    }
+
+    /* 5.1: client frames MUST be masked. */
+    {
+        const uint8_t unmasked[] = {0x81, 0x03, 'a', 'b', 'c'};
+        STRICT_CHECK("unmasked client frame fails the connection",
+                     raw_ws_violation_rejected(unmasked, sizeof(unmasked)));
+    }
+
+    /* 5.2: RSV bits MUST be 0 without a negotiated extension. */
+    {
+        n = raw_ws_build_frame(f, 0xC1, "rsv", 3);
+        STRICT_CHECK("RSV1 set without an extension fails the connection",
+                     raw_ws_violation_rejected(f, n));
+    }
+
+    /* 5.2: unknown opcodes fail the connection. */
+    {
+        n = raw_ws_build_frame(f, 0x83, "x", 1);
+        STRICT_CHECK("reserved data opcode fails the connection", raw_ws_violation_rejected(f, n));
+        n = raw_ws_build_frame(f, 0x8B, "x", 1);
+        STRICT_CHECK("reserved control opcode fails the connection", raw_ws_violation_rejected(f, n));
+    }
+
+    /* 5.5: control frames: payload <= 125 bytes and never fragmented. */
+    {
+        uint8_t big[126];
+        memset(big, 'p', sizeof(big));
+        n = raw_ws_build_frame(f, 0x89, big, sizeof(big));
+        STRICT_CHECK("Ping with a 126-byte payload fails the connection", raw_ws_violation_rejected(f, n));
+
+        n = raw_ws_build_frame(f, 0x09, "x", 1); /* Ping, FIN=0 */
+        STRICT_CHECK("fragmented Ping fails the connection", raw_ws_violation_rejected(f, n));
+    }
+
+    /* 5.6 / 8.1: text messages MUST be valid UTF-8. */
+    {
+        n = raw_ws_build_frame(f, 0x81, "\xff\xfe\xfd", 3);
+        STRICT_CHECK("invalid UTF-8 in a text message fails the connection", raw_ws_violation_rejected(f, n));
+    }
+
+    /* 5.4: a continuation with no message in progress is a protocol error. */
+    {
+        n = raw_ws_build_frame(f, 0x80, "orphan", 6);
+        STRICT_CHECK("orphan continuation frame fails the connection", raw_ws_violation_rejected(f, n));
+    }
+
+    /* 5.2: a hostile 64-bit length must be rejected without overflowing any
+     * size computation (2^64-1 wraps `offset + payload_len`). Runs last: on a
+     * vulnerable build this crashes the server process. */
+    {
+        const uint8_t hostile[] = {0x82, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                   0x01, 0x02, 0x03, 0x04, 'a', 'b'};
+        STRICT_CHECK("frame length of 2^64-1 fails the connection", raw_ws_violation_rejected(hostile, sizeof(hostile)));
+
+        const uint8_t huge[] = {0x82, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                0x01, 0x02, 0x03, 0x04, 'a', 'b'};
+        STRICT_CHECK("frame length of 2^63-1 fails the connection", raw_ws_violation_rejected(huge, sizeof(huge)));
+    }
+
+    check_server();
+    raw_ws_assert_echo_works();
+
+    BB_ASSERT(strict_failures == 0);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -1610,6 +1771,7 @@ int main(void)
     websocket_session_isolation_test();
     websocket_heartbeat_keepalive_test();
     websocket_close_semantics_test();
+    websocket_strict_rfc_conformance_test();
 
     bb_runtime_stop(server_runtime);
     printf("All websocket integration tests passed.\n");
