@@ -1536,6 +1536,97 @@ static void websocket_handshake_variants_test(void)
     check_server();
 }
 
+static void websocket_large_frame_and_churn_test(void)
+{
+    printf("\tTesting WebSocket 64-bit length frames, connection churn and concurrent sessions...\n");
+
+    /* A valid frame using the 8-byte extended length encoding (> 65535 bytes). */
+    {
+        const size_t payload_len = 70000;
+        static const uint8_t mask[4] = {0x0f, 0x1e, 0x2d, 0x3c};
+
+        uint8_t *payload = malloc(payload_len);
+        uint8_t *frame = malloc(payload_len + 14);
+        uint8_t *echo = malloc(payload_len);
+        BB_ASSERT(payload != NULL && frame != NULL && echo != NULL);
+
+        for (size_t i = 0; i < payload_len; i++)
+            payload[i] = (uint8_t)('a' + (i % 26));
+
+        size_t pos = 0;
+        frame[pos++] = 0x82;
+        frame[pos++] = 0x80 | 127;
+        for (int shift = 56; shift >= 0; shift -= 8)
+            frame[pos++] = (uint8_t)((uint64_t)payload_len >> shift);
+        memcpy(frame + pos, mask, 4);
+        pos += 4;
+        for (size_t i = 0; i < payload_len; i++)
+            frame[pos + i] = payload[i] ^ mask[i & 3];
+        pos += payload_len;
+
+        bb_socket_t fd = raw_ws_open("/echo");
+        raw_ws_send_all(fd, frame, pos);
+
+        uint8_t hdr[2];
+        uint8_t ext[8];
+        BB_ASSERT(raw_ws_recv_exact(fd, hdr, 2));
+        BB_ASSERT(hdr[0] == 0x82 && hdr[1] == 127); /* unmasked, 64-bit length form */
+        BB_ASSERT(raw_ws_recv_exact(fd, ext, 8));
+
+        uint64_t echoed_len = 0;
+        for (int i = 0; i < 8; i++)
+            echoed_len = (echoed_len << 8) | ext[i];
+
+        BB_ASSERT(echoed_len == payload_len);
+        BB_ASSERT(raw_ws_recv_exact(fd, echo, payload_len));
+        BB_ASSERT(memcmp(echo, payload, payload_len) == 0);
+
+        bb_socket_close(fd);
+        free(payload);
+        free(frame);
+        free(echo);
+        check_server();
+    }
+
+    /* Connect/handshake/disconnect repeatedly: every session must be reaped. */
+    for (int i = 0; i < 100; i++)
+    {
+        bb_socket_t fd = raw_ws_open("/echo");
+        bb_socket_close(fd);
+    }
+    check_server();
+
+    /* Many simultaneous sessions, each with its own traffic. */
+    {
+        enum { SESSIONS = 30 };
+        bb_socket_t fds[SESSIONS];
+        uint8_t frame[64];
+
+        for (int i = 0; i < SESSIONS; i++)
+            fds[i] = raw_ws_open("/echo");
+
+        for (int i = 0; i < SESSIONS; i++)
+        {
+            char msg[16];
+            int len = snprintf(msg, sizeof(msg), "client-%d", i);
+            size_t n = raw_ws_build_frame(frame, 0x81, msg, (size_t)len);
+            raw_ws_send_all(fds[i], frame, n);
+        }
+
+        for (int i = 0; i < SESSIONS; i++)
+        {
+            char msg[16];
+            int len = snprintf(msg, sizeof(msg), "client-%d", i);
+            raw_ws_expect_frame(fds[i], 0x81, msg, (size_t)len);
+        }
+
+        for (int i = 0; i < SESSIONS; i++)
+            bb_socket_close(fds[i]);
+
+        check_server();
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* Strict RFC 6455 conformance (known gaps: opt in with BB_WS_STRICT_RFC=1) */
 /* ------------------------------------------------------------------ */
@@ -1883,6 +1974,7 @@ int main(void)
     websocket_heartbeat_keepalive_test();
     websocket_close_semantics_test();
     websocket_handshake_variants_test();
+    websocket_large_frame_and_churn_test();
     websocket_strict_rfc_conformance_test();
 
     bb_runtime_stop(server_runtime);
