@@ -1438,6 +1438,104 @@ static void websocket_close_semantics_test(void)
     raw_ws_assert_echo_works();
 }
 
+/* Sends `req` verbatim (optionally one byte at a time) and reads the response
+ * headers. Returns true on a 101; the socket is handed back for further use. */
+static bool raw_ws_try_handshake(const char *req, bool bytewise, bb_socket_t *fd_out, char *resp, size_t cap)
+{
+    bb_socket_t fd = raw_ws_connect(1000);
+    size_t req_len = strlen(req);
+
+    if (bytewise)
+    {
+        for (size_t i = 0; i < req_len; i++)
+        {
+            raw_ws_send_all(fd, req + i, 1);
+            bb_usleep(300);
+        }
+    }
+    else
+    {
+        raw_ws_send_all(fd, req, req_len);
+    }
+
+    size_t len = 0;
+    while (len < cap - 1)
+    {
+        if (!raw_ws_recv_exact(fd, resp + len, 1))
+            break;
+        len++;
+        if (len >= 4 && memcmp(resp + len - 4, "\r\n\r\n", 4) == 0)
+            break;
+    }
+    resp[len] = '\0';
+
+    *fd_out = fd;
+    return strncmp(resp, "HTTP/1.1 101", 12) == 0;
+}
+
+static void websocket_handshake_variants_test(void)
+{
+    printf("\tTesting WebSocket handshake variants real clients send...\n");
+
+#define WS_REQ_HEAD(path) "GET " path " HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+#define WS_REQ_TAIL       "Sec-WebSocket-Key: " RAW_WS_KEY_SAMPLE "\r\nSec-WebSocket-Version: 13\r\n\r\n"
+
+    static const struct
+    {
+        const char *name;
+        const char *req;
+        bool bytewise;
+    } variants[] = {
+        {"handshake delivered one byte at a time",
+         WS_REQ_HEAD("/echo") "Upgrade: websocket\r\nConnection: Upgrade\r\n" WS_REQ_TAIL, true},
+        {"mixed-case Upgrade value",
+         WS_REQ_HEAD("/echo") "Upgrade: WebSocket\r\nConnection: Upgrade\r\n" WS_REQ_TAIL, false},
+        {"lower-case Connection value",
+         WS_REQ_HEAD("/echo") "Upgrade: websocket\r\nConnection: upgrade\r\n" WS_REQ_TAIL, false},
+        {"Connection token list (Firefox style: keep-alive, Upgrade)",
+         WS_REQ_HEAD("/echo") "Upgrade: websocket\r\nConnection: keep-alive, Upgrade\r\n" WS_REQ_TAIL, false},
+        {"Connection token list with Upgrade first",
+         WS_REQ_HEAD("/echo") "Upgrade: websocket\r\nConnection: Upgrade, keep-alive\r\n" WS_REQ_TAIL, false},
+        {"browser extras: Origin, subprotocol and extension offers",
+         WS_REQ_HEAD("/echo") "Origin: http://example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+         "Sec-WebSocket-Protocol: chat, superchat\r\nSec-WebSocket-Extensions: permessage-deflate\r\n" WS_REQ_TAIL,
+         false},
+        {"query string on the route",
+         WS_REQ_HEAD("/echo?token=abc") "Upgrade: websocket\r\nConnection: Upgrade\r\n" WS_REQ_TAIL, false},
+    };
+
+    for (size_t i = 0; i < sizeof(variants) / sizeof(variants[0]); i++)
+    {
+        bb_socket_t fd;
+        char resp[1024];
+        bool upgraded = raw_ws_try_handshake(variants[i].req, variants[i].bytewise, &fd, resp, sizeof(resp));
+
+        if (!upgraded)
+            fprintf(stderr, "\t  handshake variant rejected: %s\n", variants[i].name);
+
+        BB_ASSERT(upgraded);
+        BB_ASSERT(raw_ws_contains_ci(resp, "Sec-WebSocket-Accept: " RAW_WS_ACCEPT_SAMPLE));
+
+        /* The server implements neither extensions nor subprotocols, so it must
+         * not claim one: selecting permessage-deflate here would make every
+         * later compressed frame undecodable. */
+        BB_ASSERT(!raw_ws_contains_ci(resp, "Sec-WebSocket-Extensions"));
+        BB_ASSERT(!raw_ws_contains_ci(resp, "Sec-WebSocket-Protocol"));
+
+        uint8_t frame[64];
+        size_t n = raw_ws_build_frame(frame, 0x81, "variant ok", 10);
+        raw_ws_send_all(fd, frame, n);
+        raw_ws_expect_frame(fd, 0x81, "variant ok", 10);
+
+        bb_socket_close(fd);
+    }
+
+#undef WS_REQ_HEAD
+#undef WS_REQ_TAIL
+
+    check_server();
+}
+
 /* ------------------------------------------------------------------ */
 /* Strict RFC 6455 conformance (known gaps: opt in with BB_WS_STRICT_RFC=1) */
 /* ------------------------------------------------------------------ */
@@ -1578,6 +1676,19 @@ static void websocket_strict_rfc_conformance_test(void)
     {
         n = raw_ws_build_frame(f, 0x80, "orphan", 6);
         STRICT_CHECK("orphan continuation frame fails the connection", raw_ws_violation_rejected(f, n));
+    }
+
+    /* RFC 9110 5.1: header field names are case-insensitive. */
+    {
+        bb_socket_t fd;
+        char resp[1024];
+        const char *lowercase_names =
+            "GET /echo HTTP/1.1\r\nhost: 127.0.0.1\r\nupgrade: websocket\r\nconnection: Upgrade\r\n"
+            "sec-websocket-key: " RAW_WS_KEY_SAMPLE "\r\nsec-websocket-version: 13\r\n\r\n";
+
+        bool upgraded = raw_ws_try_handshake(lowercase_names, false, &fd, resp, sizeof(resp));
+        STRICT_CHECK("handshake with lower-case header names is accepted", upgraded);
+        bb_socket_close(fd);
     }
 
     /* 5.2: a hostile 64-bit length must be rejected without overflowing any
@@ -1771,6 +1882,7 @@ int main(void)
     websocket_session_isolation_test();
     websocket_heartbeat_keepalive_test();
     websocket_close_semantics_test();
+    websocket_handshake_variants_test();
     websocket_strict_rfc_conformance_test();
 
     bb_runtime_stop(server_runtime);
