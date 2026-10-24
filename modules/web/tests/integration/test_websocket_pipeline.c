@@ -6,6 +6,7 @@
 #include "websocket/websocket_internal.h"
 
 #include <blue-bird/error/assert.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +20,9 @@
 
  bb_runtime_t *server_runtime = NULL;
  bb_server_t *server = NULL;
+
+/* Set by the server thread once bb_server_destroy()/bb_runtime_destroy() returned. */
+static volatile int server_thread_done = 0;
 
 static bb_error_t echo_handler(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
@@ -50,6 +54,8 @@ static void *server_thread(void *arg)
 
     bb_server_destroy(server);
     bb_runtime_destroy(server_runtime);
+
+    server_thread_done = 1;
 
     return NULL;
 }
@@ -1628,6 +1634,113 @@ static void websocket_large_frame_and_churn_test(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Backpressure: a client that sends a lot and reads nothing            */
+/* ------------------------------------------------------------------ */
+
+typedef struct
+{
+    bb_socket_t fd;
+    const uint8_t *data;
+    size_t len;
+    volatile int done;
+} raw_ws_writer_t;
+
+static void *raw_ws_writer_thread(void *arg)
+{
+    raw_ws_writer_t *w = arg;
+    size_t sent = 0;
+
+    while (sent < w->len)
+    {
+        ssize_t n = send(w->fd, (const char *)w->data + sent, w->len - sent, MSG_NOSIGNAL);
+        if (n <= 0)
+            break;
+        sent += (size_t)n;
+    }
+
+    w->done = (sent == w->len) ? 1 : -1;
+    return NULL;
+}
+
+static void websocket_slow_reader_test(void)
+{
+    printf("\tTesting WebSocket slow reader does not lose data or stall other sessions...\n");
+
+    enum { MESSAGES = 40, MSG_LEN = 60000 }; /* 2.4 MB echoed back to a client that is not reading */
+
+    static const uint8_t mask[4] = {0x5a, 0xa5, 0x3c, 0xc3};
+    const size_t frame_len = 2 + 2 + 4 + MSG_LEN;
+
+    uint8_t *frames = malloc(frame_len * MESSAGES);
+    BB_ASSERT(frames != NULL);
+
+    /* Message i carries its index in the first 4 bytes, then a position-dependent pattern. */
+    for (uint32_t i = 0; i < MESSAGES; i++)
+    {
+        uint8_t *f = frames + (size_t)i * frame_len;
+        f[0] = 0x82;
+        f[1] = 0x80 | 126;
+        f[2] = (uint8_t)(MSG_LEN >> 8);
+        f[3] = (uint8_t)(MSG_LEN & 0xff);
+        memcpy(f + 4, mask, 4);
+
+        for (size_t k = 0; k < MSG_LEN; k++)
+        {
+            uint8_t b = (k < 4) ? (uint8_t)(i >> (8 * (3 - k))) : (uint8_t)((k * 31 + i) & 0xff);
+            f[8 + k] = b ^ mask[k & 3];
+        }
+    }
+
+    bb_socket_t slow = raw_ws_open("/echo");
+
+    raw_ws_writer_t writer = {.fd = slow, .data = frames, .len = frame_len * MESSAGES, .done = 0};
+    pthread_t writer_thread;
+    BB_ASSERT(pthread_create(&writer_thread, NULL, raw_ws_writer_thread, &writer) == 0);
+
+    /* Let the server build up a backlog of echoes for a peer that isn't reading. */
+    bb_usleep(400000);
+
+    /* Another session must still be served promptly while that backlog exists. */
+    {
+        bb_socket_t other = raw_ws_open("/echo");
+        uint8_t f[64];
+        size_t n = raw_ws_build_frame(f, 0x81, "not blocked", 11);
+        raw_ws_send_all(other, f, n);
+        raw_ws_expect_frame(other, 0x81, "not blocked", 11);
+        bb_socket_close(other);
+    }
+
+    /* Now drain: every echo must arrive, complete, in order and uncorrupted. */
+    uint8_t *payload = malloc(MSG_LEN);
+    BB_ASSERT(payload != NULL);
+
+    for (uint32_t i = 0; i < MESSAGES; i++)
+    {
+        uint8_t hdr[4];
+        BB_ASSERT(raw_ws_recv_exact(slow, hdr, 2));
+        BB_ASSERT(hdr[0] == 0x82 && hdr[1] == 126);
+        BB_ASSERT(raw_ws_recv_exact(slow, hdr + 2, 2));
+        BB_ASSERT((((size_t)hdr[2] << 8) | hdr[3]) == MSG_LEN);
+        BB_ASSERT(raw_ws_recv_exact(slow, payload, MSG_LEN));
+
+        uint32_t idx = ((uint32_t)payload[0] << 24) | ((uint32_t)payload[1] << 16) |
+                       ((uint32_t)payload[2] << 8) | payload[3];
+        BB_ASSERT(idx == i);
+
+        for (size_t k = 4; k < MSG_LEN; k++)
+            BB_ASSERT(payload[k] == (uint8_t)((k * 31 + i) & 0xff));
+    }
+
+    pthread_join(writer_thread, NULL);
+    BB_ASSERT(writer.done == 1);
+
+    free(payload);
+    free(frames);
+    bb_socket_close(slow);
+    check_server();
+}
+
+/* ------------------------------------------------------------------ */
 /* Strict RFC 6455 conformance (known gaps: opt in with BB_WS_STRICT_RFC=1) */
 /* ------------------------------------------------------------------ */
 
@@ -1975,6 +2088,7 @@ int main(void)
     websocket_close_semantics_test();
     websocket_handshake_variants_test();
     websocket_large_frame_and_churn_test();
+    websocket_slow_reader_test();
     websocket_strict_rfc_conformance_test();
 
     bb_runtime_stop(server_runtime);
