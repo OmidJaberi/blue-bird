@@ -1741,6 +1741,92 @@ static void websocket_slow_reader_test(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Shutdown while sessions are still open (must be the last test)       */
+/* ------------------------------------------------------------------ */
+
+/* True once the peer has closed the connection (EOF or reset), as opposed to our receive timeout. */
+static bool raw_ws_peer_closed(bb_socket_t fd)
+{
+    for (int i = 0; i < 16; i++)
+    {
+        uint8_t buf[256];
+        ssize_t n = recv(fd, buf, sizeof(buf), 0);
+
+        if (n == 0)
+            return true;
+
+        if (n < 0)
+        {
+#ifdef _WIN32
+            return WSAGetLastError() != WSAETIMEDOUT;
+#else
+            return errno != EAGAIN && errno != EWOULDBLOCK;
+#endif
+        }
+        /* n > 0: a Close frame the server sent while shutting down; keep reading to EOF */
+    }
+    return false;
+}
+
+static void websocket_shutdown_with_live_sessions_test(void)
+{
+    printf("\tTesting server shutdown with live WebSocket sessions, a partial frame and a partial handshake...\n");
+
+    enum { LIVE = 4 };
+    bb_socket_t live[LIVE];
+    uint8_t frame[256];
+
+    for (int i = 0; i < LIVE; i++)
+    {
+        live[i] = raw_ws_open("/echo");
+        size_t n = raw_ws_build_frame(frame, 0x81, "warm", 4);
+        raw_ws_send_all(live[i], frame, n);
+        raw_ws_expect_frame(live[i], 0x81, "warm", 4);
+    }
+
+    /* a session stuck mid-frame */
+    bb_socket_t mid_frame = raw_ws_open("/echo");
+    {
+        uint8_t big[100];
+        memset(big, 'x', sizeof(big));
+        size_t n = raw_ws_build_frame(frame, 0x81, big, sizeof(big));
+        BB_ASSERT(n > 20);
+        raw_ws_send_all(mid_frame, frame, 20);
+    }
+
+    /* a connection stuck mid-handshake */
+    bb_socket_t mid_handshake = raw_ws_connect(2000);
+    {
+        const char *partial = "GET /echo HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: web";
+        raw_ws_send_all(mid_handshake, partial, strlen(partial));
+    }
+
+    bb_usleep(50000);
+
+    /* Stop the server with everything above still open: it must finish tearing
+     * down (no hang, no crash) and close every connection it holds. */
+    bb_runtime_stop(server_runtime);
+
+    int waited_ms = 0;
+    while (!server_thread_done && waited_ms < 5000)
+    {
+        bb_usleep(1000);
+        waited_ms++;
+    }
+    BB_ASSERT(server_thread_done);
+
+    for (int i = 0; i < LIVE; i++)
+    {
+        BB_ASSERT(raw_ws_peer_closed(live[i]));
+        bb_socket_close(live[i]);
+    }
+    BB_ASSERT(raw_ws_peer_closed(mid_frame));
+    bb_socket_close(mid_frame);
+    BB_ASSERT(raw_ws_peer_closed(mid_handshake));
+    bb_socket_close(mid_handshake);
+}
+
+/* ------------------------------------------------------------------ */
 /* Strict RFC 6455 conformance (known gaps: opt in with BB_WS_STRICT_RFC=1) */
 /* ------------------------------------------------------------------ */
 
@@ -2091,7 +2177,9 @@ int main(void)
     websocket_slow_reader_test();
     websocket_strict_rfc_conformance_test();
 
-    bb_runtime_stop(server_runtime);
+    /* Last: stops the server while sessions are still open. */
+    websocket_shutdown_with_live_sessions_test();
+
     printf("All websocket integration tests passed.\n");
 
     pthread_join(thread, NULL);
