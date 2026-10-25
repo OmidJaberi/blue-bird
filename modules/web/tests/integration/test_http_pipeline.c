@@ -97,6 +97,30 @@ bb_error_t large_response_handler(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+/* Reflects the request body into a response header VALUE (for response-splitting tests). */
+bb_error_t reflect_value_handler(bb_request_t *req, bb_response_t *res)
+{
+    bb_http_message_t *msg = bb_request_get_message(req);
+    const char *body = bb_message_get_body(msg);
+
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, "X-Reflect", body ? body : "");
+    bb_response_set_body(res, "ok");
+    return BB_SUCCESS();
+}
+
+/* Reflects the request body into a response header NAME. */
+bb_error_t reflect_name_handler(bb_request_t *req, bb_response_t *res)
+{
+    bb_http_message_t *msg = bb_request_get_message(req);
+    const char *body = bb_message_get_body(msg);
+
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, body ? body : "X-Empty", "value");
+    bb_response_set_body(res, "ok");
+    return BB_SUCCESS();
+}
+
 void *server(void* arg)
 {
     (void) arg;
@@ -111,6 +135,8 @@ void *server(void* arg)
     bb_server_add_route(server, "GET", "/q_param/multi", request_multi_query_param_handler);
     bb_server_add_route(server, "GET", "/body", request_body_handler);
     bb_server_add_route(server, "GET", "/large_response", large_response_handler);
+    bb_server_add_route(server, "GET", "/reflect", reflect_value_handler);
+    bb_server_add_route(server, "GET", "/reflect_name", reflect_name_handler);
     bb_server_start(server);
 
     bb_runtime_run(server_runtime);
@@ -1256,6 +1282,88 @@ void test_parser_truncated_and_aborted_requests(void)
     assert_server_healthy();
 }
 
+/* ------------------------------------------------------------------ */
+/* Response splitting / header injection                                */
+/* ------------------------------------------------------------------ */
+
+/* Sends GET `path` carrying `body` and returns the raw response in `resp`. */
+static void raw_reflect_exchange(const char *path, const char *body, size_t body_len, char *resp, size_t resp_cap)
+{
+    char req[2048];
+    int n = snprintf(req, sizeof(req),
+                     "GET %s HTTP/1.1\r\nHost: localhost\r\nContent-Length: %zu\r\n\r\n",
+                     path, body_len);
+    BB_ASSERT(n > 0 && (size_t)n + body_len < sizeof(req));
+    memcpy(req + n, body, body_len);
+
+    (void)raw_http_exchange(req, (size_t)n + body_len, resp, resp_cap);
+}
+
+/* True if the response is one well-framed message: a single status line, no
+ * header line that the attacker managed to inject (any line break, CRLF or bare,
+ * followed by "Injected"), and exactly Content-Length bytes after the head. */
+static bool response_is_unsplit(const char *resp)
+{
+    if (strncmp(resp, "HTTP/1.1 ", 9) != 0)
+        return false;
+
+    const char *head_end = strstr(resp, "\r\n\r\n");
+    if (!head_end)
+        return false;
+
+    size_t head_len = (size_t)(head_end - resp);
+
+    /* Walk the head line by line, treating both CRLF and a bare LF/CR as breaks,
+     * the way lenient clients and proxies do. */
+    size_t line_start = 0;
+    int line_no = 0;
+    for (size_t i = 0; i <= head_len; i++)
+    {
+        bool at_end = (i == head_len);
+        if (!at_end && resp[i] != '\n' && resp[i] != '\r')
+            continue;
+
+        size_t len = i - line_start;
+        const char *line = resp + line_start;
+
+        if (len > 0)
+        {
+            if (line_no > 0 && len >= 8 && strncmp(line, "HTTP/1.1", 8) == 0)
+                return false;
+            if (len >= 8 && strncasecmp(line, "Injected", 8) == 0)
+                return false;
+            line_no++;
+        }
+        line_start = i + 1;
+    }
+
+    /* Framing: whatever follows the head must be exactly Content-Length bytes. */
+    const char *cl = strstr(resp, "Content-Length: ");
+    if (!cl || cl > head_end)
+        return false;
+
+    size_t declared = (size_t)strtoul(cl + strlen("Content-Length: "), NULL, 10);
+    size_t actual = strlen(head_end + 4);
+    return declared == actual;
+}
+
+void test_response_header_values_roundtrip(void)
+{
+    printf("Testing legitimate header values pass through unchanged...\n");
+
+    /* Whatever hardening is applied to CR/LF must not mangle normal values. */
+    const char *value = "tab\there, spaces  and utf8 caf\xc3\xa9; q=0.5, \"quoted\"";
+    char resp[4096];
+
+    raw_reflect_exchange("/reflect", value, strlen(value), resp, sizeof(resp));
+
+    BB_ASSERT(strstr(resp, " 200 ") != NULL);
+    BB_ASSERT(strstr(resp, "X-Reflect: tab\there, spaces  and utf8 caf\xc3\xa9; q=0.5, \"quoted\"\r\n") != NULL);
+    BB_ASSERT(response_is_unsplit(resp));
+
+    assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1504,6 +1612,7 @@ int main(void)
     test_parser_chunked_extensions_and_trailers();
     test_parser_byte_at_a_time_delivery();
     test_parser_truncated_and_aborted_requests();
+    test_response_header_values_roundtrip();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
