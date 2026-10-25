@@ -1364,6 +1364,48 @@ void test_response_header_values_roundtrip(void)
     assert_server_healthy();
 }
 
+void test_response_splitting_is_prevented(void)
+{
+    if (getenv("BB_HTTP_STRICT") == NULL)
+    {
+        printf("Skipping response splitting tests (set BB_HTTP_STRICT=1 to run).\n");
+        return;
+    }
+
+    printf("Testing CR/LF in handler-controlled response headers cannot split the response...\n");
+
+    static const struct
+    {
+        const char *name;
+        const char *path;
+        const char *body;
+    } cases[] = {
+        {"CRLF in header value", "/reflect", "v\r\nInjected: yes"},
+        {"bare LF in header value", "/reflect", "v\nInjected: yes"},
+        {"bare CR in header value", "/reflect", "v\rInjected: yes"},
+        {"full second response in header value", "/reflect",
+         "v\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\npwnd"},
+        {"CRLF in header name", "/reflect_name", "X-A: b\r\nInjected: yes\r\nX-B"},
+        {"LF in header name", "/reflect_name", "X-A\nInjected: yes"},
+    };
+
+    int failures = 0;
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        char resp[4096];
+        raw_reflect_exchange(cases[i].path, cases[i].body, strlen(cases[i].body), resp, sizeof(resp));
+
+        if (!response_is_unsplit(resp))
+        {
+            fprintf(stderr, "  RESPONSE SPLITTING: %s\n", cases[i].name);
+            failures++;
+        }
+    }
+
+    assert_server_healthy();
+    BB_ASSERT(failures == 0);
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1613,6 +1655,7 @@ int main(void)
     test_parser_byte_at_a_time_delivery();
     test_parser_truncated_and_aborted_requests();
     test_response_header_values_roundtrip();
+    test_response_splitting_is_prevented();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
