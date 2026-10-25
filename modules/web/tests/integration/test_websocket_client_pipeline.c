@@ -20,10 +20,15 @@
 
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#ifndef _WIN32
+#include <sys/select.h>
+#endif
 
 #define RX_CAP 400000
 
@@ -51,6 +56,9 @@ struct fake_server
     uint8_t *rx; /* bytes received from the client after the handshake */
     size_t rx_len;
 };
+
+/* The fake server the current test talks to (one at a time). */
+static fake_server_t *g_fs = NULL;
 
 static void fs_send(bb_socket_t fd, const void *data, size_t len)
 {
@@ -219,7 +227,7 @@ static void *fs_thread(void *arg)
     if (select((int)fs->listen_fd + 1, &set, NULL, NULL, &tv) > 0)
     {
         bb_socket_t client = accept(fs->listen_fd, NULL, NULL);
-        if (client >= 0)
+        if (!bb_socket_is_invalid(client))
         {
             fs->accepted = 1;
             if (fs_read_request(fs, client) && fs->script)
@@ -241,7 +249,7 @@ static void fs_start(fake_server_t *fs, fake_script_fn script, void *script_arg)
     BB_ASSERT(fs->rx != NULL);
 
     fs->listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    BB_ASSERT(fs->listen_fd >= 0);
+    BB_ASSERT(!bb_socket_is_invalid(fs->listen_fd));
 
     int yes = 1;
     setsockopt(fs->listen_fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes, sizeof(yes));
@@ -299,10 +307,12 @@ typedef struct
     void *on_connected_arg;
 } client_t;
 
+/* The client the current test drives; message callbacks have no userdata slot. */
+static client_t *g_client = NULL;
+
 static bb_error_t client_on_message(bb_websocket_t *ws, const bb_ws_message_t *msg)
 {
     (void)ws;
-    extern client_t *g_client;
     client_t *c = g_client;
 
     BB_ASSERT(c->msg_count < sizeof(c->msgs) / sizeof(c->msgs[0]));
@@ -316,8 +326,6 @@ static bb_error_t client_on_message(bb_websocket_t *ws, const bb_ws_message_t *m
     c->msg_count++;
     return BB_SUCCESS();
 }
-
-client_t *g_client = NULL;
 
 static void client_on_connect(bb_websocket_t *ws, bb_error_t err, void *userdata)
 {
@@ -494,11 +502,8 @@ static void script_collect_client_frames(fake_server_t *fs, bb_socket_t client, 
 static bool pred_server_done(client_t *c)
 {
     (void)c;
-    extern fake_server_t *g_fs;
     return g_fs->finished != 0;
 }
-
-fake_server_t *g_fs = NULL;
 
 static void test_client_frames_on_the_wire(void)
 {
@@ -1044,6 +1049,9 @@ static void test_client_strict_rfc_conformance(void)
 
 int main(void)
 {
+    /* The fake server uses raw sockets before any runtime exists. */
+    BB_ASSERT(bb_platform_net_init() == 0);
+
     printf("Running WebSocket client pipeline tests...\n");
 
     test_client_frames_on_the_wire();

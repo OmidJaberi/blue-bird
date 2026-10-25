@@ -16,9 +16,12 @@
 
 #include "http/parser.h"
 
+#include <blue-bird/utils/platform.h>
 #include <blue-bird/error/assert.h>
 
 #include <inttypes.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -226,30 +229,30 @@ typedef struct
     size_t len;
 } corpus_entry_t;
 
-#define ENTRY(name, str) {name, str, sizeof(str) - 1}
+#define CORPUS_ENTRY(name, str) {name, str, sizeof(str) - 1}
 
 static const corpus_entry_t request_corpus[] = {
-    ENTRY("get-minimal", "GET / HTTP/1.1\r\nHost: a\r\n\r\n"),
-    ENTRY("http10", "GET /old HTTP/1.0\r\n\r\n"),
-    ENTRY("post-content-length",
+    CORPUS_ENTRY("get-minimal", "GET / HTTP/1.1\r\nHost: a\r\n\r\n"),
+    CORPUS_ENTRY("http10", "GET /old HTTP/1.0\r\n\r\n"),
+    CORPUS_ENTRY("post-content-length",
           "POST /submit?x=1&y=%20z HTTP/1.1\r\nHost: a\r\nContent-Type: text/plain\r\n"
           "Content-Length: 11\r\n\r\nhello world"),
-    ENTRY("chunked-ext-trailer",
+    CORPUS_ENTRY("chunked-ext-trailer",
           "POST /c HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n"
           "5;ext=1\r\nhello\r\nA\r\n,blue-bird\r\n0\r\nX-T: v\r\n\r\n"),
-    ENTRY("chunked-empty", "POST /c HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"),
-    ENTRY("many-headers",
+    CORPUS_ENTRY("chunked-empty", "POST /c HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"),
+    CORPUS_ENTRY("many-headers",
           "GET /a/b%20c?q=1 HTTP/1.1\r\nHost: a\r\nAccept: */*\r\nCookie: a=b; c=d\r\n"
           "User-Agent: fuzz/1.0\r\nX-Padding: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n\r\n"),
 };
 
 static const corpus_entry_t response_corpus[] = {
-    ENTRY("ok-content-length", "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello"),
-    ENTRY("empty-body", "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"),
-    ENTRY("switching-protocols",
+    CORPUS_ENTRY("ok-content-length", "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello"),
+    CORPUS_ENTRY("empty-body", "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"),
+    CORPUS_ENTRY("switching-protocols",
           "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
           "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n"),
-    ENTRY("chunked",
+    CORPUS_ENTRY("chunked",
           "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n5\r\npedia\r\n0\r\n\r\n"),
 };
 

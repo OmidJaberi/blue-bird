@@ -8,6 +8,8 @@
 #include <blue-bird/error/assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -1162,7 +1164,7 @@ static void websocket_control_frames_test(void)
     BB_ASSERT(((buf[0] << 8) | buf[1]) == 1000);
 
     uint8_t dummy;
-    BB_ASSERT(recv(fd, &dummy, 1, 0) <= 0); /* connection closed after the Close frame */
+    BB_ASSERT(recv(fd, (char *)&dummy, 1, 0) <= 0); /* connection closed after the Close frame */
 
     bb_socket_close(fd);
     check_server();
@@ -1413,7 +1415,7 @@ static void websocket_close_semantics_test(void)
 
         BB_ASSERT(raw_ws_read_frame(fd, &first, buf, sizeof(buf), &len));
         BB_ASSERT(first == 0x88);
-        BB_ASSERT(recv(fd, &dummy, 1, 0) <= 0);
+        BB_ASSERT(recv(fd, (char *)&dummy, 1, 0) <= 0);
 
         bb_socket_close(fd);
         check_server();
@@ -1750,17 +1752,18 @@ static bool raw_ws_peer_closed(bb_socket_t fd)
     for (int i = 0; i < 16; i++)
     {
         uint8_t buf[256];
-        ssize_t n = recv(fd, buf, sizeof(buf), 0);
+        ssize_t n = recv(fd, (char *)buf, sizeof(buf), 0);
 
         if (n == 0)
             return true;
 
         if (n < 0)
         {
+            /* A reset counts as closed; our own receive timeout does not. */
 #ifdef _WIN32
-            return WSAGetLastError() != WSAETIMEDOUT;
+            return bb_socket_last_error() != WSAETIMEDOUT;
 #else
-            return errno != EAGAIN && errno != EWOULDBLOCK;
+            return !bb_socket_would_block();
 #endif
         }
         /* n > 0: a Close frame the server sent while shutting down; keep reading to EOF */
@@ -1859,7 +1862,7 @@ static bool raw_ws_connection_failed_cleanly(bb_socket_t fd)
             return false; /* echoed data, answered a Ping, etc. */
 
         uint8_t dummy;
-        if (recv(fd, &dummy, 1, 0) <= 0)
+        if (recv(fd, (char *)&dummy, 1, 0) <= 0)
             return true;
     }
     return false;

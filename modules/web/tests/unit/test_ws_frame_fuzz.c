@@ -20,6 +20,8 @@
 #include <blue-bird/error/assert.h>
 
 #include <inttypes.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,12 +78,12 @@ static void stream_free(model_stream_t *s)
 
 static size_t pick_length(bool allow_large)
 {
-    static const size_t small[] = {0, 1, 2, 5, 31, 124, 125, 126, 127, 128, 255, 256, 1000, 4096, 65535};
+    static const size_t common_lens[] = {0, 1, 2, 5, 31, 124, 125, 126, 127, 128, 255, 256, 1000, 4096, 65535};
 
     if (allow_large && rnd(40) == 0)
         return rnd(2) ? 65536 : 70000;
 
-    return small[rnd((uint32_t)(sizeof(small) / sizeof(small[0])))];
+    return common_lens[rnd((uint32_t)(sizeof(common_lens) / sizeof(common_lens[0])))];
 }
 
 static void stream_generate(model_stream_t *s, size_t max_frames, bool allow_large)

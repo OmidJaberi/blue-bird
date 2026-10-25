@@ -8,6 +8,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 bb_runtime_t *server_runtime = NULL;
 
@@ -825,6 +827,16 @@ void test_partial_request(void)
 /* Raw-socket helpers for HTTP parser tests                            */
 /* ------------------------------------------------------------------ */
 
+/* True if the last failed recv() was our SO_RCVTIMEO expiring (as opposed to a reset). */
+static bool raw_recv_timed_out(void)
+{
+#ifdef _WIN32
+    return bb_socket_last_error() == WSAETIMEDOUT;
+#else
+    return bb_socket_would_block();
+#endif
+}
+
 typedef enum
 {
     RAW_PEER_CLOSED = 0, /* server closed (FIN or reset) */
@@ -877,11 +889,7 @@ static raw_result_t raw_http_exchange(const void *req, size_t req_len, char *res
         if (n == 0)
             break;
 
-#ifdef _WIN32
-        if (WSAGetLastError() == WSAETIMEDOUT)
-#else
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-#endif
+        if (raw_recv_timed_out())
             result = RAW_TIMED_OUT;
         break; /* timeout or connection reset */
     }
@@ -1330,7 +1338,7 @@ static bool response_is_unsplit(const char *resp)
         {
             if (line_no > 0 && len >= 8 && strncmp(line, "HTTP/1.1", 8) == 0)
                 return false;
-            if (len >= 8 && strncasecmp(line, "Injected", 8) == 0)
+            if (len >= 8 && bb_strncasecmp(line, "Injected", 8) == 0)
                 return false;
             line_no++;
         }
