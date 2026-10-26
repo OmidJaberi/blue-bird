@@ -84,6 +84,17 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     bb_task_t *task;
     while ((task = bb_scheduler_next(runtime->scheduler)))
     {
+        task->state &= ~BB_TASK_SCHEDULED;
+
+        // A persistent task (repeating timer / persistent watcher) can be
+        // queued here AND still be owned by runtime->timers or
+        // runtime->watchers. Those loops below destroy it, so destroying it
+        // here too would be a double free.
+        if (task->state & BB_TASK_PERSISTENT)
+        {
+            continue;
+        }
+
         bb_task_destroy(task);
     }
 
@@ -578,5 +589,10 @@ bb_task_t *bb_runtime_set_timeout_ex(bb_runtime_t *runtime, uint64_t timeout_ms,
 
 bool bb_runtime_is_empty(bb_runtime_t *runtime)
 {
+    if (!runtime)
+    {
+        return true;
+    }
+
     return runtime->watcher_count == 0 && bb_timer_heap_is_empty(runtime->timers) && bb_scheduler_is_empty(runtime->scheduler);
 }
