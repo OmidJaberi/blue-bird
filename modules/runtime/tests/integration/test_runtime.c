@@ -1591,6 +1591,691 @@ static void test_stop_preserves_queued_tasks(void)
     bb_runtime_destroy(runtime);
 }
 
+// --- shared helpers -----------------------------------------------------
+
+static int ac_run_count = 0;
+static int ac_cleanup_count = 0;
+static bb_task_result_t ac_last_result = BB_TASK_RES_COMPLETED;
+
+static void ac_reset(void)
+{
+    ac_run_count = 0;
+    ac_cleanup_count = 0;
+    ac_last_result = BB_TASK_RES_COMPLETED;
+}
+
+static void ac_run_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+    ac_run_count++;
+}
+
+static void ac_cleanup_cb(bb_task_t *task, void *userdata, bb_task_result_t result)
+{
+    (void)task;
+    (void)userdata;
+    ac_cleanup_count++;
+    ac_last_result = result;
+}
+
+static void counter_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (*(int *)userdata)++;
+}
+
+// Connected loopback TCP pair. `server` is the accepted end that tests
+// watch; `client` is the peer used to make it readable.
+static void make_conn(bb_socket_t *server_out, bb_socket_t *client_out)
+{
+    BB_ASSERT(bb_platform_net_init() == 0);
+
+    bb_socket_t listener = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(listener != BB_INVALID_SOCKET);
+
+    int opt = 1;
+    BB_ASSERT(setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt)) == 0);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+
+    BB_ASSERT(bind(listener, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    BB_ASSERT(listen(listener, 1) == 0);
+
+    socklen_t addr_len = sizeof(addr);
+    BB_ASSERT(getsockname(listener, (struct sockaddr *)&addr, &addr_len) == 0);
+
+    bb_socket_t client = socket(AF_INET, SOCK_STREAM, 0);
+    BB_ASSERT(client != BB_INVALID_SOCKET);
+    BB_ASSERT(connect(client, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+
+    bb_socket_t server = accept(listener, NULL, NULL);
+    BB_ASSERT(server != BB_INVALID_SOCKET);
+
+    bb_socket_close(listener);
+
+    *server_out = server;
+    *client_out = client;
+}
+
+static void close_conn(bb_socket_t server, bb_socket_t client)
+{
+    bb_socket_close(server);
+    bb_socket_close(client);
+    bb_platform_net_cleanup();
+}
+
+// --- destroy while a persistent task is queued --------------------------
+//
+// A repeating timer / persistent watcher that has fired but not yet run
+// is in the scheduler queue AND still owned by timers/watchers. Destroying
+// the runtime in that state must finalize it exactly once (no double free).
+
+static void test_destroy_with_queued_interval(void)
+{
+    printf("\tRunning test_destroy_with_queued_interval...\n");
+
+    ac_reset();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_set_interval_ex(runtime, 0, &(bb_task_config_t) {
+        .run = ac_run_cb,
+        .cleanup = ac_cleanup_cb,
+    }) != NULL);
+
+    // Not running: the tick queues the due timer but executes nothing.
+    BB_ASSERT(!bb_runtime_is_running(runtime));
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(!bb_scheduler_is_empty(runtime->scheduler));
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 0);
+
+    bb_runtime_destroy(runtime);
+
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+}
+
+static void test_destroy_with_queued_persistent_watcher(void)
+{
+    printf("\tRunning test_destroy_with_queued_persistent_watcher...\n");
+
+    ac_reset();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_socket_t server, client;
+    make_conn(&server, &client);
+
+    BB_ASSERT(send(client, "x", 1, 0) == 1);
+
+    BB_ASSERT(bb_runtime_watch_fd_ex(runtime, server, BB_EVENT_READ, BB_WATCH_PERSISTENT,
+        &(bb_task_config_t) {.run = ac_run_cb, .cleanup = ac_cleanup_cb}) != NULL);
+
+    // Not running: the poll queues the watcher task but nothing executes it.
+    BB_ASSERT(!bb_runtime_is_running(runtime));
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(!bb_scheduler_is_empty(runtime->scheduler));
+    BB_ASSERT(runtime->watcher_count == 1);
+    BB_ASSERT(ac_run_count == 0);
+
+    bb_runtime_destroy(runtime);
+
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+
+    close_conn(server, client);
+}
+
+// --- cleanup result codes ----------------------------------------------
+
+static void test_cleanup_result_codes(void)
+{
+    printf("\tRunning test_cleanup_result_codes...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // Ran to completion -> COMPLETED
+    ac_reset();
+    BB_ASSERT(bb_runtime_schedule_ex(runtime, &(bb_task_config_t) {
+        .run = ac_run_cb, .cleanup = ac_cleanup_cb}) != NULL);
+
+    bb_runtime_set_running(runtime);
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(ac_run_count == 1);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(ac_last_result == BB_TASK_RES_COMPLETED);
+
+    // Cancelled before running -> CANCELLED, delivered at cancel time
+    ac_reset();
+    bb_task_t *task = bb_runtime_schedule_ex(runtime, &(bb_task_config_t) {
+        .run = ac_run_cb, .cleanup = ac_cleanup_cb});
+    BB_ASSERT(task != NULL);
+
+    BB_ASSERT(bb_runtime_cancel_task(runtime, task) == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(ac_last_result == BB_TASK_RES_CANCELLED);
+
+    bb_runtime_tick(runtime); // destroys the task; must not finalize again
+
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(ac_last_result == BB_TASK_RES_CANCELLED);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+
+    // Still pending when the runtime is destroyed: finalized exactly once,
+    // never run, and not reported as a user cancellation.
+    // (BB_TASK_RES_SHUTDOWN exists but isn't produced anywhere yet; today
+    // this path reports COMPLETED. Tighten this assert if that changes.)
+    ac_reset();
+    runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule_ex(runtime, &(bb_task_config_t) {
+        .run = ac_run_cb, .cleanup = ac_cleanup_cb}) != NULL);
+
+    bb_runtime_destroy(runtime);
+
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(ac_last_result != BB_TASK_RES_CANCELLED);
+}
+
+// --- double cancel ------------------------------------------------------
+
+static void test_double_cancel(void)
+{
+    printf("\tRunning test_double_cancel...\n");
+
+    ac_reset();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_task_t *task = bb_runtime_schedule_ex(runtime, &(bb_task_config_t) {
+        .run = ac_run_cb, .cleanup = ac_cleanup_cb});
+    BB_ASSERT(task != NULL);
+
+    BB_ASSERT(bb_runtime_cancel_task(runtime, task) == 0);
+    BB_ASSERT(bb_runtime_cancel_task(runtime, task) == 0); // still queued: safe
+
+    BB_ASSERT(ac_cleanup_count == 1);
+
+    bb_runtime_set_running(runtime);
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+}
+
+// --- WRITE watchers -----------------------------------------------------
+
+static void test_write_watch_fires(void)
+{
+    printf("\tRunning test_write_watch_fires...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_socket_t server, client;
+    make_conn(&server, &client);
+
+    int fired = 0;
+
+    // A freshly connected socket has send-buffer space: immediately writable.
+    BB_ASSERT(bb_runtime_watch_fd(runtime, server, BB_EVENT_WRITE, BB_WATCH_ONESHOT,
+                                  counter_cb, &fired) != NULL);
+
+    bb_runtime_set_running(runtime);
+    for (int i = 0; i < 10 && fired == 0; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+    BB_ASSERT(fired == 1);
+
+    // Oneshot: stays writable but must not fire again.
+    for (int i = 0; i < 3; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+    BB_ASSERT(fired == 1);
+    BB_ASSERT(runtime->watcher_count == 0);
+
+    bb_runtime_destroy(runtime);
+    close_conn(server, client);
+}
+
+// Separate READ and WRITE watchers on one fd: registering the second must
+// merge into the poller mask without dropping the first, and removing one
+// (oneshot firing) must not drop the other.
+static void test_separate_read_and_write_watchers_same_fd(void)
+{
+    printf("\tRunning test_separate_read_and_write_watchers_same_fd...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_socket_t server, client;
+    make_conn(&server, &client);
+
+    BB_ASSERT(send(client, "x", 1, 0) == 1); // server readable (and writable)
+
+    int reads = 0;
+    int writes = 0;
+
+    BB_ASSERT(bb_runtime_watch_fd(runtime, server, BB_EVENT_READ, BB_WATCH_ONESHOT,
+                                  counter_cb, &reads) != NULL);
+    BB_ASSERT(bb_runtime_watch_fd(runtime, server, BB_EVENT_WRITE, BB_WATCH_ONESHOT,
+                                  counter_cb, &writes) != NULL);
+    BB_ASSERT(runtime->watcher_count == 2);
+
+    bb_runtime_set_running(runtime);
+    for (int i = 0; i < 10 && (reads == 0 || writes == 0); i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(reads == 1);
+    BB_ASSERT(writes == 1);
+    BB_ASSERT(runtime->watcher_count == 0);
+
+    for (int i = 0; i < 3; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+    BB_ASSERT(reads == 1);
+    BB_ASSERT(writes == 1);
+
+    bb_runtime_destroy(runtime);
+    close_conn(server, client);
+}
+
+// One watcher for READ|WRITE where both are ready: one dispatch, not two.
+static void test_combined_read_write_watcher(void)
+{
+    printf("\tRunning test_combined_read_write_watcher...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_socket_t server, client;
+    make_conn(&server, &client);
+
+    BB_ASSERT(send(client, "x", 1, 0) == 1);
+
+    int fired = 0;
+
+    BB_ASSERT(bb_runtime_watch_fd(runtime, server, BB_EVENT_READ | BB_EVENT_WRITE,
+                                  BB_WATCH_ONESHOT, counter_cb, &fired) != NULL);
+    BB_ASSERT(runtime->watcher_count == 1);
+
+    bb_runtime_set_running(runtime);
+    for (int i = 0; i < 6; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(fired == 1);
+    BB_ASSERT(runtime->watcher_count == 0);
+
+    bb_runtime_destroy(runtime);
+    close_conn(server, client);
+}
+
+// --- replacing a watcher with a different mode --------------------------
+
+static void test_watch_fd_replace_changes_mode(void)
+{
+    printf("\tRunning test_watch_fd_replace_changes_mode...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_socket_t server, client;
+    make_conn(&server, &client);
+
+    int old_fired = 0;
+    int new_fired = 0;
+
+    bb_task_t *old_task = bb_runtime_watch_fd(runtime, server, BB_EVENT_READ,
+                                              BB_WATCH_ONESHOT, counter_cb, &old_fired);
+    BB_ASSERT(old_task != NULL);
+    BB_ASSERT(!(old_task->state & BB_TASK_PERSISTENT));
+
+    bb_task_t *new_task = bb_runtime_watch_fd(runtime, server, BB_EVENT_READ,
+                                              BB_WATCH_PERSISTENT, counter_cb, &new_fired);
+    BB_ASSERT(new_task != NULL);
+    BB_ASSERT(new_task != old_task);
+
+    BB_ASSERT(bb_task_is_cancelled(old_task) == 1);
+    BB_ASSERT(new_task->state & BB_TASK_PERSISTENT);
+    BB_ASSERT(runtime->watcher_count == 1);
+    BB_ASSERT(runtime->watchers[0].mode == BB_WATCH_PERSISTENT);
+    BB_ASSERT(runtime->watchers[0].task == new_task);
+
+    // Data left unread: the persistent watcher must keep firing.
+    BB_ASSERT(send(client, "x", 1, 0) == 1);
+
+    bb_runtime_set_running(runtime);
+    for (int i = 0; i < 20 && new_fired < 3; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(new_fired >= 3);
+    BB_ASSERT(old_fired == 0);
+    BB_ASSERT(runtime->watcher_count == 1);
+
+    bb_runtime_destroy(runtime);
+    close_conn(server, client);
+}
+
+// --- cancelling a watcher task directly ---------------------------------
+
+static void test_cancel_watcher_task(void)
+{
+    printf("\tRunning test_cancel_watcher_task...\n");
+
+    ac_reset();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    bb_socket_t server, client;
+    make_conn(&server, &client);
+
+    BB_ASSERT(send(client, "x", 1, 0) == 1);
+
+    bb_task_t *task = bb_runtime_watch_fd_ex(runtime, server, BB_EVENT_READ, BB_WATCH_PERSISTENT,
+        &(bb_task_config_t) {.run = ac_run_cb, .cleanup = ac_cleanup_cb});
+    BB_ASSERT(task != NULL);
+    BB_ASSERT(runtime->watcher_count == 1);
+
+    BB_ASSERT(bb_runtime_cancel_task(runtime, task) == 0);
+
+    BB_ASSERT(runtime->watcher_count == 0);
+    BB_ASSERT(bb_task_is_cancelled(task) == 1);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(ac_last_result == BB_TASK_RES_CANCELLED);
+
+    // fd is still readable, but nothing may fire and the task must be
+    // reaped without a second cleanup call.
+    bb_runtime_set_running(runtime);
+    for (int i = 0; i < 3; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+    close_conn(server, client);
+}
+
+// --- NULL / invalid arguments ------------------------------------------
+
+static void test_null_arguments(void)
+{
+    printf("\tRunning test_null_arguments...\n");
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    // NULL callback is rejected everywhere and leaves no residue.
+    BB_ASSERT(bb_runtime_schedule(runtime, NULL, NULL) == NULL);
+    BB_ASSERT(bb_runtime_set_timeout(runtime, 1, NULL, NULL) == NULL);
+    BB_ASSERT(bb_runtime_set_interval(runtime, 1, NULL, NULL) == NULL);
+    BB_ASSERT(bb_runtime_watch_fd(runtime, BB_INVALID_SOCKET, BB_EVENT_READ,
+                                  BB_WATCH_ONESHOT, NULL, NULL) == NULL);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    // NULL task
+    BB_ASSERT(bb_runtime_cancel_task(runtime, NULL) == -1);
+
+    // NULL runtime with a real task: rejected, task untouched.
+    bb_task_t *task = bb_runtime_schedule(runtime, ac_run_cb, NULL);
+    BB_ASSERT(task != NULL);
+    BB_ASSERT(bb_runtime_cancel_task(NULL, task) == -1);
+    BB_ASSERT(bb_task_is_cancelled(task) == 0);
+
+    // NULL runtime on every entry point
+    BB_ASSERT(bb_runtime_schedule(NULL, ac_run_cb, NULL) == NULL);
+    BB_ASSERT(bb_runtime_set_timeout(NULL, 1, ac_run_cb, NULL) == NULL);
+    BB_ASSERT(bb_runtime_set_interval(NULL, 1, ac_run_cb, NULL) == NULL);
+    BB_ASSERT(bb_runtime_watch_fd(NULL, BB_INVALID_SOCKET, BB_EVENT_READ,
+                                  BB_WATCH_ONESHOT, ac_run_cb, NULL) == NULL);
+    BB_ASSERT(bb_runtime_unwatch_fd(NULL, BB_INVALID_SOCKET) == -1);
+    BB_ASSERT(bb_runtime_is_running(NULL) == false);
+    BB_ASSERT(bb_runtime_is_empty(NULL) == true);
+
+    // These must simply be no-ops.
+    bb_runtime_tick(NULL);
+    bb_runtime_run(NULL);
+    bb_runtime_stop(NULL);
+    bb_runtime_set_running(NULL);
+    bb_runtime_destroy(NULL);
+
+    bb_runtime_destroy(runtime); // reaps `task`
+}
+
+// --- running state ------------------------------------------------------
+
+static void stop_and_check_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    bb_runtime_t *runtime = userdata;
+
+    BB_ASSERT(bb_runtime_is_running(runtime));
+    bb_runtime_stop(runtime);
+    BB_ASSERT(!bb_runtime_is_running(runtime));
+
+    ac_run_count++;
+}
+
+static void test_running_state(void)
+{
+    printf("\tRunning test_running_state...\n");
+
+    ac_reset();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(!bb_runtime_is_running(runtime));
+
+    bb_runtime_set_running(runtime);
+    BB_ASSERT(bb_runtime_is_running(runtime));
+
+    bb_runtime_stop(runtime);
+    BB_ASSERT(!bb_runtime_is_running(runtime));
+
+    BB_ASSERT(bb_runtime_schedule(runtime, stop_and_check_cb, runtime) != NULL);
+
+    bb_runtime_run(runtime); // returns because the callback stops it
+
+    BB_ASSERT(ac_run_count == 1);
+    BB_ASSERT(!bb_runtime_is_running(runtime));
+
+    bb_runtime_destroy(runtime);
+}
+
+// --- bb_task_is_scheduled ----------------------------------------------
+
+static int scheduled_flag_in_cb = -1;
+
+static void scheduled_flag_cb(bb_task_t *task, void *userdata)
+{
+    (void)userdata;
+    scheduled_flag_in_cb = bb_task_is_scheduled(task);
+}
+
+static void test_task_is_scheduled(void)
+{
+    printf("\tRunning test_task_is_scheduled...\n");
+
+    scheduled_flag_in_cb = -1;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_task_is_scheduled(NULL) == 0);
+
+    bb_task_t *task = bb_runtime_schedule(runtime, scheduled_flag_cb, NULL);
+    BB_ASSERT(task != NULL);
+    BB_ASSERT(bb_task_is_scheduled(task) == 1);
+
+    bb_runtime_set_running(runtime);
+    bb_runtime_tick(runtime);
+
+    // The flag is cleared before the callback runs.
+    BB_ASSERT(scheduled_flag_in_cb == 0);
+
+    bb_runtime_destroy(runtime);
+}
+
+// --- default runtime ----------------------------------------------------
+// bb_runtime_default() has no reset, so after destroying it the global is
+// dangling. Keep this the last test that touches it.
+
+static void test_default_runtime(void)
+{
+    printf("\tRunning test_default_runtime...\n");
+
+    ac_reset();
+
+    bb_runtime_t *runtime = bb_runtime_default();
+    BB_ASSERT(runtime != NULL);
+    BB_ASSERT(bb_runtime_default() == runtime);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, ac_run_cb, NULL) != NULL);
+
+    bb_runtime_set_running(runtime);
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(ac_run_count == 1);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    bb_runtime_destroy(runtime);
+}
+
+// --- timers vs. cancellation in the same tick ---------------------------
+
+static bb_task_t *same_tick_timeout = NULL;
+
+static void same_tick_controller_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+
+    BB_ASSERT(bb_runtime_cancel_task((bb_runtime_t *)userdata, same_tick_timeout) == 0);
+}
+
+// The timeout is already due and queued behind the controller; the
+// controller cancels it before it gets its turn. It must not run, must be
+// finalized as CANCELLED exactly once, and must be reaped in that tick.
+static void test_timeout_cancelled_in_same_tick(void)
+{
+    printf("\tRunning test_timeout_cancelled_in_same_tick...\n");
+
+    ac_reset();
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    BB_ASSERT(runtime != NULL);
+
+    BB_ASSERT(bb_runtime_schedule(runtime, same_tick_controller_cb, runtime) != NULL);
+
+    same_tick_timeout = bb_runtime_set_timeout_ex(runtime, 0, &(bb_task_config_t) {
+        .run = ac_run_cb, .cleanup = ac_cleanup_cb});
+    BB_ASSERT(same_tick_timeout != NULL);
+
+    bb_runtime_set_running(runtime);
+    bb_runtime_tick(runtime);
+
+    BB_ASSERT(ac_run_count == 0);
+    BB_ASSERT(ac_cleanup_count == 1);
+    BB_ASSERT(ac_last_result == BB_TASK_RES_CANCELLED);
+    BB_ASSERT(bb_runtime_is_empty(runtime));
+
+    same_tick_timeout = NULL;
+
+    bb_runtime_destroy(runtime);
+}
+
+// --- two intervals with different periods -------------------------------
+
+static int fast_count = 0;
+static int slow_count = 0;
+static bb_task_t *fast_task = NULL;
+static bb_task_t *slow_task = NULL;
+static bb_runtime_t *two_interval_runtime = NULL;
+
+static void fast_interval_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+    fast_count++;
+}
+
+static void slow_interval_cb(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    if (++slow_count == 2)
+    {
+        bb_runtime_cancel_task(two_interval_runtime, fast_task);
+        bb_runtime_cancel_task(two_interval_runtime, slow_task);
+    }
+}
+
+static void test_two_intervals_different_periods(void)
+{
+    printf("\tRunning test_two_intervals_different_periods...\n");
+
+    fast_count = 0;
+    slow_count = 0;
+
+    two_interval_runtime = bb_runtime_create();
+    BB_ASSERT(two_interval_runtime != NULL);
+
+    fast_task = bb_runtime_set_interval(two_interval_runtime, 10, fast_interval_cb, NULL);
+    slow_task = bb_runtime_set_interval(two_interval_runtime, 50, slow_interval_cb, NULL);
+    BB_ASSERT(fast_task != NULL);
+    BB_ASSERT(slow_task != NULL);
+
+    bb_runtime_set_running(two_interval_runtime);
+    while (!bb_runtime_is_empty(two_interval_runtime))
+    {
+        bb_runtime_tick(two_interval_runtime);
+    }
+
+    // The slow one fired twice (~100ms); the fast one has to have fired
+    // more often than that even with generous scheduling jitter.
+    BB_ASSERT(slow_count == 2);
+    BB_ASSERT(fast_count > slow_count);
+
+    bb_runtime_destroy(two_interval_runtime);
+    two_interval_runtime = NULL;
+}
+
 // ------------------------------------------------------------------------
 // Socket failure edge case: the poller's own OS-level handle can fail
 // (e.g. epoll/kqueue misbehaving, or -- the realistic case -- a transient
@@ -1696,9 +2381,24 @@ int main(void)
     test_unwatch_unknown_fd_preserves_watchers();
     test_persistent_watch_fires_repeatedly();
     test_stop_preserves_queued_tasks();
+    test_destroy_with_queued_interval();
+    test_destroy_with_queued_persistent_watcher();
+    test_cleanup_result_codes();
+    test_double_cancel();
+    test_write_watch_fires();
+    test_separate_read_and_write_watchers_same_fd();
+    test_combined_read_write_watcher();
+    test_watch_fd_replace_changes_mode();
+    test_cancel_watcher_task();
+    test_null_arguments();
+    test_running_state();
+    test_task_is_scheduled();
+    test_timeout_cancelled_in_same_tick();
+    test_two_intervals_different_periods();
 #if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_KQUEUE)
     test_runtime_survives_poller_wait_failure();
 #endif
+    test_default_runtime();
     printf("Runtime integration test passed.\n");
     return 0;
 }
