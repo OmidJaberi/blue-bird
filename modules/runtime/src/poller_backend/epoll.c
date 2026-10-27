@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "poller_backend.h"
 
@@ -36,6 +37,7 @@ static int _from_epoll_events(uint32_t events, int interest)
 int _bb_poller_backend_create(bb_poller_t *poller)
 {
     poller->epfd = epoll_create1(0);
+    poller->scan_fd = -1;
 
     return poller->epfd >= 0 ? 0 : -1;
 }
@@ -87,28 +89,52 @@ int _bb_poller_backend_unregister(bb_poller_t *poller, bb_socket_t fd, int event
     return 0;
 }
 
+static int _cmp_event_fd(const void *a, const void *b)
+{
+    const bb_poll_event_t *x = a;
+    const bb_poll_event_t *y = b;
+
+    return (x->fd > y->fd) - (x->fd < y->fd);
+}
+
 int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int max_events, int timeout_ms)
 {
-    struct epoll_event *epevents = malloc((size_t)max_events * sizeof(*epevents));
+    /*
+     * Ask the kernel for every ready fd, not just max_events of them, so
+     * fairness doesn't depend on how a particular kernel orders (or
+     * fails to rotate) its ready list. Real Linux re-queues
+     * level-triggered fds at the tail after reporting them, but that is
+     * an implementation detail: emulated or minimal epoll
+     * implementations may report the same first N fds on every call,
+     * which starves the rest whenever more than max_events watchers stay
+     * readable across ticks.
+     */
+    int cap = poller->count > max_events ? poller->count : max_events;
 
-    if (!epevents)
+    struct epoll_event *epevents = malloc((size_t)cap * sizeof(*epevents));
+    bb_poll_event_t *ready = malloc((size_t)cap * sizeof(*ready));
+
+    if (!epevents || !ready)
     {
+        free(epevents);
+        free(ready);
         return -1;
     }
 
     int n;
     do
     {
-        n = epoll_wait(poller->epfd, epevents, max_events, timeout_ms);
+        n = epoll_wait(poller->epfd, epevents, cap, timeout_ms);
     } while (n < 0 && errno == EINTR);
 
     if (n <= 0)
     {
         free(epevents);
+        free(ready);
         return n;
     }
 
-    int event_count = 0;
+    int ready_count = 0;
 
     for (int i = 0; i < n; i++)
     {
@@ -121,13 +147,46 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
 
         if (triggered)
         {
-            events[event_count].fd = fd;
-            events[event_count].events = triggered;
-            event_count++;
+            ready[ready_count].fd = fd;
+            ready[ready_count].events = triggered;
+            ready_count++;
         }
     }
 
     free(epevents);
+
+    int event_count;
+
+    if (ready_count <= max_events)
+    {
+        // Everything fits: nothing can be starved, report it all.
+        memcpy(events, ready, (size_t)ready_count * sizeof(*ready));
+        event_count = ready_count;
+    }
+    else
+    {
+        // More ready than we can report. Order by fd and resume just
+        // after the last fd reported previously, wrapping around, so
+        // every ready fd is reached within a bounded number of calls.
+        qsort(ready, (size_t)ready_count, sizeof(*ready), _cmp_event_fd);
+
+        int start = 0;
+
+        while (start < ready_count && ready[start].fd <= poller->scan_fd)
+        {
+            start++;
+        }
+
+        for (int k = 0; k < max_events; k++)
+        {
+            events[k] = ready[(start + k) % ready_count];
+        }
+
+        event_count = max_events;
+        poller->scan_fd = events[max_events - 1].fd;
+    }
+
+    free(ready);
 
     return event_count;
 }

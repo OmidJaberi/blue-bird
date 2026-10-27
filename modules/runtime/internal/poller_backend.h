@@ -31,6 +31,7 @@ struct bb_poller {
  */
 #if defined(BB_POLLER_BACKEND_EPOLL)
     int epfd;
+    int scan_fd; // last fd reported when the ready set exceeded max_events (fairness cursor)
 #elif defined(BB_POLLER_BACKEND_KQUEUE)
     int kq;
 #elif defined(BB_POLLER_BACKEND_POLL)
