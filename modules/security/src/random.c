@@ -142,25 +142,44 @@ static bb_error_t random_bytes_impl(unsigned char *buffer, size_t size)
 
 #elif defined(BB_RANDOM_BACKEND_LINUX)
 
+/*
+ * Requests up to 256 bytes are never short-read or interrupted by
+ * getrandom() on Linux, so chunk to that size: it avoids relying on
+ * partial-read behavior for large requests, which some kernels, emulation
+ * layers and sandboxes don't implement faithfully.
+ */
+#define BB_GETRANDOM_MAX 256
+
 static bb_error_t random_bytes_impl(unsigned char *buffer, size_t size)
 {
     size_t filled = 0;
 
     while (filled < size)
     {
-        ssize_t n = getrandom(buffer + filled, size - filled, 0);
+        size_t chunk = size - filled;
+
+        if (chunk > BB_GETRANDOM_MAX)
+            chunk = BB_GETRANDOM_MAX;
+
+        ssize_t n = getrandom(buffer + filled, chunk, 0);
 
         if (n < 0)
         {
-            /* Older kernels (< 3.17) don't implement getrandom() at all. */
-            if (errno == ENOSYS)
-                return random_bytes_urandom(buffer, size);
-
             if (errno == EINTR)
                 continue;
 
-            return BB_ERROR(BB_ERR_RANDOM_FAILED, "getrandom() failed");
+            /*
+             * Anything else (ENOSYS on kernels < 3.17, EPERM from a
+             * seccomp filter, EINVAL/EFAULT from emulation layers, ...)
+             * means getrandom() isn't usable here; /dev/urandom is the
+             * equivalent CSPRNG. Restart the whole request from it so no
+             * partially-filled state is kept.
+             */
+            return random_bytes_urandom(buffer, size);
         }
+
+        if (n == 0)
+            return random_bytes_urandom(buffer, size);
 
         filled += (size_t)n;
     }
