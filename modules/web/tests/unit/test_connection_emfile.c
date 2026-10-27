@@ -11,6 +11,7 @@
 #if !defined(_WIN32)
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -263,6 +264,17 @@ static void test_rejects_pending_connection_under_fd_exhaustion(void)
 
     bb_socket_set_nonblocking(pending_client);
 
+    /*
+     * connect() returning does not guarantee the connection has reached
+     * the listener's accept queue yet (on a slow or loaded machine the
+     * final handshake step can lag). If accept() ran first it would see
+     * EAGAIN rather than EMFILE, reject nothing, and the client would
+     * never observe a close. Wait until the listener is actually
+     * readable before locking the fd table.
+     */
+    struct pollfd lp = { .fd = listener, .events = POLLIN, .revents = 0 };
+    BB_ASSERT(poll(&lp, 1, 5000) == 1);
+
     struct rlimit previous;
 
     BB_ASSERT(_pin_fd_table(&previous) == 0);
@@ -272,7 +284,7 @@ static void test_rejects_pending_connection_under_fd_exhaustion(void)
 
     /* The server closed the socket; the client must observe the close. */
     int closed = 0;
-    for (int i = 0; i < 200 && !closed; i++)
+    for (int i = 0; i < 5000 && !closed; i++)
     {
         char buf[1];
         ssize_t n = read(pending_client, buf, 1);
