@@ -1855,6 +1855,599 @@ void test_json_load_edge_cases(void)
     remove(path);
 }
 
+// ---------------------------------------------------------------------------
+// API robustness and edge-case tests
+// ---------------------------------------------------------------------------
+
+void test_json_null_arguments(void)
+{
+    printf("\tTesting JSON API with NULL arguments...\n");
+
+    // Destroying NULL is a no-op.
+    bb_json_destroy(NULL);
+
+    // Accessors return neutral values.
+    BB_ASSERT(bb_json_get_type(NULL) == BB_JSON_NOT_INITIALIZED);
+    BB_ASSERT(bb_json_get_size(NULL) == 0);
+    BB_ASSERT(bb_json_array_get_index(NULL, 0) == NULL);
+    BB_ASSERT(bb_json_object_get_value(NULL, "k") == NULL);
+    BB_ASSERT(bb_json_clone(NULL) == NULL);
+    BB_ASSERT(!bb_json_equal(NULL, NULL));
+
+    bb_json_t *obj = bb_json_parse("{\"a\": 1}");
+    bb_json_t *arr = bb_json_parse("[1]");
+    BB_ASSERT(obj != NULL && arr != NULL);
+    BB_ASSERT(!bb_json_equal(obj, NULL));
+    BB_ASSERT(!bb_json_equal(NULL, obj));
+    BB_ASSERT(bb_json_object_get_value(obj, NULL) == NULL);
+
+    // Mutators reject NULL arguments without touching the container.
+    // (a rejected element is not adopted, so the caller still owns it)
+    bb_json_t *orphan = bb_json_new_int(5);
+    BB_ASSERT(bb_json_array_push(NULL, orphan).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_array_push(arr, NULL).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_object_set_value(NULL, "k", orphan).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_object_set_value(obj, "k", NULL).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_object_set_value(obj, NULL, orphan).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_object_remove_key(NULL, "a").code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_object_remove_key(obj, NULL).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_object_merge(NULL, obj).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_object_merge(obj, NULL).code == BB_ERR_NULL);
+    bb_json_destroy(orphan);
+
+    BB_ASSERT(bb_json_get_size(obj) == 1);
+    BB_ASSERT(bb_json_get_size(arr) == 1);
+
+    // Removing a key from a non-object is a type mismatch.
+    BB_ASSERT(bb_json_object_remove_key(arr, "a").code == BB_ERR_JSON_TYPE_MISMATCH);
+
+    // Serializer argument checks.
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(BB_FAILED(bb_json_serialize(obj, NULL, &size)));
+    BB_ASSERT(BB_FAILED(bb_json_serialize_indented(obj, NULL, &size)));
+    BB_ASSERT(BB_FAILED(bb_json_serialize(obj, &buffer, NULL)));
+
+    bb_json_destroy(obj);
+    bb_json_destroy(arr);
+}
+
+void test_json_set_text_overwrite(void)
+{
+    printf("\tTesting JSON text overwrite...\n");
+
+    bb_json_t *text = bb_json_new_text("first value");
+    BB_ASSERT(bb_json_get_size(text) == 11);
+
+    // Replacing a value with a shorter, a longer and an empty one keeps size in sync.
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, "ab")));
+    BB_ASSERT(bb_json_get_size(text) == 2);
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "ab") == 0);
+
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, "a considerably longer replacement value")));
+    BB_ASSERT(bb_json_get_size(text) == strlen("a considerably longer replacement value"));
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "a considerably longer replacement value") == 0);
+
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, "")));
+    BB_ASSERT(bb_json_get_size(text) == 0);
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "") == 0);
+    assert_serializes_to(text, "\"\"");
+
+    // Setting NULL fails cleanly and leaves no dangling pointer behind.
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, "will be cleared")));
+    bb_error_t err = bb_json_set_value_text(text, NULL);
+    BB_ASSERT(err.code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_get_size(text) == 0);
+
+    // The node is still usable afterwards.
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, "recovered")));
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "recovered") == 0);
+    BB_ASSERT(bb_json_get_size(text) == 9);
+
+    bb_json_destroy(text);
+
+    // Scalar setters overwrite in place.
+    bb_json_t *num = bb_json_new_int(1);
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_integer(num, INT_MIN)));
+    BB_ASSERT(bb_json_get_value_integer(num) == INT_MIN);
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_integer(num, INT_MAX)));
+    BB_ASSERT(bb_json_get_value_integer(num) == INT_MAX);
+    bb_json_destroy(num);
+
+    bb_json_t *flag = bb_json_new_bool(true);
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_bool(flag, false)));
+    BB_ASSERT(bb_json_get_value_bool(flag) == false);
+    assert_serializes_to(flag, "false");
+    bb_json_destroy(flag);
+}
+
+void test_json_object_many_keys(void)
+{
+    printf("\tTesting JSON object with many keys (hash table growth)...\n");
+
+    const int count = 2000;
+    bb_json_t *obj = bb_json_new_object();
+
+    for (int i = 0; i < count; i++)
+    {
+        char key[32];
+        snprintf(key, sizeof(key), "key_%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, key, bb_json_new_int(i))));
+    }
+    BB_ASSERT(bb_json_get_size(obj) == (size_t)count);
+
+    // Every key is still reachable after all the internal resizes.
+    for (int i = 0; i < count; i++)
+    {
+        char key[32];
+        snprintf(key, sizeof(key), "key_%d", i);
+        bb_json_t *value = bb_json_object_get_value(obj, key);
+        BB_ASSERT(value != NULL);
+        BB_ASSERT(bb_json_get_value_integer(value) == i);
+    }
+    BB_ASSERT(bb_json_object_get_value(obj, "key_") == NULL);
+    BB_ASSERT(bb_json_object_get_value(obj, "key_2000") == NULL);
+    BB_ASSERT(bb_json_object_get_value(obj, "KEY_1") == NULL);
+
+    // Insertion order survives serialization: parse the output and check the first
+    // and last entries of the text.
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(obj, &buffer, &size)));
+    BB_ASSERT(size == (int)strlen(buffer));
+    BB_ASSERT(strncmp(buffer, "{\"key_0\": 0, \"key_1\": 1, \"key_2\": 2", 35) == 0);
+    BB_ASSERT(strcmp(buffer + size - 17, "\"key_1999\": 1999}") == 0);
+    bb_json_t *reparsed = assert_accepts(buffer);
+    BB_ASSERT(bb_json_equal(obj, reparsed));
+    free(buffer);
+    bb_json_destroy(reparsed);
+
+    // Remove every even key; odd keys must be untouched and removed keys gone.
+    for (int i = 0; i < count; i += 2)
+    {
+        char key[32];
+        snprintf(key, sizeof(key), "key_%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, key)));
+    }
+    BB_ASSERT(bb_json_get_size(obj) == (size_t)(count / 2));
+    for (int i = 0; i < count; i++)
+    {
+        char key[32];
+        snprintf(key, sizeof(key), "key_%d", i);
+        bb_json_t *value = bb_json_object_get_value(obj, key);
+        if (i % 2 == 0)
+            BB_ASSERT(value == NULL);
+        else
+        {
+            BB_ASSERT(value != NULL);
+            BB_ASSERT(bb_json_get_value_integer(value) == i);
+        }
+    }
+
+    // Re-adding a removed key works and lands at the end.
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, "key_0", bb_json_new_text("back"))));
+    BB_ASSERT(bb_json_get_size(obj) == (size_t)(count / 2 + 1));
+    BB_ASSERT(strcmp(bb_json_get_value_text(bb_json_object_get_value(obj, "key_0")), "back") == 0);
+
+    buffer = NULL;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(obj, &buffer, &size)));
+    BB_ASSERT(strcmp(buffer + size - 16, "\"key_0\": \"back\"}") == 0);
+    free(buffer);
+
+    bb_json_destroy(obj);
+}
+
+void test_json_array_growth_and_mixed_removal(void)
+{
+    printf("\tTesting JSON array growth and mixed removal...\n");
+
+    const int count = 5000;
+    bb_json_t *arr = bb_json_new_array();
+    for (int i = 0; i < count; i++)
+        BB_ASSERT(!BB_FAILED(bb_json_array_push(arr, bb_json_new_int(i))));
+    BB_ASSERT(bb_json_get_size(arr) == (size_t)count);
+    BB_ASSERT(bb_json_array_get_index(arr, (unsigned int)count) == NULL);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 4999)) == 4999);
+
+    // Remove from the front, the middle and the back; the survivors keep their order.
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 0)));
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, (unsigned int)bb_json_get_size(arr) / 2)));
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, (unsigned int)bb_json_get_size(arr) - 1)));
+    BB_ASSERT(bb_json_get_size(arr) == (size_t)(count - 3));
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr, 0)) == 1);
+    int previous = -1;
+    for (unsigned int i = 0; i < bb_json_get_size(arr); i++)
+    {
+        int value = bb_json_get_value_integer(bb_json_array_get_index(arr, i));
+        BB_ASSERT(value > previous);
+        BB_ASSERT(value != 0 && value != count - 1 && value != 2500);
+        previous = value;
+    }
+
+    // Pushing after removals still appends at the end.
+    BB_ASSERT(!BB_FAILED(bb_json_array_push(arr, bb_json_new_text("tail"))));
+    bb_json_t *last = bb_json_array_get_index(arr, (unsigned int)bb_json_get_size(arr) - 1);
+    BB_ASSERT(bb_json_get_type(last) == BB_JSON_TEXT);
+    BB_ASSERT(strcmp(bb_json_get_value_text(last), "tail") == 0);
+
+    bb_json_destroy(arr);
+
+    // Arrays may hold every JSON type at once, including other containers.
+    arr = bb_json_new_array();
+    bb_json_array_push(arr, bb_json_new_null());
+    bb_json_array_push(arr, bb_json_new_bool(true));
+    bb_json_array_push(arr, bb_json_new_int(-1));
+    bb_json_array_push(arr, bb_json_new_real(0.5f));
+    bb_json_array_push(arr, bb_json_new_text("t"));
+    bb_json_array_push(arr, bb_json_new_array());
+    bb_json_array_push(arr, bb_json_new_object());
+    assert_serializes_to(arr, "[null, true, -1, 0.5, \"t\", [], {}]");
+    bb_json_destroy(arr);
+}
+
+void test_json_clone_scalars_and_empty_containers(void)
+{
+    printf("\tTesting JSON clone of scalars and empty containers...\n");
+
+    const char *documents[] = {
+        "null", "true", "false", "0", "-17", "2147483647", "2.5", "-0.125",
+        "\"\"", "\"text with \\\"quotes\\\" and \\n newline\"", "[]", "{}",
+        "[[], {}, [[]], {\"a\": {}}]", NULL
+    };
+    for (int i = 0; documents[i] != NULL; i++)
+    {
+        bb_json_t *original = assert_accepts(documents[i]);
+        bb_json_t *copy = bb_json_clone(original);
+        BB_ASSERT(copy != NULL);
+        BB_ASSERT(copy != original);
+        BB_ASSERT(bb_json_get_type(copy) == bb_json_get_type(original));
+        BB_ASSERT(bb_json_get_size(copy) == bb_json_get_size(original));
+        BB_ASSERT(bb_json_equal(original, copy));
+
+        // The clone must outlive the original.
+        bb_json_destroy(original);
+        char *buffer = NULL;
+        int size = 0;
+        BB_ASSERT(!BB_FAILED(bb_json_serialize(copy, &buffer, &size)));
+        bb_json_t *reparsed = assert_accepts(buffer);
+        BB_ASSERT(bb_json_equal(copy, reparsed));
+        free(buffer);
+        bb_json_destroy(reparsed);
+        bb_json_destroy(copy);
+    }
+
+    // Text clones own their buffer: changing one does not affect the other.
+    bb_json_t *original = bb_json_new_text("original");
+    bb_json_t *copy = bb_json_clone(original);
+    BB_ASSERT(bb_json_get_value_text(copy) != bb_json_get_value_text(original));
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(copy, "changed")));
+    BB_ASSERT(strcmp(bb_json_get_value_text(original), "original") == 0);
+    BB_ASSERT(strcmp(bb_json_get_value_text(copy), "changed") == 0);
+    bb_json_destroy(original);
+    bb_json_destroy(copy);
+
+    // Cloning keeps object key order.
+    original = assert_accepts("{\"z\": 1, \"a\": 2, \"m\": 3}");
+    copy = bb_json_clone(original);
+    assert_serializes_to(copy, "{\"z\": 1, \"a\": 2, \"m\": 3}");
+    bb_json_destroy(original);
+    bb_json_destroy(copy);
+}
+
+void test_json_equal_edge_cases(void)
+{
+    printf("\tTesting JSON equality edge cases...\n");
+
+    // Equality is reflexive, including for containers.
+    bb_json_t *doc = assert_accepts("{\"a\": [1, 2.5, \"x\", null, true], \"b\": {}}");
+    BB_ASSERT(bb_json_equal(doc, doc));
+    bb_json_destroy(doc);
+
+    // Integers and reals are different types, even for the same numeric value.
+    bb_json_t *as_int = assert_accepts("1");
+    bb_json_t *as_real = assert_accepts("1.0");
+    BB_ASSERT(!bb_json_equal(as_int, as_real));
+    BB_ASSERT(!bb_json_equal(as_real, as_int));
+    bb_json_destroy(as_int);
+    bb_json_destroy(as_real);
+
+    // Empty containers are equal to each other but not across types.
+    bb_json_t *a = assert_accepts("[]");
+    bb_json_t *b = assert_accepts("[]");
+    BB_ASSERT(bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+    a = assert_accepts("{}");
+    b = assert_accepts("{}");
+    BB_ASSERT(bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+
+    // Empty text vs non-empty text, and text that differs only by case or length.
+    struct { const char *x; const char *y; } different[] = {
+        { "\"\"", "\" \"" },
+        { "\"abc\"", "\"ABC\"" },
+        { "\"abc\"", "\"abcd\"" },
+        { "true", "false" },
+        { "0", "-1" },
+        { "0.5", "0.25" },
+        { "[null]", "[]" },
+        { "[[1]]", "[1]" },
+        { "{\"a\": null}", "{}" },
+        { "{\"a\": 1}", "{\"a\": 1.0}" },
+        { "{\"a\": {\"b\": 1}}", "{\"a\": {\"b\": 2}}" },
+        { "{\"a\": [1, 2]}", "{\"a\": [2, 1]}" },
+    };
+    for (size_t i = 0; i < sizeof(different) / sizeof(different[0]); i++)
+    {
+        a = assert_accepts(different[i].x);
+        b = assert_accepts(different[i].y);
+        if (bb_json_equal(a, b) || bb_json_equal(b, a))
+            fprintf(stderr, "Unexpectedly equal: %s vs %s\n", different[i].x, different[i].y);
+        BB_ASSERT(!bb_json_equal(a, b));
+        BB_ASSERT(!bb_json_equal(b, a));
+        bb_json_destroy(a);
+        bb_json_destroy(b);
+    }
+
+    // Equal values built in different ways compare equal (parse vs. DSL).
+    a = assert_accepts("{\"name\": \"Bob\", \"age\": 24, \"tags\": [\"x\", \"y\"]}");
+    b = BB_JSON(
+        OBJ(
+            KEY("name", TEXTV("Bob")),
+            KEY("age", INTV(24)),
+            KEY("tags", ARR(TEXTV("x"), TEXTV("y")))
+        )
+    );
+    BB_ASSERT(bb_json_equal(a, b));
+    bb_json_destroy(a);
+    bb_json_destroy(b);
+}
+
+void test_json_object_merge_edge_cases(void)
+{
+    printf("\tTesting JSON object merge edge cases...\n");
+
+    // Merging an empty object changes nothing.
+    bb_json_t *dst = assert_accepts("{\"a\": 1}");
+    bb_json_t *src = bb_json_new_object();
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    assert_serializes_to(dst, "{\"a\": 1}");
+    bb_json_destroy(dst);
+
+    // Merging into an empty object copies everything, in source order.
+    dst = bb_json_new_object();
+    bb_json_destroy(src);
+    src = assert_accepts("{\"z\": 1, \"a\": [1, 2], \"m\": {\"k\": null}}");
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    BB_ASSERT(bb_json_equal(dst, src));
+    assert_serializes_to(dst, "{\"z\": 1, \"a\": [1, 2], \"m\": {\"k\": null}}");
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+
+    // Merge is shallow: a nested object in src replaces the one in dst wholesale.
+    dst = assert_accepts("{\"cfg\": {\"host\": \"h\", \"port\": 1}, \"keep\": true}");
+    src = assert_accepts("{\"cfg\": {\"port\": 2}}");
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    assert_serializes_to(dst, "{\"cfg\": {\"port\": 2}, \"keep\": true}");
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+
+    // Overwriting a key with a value of another type is allowed.
+    dst = assert_accepts("{\"a\": 1, \"b\": [1]}");
+    src = assert_accepts("{\"a\": \"now text\", \"b\": null}");
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    assert_serializes_to(dst, "{\"a\": \"now text\", \"b\": null}");
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+
+    // The source is left untouched, and destroying it does not affect the destination.
+    dst = bb_json_new_object();
+    src = assert_accepts("{\"list\": [1, 2, 3], \"s\": \"text\"}");
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    bb_json_destroy(src);
+    assert_serializes_to(dst, "{\"list\": [1, 2, 3], \"s\": \"text\"}");
+    bb_json_destroy(dst);
+
+    // A non-object source is rejected too (the other direction is covered above).
+    dst = bb_json_new_object();
+    src = bb_json_new_array();
+    BB_ASSERT(bb_json_object_merge(dst, src).code == BB_ERR_JSON_TYPE_MISMATCH);
+    BB_ASSERT(bb_json_get_size(dst) == 0);
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+
+    // Merging an object into itself must be harmless.
+    dst = assert_accepts("{\"a\": 1, \"b\": [true], \"c\": {\"d\": \"e\"}}");
+    bb_json_t *expected = bb_json_clone(dst);
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, dst)));
+    BB_ASSERT(bb_json_equal(dst, expected));
+    BB_ASSERT(bb_json_get_size(dst) == 3);
+    bb_json_destroy(dst);
+    bb_json_destroy(expected);
+
+    // Merging many keys forces the destination to grow while it is being filled.
+    dst = bb_json_new_object();
+    src = bb_json_new_object();
+    for (int i = 0; i < 500; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        bb_json_object_set_value(src, key, bb_json_new_int(i));
+    }
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    BB_ASSERT(bb_json_get_size(dst) == 500);
+    BB_ASSERT(bb_json_equal(dst, src));
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+}
+
+void test_parse_nesting_depth_boundary(void)
+{
+    printf("\tTesting JSON nesting depth boundary...\n");
+
+    // The parser accepts up to 512 levels of nesting and rejects anything deeper.
+    for (int depth = 511; depth <= 514; depth++)
+    {
+        char *buffer = malloc((size_t)depth * 2 + 2);
+        BB_ASSERT(buffer != NULL);
+        memset(buffer, '[', (size_t)depth);
+        buffer[depth] = '0';
+        memset(buffer + depth + 1, ']', (size_t)depth);
+        buffer[depth * 2 + 1] = '\0';
+
+        bb_json_t *json = parse_exact(buffer);
+        if (depth <= 512)
+        {
+            BB_ASSERT(json != NULL);
+            bb_json_t *clone = bb_json_clone(json);
+            BB_ASSERT(clone != NULL);
+            BB_ASSERT(bb_json_equal(json, clone));
+            bb_json_destroy(clone);
+            assert_serializes_to(json, buffer);
+        }
+        else
+        {
+            BB_ASSERT(json == NULL);
+        }
+        bb_json_destroy(json);
+        free(buffer);
+    }
+
+    // The limit counts objects as well as arrays: 513 nested objects are rejected.
+    const int levels = 513;
+    char *buffer = malloc((size_t)levels * 6 + 8);
+    BB_ASSERT(buffer != NULL);
+    size_t pos = 0;
+    for (int i = 0; i < levels; i++)
+    {
+        memcpy(buffer + pos, "{\"a\":", 5);
+        pos += 5;
+    }
+    buffer[pos++] = '1';
+    for (int i = 0; i < levels; i++)
+        buffer[pos++] = '}';
+    buffer[pos] = '\0';
+    BB_ASSERT(parse_exact(buffer) == NULL);
+    free(buffer);
+
+    // Wide documents are not limited by the depth check.
+    const int width = 5000;
+    buffer = malloc((size_t)width * 3 + 4);
+    BB_ASSERT(buffer != NULL);
+    pos = 0;
+    buffer[pos++] = '[';
+    for (int i = 0; i < width; i++)
+    {
+        buffer[pos++] = '[';
+        buffer[pos++] = ']';
+        if (i + 1 < width)
+            buffer[pos++] = ',';
+    }
+    buffer[pos++] = ']';
+    buffer[pos] = '\0';
+    bb_json_t *wide = assert_accepts(buffer);
+    BB_ASSERT(bb_json_get_size(wide) == (size_t)width);
+    bb_json_destroy(wide);
+    free(buffer);
+}
+
+void test_json_dump_and_load_roundtrip(void)
+{
+    printf("\tTesting JSON dump/load roundtrip of a complex document...\n");
+
+    const char *path = "bb_json_dump_roundtrip.json";
+
+    bb_json_t *doc = assert_accepts(
+        "{\"text\": \"line1\\nline2\\ttab \\\"quoted\\\" back\\\\slash\", "
+        "\"unicode\": \"caf\\u00e9 \\u20ac \\ud83d\\ude00\", "
+        "\"ints\": [0, -1, 2147483647, -2147483648], "
+        "\"reals\": [0.5, -2.25, 1e10, 3.0], "
+        "\"flags\": [true, false, null], "
+        "\"nested\": {\"empty_arr\": [], \"empty_obj\": {}, \"deep\": [[[{\"k\": \"v\"}]]]}, "
+        "\"\": \"empty key\"}");
+
+    BB_ASSERT(!BB_FAILED(bb_json_dump(doc, path)));
+    bb_json_t *loaded = bb_json_load(path);
+    BB_ASSERT(loaded != NULL);
+    BB_ASSERT(bb_json_equal(doc, loaded));
+
+    // Dumping a loaded document again must not change it.
+    BB_ASSERT(!BB_FAILED(bb_json_dump(loaded, path)));
+    bb_json_t *loaded_again = bb_json_load(path);
+    BB_ASSERT(loaded_again != NULL);
+    BB_ASSERT(bb_json_equal(doc, loaded_again));
+
+    // Types survive the trip: 3.0 stays a real, 0 stays an integer.
+    bb_json_t *reals = bb_json_object_get_value(loaded_again, "reals");
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(reals, 3)) == BB_JSON_REAL);
+    bb_json_t *ints = bb_json_object_get_value(loaded_again, "ints");
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(ints, 0)) == BB_JSON_INT);
+
+    bb_json_destroy(loaded_again);
+    bb_json_destroy(loaded);
+    bb_json_destroy(doc);
+
+    // Scalars and empty containers can be dumped and loaded too.
+    const char *scalars[] = { "null", "true", "42", "1.5", "\"s\"", "[]", "{}", NULL };
+    for (int i = 0; scalars[i] != NULL; i++)
+    {
+        doc = assert_accepts(scalars[i]);
+        BB_ASSERT(!BB_FAILED(bb_json_dump(doc, path)));
+        loaded = bb_json_load(path);
+        BB_ASSERT(loaded != NULL);
+        BB_ASSERT(bb_json_equal(doc, loaded));
+        bb_json_destroy(loaded);
+        bb_json_destroy(doc);
+    }
+
+    remove(path);
+}
+
+void test_json_dump_and_load_errors(void)
+{
+    printf("\tTesting JSON dump/load error handling...\n");
+
+    // The directory does not exist, so the file cannot be created.
+    bb_json_t *doc = bb_json_new_array();
+    bb_error_t err = bb_json_dump(doc, "bb_json_no_such_dir_xyz/out.json");
+    BB_ASSERT(BB_FAILED(err));
+    BB_ASSERT(err.code == BB_ERR_IO);
+    bb_json_destroy(doc);
+
+    // Loading a path that is a directory (or otherwise unreadable) must fail, not crash.
+    BB_ASSERT(bb_json_load("bb_json_no_such_dir_xyz/in.json") == NULL);
+
+    // Invalid documents on disk are rejected.
+    const char *path = "bb_json_load_invalid.json";
+    const char *invalid[] = {
+        "{\"a\": }", "[1, 2,", "{\"a\": 1} {\"b\": 2}", "nul", "'single'", "[01]", NULL
+    };
+    for (int i = 0; invalid[i] != NULL; i++)
+    {
+        write_binary_file(path, invalid[i], strlen(invalid[i]));
+        BB_ASSERT(bb_json_load(path) == NULL);
+    }
+
+    // A BOM on its own is not a document.
+    write_binary_file(path, "\xef\xbb\xbf", 3);
+    BB_ASSERT(bb_json_load(path) == NULL);
+
+    // Overwriting an existing file replaces its content rather than appending.
+    bb_json_t *big = assert_accepts("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]");
+    bb_json_t *small = assert_accepts("[1]");
+    BB_ASSERT(!BB_FAILED(bb_json_dump(big, path)));
+    BB_ASSERT(!BB_FAILED(bb_json_dump(small, path)));
+    bb_json_t *loaded = bb_json_load(path);
+    BB_ASSERT(loaded != NULL);
+    BB_ASSERT(bb_json_equal(small, loaded));
+    bb_json_destroy(loaded);
+    bb_json_destroy(big);
+    bb_json_destroy(small);
+
+    remove(path);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -1937,6 +2530,18 @@ int main(void)
     test_serialize_integer_extremes();
     test_serialize_invalid_arguments();
     test_json_load_edge_cases();
+
+    // API robustness and edge cases
+    test_json_null_arguments();
+    test_json_set_text_overwrite();
+    test_json_object_many_keys();
+    test_json_array_growth_and_mixed_removal();
+    test_json_clone_scalars_and_empty_containers();
+    test_json_equal_edge_cases();
+    test_json_object_merge_edge_cases();
+    test_parse_nesting_depth_boundary();
+    test_json_dump_and_load_roundtrip();
+    test_json_dump_and_load_errors();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
