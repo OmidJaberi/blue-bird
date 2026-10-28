@@ -2435,15 +2435,15 @@ void test_json_dump_and_load_errors(void)
 
     // Overwriting an existing file replaces its content rather than appending.
     bb_json_t *big = assert_accepts("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]");
-    bb_json_t *small = assert_accepts("[1]");
+    bb_json_t *small_doc = assert_accepts("[1]");
     BB_ASSERT(!BB_FAILED(bb_json_dump(big, path)));
-    BB_ASSERT(!BB_FAILED(bb_json_dump(small, path)));
+    BB_ASSERT(!BB_FAILED(bb_json_dump(small_doc, path)));
     bb_json_t *loaded = bb_json_load(path);
     BB_ASSERT(loaded != NULL);
-    BB_ASSERT(bb_json_equal(small, loaded));
+    BB_ASSERT(bb_json_equal(small_doc, loaded));
     bb_json_destroy(loaded);
     bb_json_destroy(big);
-    bb_json_destroy(small);
+    bb_json_destroy(small_doc);
 
     remove(path);
 }
