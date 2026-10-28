@@ -18,6 +18,7 @@ option(BLUEBIRD_INSTALL "Install Blue-Bird" OFF)
 
 option(BB_ENABLE_SANITIZERS "Enable sanitizers" OFF)
 option(BB_WITH_TLS "Build with TLS/HTTPS/WSS support (requires OpenSSL)" OFF)
+option(BB_WITH_POSTGRES "Build the PostgreSQL model backend (requires libpq)" OFF)
 
 if(BB_ENABLE_SANITIZERS)
     add_compile_options(

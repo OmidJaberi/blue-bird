@@ -16,6 +16,13 @@ add_library(bluebird_persist
     src/serialization/entity_json.c
 )
 
+if(BB_WITH_POSTGRES)
+    find_package(PostgreSQL REQUIRED)
+    target_sources(bluebird_persist PRIVATE src/model/model_postgres.c)
+    target_link_libraries(bluebird_persist PRIVATE PostgreSQL::PostgreSQL)
+    target_compile_definitions(bluebird_persist PUBLIC BB_WITH_POSTGRES=1)
+endif()
+
 target_include_directories(bluebird_persist
     PUBLIC
         include
