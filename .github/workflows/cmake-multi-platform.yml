@@ -150,6 +150,62 @@ jobs:
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
 
+  # PostgreSQL model backend against a real server (service container), on the
+  # oldest and newest major versions we care about. The test skips itself when
+  # BB_TEST_POSTGRES_URI is unset, so the job also fails if it never ran.
+  postgres:
+    name: Postgres ${{ matrix.pg }} / Ubuntu / GCC
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ["14", "18"]
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.pg }}
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bluebird_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      BB_TEST_POSTGRES_URI: postgresql://postgres:postgres@localhost:5432/bluebird_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev libpq-dev
+
+      - name: Configure
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBB_WITH_POSTGRES=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+      - name: Check the Postgres test really ran
+        working-directory: build
+        run: |
+          ctest -R model_postgres -V | tee postgres-test.log
+          grep -q "All postgres model tests passed" postgres-test.log
+
   # Load test: hammer bb-loadtest-server with wrk and cross-check the result
   # against the server's own /metrics (see tests/load/README.md). Fails on
   # errors, crashes, leaked connections or file descriptors, and (in the
