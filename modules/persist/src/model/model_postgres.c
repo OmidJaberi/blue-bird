@@ -7,17 +7,17 @@
 #include "blue-bird/persist/model/model_postgres.h"
 
 /* ---------------------------
- * Step 2: ensure_table, insert, find_by_pk.
+ * PostgreSQL model backend.
  *
- * Mirrors the SQLite backend's behaviour on purpose (same return values,
- * same "create the table on first use", AUTO_GENERATE/REQUIRED/UNIQUE flags
- * are not interpreted yet). Differences that are intentional:
+ * Mirrors the SQLite backend's behaviour on purpose (same return values:
+ * 0 on success, -1 on error / not found / no row affected; tables are created
+ * on first use; AUTO_GENERATE/REQUIRED/UNIQUE flags are not interpreted yet).
+ * Differences that are intentional:
  *   - identifiers are quoted with PQescapeIdentifier,
  *   - values always travel as bound parameters (PQexecParams),
- *   - BB_FIELD_UUID maps to a native UUID column.
- *
- * update/remove/find_all/find_first_by_field are still placeholders that
- * return -1.
+ *   - BB_FIELD_UUID maps to a native UUID column,
+ *   - strings read back are always NUL-terminated and result structs are
+ *     zero-initialised before being filled.
  *
  * One PGconn guarded by a mutex: calls are safe from several threads but
  * serialised. A connection pool comes later.
@@ -376,10 +376,10 @@ static int pg_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *entit
  * find_by_pk
  * --------------------------- */
 
-static void read_column(PGresult *res, int col, const bb_field_t *f, void *dst)
+static void read_column(PGresult *res, int row, int col, const bb_field_t *f, void *dst)
 {
-    int is_null = PQgetisnull(res, 0, col);
-    const char *text = is_null ? "" : PQgetvalue(res, 0, col);
+    int is_null = PQgetisnull(res, row, col);
+    const char *text = is_null ? "" : PQgetvalue(res, row, col);
 
     switch (f->type)
     {
@@ -421,6 +421,34 @@ static void read_column(PGresult *res, int col, const bb_field_t *f, void *dst)
     }
 }
 
+static void read_row(PGresult *res, int row, const bb_schema_t *schema, void *dst)
+{
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        bb_field_t *f = &schema->fields[i];
+        read_column(res, row, (int)i, f, (char *)dst + f->offset);
+    }
+}
+
+/* Explicit column list so result column i always is schema field i. */
+static int append_column_list(sql_buf_t *b, PGconn *conn, const bb_schema_t *schema)
+{
+    int err = 0;
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        err |= append_ident(b, conn, schema->fields[i].name);
+        if (i < schema->field_count - 1)
+            err |= sql_buf_append(b, ", ");
+    }
+    return err;
+}
+
+static int affected_rows(PGresult *res)
+{
+    const char *n = PQcmdTuples(res);
+    return n ? atoi(n) : 0;
+}
+
 static int pg_find_by_pk_locked(PGconn *conn, bb_schema_t *schema, void *out, const void *key)
 {
     if (ensure_table(conn, schema) != 0)
@@ -435,14 +463,7 @@ static int pg_find_by_pk_locked(PGconn *conn, bb_schema_t *schema, void *out, co
     int err = 0;
     err |= sql_buf_append(&sql, "SELECT ");
 
-    /* Explicit column list so result column i always is schema field i. */
-    for (size_t i = 0; i < schema->field_count; i++)
-    {
-        err |= append_ident(&sql, conn, schema->fields[i].name);
-        if (i < schema->field_count - 1)
-            err |= sql_buf_append(&sql, ", ");
-    }
-
+    err |= append_column_list(&sql, conn, schema);
     err |= sql_buf_append(&sql, " FROM ");
     err |= append_ident(&sql, conn, schema->name);
     err |= sql_buf_append(&sql, " WHERE ");
@@ -469,11 +490,7 @@ static int pg_find_by_pk_locked(PGconn *conn, bb_schema_t *schema, void *out, co
         return -1;
     }
 
-    for (size_t i = 0; i < schema->field_count; i++)
-    {
-        bb_field_t *f = &schema->fields[i];
-        read_column(res, (int)i, f, (char *)out + f->offset);
-    }
+    read_row(res, 0, schema, out);
 
     PQclear(res);
     return 0;
@@ -495,21 +512,286 @@ static int pg_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, void *o
 }
 
 /* ---------------------------
- * Not implemented yet
+ * update
  * --------------------------- */
 
-static int pg_update(bb_model_handle_t *h, bb_schema_t *s, void *e)
-{ (void)h; (void)s; (void)e; return -1; }
+static int pg_update_locked(PGconn *conn, bb_schema_t *schema, void *entity)
+{
+    if (ensure_table(conn, schema) != 0)
+        return -1;
 
-static int pg_remove(bb_model_handle_t *h, bb_schema_t *s, const void *key)
-{ (void)h; (void)s; (void)key; return -1; }
+    size_t n = schema->field_count;
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
-static int pg_find_all(bb_model_handle_t *h, bb_schema_t *s, void **out_array, size_t *out_count)
-{ (void)h; (void)s; (void)out_array; (void)out_count; return -1; }
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
 
-static int pg_find_first_by_field(bb_model_handle_t *h, bb_schema_t *s, void *out,
+    int err = 0;
+    err |= sql_buf_append(&sql, "UPDATE ");
+    err |= append_ident(&sql, conn, schema->name);
+    err |= sql_buf_append(&sql, " SET ");
+
+    /* SET clause: every field except the PK, as $1..$(n-1) */
+    size_t param = 0;
+    for (size_t i = 0; i < n; i++)
+    {
+        if (i == schema->primary_key_index)
+            continue;
+
+        if (param > 0)
+            err |= sql_buf_append(&sql, ", ");
+
+        err |= append_ident(&sql, conn, schema->fields[i].name);
+        err |= sql_buf_append(&sql, " = ");
+        err |= append_param(&sql, ++param);
+    }
+
+    err |= sql_buf_append(&sql, " WHERE ");
+    err |= append_ident(&sql, conn, pk->name);
+    err |= sql_buf_append(&sql, " = ");
+    err |= append_param(&sql, n); /* PK is the last parameter */
+
+    pg_params_t params;
+    if (err || params_init(&params, n) != 0)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
+
+    size_t slot = 0;
+    for (size_t i = 0; i < n; i++)
+    {
+        if (i == schema->primary_key_index)
+            continue;
+
+        bb_field_t *f = &schema->fields[i];
+        params_set(&params, slot++, f, (char *)entity + f->offset);
+    }
+    params_set(&params, slot, pk, (char *)entity + pk->offset);
+
+    PGresult *res = PQexecParams(conn, sql.data, (int)n, NULL, params.values,
+                                 params.lengths, params.formats, 0);
+    sql_buf_free(&sql);
+    params_free(&params);
+
+    int ok = res && PQresultStatus(res) == PGRES_COMMAND_OK && affected_rows(res) > 0;
+    PQclear(res);
+    return ok ? 0 : -1;
+}
+
+static int pg_update(bb_model_handle_t *handle, bb_schema_t *schema, void *entity)
+{
+    BB_ModelPostgresHandle *h = (BB_ModelPostgresHandle *)handle;
+    /* needs at least one non-PK field to set */
+    if (!h || !entity || !schema_is_usable(schema) || schema->field_count < 2)
+        return -1;
+
+    pthread_mutex_lock(&h->lock);
+
+    PGconn *conn = conn_ready(h);
+    int rc = conn ? pg_update_locked(conn, schema, entity) : -1;
+
+    pthread_mutex_unlock(&h->lock);
+    return rc;
+}
+
+/* ---------------------------
+ * remove
+ * --------------------------- */
+
+static int pg_remove_locked(PGconn *conn, bb_schema_t *schema, const void *key)
+{
+    if (ensure_table(conn, schema) != 0)
+        return -1;
+
+    bb_field_t *pk = &schema->fields[schema->primary_key_index];
+
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "DELETE FROM ");
+    err |= append_ident(&sql, conn, schema->name);
+    err |= sql_buf_append(&sql, " WHERE ");
+    err |= append_ident(&sql, conn, pk->name);
+    err |= sql_buf_append(&sql, " = $1");
+
+    pg_params_t params;
+    if (err || params_init(&params, 1) != 0)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
+
+    params_set(&params, 0, pk, key);
+
+    PGresult *res = PQexecParams(conn, sql.data, 1, NULL, params.values,
+                                 params.lengths, params.formats, 0);
+    sql_buf_free(&sql);
+    params_free(&params);
+
+    int ok = res && PQresultStatus(res) == PGRES_COMMAND_OK && affected_rows(res) > 0;
+    PQclear(res);
+    return ok ? 0 : -1;
+}
+
+static int pg_remove(bb_model_handle_t *handle, bb_schema_t *schema, const void *key)
+{
+    BB_ModelPostgresHandle *h = (BB_ModelPostgresHandle *)handle;
+    if (!h || !key || !schema_is_usable(schema))
+        return -1;
+
+    pthread_mutex_lock(&h->lock);
+
+    PGconn *conn = conn_ready(h);
+    int rc = conn ? pg_remove_locked(conn, schema, key) : -1;
+
+    pthread_mutex_unlock(&h->lock);
+    return rc;
+}
+
+/* ---------------------------
+ * find_all
+ * --------------------------- */
+
+static int pg_find_all_locked(PGconn *conn, bb_schema_t *schema,
+                              void **out_array, size_t *out_count)
+{
+    if (ensure_table(conn, schema) != 0)
+        return -1;
+
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "SELECT ");
+    err |= append_column_list(&sql, conn, schema);
+    err |= sql_buf_append(&sql, " FROM ");
+    err |= append_ident(&sql, conn, schema->name);
+
+    if (err)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
+
+    PGresult *res = PQexec(conn, sql.data);
+    sql_buf_free(&sql);
+
+    if (!res || PQresultStatus(res) != PGRES_TUPLES_OK)
+    {
+        PQclear(res);
+        return -1;
+    }
+
+    size_t count = (size_t)PQntuples(res);
+
+    /* Like SQLite: always hand back a non-NULL buffer (caller free()s it),
+     * zero-initialised so unset bytes are never garbage. */
+    void *buffer = calloc(count > 0 ? count : 1, schema->struct_size);
+    if (!buffer)
+    {
+        PQclear(res);
+        return -1;
+    }
+
+    for (size_t r = 0; r < count; r++)
+        read_row(res, (int)r, schema, (char *)buffer + r * schema->struct_size);
+
+    PQclear(res);
+
+    *out_array = buffer;
+    *out_count = count;
+    return 0;
+}
+
+static int pg_find_all(bb_model_handle_t *handle, bb_schema_t *schema,
+                       void **out_array, size_t *out_count)
+{
+    BB_ModelPostgresHandle *h = (BB_ModelPostgresHandle *)handle;
+    if (!h || !out_array || !out_count || !schema_is_usable(schema) ||
+        schema->struct_size == 0)
+        return -1;
+
+    pthread_mutex_lock(&h->lock);
+
+    PGconn *conn = conn_ready(h);
+    int rc = conn ? pg_find_all_locked(conn, schema, out_array, out_count) : -1;
+
+    pthread_mutex_unlock(&h->lock);
+    return rc;
+}
+
+/* ---------------------------
+ * find_first_by_field
+ * --------------------------- */
+
+static int pg_find_first_by_field_locked(PGconn *conn, bb_schema_t *schema, void *out,
+                                         bb_field_t *field, const void *value)
+{
+    sql_buf_t sql;
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    int err = 0;
+    err |= sql_buf_append(&sql, "SELECT ");
+    err |= append_column_list(&sql, conn, schema);
+    err |= sql_buf_append(&sql, " FROM ");
+    err |= append_ident(&sql, conn, schema->name);
+    err |= sql_buf_append(&sql, " WHERE ");
+    err |= append_ident(&sql, conn, field->name);
+    err |= sql_buf_append(&sql, " = $1 LIMIT 1");
+
+    pg_params_t params;
+    if (err || params_init(&params, 1) != 0)
+    {
+        sql_buf_free(&sql);
+        return -1;
+    }
+
+    params_set(&params, 0, field, value);
+
+    PGresult *res = PQexecParams(conn, sql.data, 1, NULL, params.values,
+                                 params.lengths, params.formats, 0);
+    sql_buf_free(&sql);
+    params_free(&params);
+
+    if (!res || PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) < 1)
+    {
+        PQclear(res);
+        return -1;
+    }
+
+    read_row(res, 0, schema, out);
+
+    PQclear(res);
+    return 0;
+}
+
+static int pg_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *schema, void *out,
                                   const char *field_name, const void *value)
-{ (void)h; (void)s; (void)out; (void)field_name; (void)value; return -1; }
+{
+    BB_ModelPostgresHandle *h = (BB_ModelPostgresHandle *)handle;
+    if (!h || !out || !field_name || !value || !schema_is_usable(schema))
+        return -1;
+
+    bb_field_t *field = bb_schema_find_field(schema, field_name);
+
+    /* Same as SQLite: only INT/STRING/UUID fields can be searched. */
+    if (!field || field->type == BB_FIELD_BLOB)
+        return -1;
+
+    pthread_mutex_lock(&h->lock);
+
+    PGconn *conn = conn_ready(h);
+    int rc = conn ? pg_find_first_by_field_locked(conn, schema, out, field, value) : -1;
+
+    pthread_mutex_unlock(&h->lock);
+    return rc;
+}
 
 static bb_model_api_t model_postgres_api = {
     .name                = "postgres",
