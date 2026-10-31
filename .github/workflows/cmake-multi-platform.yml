@@ -206,6 +206,91 @@ jobs:
           ctest -R model_postgres -V | tee postgres-test.log
           grep -q "All postgres model tests passed" postgres-test.log
 
+  # PostgreSQL model backend on Windows (MSVC + PThreads4W). The connection
+  # pool waits on a pthread condition variable, which nothing else in the tree
+  # uses on Windows yet, so this job is what proves it works there. libpq is
+  # built by vcpkg; the server comes from the PostgreSQL install that ships on
+  # the runner image (a throwaway cluster on port 5433, trust auth).
+  postgres-windows:
+    name: Postgres / Windows / MSVC
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get vcpkg commit
+        id: vcpkg-commit
+        shell: pwsh
+        run: |
+          $commit = git -C $env:VCPKG_INSTALLATION_ROOT rev-parse HEAD
+          echo "sha=$commit" >> $env:GITHUB_OUTPUT
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
+            ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
+          key: vcpkg-${{ runner.os }}-${{ steps.vcpkg-commit.outputs.sha }}-sqlite3-pthreads-libpq
+
+      - name: Install dependencies
+        run: vcpkg install sqlite3:x64-windows pthreads:x64-windows libpq:x64-windows
+
+      - name: Start PostgreSQL
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $root = $env:PGROOT
+          if (-not $root -or -not (Test-Path "$root\bin\initdb.exe")) {
+            $root = (Get-ChildItem 'C:\Program Files\PostgreSQL' -Directory |
+                     Sort-Object Name -Descending | Select-Object -First 1).FullName
+          }
+          $bin  = Join-Path $root 'bin'
+          $data = Join-Path $env:RUNNER_TEMP 'pgdata'
+          $log  = Join-Path $env:RUNNER_TEMP 'pg.log'
+
+          & "$bin\initdb.exe" -D $data -U postgres -A trust -E UTF8
+          if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
+
+          & "$bin\pg_ctl.exe" -D $data -l $log -o '-p 5433' -w start
+          if ($LASTEXITCODE -ne 0) { throw 'pg_ctl start failed' }
+
+          & "$bin\createdb.exe" -h localhost -p 5433 -U postgres bluebird_test
+          if ($LASTEXITCODE -ne 0) { throw 'createdb failed' }
+
+          echo "BB_TEST_POSTGRES_URI=postgresql://postgres@localhost:5433/bluebird_test" >> $env:GITHUB_ENV
+          echo "BB_PG_LOG=$log" >> $env:GITHUB_ENV
+
+      - name: Configure
+        shell: pwsh
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Release
+          -DBB_ENABLE_SANITIZERS=OFF
+          -DBB_WITH_POSTGRES=ON
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        working-directory: build
+        run: ctest --build-config Release --output-on-failure
+
+      - name: Check the Postgres test really ran
+        working-directory: build
+        shell: pwsh
+        run: |
+          $out = ctest -C Release -R model_postgres -V 2>&1 | Out-String
+          Write-Host $out
+          if ($out -notmatch 'All postgres model tests passed') { throw 'Postgres test did not run to completion' }
+
+      - name: PostgreSQL server log
+        if: failure()
+        shell: pwsh
+        run: Get-Content $env:BB_PG_LOG -ErrorAction SilentlyContinue
+
   # Load test: hammer bb-loadtest-server with wrk and cross-check the result
   # against the server's own /metrics (see tests/load/README.md). Fails on
   # errors, crashes, leaked connections or file descriptors, and (in the
