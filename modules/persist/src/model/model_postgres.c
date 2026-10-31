@@ -6,6 +6,8 @@
 
 #include "blue-bird/persist/model/model_postgres.h"
 
+#include <blue-bird/utils/platform.h>
+
 /* ---------------------------
  * PostgreSQL model backend.
  *
@@ -19,13 +21,36 @@
  *   - strings read back are always NUL-terminated and result structs are
  *     zero-initialised before being filled.
  *
- * One PGconn guarded by a mutex: calls are safe from several threads but
- * serialised. A connection pool comes later.
+ * Connection pool: the handle owns up to BB_PG_POOL_MAX_CONNS independent
+ * PGconns, opened lazily. Every call borrows one for its duration and gives it
+ * back, so concurrent callers run concurrently (a PGconn itself must never be
+ * used by two threads at once, and the pool guarantees it isn't). When all are
+ * checked out a caller waits until one is returned.
+ *
+ * Tables are created with CREATE TABLE IF NOT EXISTS the first time a schema
+ * is used on a handle and remembered afterwards (SQLite re-checks on every
+ * call). Creation is serialised: concurrent CREATE TABLE IF NOT EXISTS on one
+ * name can fail on the server with a duplicate-key error.
  * --------------------------- */
 
+#define BB_PG_POOL_MAX_CONNS 8
+
 typedef struct {
-    PGconn *conn;
-    pthread_mutex_t lock;
+    PGconn *conn;   /* NULL until the slot has been connected */
+    int in_use;
+} pg_slot_t;
+
+typedef struct {
+    char *uri;
+
+    pthread_mutex_t lock;       /* guards slots[] bookkeeping */
+    pthread_cond_t returned;    /* signalled when a slot is released */
+    pg_slot_t slots[BB_PG_POOL_MAX_CONNS];
+
+    pthread_mutex_t tables_lock; /* guards tables[] and serialises DDL */
+    char **tables;               /* names already created on this handle */
+    size_t tables_count;
+    size_t tables_cap;
 } BB_ModelPostgresHandle;
 
 /* ---------------------------
@@ -190,21 +215,107 @@ static void params_set(pg_params_t *p, size_t i, const bb_field_t *f, const void
 }
 
 /* ---------------------------
- * Connection helpers (call with h->lock held)
+ * Connection pool
  * --------------------------- */
 
-static PGconn *conn_ready(BB_ModelPostgresHandle *h)
+static PGconn *connect_one(const char *uri)
 {
-    if (PQstatus(h->conn) != CONNECTION_OK)
+    PGconn *conn = PQconnectdb(uri);
+    if (!conn)
+        return NULL;
+
+    if (PQstatus(conn) != CONNECTION_OK)
     {
-        PQreset(h->conn);
-        if (PQstatus(h->conn) != CONNECTION_OK)
-            return NULL;
+        /* Message only; never print the conninfo, it may contain a password. */
+        fprintf(stderr, "bb postgres: connection failed: %s", PQerrorMessage(conn));
+        PQfinish(conn);
+        return NULL;
     }
-    return h->conn;
+    return conn;
 }
 
-static int ensure_table(PGconn *conn, bb_schema_t *schema)
+static void pool_release(BB_ModelPostgresHandle *h, pg_slot_t *slot)
+{
+    if (!slot)
+        return;
+
+    pthread_mutex_lock(&h->lock);
+    slot->in_use = 0;
+    pthread_cond_signal(&h->returned);
+    pthread_mutex_unlock(&h->lock);
+}
+
+/* Borrow a ready connection: reuse an idle one, else open a new one (up to
+ * the pool size), else wait for one to come back. Connecting and
+ * reconnecting happen outside the pool lock so a slow server does not block
+ * callers that could use an idle connection. NULL means the server could not
+ * be reached. */
+static pg_slot_t *pool_acquire(BB_ModelPostgresHandle *h)
+{
+    pg_slot_t *slot = NULL;
+    int needs_connect = 0;
+
+    pthread_mutex_lock(&h->lock);
+
+    for (;;)
+    {
+        for (size_t i = 0; i < BB_PG_POOL_MAX_CONNS && !slot; i++)
+            if (h->slots[i].conn && !h->slots[i].in_use)
+                slot = &h->slots[i];
+
+        if (!slot)
+        {
+            for (size_t i = 0; i < BB_PG_POOL_MAX_CONNS && !slot; i++)
+                if (!h->slots[i].conn && !h->slots[i].in_use)
+                {
+                    slot = &h->slots[i];
+                    needs_connect = 1;
+                }
+        }
+
+        if (slot)
+            break;
+
+        pthread_cond_wait(&h->returned, &h->lock);
+    }
+
+    slot->in_use = 1;
+    pthread_mutex_unlock(&h->lock);
+
+    if (needs_connect)
+    {
+        PGconn *conn = connect_one(h->uri);
+        if (!conn)
+        {
+            pool_release(h, slot);
+            return NULL;
+        }
+
+        pthread_mutex_lock(&h->lock);
+        slot->conn = conn;
+        pthread_mutex_unlock(&h->lock);
+        return slot;
+    }
+
+    /* Idle connection may have been dropped by the server meanwhile. */
+    if (PQstatus(slot->conn) != CONNECTION_OK)
+    {
+        PQreset(slot->conn);
+        if (PQstatus(slot->conn) != CONNECTION_OK)
+        {
+            pool_release(h, slot);
+            return NULL;
+        }
+    }
+
+    return slot;
+}
+
+/* ---------------------------
+ * Table creation
+ * --------------------------- */
+
+static int create_table(PGconn *conn, bb_schema_t *schema)
 {
     sql_buf_t sql;
     if (sql_buf_init(&sql) != 0)
@@ -246,6 +357,49 @@ static int ensure_table(PGconn *conn, bb_schema_t *schema)
     return ok ? 0 : -1;
 }
 
+static int tables_contains(const BB_ModelPostgresHandle *h, const char *name)
+{
+    for (size_t i = 0; i < h->tables_count; i++)
+        if (strcmp(h->tables[i], name) == 0)
+            return 1;
+    return 0;
+}
+
+static void tables_remember(BB_ModelPostgresHandle *h, const char *name)
+{
+    /* Best effort: if this fails the table simply is not cached and the
+     * next call runs CREATE TABLE IF NOT EXISTS again. */
+    if (h->tables_count == h->tables_cap)
+    {
+        size_t cap = h->tables_cap ? h->tables_cap * 2 : 8;
+        char **tmp = realloc(h->tables, cap * sizeof(*tmp));
+        if (!tmp)
+            return;
+        h->tables = tmp;
+        h->tables_cap = cap;
+    }
+
+    char *copy = bb_strdup(name);
+    if (copy)
+        h->tables[h->tables_count++] = copy;
+}
+
+static int ensure_table(BB_ModelPostgresHandle *h, PGconn *conn, bb_schema_t *schema)
+{
+    pthread_mutex_lock(&h->tables_lock);
+
+    int rc = 0;
+    if (!tables_contains(h, schema->name))
+    {
+        rc = create_table(conn, schema);
+        if (rc == 0)
+            tables_remember(h, schema->name);
+    }
+
+    pthread_mutex_unlock(&h->tables_lock);
+    return rc;
+}
+
 /* ---------------------------
  * open / close
  * --------------------------- */
@@ -259,26 +413,46 @@ static bb_model_handle_t *pg_open(const char *uri)
     if (!h)
         return NULL;
 
+    h->uri = bb_strdup(uri);
+    if (!h->uri)
+    {
+        free(h);
+        return NULL;
+    }
+
     if (pthread_mutex_init(&h->lock, NULL) != 0)
     {
+        free(h->uri);
         free(h);
         return NULL;
     }
 
-    h->conn = PQconnectdb(uri);
-    if (!h->conn)
+    if (pthread_cond_init(&h->returned, NULL) != 0)
     {
         pthread_mutex_destroy(&h->lock);
+        free(h->uri);
         free(h);
         return NULL;
     }
 
-    if (PQstatus(h->conn) != CONNECTION_OK)
+    if (pthread_mutex_init(&h->tables_lock, NULL) != 0)
     {
-        /* Message only; never print the conninfo, it may contain a password. */
-        fprintf(stderr, "bb postgres: connection failed: %s", PQerrorMessage(h->conn));
-        PQfinish(h->conn);
+        pthread_cond_destroy(&h->returned);
         pthread_mutex_destroy(&h->lock);
+        free(h->uri);
+        free(h);
+        return NULL;
+    }
+
+    /* Connect the first slot eagerly so a bad URI or unreachable server is
+     * reported from open(), not from the first query. */
+    h->slots[0].conn = connect_one(h->uri);
+    if (!h->slots[0].conn)
+    {
+        pthread_mutex_destroy(&h->tables_lock);
+        pthread_cond_destroy(&h->returned);
+        pthread_mutex_destroy(&h->lock);
+        free(h->uri);
         free(h);
         return NULL;
     }
@@ -292,8 +466,20 @@ static void pg_close(bb_model_handle_t *handle)
     if (!h)
         return;
 
-    PQfinish(h->conn);
+    /* Not locked: by the time close() is called the caller must have stopped
+     * using this handle from every other thread (same contract as SQLite). */
+    for (size_t i = 0; i < BB_PG_POOL_MAX_CONNS; i++)
+        if (h->slots[i].conn)
+            PQfinish(h->slots[i].conn);
+
+    for (size_t i = 0; i < h->tables_count; i++)
+        free(h->tables[i]);
+    free(h->tables);
+
+    pthread_mutex_destroy(&h->tables_lock);
+    pthread_cond_destroy(&h->returned);
     pthread_mutex_destroy(&h->lock);
+    free(h->uri);
     free(h);
 }
 
@@ -301,11 +487,8 @@ static void pg_close(bb_model_handle_t *handle)
  * insert
  * --------------------------- */
 
-static int pg_insert_locked(PGconn *conn, bb_schema_t *schema, void *entity)
+static int pg_insert_conn(PGconn *conn, bb_schema_t *schema, void *entity)
 {
-    if (ensure_table(conn, schema) != 0)
-        return -1;
-
     sql_buf_t sql;
     if (sql_buf_init(&sql) != 0)
         return -1;
@@ -363,12 +546,13 @@ static int pg_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *entit
     if (!h || !entity || !schema_is_usable(schema))
         return -1;
 
-    pthread_mutex_lock(&h->lock);
+    pg_slot_t *slot = pool_acquire(h);
+    int rc = -1;
 
-    PGconn *conn = conn_ready(h);
-    int rc = conn ? pg_insert_locked(conn, schema, entity) : -1;
+    if (slot && ensure_table(h, slot->conn, schema) == 0)
+        rc = pg_insert_conn(slot->conn, schema, entity);
 
-    pthread_mutex_unlock(&h->lock);
+    pool_release(h, slot);
     return rc;
 }
 
@@ -449,11 +633,8 @@ static int affected_rows(PGresult *res)
     return n ? atoi(n) : 0;
 }
 
-static int pg_find_by_pk_locked(PGconn *conn, bb_schema_t *schema, void *out, const void *key)
+static int pg_find_by_pk_conn(PGconn *conn, bb_schema_t *schema, void *out, const void *key)
 {
-    if (ensure_table(conn, schema) != 0)
-        return -1;
-
     bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
     sql_buf_t sql;
@@ -502,12 +683,13 @@ static int pg_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, void *o
     if (!h || !out || !key || !schema_is_usable(schema))
         return -1;
 
-    pthread_mutex_lock(&h->lock);
+    pg_slot_t *slot = pool_acquire(h);
+    int rc = -1;
 
-    PGconn *conn = conn_ready(h);
-    int rc = conn ? pg_find_by_pk_locked(conn, schema, out, key) : -1;
+    if (slot && ensure_table(h, slot->conn, schema) == 0)
+        rc = pg_find_by_pk_conn(slot->conn, schema, out, key);
 
-    pthread_mutex_unlock(&h->lock);
+    pool_release(h, slot);
     return rc;
 }
 
@@ -515,11 +697,8 @@ static int pg_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, void *o
  * update
  * --------------------------- */
 
-static int pg_update_locked(PGconn *conn, bb_schema_t *schema, void *entity)
+static int pg_update_conn(PGconn *conn, bb_schema_t *schema, void *entity)
 {
-    if (ensure_table(conn, schema) != 0)
-        return -1;
-
     size_t n = schema->field_count;
     bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
@@ -587,12 +766,13 @@ static int pg_update(bb_model_handle_t *handle, bb_schema_t *schema, void *entit
     if (!h || !entity || !schema_is_usable(schema) || schema->field_count < 2)
         return -1;
 
-    pthread_mutex_lock(&h->lock);
+    pg_slot_t *slot = pool_acquire(h);
+    int rc = -1;
 
-    PGconn *conn = conn_ready(h);
-    int rc = conn ? pg_update_locked(conn, schema, entity) : -1;
+    if (slot && ensure_table(h, slot->conn, schema) == 0)
+        rc = pg_update_conn(slot->conn, schema, entity);
 
-    pthread_mutex_unlock(&h->lock);
+    pool_release(h, slot);
     return rc;
 }
 
@@ -600,11 +780,8 @@ static int pg_update(bb_model_handle_t *handle, bb_schema_t *schema, void *entit
  * remove
  * --------------------------- */
 
-static int pg_remove_locked(PGconn *conn, bb_schema_t *schema, const void *key)
+static int pg_remove_conn(PGconn *conn, bb_schema_t *schema, const void *key)
 {
-    if (ensure_table(conn, schema) != 0)
-        return -1;
-
     bb_field_t *pk = &schema->fields[schema->primary_key_index];
 
     sql_buf_t sql;
@@ -643,12 +820,13 @@ static int pg_remove(bb_model_handle_t *handle, bb_schema_t *schema, const void 
     if (!h || !key || !schema_is_usable(schema))
         return -1;
 
-    pthread_mutex_lock(&h->lock);
+    pg_slot_t *slot = pool_acquire(h);
+    int rc = -1;
 
-    PGconn *conn = conn_ready(h);
-    int rc = conn ? pg_remove_locked(conn, schema, key) : -1;
+    if (slot && ensure_table(h, slot->conn, schema) == 0)
+        rc = pg_remove_conn(slot->conn, schema, key);
 
-    pthread_mutex_unlock(&h->lock);
+    pool_release(h, slot);
     return rc;
 }
 
@@ -656,12 +834,9 @@ static int pg_remove(bb_model_handle_t *handle, bb_schema_t *schema, const void 
  * find_all
  * --------------------------- */
 
-static int pg_find_all_locked(PGconn *conn, bb_schema_t *schema,
+static int pg_find_all_conn(PGconn *conn, bb_schema_t *schema,
                               void **out_array, size_t *out_count)
 {
-    if (ensure_table(conn, schema) != 0)
-        return -1;
-
     sql_buf_t sql;
     if (sql_buf_init(&sql) != 0)
         return -1;
@@ -716,12 +891,13 @@ static int pg_find_all(bb_model_handle_t *handle, bb_schema_t *schema,
         schema->struct_size == 0)
         return -1;
 
-    pthread_mutex_lock(&h->lock);
+    pg_slot_t *slot = pool_acquire(h);
+    int rc = -1;
 
-    PGconn *conn = conn_ready(h);
-    int rc = conn ? pg_find_all_locked(conn, schema, out_array, out_count) : -1;
+    if (slot && ensure_table(h, slot->conn, schema) == 0)
+        rc = pg_find_all_conn(slot->conn, schema, out_array, out_count);
 
-    pthread_mutex_unlock(&h->lock);
+    pool_release(h, slot);
     return rc;
 }
 
@@ -729,7 +905,7 @@ static int pg_find_all(bb_model_handle_t *handle, bb_schema_t *schema,
  * find_first_by_field
  * --------------------------- */
 
-static int pg_find_first_by_field_locked(PGconn *conn, bb_schema_t *schema, void *out,
+static int pg_find_first_by_field_conn(PGconn *conn, bb_schema_t *schema, void *out,
                                          bb_field_t *field, const void *value)
 {
     sql_buf_t sql;
@@ -784,12 +960,10 @@ static int pg_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *schema
     if (!field || field->type == BB_FIELD_BLOB)
         return -1;
 
-    pthread_mutex_lock(&h->lock);
+    pg_slot_t *slot = pool_acquire(h);
+    int rc = slot ? pg_find_first_by_field_conn(slot->conn, schema, out, field, value) : -1;
 
-    PGconn *conn = conn_ready(h);
-    int rc = conn ? pg_find_first_by_field_locked(conn, schema, out, field, value) : -1;
-
-    pthread_mutex_unlock(&h->lock);
+    pool_release(h, slot);
     return rc;
 }
 
