@@ -1,4 +1,5 @@
 #include <blue-bird/error/assert.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,6 +153,84 @@ static void test_postgres_crud(const char *uri)
     api->close(h);
 }
 
+/* ---------------------------
+ * Concurrency: one shared handle, more threads than pool connections.
+ * Each thread works on its own rows (insert -> find -> update -> remove),
+ * so any failure means the pool handed out a connection twice, lost a
+ * statement, or tripped over concurrent CREATE TABLE.
+ * --------------------------- */
+
+#define CONC_THREADS 16
+#define CONC_OPS_PER_THREAD 20
+
+typedef struct {
+    const bb_model_api_t *api;
+    bb_model_handle_t *h;
+    int failed;
+} conc_arg_t;
+
+static void *conc_worker(void *arg_)
+{
+    conc_arg_t *arg = (conc_arg_t *)arg_;
+    arg->failed = 0;
+
+    for (int i = 0; i < CONC_OPS_PER_THREAD; i++)
+    {
+        Person p;
+        make_person(&p, i, "conc");
+
+        if (arg->api->insert(arg->h, &person_schema, &p) != 0) { arg->failed = 1; return NULL; }
+
+        Person out;
+        memset(&out, 0, sizeof(out));
+        if (arg->api->find_by_pk(arg->h, &person_schema, &out, p.id) != 0 ||
+            out.age != i || strcmp(out.name, p.name) != 0) { arg->failed = 1; return NULL; }
+
+        p.age = i + 1000;
+        if (arg->api->update(arg->h, &person_schema, &p) != 0) { arg->failed = 1; return NULL; }
+
+        memset(&out, 0, sizeof(out));
+        if (arg->api->find_first_by_field(arg->h, &person_schema, &out, "name", p.name) != 0 ||
+            out.age != i + 1000) { arg->failed = 1; return NULL; }
+
+        if (arg->api->remove(arg->h, &person_schema, p.id) != 0) { arg->failed = 1; return NULL; }
+    }
+
+    return NULL;
+}
+
+static void test_postgres_concurrent_access(const char *uri)
+{
+    printf("\tTesting concurrent access on a shared handle...\n");
+
+    const bb_model_api_t *api = bb_model_get("postgres");
+    BB_ASSERT(api != NULL);
+
+    bb_model_handle_t *h = api->open(uri);
+    BB_ASSERT(h != NULL);
+
+    pthread_t threads[CONC_THREADS];
+    conc_arg_t args[CONC_THREADS];
+
+    for (int i = 0; i < CONC_THREADS; i++)
+    {
+        args[i].api = api;
+        args[i].h = h;
+        args[i].failed = 0;
+        BB_ASSERT(pthread_create(&threads[i], NULL, conc_worker, &args[i]) == 0);
+    }
+
+    int any_failed = 0;
+    for (int i = 0; i < CONC_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+        any_failed |= args[i].failed;
+    }
+    BB_ASSERT(!any_failed);
+
+    api->close(h);
+}
+
 int main(void)
 {
     const char *uri = getenv("BB_TEST_POSTGRES_URI");
@@ -163,6 +242,7 @@ int main(void)
 
     printf("Running postgres model tests...\n");
     test_postgres_crud(uri);
+    test_postgres_concurrent_access(uri);
     printf("All postgres model tests passed\n");
     return 0;
 }
