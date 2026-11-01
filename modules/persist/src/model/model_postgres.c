@@ -19,7 +19,8 @@
  *   - values always travel as bound parameters (PQexecParams),
  *   - BB_FIELD_UUID maps to a native UUID column,
  *   - strings read back are always NUL-terminated and result structs are
- *     zero-initialised before being filled.
+ *     zero-initialised before being filled,
+ *   - query() is pushed down to SQL (see the notes above pg_query_conn).
  *
  * Connection pool: the handle owns up to BB_PG_POOL_MAX_CONNS independent
  * PGconns, opened lazily. Every call borrows one for its duration and gives it
@@ -967,6 +968,215 @@ static int pg_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *schema
     return rc;
 }
 
+/* ---------------------------
+ * query (WHERE / ORDER BY / LIMIT / OFFSET pushed down to the server)
+ *
+ * Matches the in-memory reference (bb_query_apply) rather than Postgres
+ * defaults, so a query returns the same rows whichever backend runs it:
+ *   - string comparison and ORDER BY are bytewise (COLLATE "C"), not the
+ *     database's locale rules,
+ *   - LIKE: '%' is the only wildcard ('_' and '\' are literal), and it is
+ *     case-sensitive; on a UUID field it matches the text form; on an INT or
+ *     BLOB field it matches nothing,
+ *   - zero rows gives *out_array == NULL (unlike find_all).
+ * A condition value that is not a valid UUID makes the query fail (-1)
+ * instead of silently matching nothing.
+ * --------------------------- */
+
+static const char *query_op_to_sql(bb_query_op_t op)
+{
+    switch (op)
+    {
+        case BB_OP_EQ:   return "=";
+        case BB_OP_NE:   return "<>";
+        case BB_OP_LT:   return "<";
+        case BB_OP_LTE:  return "<=";
+        case BB_OP_GT:   return ">";
+        case BB_OP_GTE:  return ">=";
+        case BB_OP_LIKE: return "LIKE";
+        default:         return "=";
+    }
+}
+
+/* Make '_' and '\' literal so only '%' stays a wildcard. */
+static char *escape_like_pattern(const char *pattern)
+{
+    char *out = malloc(strlen(pattern) * 2 + 1);
+    if (!out)
+        return NULL;
+
+    char *w = out;
+    for (const char *r = pattern; *r; r++)
+    {
+        if (*r == '\\' || *r == '_')
+            *w++ = '\\';
+        *w++ = *r;
+    }
+    *w = '\0';
+    return out;
+}
+
+static int field_is_textual(const bb_field_t *f)
+{
+    return f->type == BB_FIELD_STRING || f->type == BB_FIELD_UUID;
+}
+
+static int pg_query_conn(PGconn *conn, bb_schema_t *schema, const bb_query_t *q,
+                         void **out_array, size_t *out_count)
+{
+    int rc = -1;
+    int err = 0;
+    size_t nparams = 0;
+    char *owned[BB_QUERY_MAX_CONDITIONS] = { NULL };
+    char limit_text[24];
+    char offset_text[24];
+    sql_buf_t sql;
+    pg_params_t params;
+    PGresult *res = NULL;
+
+    memset(&sql, 0, sizeof(sql));
+    memset(&params, 0, sizeof(params));
+
+    if (sql_buf_init(&sql) != 0)
+        return -1;
+
+    if (params_init(&params, q->condition_count + 2) != 0)
+        goto done;
+
+    err |= sql_buf_append(&sql, "SELECT ");
+    err |= append_column_list(&sql, conn, schema);
+    err |= sql_buf_append(&sql, " FROM ");
+    err |= append_ident(&sql, conn, schema->name);
+
+    for (size_t i = 0; i < q->condition_count; i++)
+    {
+        const bb_query_cond_t *cond = &q->conditions[i];
+        bb_field_t *f = bb_schema_find_field(schema, cond->field);
+        if (!f)
+            goto done;
+
+        err |= sql_buf_append(&sql, i == 0 ? " WHERE " : " AND ");
+
+        if (cond->op == BB_OP_LIKE)
+        {
+            if (!field_is_textual(f))
+            {
+                err |= sql_buf_append(&sql, "FALSE");
+                continue;
+            }
+
+            owned[i] = escape_like_pattern((const char *)cond->value);
+            if (!owned[i])
+                goto done;
+
+            err |= append_ident(&sql, conn, f->name);
+            if (f->type == BB_FIELD_UUID)
+                err |= sql_buf_append(&sql, "::text");
+            err |= sql_buf_append(&sql, " LIKE ");
+            err |= append_param(&sql, ++nparams);
+            params_set(&params, nparams - 1, f, owned[i]);
+            continue;
+        }
+
+        err |= append_ident(&sql, conn, f->name);
+        if (f->type == BB_FIELD_STRING)
+            err |= sql_buf_append(&sql, " COLLATE \"C\"");
+        err |= sql_buf_append(&sql, " ");
+        err |= sql_buf_append(&sql, query_op_to_sql(cond->op));
+        err |= sql_buf_append(&sql, " ");
+        err |= append_param(&sql, ++nparams);
+        params_set(&params, nparams - 1, f, cond->value);
+    }
+
+    for (size_t i = 0; i < q->sort_count; i++)
+    {
+        const bb_query_sort_t *sort = &q->sorts[i];
+        bb_field_t *f = bb_schema_find_field(schema, sort->field);
+        if (!f)
+            goto done;
+
+        err |= sql_buf_append(&sql, i == 0 ? " ORDER BY " : ", ");
+        err |= append_ident(&sql, conn, f->name);
+        if (f->type == BB_FIELD_STRING)
+            err |= sql_buf_append(&sql, " COLLATE \"C\"");
+        err |= sql_buf_append(&sql, sort->direction == BB_ORDER_ASC ? " ASC" : " DESC");
+    }
+
+    if (q->limit >= 0)
+    {
+        snprintf(limit_text, sizeof(limit_text), "%ld", q->limit);
+        err |= sql_buf_append(&sql, " LIMIT ");
+        err |= append_param(&sql, ++nparams);
+        params.values[nparams - 1] = limit_text;
+    }
+
+    if (q->offset >= 0)
+    {
+        snprintf(offset_text, sizeof(offset_text), "%ld", q->offset);
+        err |= sql_buf_append(&sql, " OFFSET ");
+        err |= append_param(&sql, ++nparams);
+        params.values[nparams - 1] = offset_text;
+    }
+
+    if (err)
+        goto done;
+
+    res = PQexecParams(conn, sql.data, (int)nparams, NULL, params.values,
+                       params.lengths, params.formats, 0);
+
+    if (!res || PQresultStatus(res) != PGRES_TUPLES_OK)
+        goto done;
+
+    size_t count = (size_t)PQntuples(res);
+
+    if (count == 0)
+    {
+        *out_array = NULL;
+        *out_count = 0;
+        rc = 0;
+        goto done;
+    }
+
+    void *buffer = calloc(count, schema->struct_size);
+    if (!buffer)
+        goto done;
+
+    for (size_t r = 0; r < count; r++)
+        read_row(res, (int)r, schema, (char *)buffer + r * schema->struct_size);
+
+    *out_array = buffer;
+    *out_count = count;
+    rc = 0;
+
+done:
+    PQclear(res);
+    for (size_t i = 0; i < BB_QUERY_MAX_CONDITIONS; i++)
+        free(owned[i]);
+    params_free(&params);
+    sql_buf_free(&sql);
+    return rc;
+}
+
+static int pg_query(bb_model_handle_t *handle, bb_schema_t *schema, const bb_query_t *q,
+                    void **out_array, size_t *out_count)
+{
+    BB_ModelPostgresHandle *h = (BB_ModelPostgresHandle *)handle;
+    if (!h || !q || !out_array || !out_count || !schema_is_usable(schema) ||
+        schema->struct_size == 0 ||
+        q->condition_count > BB_QUERY_MAX_CONDITIONS ||
+        q->sort_count > BB_QUERY_MAX_SORTS)
+        return -1;
+
+    pg_slot_t *slot = pool_acquire(h);
+    int rc = -1;
+
+    if (slot && ensure_table(h, slot->conn, schema) == 0)
+        rc = pg_query_conn(slot->conn, schema, q, out_array, out_count);
+
+    pool_release(h, slot);
+    return rc;
+}
+
 static bb_model_api_t model_postgres_api = {
     .name                = "postgres",
     .open                = pg_open,
@@ -977,7 +1187,7 @@ static bb_model_api_t model_postgres_api = {
     .remove              = pg_remove,
     .find_all            = pg_find_all,
     .find_first_by_field = pg_find_first_by_field,
-    .query               = NULL   /* bb_repo_find() falls back to find_all() */
+    .query               = pg_query
 };
 
 const bb_model_api_t *bb_model_postgres_api(void)
