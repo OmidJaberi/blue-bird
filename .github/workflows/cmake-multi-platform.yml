@@ -215,6 +215,9 @@ jobs:
     name: Postgres / Windows / MSVC
     runs-on: windows-latest
 
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-bincache
+
     steps:
       - uses: actions/checkout@v4
 
@@ -225,16 +228,33 @@ jobs:
           $commit = git -C $env:VCPKG_INSTALLATION_ROOT rev-parse HEAD
           echo "sha=$commit" >> $env:GITHUB_OUTPUT
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
+      # vcpkg binary caching: each built package is stored as an archive in
+      # VCPKG_DEFAULT_BINARY_CACHE and restored by `vcpkg install` instead of
+      # being rebuilt (libpq pulls in OpenSSL, which is slow to build). Restore
+      # and save are separate steps so the cache is stored right after a
+      # successful install, even if a later step (build, tests) fails.
+      - name: Create vcpkg binary cache directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+
+      - name: Restore vcpkg binary cache
+        id: vcpkg-bincache
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
-            ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
-          key: vcpkg-${{ runner.os }}-${{ steps.vcpkg-commit.outputs.sha }}-sqlite3-pthreads-libpq
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-bin-${{ runner.os }}-${{ steps.vcpkg-commit.outputs.sha }}-sqlite3-pthreads-libpq
+          restore-keys: |
+            vcpkg-bin-${{ runner.os }}-
 
       - name: Install dependencies
         run: vcpkg install sqlite3:x64-windows pthreads:x64-windows libpq:x64-windows
+
+      - name: Save vcpkg binary cache
+        if: steps.vcpkg-bincache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-bin-${{ runner.os }}-${{ steps.vcpkg-commit.outputs.sha }}-sqlite3-pthreads-libpq
 
       - name: Start PostgreSQL
         shell: pwsh
