@@ -34,6 +34,7 @@ Current and planned backends include:
 - file storage (key-value only)
 - JSON
 - SQLite
+- PostgreSQL (optional, build with `-DBB_WITH_POSTGRES=ON`; see [PostgreSQL Backend](postgres.md))
 
 ---
 

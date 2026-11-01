@@ -39,6 +39,7 @@ Blue-Bird is a modular backend and web framework written in C, focused on:
 - [Persistence Overview](persist/overview.md)
 - [Models](persist/models.md)
 - [Schemas](persist/schemas.md)
+- [PostgreSQL Backend](persist/postgres.md)
 
 ---
 

@@ -117,6 +117,7 @@ Rather than being just an HTTP server library, Blue-Bird provides a growing ecos
 - File backend
 - JSON backend
 - SQLite backend
+- Optional PostgreSQL backend (build with `-DBB_WITH_POSTGRES=ON`, requires libpq; see [docs/persist/postgres.md](docs/persist/postgres.md))
 
 ## Templating
 
@@ -198,6 +199,7 @@ blue-bird/
 - C11 compatible compiler
 - CMake 3.20+
 - SQLite3 (optional, for SQLite persistence backend)
+- libpq (optional, for PostgreSQL persistence backend)
 - OpenSSL (optional, for HTTPS/WSS support)
 
 ## Build Instructions

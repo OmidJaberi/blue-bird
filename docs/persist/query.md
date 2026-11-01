@@ -56,9 +56,9 @@ int bb_repo_find(bb_repo_t *r, const bb_query_t *q, void **out_array, size_t *ou
 ```
 
 - If the backend implements `bb_model_api_t.query`, the query is pushed
-  down to the storage engine. The SQLite backend does this — `bb_query_t`
-  becomes a real parameterized `SELECT ... WHERE ... ORDER BY ... LIMIT ?
-  OFFSET ?`.
+  down to the storage engine. The SQLite and PostgreSQL backends do this —
+  `bb_query_t` becomes a real parameterized `SELECT ... WHERE ... ORDER BY
+  ... LIMIT ? OFFSET ?`.
 - If the backend leaves `query` `NULL` (the JSON backend, for example),
   `bb_repo_find()` falls back to `find_all()` followed by an in-memory
   filter/sort/paginate (`bb_query_apply()`).
