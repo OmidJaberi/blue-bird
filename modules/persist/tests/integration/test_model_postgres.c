@@ -231,6 +231,175 @@ static void test_postgres_concurrent_access(const char *uri)
     api->close(h);
 }
 
+/* ---------------------------
+ * Query pushdown: every query is also evaluated in memory (the reference
+ * implementation, bb_query_apply over find_all) and the two must agree on
+ * rows and, when sorted, on order. A few cases also pin the expected count,
+ * because they are exactly where Postgres defaults differ from the reference:
+ * locale-aware string order, '_' as a LIKE wildcard, and case rules.
+ * --------------------------- */
+
+static void check_query(const bb_model_api_t *api, bb_model_handle_t *h,
+                        const bb_query_t *q, const char *label, long expected)
+{
+    printf("\t\t%s\n", label);
+
+    Person *got = NULL;
+    size_t got_n = 0;
+    BB_ASSERT(api->query(h, &person_schema, q, (void **)&got, &got_n) == 0);
+
+    Person *all = NULL;
+    size_t all_n = 0;
+    BB_ASSERT(api->find_all(h, &person_schema, (void **)&all, &all_n) == 0);
+
+    Person *ref = NULL;
+    size_t ref_n = 0;
+    BB_ASSERT(bb_query_apply(q, all, all_n, (void **)&ref, &ref_n) == 0);
+
+    BB_ASSERT(got_n == ref_n);
+    if (expected >= 0)
+        BB_ASSERT(got_n == (size_t)expected);
+    if (got_n == 0)
+        BB_ASSERT(got == NULL);
+
+    for (size_t i = 0; i < got_n; i++)
+    {
+        if (q->sort_count > 0)
+            BB_ASSERT(strcmp(got[i].id, ref[i].id) == 0);
+        else
+            BB_ASSERT(find_in(ref, ref_n, got[i].id) != NULL);
+
+        BB_ASSERT(got[i].age == (find_in(ref, ref_n, got[i].id))->age);
+        BB_ASSERT(strcmp(got[i].name, (find_in(ref, ref_n, got[i].id))->name) == 0);
+    }
+
+    free(got);
+    free(all);
+    free(ref);
+}
+
+static void test_postgres_query_pushdown(const char *uri)
+{
+    printf("\tTesting query pushdown against the in-memory reference...\n");
+
+    const bb_model_api_t *api = bb_model_get("postgres");
+    BB_ASSERT(api != NULL);
+
+    bb_model_handle_t *h = api->open(uri);
+    BB_ASSERT(h != NULL);
+
+    /* All names share a prefix unique to this run so queries only see our rows. */
+    bb_uuid_t run_id;
+    BB_ASSERT(bb_uuid_v4_string(run_id) == 0);
+    char tag[16];
+    snprintf(tag, sizeof(tag), "q%.8s-", run_id);
+
+    static const struct { const char *suffix; int age; } rows[] = {
+        { "A1", 10 }, { "a1", 20 }, { "B2", 30 }, { "b2", 40 }, { "b_2", 50 }, { "c%", 60 }
+    };
+    enum { N = 6 };
+
+    Person people[N];
+    for (int i = 0; i < N; i++)
+    {
+        make_person(&people[i], rows[i].age, "x");
+        snprintf(people[i].name, sizeof(people[i].name), "%s%s", tag, rows[i].suffix);
+        BB_ASSERT(api->insert(h, &person_schema, &people[i]) == 0);
+    }
+
+    char prefix[32], lt_b[32], ge_b[32], like_b_us[32], like_end1[32], none[32], id_like[16];
+    snprintf(prefix, sizeof(prefix), "%s%%", tag);
+    snprintf(lt_b, sizeof(lt_b), "%sB", tag);
+    snprintf(ge_b, sizeof(ge_b), "%sB", tag);
+    snprintf(like_b_us, sizeof(like_b_us), "%sb_%%", tag);
+    snprintf(like_end1, sizeof(like_end1), "%s%%1", tag);
+    snprintf(none, sizeof(none), "%snothing", tag);
+    snprintf(id_like, sizeof(id_like), "%.8s%%", people[3].id);
+
+    int age25 = 25, age50 = 50, age30 = 30;
+    const char *like_age = "1%";
+
+    bb_query_t q;
+
+#define NEW_QUERY() do { bb_query_init(&q, &person_schema); \
+    BB_ASSERT(bb_query_where(&q, "name", BB_OP_LIKE, prefix) == 0); } while (0)
+
+    NEW_QUERY();
+    check_query(api, h, &q, "prefix only", 6);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "age", BB_OP_GT, &age25) == 0);
+    check_query(api, h, &q, "age > 25", 4);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "age", BB_OP_LTE, &age50) == 0);
+    BB_ASSERT(bb_query_where(&q, "age", BB_OP_NE, &age30) == 0);
+    check_query(api, h, &q, "age <= 50 AND age != 30", 4);
+
+    /* bytewise: only "A1" sorts below "B"; a locale collation would also admit "a1" */
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "name", BB_OP_LT, lt_b) == 0);
+    check_query(api, h, &q, "name < prefix+B (bytewise)", 1);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "name", BB_OP_GTE, ge_b) == 0);
+    BB_ASSERT(bb_query_order_by(&q, "name", BB_ORDER_ASC) == 0);
+    check_query(api, h, &q, "name >= prefix+B ORDER BY name ASC (bytewise)", 5);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_order_by(&q, "name", BB_ORDER_DESC) == 0);
+    bb_query_limit(&q, 3);
+    check_query(api, h, &q, "ORDER BY name DESC LIMIT 3", 3);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_order_by(&q, "age", BB_ORDER_ASC) == 0);
+    bb_query_limit(&q, 2);
+    bb_query_offset(&q, 2);
+    check_query(api, h, &q, "ORDER BY age LIMIT 2 OFFSET 2", 2);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_order_by(&q, "age", BB_ORDER_ASC) == 0);
+    bb_query_offset(&q, 4);
+    check_query(api, h, &q, "ORDER BY age OFFSET 4", 2);
+
+    NEW_QUERY();
+    bb_query_limit(&q, 0);
+    BB_ASSERT(bb_query_order_by(&q, "age", BB_ORDER_ASC) == 0);
+    check_query(api, h, &q, "LIMIT 0", 0);
+
+    /* '_' is a literal here, so "b2" must not match "b_%" */
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "name", BB_OP_LIKE, like_b_us) == 0);
+    check_query(api, h, &q, "LIKE with literal underscore", 1);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "name", BB_OP_LIKE, like_end1) == 0);
+    check_query(api, h, &q, "LIKE ends with 1", 2);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "id", BB_OP_LIKE, id_like) == 0);
+    check_query(api, h, &q, "LIKE on a uuid field", 1);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "age", BB_OP_LIKE, like_age) == 0);
+    check_query(api, h, &q, "LIKE on an int field matches nothing", 0);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "id", BB_OP_EQ, people[2].id) == 0);
+    check_query(api, h, &q, "id = <uuid>", 1);
+
+    NEW_QUERY();
+    BB_ASSERT(bb_query_where(&q, "name", BB_OP_EQ, none) == 0);
+    check_query(api, h, &q, "no match returns NULL", 0);
+
+#undef NEW_QUERY
+
+    for (int i = 0; i < N; i++)
+        BB_ASSERT(api->remove(h, &person_schema, people[i].id) == 0);
+
+    api->close(h);
+}
+
 int main(void)
 {
     const char *uri = getenv("BB_TEST_POSTGRES_URI");
@@ -243,6 +412,7 @@ int main(void)
     printf("Running postgres model tests...\n");
     test_postgres_crud(uri);
     test_postgres_concurrent_access(uri);
+    test_postgres_query_pushdown(uri);
     printf("All postgres model tests passed\n");
     return 0;
 }
