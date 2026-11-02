@@ -292,6 +292,114 @@ static void test_repo_sqlite_crud(void)
     printf("SQLite Tests passed...\n");
 }
 
+/* ---------------------------
+ * LIKE semantics, identical on every backend
+ *
+ * BB_OP_LIKE means: '%' is the only wildcard, everything else is literal,
+ * matching is case-sensitive, and it only applies to string/UUID fields (on
+ * an int field it matches nothing). The JSON run goes through the in-memory
+ * reference (bb_query_apply); every native backend must give the same
+ * answers. The data includes the characters that are special to SQL LIKE
+ * ('_', '\\') and to GLOB ('*', '?', '[') so a backend that leaks its own
+ * pattern syntax or case rules shows up here.
+ * --------------------------- */
+
+static int like_count(bb_repo_t *repo, const char *pattern, int *first_id)
+{
+    bb_query_t q;
+    bb_query_init(&q, &schema);
+    BB_ASSERT(bb_query_where(&q, "name", BB_OP_LIKE, pattern) == 0);
+
+    User *out = NULL;
+    size_t count = 0;
+    BB_ASSERT(bb_repo_find(repo, &q, (void **)&out, &count) == 0);
+    BB_ASSERT((count == 0) == (out == NULL));
+
+    if (first_id && count > 0)
+        *first_id = out[0].id;
+
+    free(out);
+    return (int)count;
+}
+
+static void run_like_semantics_tests(const char *file, const bb_model_api_t *api)
+{
+    bb_model_handle_t *h = api->open(file);
+    BB_ASSERT(h);
+
+    bb_repo_t repo;
+    bb_repo_init(&repo, api, h, &schema);
+
+    static const char *names[] = {
+        "A1", "a1", "B2", "b2", "b_2", "b\\2", "a*b", "a?b", "a[b", "c%"
+    };
+
+    for (int i = 0; i < 10; i++)
+    {
+        User u = { .id = i + 1, .age = (i + 1) * 10 };
+        strncpy(u.name, names[i], sizeof(u.name) - 1);
+        BB_ASSERT(bb_repo_insert(&repo, &u) == 0);
+    }
+
+    int id = 0;
+
+    printf("\tLIKE is case-sensitive ('a%%' skips 'A1')...\n");
+    BB_ASSERT(like_count(&repo, "a%", NULL) == 4);   /* a1 a*b a?b a[b */
+    BB_ASSERT(like_count(&repo, "A%", &id) == 1 && id == 1);
+
+    printf("\tOnly '%%' is a wildcard ('_' is literal)...\n");
+    BB_ASSERT(like_count(&repo, "b_%", &id) == 1 && id == 5);   /* only "b_2" */
+    BB_ASSERT(like_count(&repo, "b_2", &id) == 1 && id == 5);
+    BB_ASSERT(like_count(&repo, "b2", &id) == 1 && id == 4);
+
+    printf("\t'\\' is literal...\n");
+    BB_ASSERT(like_count(&repo, "b\\%", &id) == 1 && id == 6);  /* "b\2" */
+
+    printf("\tGLOB metacharacters are literal ('*', '?', '[')...\n");
+    BB_ASSERT(like_count(&repo, "a*%", &id) == 1 && id == 7);
+    BB_ASSERT(like_count(&repo, "a?%", &id) == 1 && id == 8);
+    BB_ASSERT(like_count(&repo, "a[%", &id) == 1 && id == 9);
+    BB_ASSERT(like_count(&repo, "*", NULL) == 0);
+    BB_ASSERT(like_count(&repo, "?", NULL) == 0);
+
+    printf("\t'%%' matches any run, including an empty one...\n");
+    BB_ASSERT(like_count(&repo, "%", NULL) == 10);
+    BB_ASSERT(like_count(&repo, "%1", NULL) == 2);   /* A1 a1 */
+    BB_ASSERT(like_count(&repo, "c%%", &id) == 1 && id == 10);
+    BB_ASSERT(like_count(&repo, "c%", &id) == 1 && id == 10); /* matches "c%" */
+
+    printf("\tLIKE on an int field matches nothing...\n");
+    {
+        bb_query_t q;
+        bb_query_init(&q, &schema);
+        BB_ASSERT(bb_query_where(&q, "age", BB_OP_LIKE, "1%") == 0);
+
+        User *out = NULL;
+        size_t count = 0;
+        BB_ASSERT(bb_repo_find(&repo, &q, (void **)&out, &count) == 0);
+        BB_ASSERT(count == 0 && out == NULL);
+    }
+
+    printf("\tLIKE combined with other conditions...\n");
+    {
+        bb_query_t q;
+        bb_query_init(&q, &schema);
+        int min_age = 25;
+        BB_ASSERT(bb_query_where(&q, "name", BB_OP_LIKE, "a%") == 0);
+        BB_ASSERT(bb_query_where(&q, "age", BB_OP_GT, &min_age) == 0);
+        BB_ASSERT(bb_query_order_by(&q, "age", BB_ORDER_DESC) == 0);
+
+        User *out = NULL;
+        size_t count = 0;
+        BB_ASSERT(bb_repo_find(&repo, &q, (void **)&out, &count) == 0);
+        BB_ASSERT(count == 3);                          /* a*b a?b a[b */
+        BB_ASSERT(out[0].id == 9 && out[1].id == 8 && out[2].id == 7);
+        free(out);
+    }
+
+    api->close(h);
+}
+
 static void test_repo_json_query(void)
 {
     printf("JSON repo query (fallback path, api->query == NULL)...\n");
@@ -324,6 +432,39 @@ static void test_repo_sqlite_query(void)
     printf("SQLite query tests passed...\n");
 }
 
+static void test_repo_json_like(void)
+{
+    printf("JSON repo LIKE semantics (in-memory reference)...\n");
+
+    const char *file = "test_repo_json_like.json";
+    cleanup(file);
+
+    const bb_model_api_t *api = bb_model_get("json");
+    BB_ASSERT(api);
+
+    run_like_semantics_tests(file, api);
+    cleanup(file);
+
+    printf("JSON LIKE tests passed...\n");
+}
+
+static void test_repo_sqlite_like(void)
+{
+    printf("SQLite repo LIKE semantics (native pushdown)...\n");
+
+    const char *db = "test_repo_sqlite_like.db";
+    cleanup(db);
+
+    const bb_model_api_t *api = bb_model_get("sqlite");
+    BB_ASSERT(api);
+    BB_ASSERT(api->query != NULL);
+
+    run_like_semantics_tests(db, api);
+    cleanup(db);
+
+    printf("SQLite LIKE tests passed...\n");
+}
+
 int main(void)
 {
     printf("Running repo integration tests...\n");
@@ -332,6 +473,8 @@ int main(void)
     test_repo_sqlite_crud();
     test_repo_json_query();
     test_repo_sqlite_query();
+    test_repo_json_like();
+    test_repo_sqlite_like();
 
     printf("All repo tests passed!\n");
     return 0;
