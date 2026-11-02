@@ -203,9 +203,51 @@ static const char *query_op_to_sql(bb_query_op_t op)
         case BB_OP_LTE:  return "<=";
         case BB_OP_GT:   return ">";
         case BB_OP_GTE:  return ">=";
-        case BB_OP_LIKE: return "LIKE";
+        case BB_OP_LIKE: return "GLOB";
         default:         return "=";
     }
+}
+
+/* ---------------------------
+ * LIKE semantics
+ *
+ * bb_query_apply() (the in-memory reference every backend must agree with)
+ * defines BB_OP_LIKE as: '%' is the only wildcard, everything else is
+ * literal, matching is case-sensitive, and it only applies to string/UUID
+ * fields. SQLite's own LIKE differs on all of that ('_' is a wildcard and
+ * ASCII matching ignores case by default), so the pattern is translated to
+ * GLOB instead: GLOB is case-sensitive and has no '_' or '\' meaning, so
+ * only its own wildcards ('*', '?', '[') need neutralising. Unlike
+ * "PRAGMA case_sensitive_like" this needs no deprecated pragma and no
+ * per-connection state.
+ * --------------------------- */
+
+static int field_is_textual(const bb_field_t *f)
+{
+    return f->type == BB_FIELD_STRING || f->type == BB_FIELD_UUID;
+}
+
+/* '%' -> '*'; GLOB's own metacharacters become one-character classes. */
+static char *like_pattern_to_glob(const char *pattern)
+{
+    char *out = malloc(strlen(pattern) * 3 + 1);
+    if (!out)
+        return NULL;
+
+    char *w = out;
+    for (const char *r = pattern; *r; r++)
+    {
+        switch (*r)
+        {
+            case '%': *w++ = '*'; break;
+            case '*': *w++ = '['; *w++ = '*'; *w++ = ']'; break;
+            case '?': *w++ = '['; *w++ = '?'; *w++ = ']'; break;
+            case '[': *w++ = '['; *w++ = '['; *w++ = ']'; break;
+            default:  *w++ = *r;  break;
+        }
+    }
+    *w = '\0';
+    return out;
 }
 
 /* ---------------------------
@@ -1038,6 +1080,16 @@ static int sqlite_query(bb_model_handle_t *handle, bb_schema_t *schema, const bb
             if (i > 0)
                 err |= sql_buf_append(&sql, " AND ");
 
+            const bb_field_t *cf = bb_schema_find_field(schema, q->conditions[i].field);
+
+            /* LIKE only applies to string/UUID fields; elsewhere it matches
+             * nothing (same as the in-memory reference). No placeholder. */
+            if (q->conditions[i].op == BB_OP_LIKE && cf && !field_is_textual(cf))
+            {
+                err |= sql_buf_append(&sql, "0");
+                continue;
+            }
+
             err |= sql_buf_append(&sql, q->conditions[i].field);
             err |= sql_buf_append(&sql, " ");
             err |= sql_buf_append(&sql, query_op_to_sql(q->conditions[i].op));
@@ -1101,6 +1153,25 @@ static int sqlite_query(bb_model_handle_t *handle, bb_schema_t *schema, const bb
             sqlite3_finalize(stmt);
             pool_release(h, db);
             return -1;
+        }
+
+        if (cond->op == BB_OP_LIKE)
+        {
+            if (!field_is_textual(f))
+                continue; /* rendered as a constant 0 above, nothing to bind */
+
+            char *glob = like_pattern_to_glob((const char *)cond->value);
+            if (!glob)
+            {
+                sqlite3_finalize(stmt);
+                pool_release(h, db);
+                return -1;
+            }
+
+            /* TRANSIENT: SQLite copies the text, so it can be freed now. */
+            sqlite3_bind_text(stmt, bind_index++, glob, -1, SQLITE_TRANSIENT);
+            free(glob);
+            continue;
         }
 
         switch (f->type)

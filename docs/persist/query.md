@@ -42,8 +42,13 @@ BB_OP_LT    // <
 BB_OP_LTE   // <=
 BB_OP_GT    // >
 BB_OP_GTE   // >=
-BB_OP_LIKE  // string fields only; '%' is a wildcard, as in SQL LIKE
+BB_OP_LIKE  // string/UUID fields only; '%' is the only wildcard
 ```
+
+`BB_OP_LIKE` is deliberately simpler than SQL's `LIKE`, so that every backend
+can give the same answer. `%` matches any run of characters (including none);
+every other character, including `_` and `\`, matches only itself. Matching
+is case-sensitive, and on an `INT` or `BLOB` field it matches nothing.
 
 ---
 
