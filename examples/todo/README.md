@@ -16,8 +16,36 @@ make example_todo
 ./examples/todo/example_todo
 ```
 
-Then open `http://localhost:8080`. `todo_sqlite.db` is created next to the
-binary on first run.
+Then open `http://localhost:8080`. By default `todo_sqlite.db` is created next
+to the binary on first run.
+
+### Choosing a backend
+
+The same binary can store its tasks in any Blue-Bird persistence backend. Pick
+one at start-up with `BB_TODO_DB`:
+
+| `BB_TODO_DB`                     | Backend                                      |
+|----------------------------------|----------------------------------------------|
+| *(unset)*                        | SQLite, `todo_sqlite.db` next to the binary  |
+| `sqlite:<path>`                  | SQLite at `<path>`                           |
+| `json:<path>`                    | a JSON file at `<path>`                      |
+| `postgresql://user:pass@host/db` | PostgreSQL                                   |
+
+SQLite and JSON need nothing extra. PostgreSQL is opt-in: configure with
+`-DBB_WITH_POSTGRES=ON` (needs libpq, see
+[the PostgreSQL backend docs](../../docs/persist/postgres.md)), start a
+database, and point the example at it. `compose.yaml` in this directory
+provides a throwaway one:
+
+```bash
+docker compose -f examples/todo/compose.yaml up -d --wait
+BB_TODO_DB=postgresql://todo:todo@127.0.0.1:5432/todo ./build/examples/todo/example_todo
+docker compose -f examples/todo/compose.yaml down -v    # also deletes the data
+```
+
+A build without `-DBB_WITH_POSTGRES=ON` rejects a `postgresql://` value with an
+error instead of quietly using another backend. The default build, its tests
+and `ctest` never need PostgreSQL or Docker.
 
 ## Layout
 
@@ -47,7 +75,8 @@ examples/todo/
 
 ## Persistence
 
-One schema-driven repo (`bb_repo_t`) on the SQLite backend:
+One schema-driven repo (`bb_repo_t`). The backend behind it is chosen in
+`main.c`; everything after that is the same for every backend:
 
 ```c
 typedef struct {
@@ -57,14 +86,18 @@ typedef struct {
 } Task;
 ```
 
-registered once in `main.c`:
+set up once in `main.c`:
 
 ```c
-bb_model_register(bb_model_sqlite_api());
-const bb_model_api_t *api = bb_model_get("sqlite");
-bb_model_handle_t *handle = api->open(dbfile);
-bb_repo_init(&global_task_repo.base, api, handle, &task_schema);
+const bb_model_api_t *api;
+bb_model_handle_t *handle;
+open_backend(getenv("BB_TODO_DB"), &api, &handle);   /* SQLite, JSON or PostgreSQL */
+bb_repo_init(&global_task_repo.base, api, handle, &Task_schema);
 ```
+
+`open_backend()` registers the backends that were compiled in and opens the
+one named by `BB_TODO_DB`; it is the only code in the example that knows which
+backend is in use.
 
 `app_repo.c` then wraps `bb_repo_insert` / `bb_repo_remove` / `bb_repo_update`
 in small typed helpers (`task_insert`, `task_remove`, `task_update`), and
@@ -106,6 +139,10 @@ bb_server_use_post_middleware(server, logger_middleware);
   after the route handler has run, via `BB_LOG_INFO`.
 
 ## Migrations
+
+`bb-migrate` currently drives SQLite databases only. With the JSON and
+PostgreSQL backends Persist creates the table (or file) on first use and never
+alters it, so a schema change there needs a manual migration.
 
 `migrations/` holds the schema history, applied with
 [`bb-migrate`](../../docs/tools/migrate.md). Persist creates the `tasks` table

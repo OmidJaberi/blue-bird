@@ -66,6 +66,8 @@ host=localhost port=5432 dbname=appdb user=app
 
 Avoid hard-coding passwords. Read the connection string from the environment or a config file, or leave the password out and let libpq take it from `PGPASSWORD` or a `.pgpass` file. TLS to the server is controlled with libpq's own parameters, for example `?sslmode=require`, and needs a libpq built with SSL support.
 
+The [todo example](../../examples/todo/README.md) can run on PostgreSQL by setting `BB_TODO_DB`; it ships a `compose.yaml` for a throwaway database.
+
 Call `api->close(handle)` when done. Like the other backends, it must not be called while another thread is still using the handle.
 
 ---
