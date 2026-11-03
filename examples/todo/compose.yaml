@@ -1,0 +1,28 @@
+# Optional: a throwaway PostgreSQL for running the todo example on Postgres.
+#
+#   docker compose -f examples/todo/compose.yaml up -d --wait
+#   BB_TODO_DB=postgresql://todo:todo@127.0.0.1:5432/todo ./examples/todo/example_todo
+#   docker compose -f examples/todo/compose.yaml down -v     # also deletes the data
+#
+# Development only: the credentials are public, and the port is published on
+# the loopback interface only. If 5432 is taken, set TODO_PG_PORT and use the
+# same port in the connection string.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: todo
+      POSTGRES_PASSWORD: todo
+      POSTGRES_DB: todo
+    ports:
+      - "127.0.0.1:${TODO_PG_PORT:-5432}:5432"
+    volumes:
+      - todo-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo -d todo"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  todo-pgdata:
