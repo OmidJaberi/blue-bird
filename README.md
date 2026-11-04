@@ -70,7 +70,8 @@ For examples, checkout [here](examples/README.md). Currently the following examp
 |---|---|---|
 | [`hello`](examples/hello/README.md) | Routing, request/response basics | `web` |
 | [`async_sample`](examples/async_sample/README.md) | The event loop underneath everything else (no HTTP) | `runtime` |
-| [`todo`](examples/todo/README.md) | Persistence (SQLite-backed repos), templating, middleware | `web`, `persist`, `template`, `log` |
+| [`todo`](examples/todo/README.md) | Persistence (repos on SQLite, JSON or PostgreSQL), templating, middleware | `web`, `persist`, `template`, `log` |
+| [`schema_api`](examples/schema_api/README.md) | Schemas as data: one set of handlers serves a REST API for any schema (validation, filtering, sorting, paging) | `web`, `persist` |
 | [`chat`](examples/chat/README.md) | Auth/sessions, websockets, a real frontend | `web`, `persist`, `security`, `log` |
 
 ---
