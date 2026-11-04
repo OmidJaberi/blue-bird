@@ -1,0 +1,12 @@
+{
+    "version": 1,
+    "kind": "persist.schema",
+    "name": "Note",
+    "table": "notes",
+    "fields": [
+        { "name": "id", "type": "uuid", "primary_key": true, "auto_generate": true },
+        { "name": "title", "type": "string", "size": 64, "required": true },
+        { "name": "body", "type": "string", "size": 256 },
+        { "name": "pinned", "type": "int" }
+    ]
+}

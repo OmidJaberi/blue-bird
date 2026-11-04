@@ -1,0 +1,12 @@
+{
+    "version": 1,
+    "kind": "persist.schema",
+    "name": "Book",
+    "table": "books",
+    "fields": [
+        { "name": "id", "type": "uuid", "primary_key": true, "auto_generate": true },
+        { "name": "title", "type": "string", "size": 128, "required": true },
+        { "name": "author", "type": "string", "size": 64, "required": true },
+        { "name": "year", "type": "int" }
+    ]
+}
