@@ -123,6 +123,46 @@ bb_error_t reflect_name_handler(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+/* ---- handlers and middleware that fail ----
+ * A step that returns an error must still produce an answer for the client. */
+
+/* Chooses 404 itself, then reports an error. The client must see the 404. */
+bb_error_t fail_explicit_404_handler(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_status(res, 404);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "gone");
+    return BB_ERROR(BB_ERR_BAD_REQUEST, "internal-detail-404");
+}
+
+bb_error_t fail_explicit_500_handler(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_status(res, 500);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "oops");
+    return BB_ERROR(BB_ERR_INTERNAL, "internal-detail-500");
+}
+
+/* Builds half a response and fails without choosing a status. */
+bb_error_t fail_no_status_handler(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "half-built");
+    return BB_ERROR(BB_ERR_INTERNAL, "secret-detail");
+}
+
+/* Post-middleware that fails when asked to, after the handler succeeded. */
+bb_error_t fail_post_middleware(bb_request_t *req, bb_response_t *res)
+{
+    (void) res;
+    if (bb_request_get_header(req, "X-Fail-Post"))
+        return BB_ERROR(BB_ERR_INTERNAL, "post-middleware-detail");
+    return BB_SUCCESS();
+}
+
 void *server(void* arg)
 {
     (void) arg;
@@ -139,6 +179,10 @@ void *server(void* arg)
     bb_server_add_route(server, "GET", "/large_response", large_response_handler);
     bb_server_add_route(server, "GET", "/reflect", reflect_value_handler);
     bb_server_add_route(server, "GET", "/reflect_name", reflect_name_handler);
+    bb_server_add_route(server, "GET", "/fail/explicit_404", fail_explicit_404_handler);
+    bb_server_add_route(server, "GET", "/fail/explicit_500", fail_explicit_500_handler);
+    bb_server_add_route(server, "GET", "/fail/no_status", fail_no_status_handler);
+    bb_server_use_post_middleware(server, fail_post_middleware);
     bb_server_start(server);
 
     bb_runtime_run(server_runtime);
@@ -456,6 +500,77 @@ void test_too_many_query_params(void)
     BB_ASSERT(bb_response_get_status(res) == 400);
 
     bb_client_destroy(client);
+}
+
+/* GET `url` (optionally with one request header); returns the status and
+ * leaves the body in `body`. */
+static int get_status_and_body(const char *url, const char *header, const char *header_value,
+                               char *body, size_t body_cap)
+{
+    bb_client_t *client = bb_client_create();
+    bb_request_t *req = bb_client_get_request(client);
+    bb_response_t *res = bb_client_get_response(client);
+
+    bb_request_set_method(req, "GET");
+    bb_request_set_url(req, url);
+    bb_request_set_body(req, "");
+    if (header)
+        bb_request_set_header(req, header, header_value);
+
+    bb_error_t err = bb_client_execute(client);
+    BB_ASSERT(err.code == 0); /* an answer arrived: the connection was not just dropped */
+
+    int status = bb_response_get_status(res);
+    const char *b = bb_response_get_body(res);
+    snprintf(body, body_cap, "%s", b ? b : "");
+
+    bb_client_destroy(client);
+    return status;
+}
+
+void test_handler_error_with_explicit_status(void)
+{
+    printf("Testing handler error with an explicit status is answered with that status...\n");
+
+    char body[256];
+
+    BB_ASSERT(get_status_and_body("http://127.0.0.1:8080/fail/explicit_404", NULL, NULL, body, sizeof(body)) == 404);
+    BB_ASSERT(strcmp(body, "gone") == 0);
+    BB_ASSERT(strstr(body, "internal-detail") == NULL);
+
+    BB_ASSERT(get_status_and_body("http://127.0.0.1:8080/fail/explicit_500", NULL, NULL, body, sizeof(body)) == 500);
+    BB_ASSERT(strcmp(body, "oops") == 0);
+    BB_ASSERT(strstr(body, "internal-detail") == NULL);
+}
+
+void test_handler_error_without_status(void)
+{
+    printf("Testing handler error without a status becomes a plain 500...\n");
+
+    char body[256];
+
+    BB_ASSERT(get_status_and_body("http://127.0.0.1:8080/fail/no_status", NULL, NULL, body, sizeof(body)) == 500);
+    BB_ASSERT(strcmp(body, "Internal Server Error") == 0);
+    BB_ASSERT(strstr(body, "half-built") == NULL);   /* the partial response is replaced */
+    BB_ASSERT(strstr(body, "secret-detail") == NULL); /* the error is logged, not sent */
+}
+
+void test_post_middleware_error(void)
+{
+    printf("Testing post-middleware error replaces the handler's response with a 500...\n");
+
+    char body[256];
+
+    /* without the trigger header the same route works */
+    BB_ASSERT(get_status_and_body("http://127.0.0.1:8080/", NULL, NULL, body, sizeof(body)) == 200);
+    BB_ASSERT(strcmp(body, "Hello, Blue-Bird :)") == 0);
+
+    BB_ASSERT(get_status_and_body("http://127.0.0.1:8080/", "X-Fail-Post", "1", body, sizeof(body)) == 500);
+    BB_ASSERT(strcmp(body, "Internal Server Error") == 0);
+    BB_ASSERT(strstr(body, "post-middleware-detail") == NULL);
+
+    /* the server is fine afterwards */
+    BB_ASSERT(get_status_and_body("http://127.0.0.1:8080/", NULL, NULL, body, sizeof(body)) == 200);
 }
 
 void test_missing_query_param_req(void)
@@ -1638,6 +1753,9 @@ int main(void)
     test_multi_query_param_req();
     test_too_many_query_params();
     test_missing_query_param_req();
+    test_handler_error_with_explicit_status();
+    test_handler_error_without_status();
+    test_post_middleware_error();
     test_duplicate_query_param();
     test_empty_query_value();
     test_invalid_query_format();

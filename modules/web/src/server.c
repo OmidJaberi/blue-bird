@@ -262,6 +262,36 @@ static void _server_read_error(bb_error_t err, void *userdata)
     _server_task_data_cleanup(data);
 }
 
+/* A middleware or handler that returns an error stops the pipeline, but the
+ * client must still get an answer; closing the connection without one leaves
+ * it hanging or reporting an empty reply.
+ *
+ * If the failing step already chose an error status (>= 400) that response is
+ * sent as it stands: that is how a handler says "404" or an auth middleware
+ * says "401". Otherwise the status and body are replaced by a plain 500 (any
+ * headers already set stay). The error itself goes to the log, never to the
+ * client. */
+static bb_error_t _http_pipeline_failed(bb_error_t err, bb_response_t *res)
+{
+    int status = bb_response_get_status(res);
+
+    if (status < 400)
+    {
+        bb_response_set_status(res, 500);
+        bb_response_set_header(res, "Content-Type", "text/plain");
+        bb_response_set_body(res, "Internal Server Error");
+        status = 500;
+    }
+
+    /* A deliberate 4xx is an ordinary answer, not worth a log line. */
+    if (status >= 500)
+    {
+        BB_LOG_ERROR("%s: %s\n", bb_strerror(err.code), err.msg);
+    }
+
+    return BB_SUCCESS();
+}
+
 static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_request_t *req, bb_response_t *res)
 {
     bb_error_t err;
@@ -270,17 +300,24 @@ static bb_error_t _run_http_route(bb_server_t *server, bb_route_t *route, bb_req
 
     if (BB_FAILED(err))
     {
-        return err;
+        return _http_pipeline_failed(err, res);
     }
 
     err = bb_route_run_http_handler(route, req, res);
 
     if (BB_FAILED(err))
     {
-        return err;
+        return _http_pipeline_failed(err, res);
     }
 
-    return bb_middleware_list_run(server->post_middleware_list, req, res);
+    err = bb_middleware_list_run(server->post_middleware_list, req, res);
+
+    if (BB_FAILED(err))
+    {
+        return _http_pipeline_failed(err, res);
+    }
+
+    return err;
 }
 
 static bb_error_t _run_websocket_route(bb_async_connection_t *async_conn, bb_route_t *route, bb_websocket_t **ws, bb_request_t *req, bb_response_t *res)

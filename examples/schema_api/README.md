@@ -108,9 +108,9 @@ database: `BB_SCHEMA_API_DB=postgresql://todo:todo@127.0.0.1:5432/todo`.
   key always comes from the URL, never the body.
 - **A missing row and a backend failure look the same** to the repo API (both
   return `-1`), so lookups report `404` for either.
-- **Handlers always return success once they set a status.** The server drops
-  the response of a handler that returns an error, so errors are reported as
-  JSON bodies instead.
+- **Errors are JSON bodies, and handlers return success once they set a
+  status.** A handler that returned an error would get its status sent too,
+  but post-middleware would be skipped for that request.
 - **No authentication.** Do not expose it to an untrusted network.
 - **Blob fields are not exposed** over JSON.
 - **At most 8 filters** per request (`BB_QUERY_MAX_CONDITIONS`), and the names

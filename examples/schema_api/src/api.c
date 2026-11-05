@@ -68,9 +68,9 @@ static bb_field_t *pk_field(bb_schema_t *schema)
 }
 
 /* ---------------------------------------------------------------------------
- * Replies. Handlers always return success once they have set a status: the
- * server drops the response of a handler that returns an error, so errors
- * are reported as JSON bodies with a status code instead.
+ * Replies. Errors are reported as JSON bodies with a status code, and the
+ * handlers return success once they have set one. (A handler that returns an
+ * error gets its status sent too, but skips the post-middleware.)
  * ------------------------------------------------------------------------- */
 
 static bb_error_t reply_json(bb_response_t *res, int status, bb_json_t *json)

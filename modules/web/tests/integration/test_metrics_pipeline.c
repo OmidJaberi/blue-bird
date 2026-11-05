@@ -18,12 +18,13 @@ static bb_error_t ok_handler(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
-/* Stand-in for an auth middleware: rejects any request carrying X-Block. */
+/* Stand-in for an auth middleware: rejects any request carrying X-Block
+ * with a 401 and stops the pipeline by returning an error. */
 static bb_error_t block_mw(bb_request_t *req, bb_response_t *res)
 {
-    (void) res;
     if (bb_request_get_header(req, "X-Block"))
     {
+        bb_response_set_status(res, 401);
         return BB_ERROR(BB_ERR_BAD_REQUEST, "blocked by test middleware");
     }
     return BB_SUCCESS();
@@ -202,6 +203,7 @@ int main(void)
     http_get_raw("/metrics", "X-Block: 1\r\n", blocked, sizeof(blocked));
     BB_ASSERT(strstr(blocked, "bluebird_") == NULL);
     BB_ASSERT(strstr(blocked, "HTTP/1.1 200") == NULL);
+    BB_ASSERT(strstr(blocked, "HTTP/1.1 401") != NULL); /* answered, not dropped */
 
     bb_usleep(100000);
 
@@ -225,13 +227,13 @@ int main(void)
 
     /* 7 HTTP + 1 idle + 1 WebSocket upgrade + 1 scrape + 1 blocked scrape */
     BB_ASSERT(m->connections_accepted_total == 11);
-    /* 7 HTTP + the 101 upgrade + the scrape; the idle connection sent nothing and
-     * the blocked scrape was dropped by the middleware without a response */
-    BB_ASSERT(m->requests_total == 9);
+    /* 7 HTTP + the 101 upgrade + the scrape + the blocked scrape (answered 401
+     * by the middleware); the idle connection sent nothing */
+    BB_ASSERT(m->requests_total == 10);
     BB_ASSERT(m->responses_by_class[2] == 6);
-    BB_ASSERT(m->responses_by_class[4] == 2);
+    BB_ASSERT(m->responses_by_class[4] == 3);
     BB_ASSERT(m->responses_by_class[1] == 1);
-    BB_ASSERT(m->latency_count == 9);
+    BB_ASSERT(m->latency_count == 10);
 
     uint64_t bucket_total = 0;
     for (size_t i = 0; i < BB_METRICS_LATENCY_BUCKETS; i++)
