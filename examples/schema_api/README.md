@@ -101,8 +101,9 @@ database: `BB_SCHEMA_API_DB=postgresql://todo:todo@127.0.0.1:5432/todo`.
 - **Flags are applied here, not by the backends.** No backend interprets
   `REQUIRED` or `AUTO_GENERATE`; `api.c` enforces them from the schema.
 - **Strings are bounded by their field size, in bytes.** Longer values are
-  rejected with a `400`. `bb_json_to_entity` copies strings without checking
-  their length, so the handlers check first.
+  rejected with a `400`. `bb_json_to_entity` would truncate them silently, and
+  an API should not store a shortened value without telling the client, so the
+  handlers check first.
 - **`PUT` replaces the entity.** Optional fields left out are reset, and the
   key always comes from the URL, never the body.
 - **A missing row and a backend failure look the same** to the repo API (both

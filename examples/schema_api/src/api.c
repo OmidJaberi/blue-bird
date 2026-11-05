@@ -170,8 +170,10 @@ static void set_key(const bb_field_t *pk, void *entity, const void *key)
 /* ---------------------------------------------------------------------------
  * Request bodies.
  *
- * bb_json_to_entity() copies strings without checking their length, so every
- * value is checked against the schema first.
+ * bb_json_to_entity() silently truncates a string that does not fit its
+ * field. For a persistence API that would store a shortened value without
+ * telling the client, so every value is checked against the schema first and
+ * over-long input is rejected instead.
  * ------------------------------------------------------------------------- */
 
 static bb_json_t *parse_body(bb_request_t *req)
