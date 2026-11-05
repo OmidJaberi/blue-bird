@@ -55,6 +55,31 @@ bb_json_t *bb_entity_to_json(bb_schema_t *schema, void *entity)
     return obj;
 }
 
+/* Copies a JSON string into a fixed-size char field. The field is always
+ * NUL-terminated: a value that does not fit is truncated to size - 1 bytes,
+ * without cutting a UTF-8 sequence in half. (strncpy() would leave a value of
+ * exactly `size` bytes or more unterminated.) */
+static void copy_text_field(char *dst, size_t size, const char *text)
+{
+    if (size == 0)
+        return;
+
+    size_t len = text ? strlen(text) : 0;
+    size_t n = len < size ? len : size - 1;
+
+    if (n < len)
+    {
+        /* text[n] is the first byte left out; if it is a UTF-8 continuation
+         * byte the cut is inside a character, so step back to its start. */
+        while (n > 0 && ((unsigned char)text[n] & 0xC0) == 0x80)
+            n--;
+    }
+
+    if (n > 0)
+        memcpy(dst, text, n);
+    dst[n] = '\0';
+}
+
 int bb_json_to_entity(bb_schema_t *schema, bb_json_t *json, void *out)
 {
     if (!schema || !json || !out)
@@ -94,7 +119,7 @@ int bb_json_to_entity(bb_schema_t *schema, bb_json_t *json, void *out)
                 if (bb_json_get_type(val) != BB_JSON_TEXT)
                     return -1;
 
-                strncpy((char *)field_ptr, bb_json_get_value_text(val), f->size);
+                copy_text_field((char *)field_ptr, f->size, bb_json_get_value_text(val));
 
                 break;
             }
