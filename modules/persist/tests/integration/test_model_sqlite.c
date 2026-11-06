@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sqlite3.h>
 
 #include "blue-bird/persist/model.h"
 #include "blue-bird/persist/model/model_sqlite.h"
@@ -587,6 +588,129 @@ static void test_sqlite_memory_db_shared_across_threads(void)
     api->close(h);
 }
 
+/* ---------------------------
+ * Rows that do not fit the schema
+ *
+ * Rows can disagree with the schema (another tool wrote them, or a field's
+ * size changed since). Reading them must still give fully initialised,
+ * NUL-terminated entities: no strings running off the end of their field, no
+ * garbage from NULL columns, no reads past the end of a short blob. The rows
+ * are written with the raw SQLite API, which the backend itself never does.
+ * --------------------------- */
+
+typedef struct {
+    int id;
+    char name[8];
+    unsigned char data[4];
+} Narrow;
+
+static bb_field_t narrow_fields[] = {
+    { .name = "id",   .type = BB_FIELD_INT,    .offset = offsetof(Narrow, id),   .size = sizeof(int), .flags = BB_FIELD_NONE },
+    { .name = "name", .type = BB_FIELD_STRING, .offset = offsetof(Narrow, name), .size = 8,           .flags = BB_FIELD_NONE },
+    { .name = "data", .type = BB_FIELD_BLOB,   .offset = offsetof(Narrow, data), .size = 4,           .flags = BB_FIELD_NONE }
+};
+
+static bb_schema_t narrow_schema = {
+    .name = "narrow_rows",
+    .fields = narrow_fields,
+    .field_count = 3,
+    .struct_size = sizeof(Narrow),
+    .primary_key_index = 0
+};
+
+static const struct { const char *name; unsigned char data[4]; } narrow_expected[5] = {
+    { "", { 0, 0, 0, 0 } },                    /* unused */
+    { "1234567", { 1, 2, 0, 0 } },             /* 10-byte text cut to 7; 2-byte blob padded   */
+    { "aaaaaa",  { 1, 2, 3, 4 } },             /* 8 bytes ending in a 2-byte character: cut
+                                                  would split it, so only 6 bytes are kept;
+                                                  6-byte blob cut to 4                       */
+    { "",        { 0, 0, 0, 0 } },             /* NULL text and NULL blob                    */
+    { "ok",      { 0, 0, 0, 0 } }              /* empty blob (sqlite returns NULL for it)    */
+};
+
+static void expect_narrow(const Narrow *r, int id)
+{
+    BB_ASSERT(r->id == id);
+    BB_ASSERT(memchr(r->name, '\0', sizeof(r->name)) != NULL);   /* terminated inside the field */
+    BB_ASSERT(strcmp(r->name, narrow_expected[id].name) == 0);
+    BB_ASSERT(memcmp(r->data, narrow_expected[id].data, sizeof(r->data)) == 0);
+}
+
+static void test_sqlite_reads_rows_that_do_not_fit_the_schema(void)
+{
+    printf("\tTesting reads of rows that do not fit the schema...\n");
+
+    const char *path = "test_sqlite_misfit.db";
+    cleanup_db(path);
+
+    sqlite3 *raw = NULL;
+    BB_ASSERT(sqlite3_open(path, &raw) == SQLITE_OK);
+    BB_ASSERT(sqlite3_exec(raw,
+        "CREATE TABLE narrow_rows (id INTEGER PRIMARY KEY, name TEXT, data BLOB);"
+        "INSERT INTO narrow_rows VALUES (1, '1234567890', X'0102');"
+        "INSERT INTO narrow_rows VALUES (2, CAST(X'616161616161C3A9' AS TEXT), X'010203040506');"
+        "INSERT INTO narrow_rows VALUES (3, NULL, NULL);"
+        "INSERT INTO narrow_rows VALUES (4, 'ok', X'');",
+        NULL, NULL, NULL) == SQLITE_OK);
+    sqlite3_close(raw);
+
+    const bb_model_api_t *api = bb_model_sqlite_api();
+    bb_model_handle_t *h = api->open(path);
+    BB_ASSERT(h);
+
+    /* find_by_pk: the output starts as garbage, so anything left unset shows */
+    for (int id = 1; id <= 4; id++)
+    {
+        Narrow out;
+        memset(&out, 0x55, sizeof(out));
+        BB_ASSERT(api->find_by_pk(h, &narrow_schema, &out, &id) == 0);
+        expect_narrow(&out, id);
+    }
+
+    /* find_first_by_field (blob fields are read too, only not searchable) */
+    for (int id = 1; id <= 4; id++)
+    {
+        Narrow out;
+        memset(&out, 0x55, sizeof(out));
+        BB_ASSERT(api->find_first_by_field(h, &narrow_schema, &out, "id", &id) == 0);
+        expect_narrow(&out, id);
+    }
+
+    /* find_all */
+    {
+        Narrow *rows = NULL;
+        size_t count = 0;
+        BB_ASSERT(api->find_all(h, &narrow_schema, (void **)&rows, &count) == 0);
+        BB_ASSERT(count == 4);
+        for (size_t i = 0; i < count; i++)
+            expect_narrow(&rows[i], rows[i].id);
+        free(rows);
+    }
+
+    /* query */
+    {
+        bb_query_t q;
+        bb_query_init(&q, &narrow_schema);
+        int min_id = 1;
+        BB_ASSERT(bb_query_where(&q, "id", BB_OP_GTE, &min_id) == 0);
+        BB_ASSERT(bb_query_order_by(&q, "id", BB_ORDER_ASC) == 0);
+
+        Narrow *rows = NULL;
+        size_t count = 0;
+        BB_ASSERT(api->query(h, &narrow_schema, &q, (void **)&rows, &count) == 0);
+        BB_ASSERT(count == 4);
+        for (size_t i = 0; i < count; i++)
+        {
+            BB_ASSERT(rows[i].id == (int)i + 1);
+            expect_narrow(&rows[i], rows[i].id);
+        }
+        free(rows);
+    }
+
+    api->close(h);
+    cleanup_db(path);
+}
+
 int main(void)
 {
     printf("Running SQLite model integration tests...\n");
@@ -603,6 +727,7 @@ int main(void)
     test_sqlite_many_fields_no_overflow();
     test_sqlite_concurrent_access_shared_handle();
     test_sqlite_memory_db_shared_across_threads();
+    test_sqlite_reads_rows_that_do_not_fit_the_schema();
 
     printf("All SQLite model tests passed!\n");
     return 0;
