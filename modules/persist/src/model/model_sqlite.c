@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 #include "blue-bird/persist/model/model_sqlite.h"
+#include "../internal/text_copy.h"
 
 #include <blue-bird/utils/platform.h>
 
@@ -505,6 +506,43 @@ static int sqlite_insert(bb_model_handle_t *handle, bb_schema_t *schema, void *e
     return (rc == SQLITE_DONE) ? 0 : -1;
 }
 
+/* ---------------------------
+ * Reading a column into an entity field
+ *
+ * Whatever is stored, the field ends up fully initialised: text that does not
+ * fit is truncated and NUL-terminated, NULL becomes an empty string / zero,
+ * and a blob shorter than the field is zero-padded. (Rows can disagree with
+ * the schema: another tool wrote them, or the schema's field sizes changed.)
+ * --------------------------- */
+
+static void read_column(sqlite3_stmt *stmt, int col, const bb_field_t *f, void *field_ptr)
+{
+    switch (f->type)
+    {
+        case BB_FIELD_INT:
+            *(int *)field_ptr = sqlite3_column_int(stmt, col);
+            break;
+
+        case BB_FIELD_STRING:
+        case BB_FIELD_UUID:
+            bb_persist_copy_text_field((char *)field_ptr, f->size,
+                                       (const char *)sqlite3_column_text(stmt, col));
+            break;
+
+        case BB_FIELD_BLOB:
+        {
+            /* sqlite3_column_bytes() must be called after sqlite3_column_blob() */
+            const void *blob = sqlite3_column_blob(stmt, col);
+            size_t len = (size_t)sqlite3_column_bytes(stmt, col);
+
+            memset(field_ptr, 0, f->size);
+            if (blob && len > 0)
+                memcpy(field_ptr, blob, len < f->size ? len : f->size);
+            break;
+        }
+    }
+}
+
 static int sqlite_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, void *out, const void *key)
 {
     BB_ModelSQLiteHandle *h = (BB_ModelSQLiteHandle *)handle;
@@ -577,29 +615,7 @@ static int sqlite_find_by_pk(bb_model_handle_t *handle, bb_schema_t *schema, voi
     for (size_t i = 0; i < schema->field_count; i++)
     {
         bb_field_t *f = &schema->fields[i];
-        void *field_ptr = (char *)out + f->offset;
-
-        switch (f->type)
-        {
-            case BB_FIELD_INT:
-                *(int *)field_ptr = sqlite3_column_int(stmt, (int)i);
-                break;
-
-            case BB_FIELD_STRING:
-            case BB_FIELD_UUID:
-            {
-                const unsigned char *text = sqlite3_column_text(stmt, (int)i);
-                if (text)
-                    strncpy((char *)field_ptr, (const char *)text, f->size);
-                break;
-            }
-
-            case BB_FIELD_BLOB:
-                memcpy(field_ptr,
-                       sqlite3_column_blob(stmt, (int)i),
-                       f->size);
-                break;
-        }
+        read_column(stmt, (int)i, f, (char *)out + f->offset);
     }
 
     sqlite3_finalize(stmt);
@@ -891,29 +907,7 @@ static int sqlite_find_all(bb_model_handle_t *handle,
         for (size_t i = 0; i < schema->field_count; i++)
         {
             bb_field_t *f = &schema->fields[i];
-            void *field_ptr = (char *)entity + f->offset;
-
-            switch (f->type)
-            {
-                case BB_FIELD_INT:
-                    *(int *)field_ptr = sqlite3_column_int(stmt, (int)i);
-                    break;
-
-                case BB_FIELD_STRING:
-                case BB_FIELD_UUID:
-                {
-                    const unsigned char *text = sqlite3_column_text(stmt, (int)i);
-                    if (text)
-                        strncpy((char *)field_ptr, (const char *)text, f->size);
-                    break;
-                }
-
-                case BB_FIELD_BLOB:
-                    memcpy(field_ptr,
-                           sqlite3_column_blob(stmt, (int)i),
-                           f->size);
-                    break;
-            }
+            read_column(stmt, (int)i, f, (char *)entity + f->offset);
         }
 
         count++;
@@ -1010,36 +1004,7 @@ static int sqlite_find_first_by_field(bb_model_handle_t *handle, bb_schema_t *sc
     for (size_t i = 0; i < schema->field_count; i++)
     {
         bb_field_t *f = &schema->fields[i];
-
-        void *field_ptr =
-            (char *)out + f->offset;
-
-        switch (f->type)
-        {
-            case BB_FIELD_INT:
-                *(int *)field_ptr =
-                    sqlite3_column_int(stmt, (int)i);
-                break;
-
-            case BB_FIELD_STRING:
-            case BB_FIELD_UUID:
-            {
-                const unsigned char *text =
-                    sqlite3_column_text(stmt, (int)i);
-
-                if (text)
-                {
-                    strncpy((char *)field_ptr,
-                            (const char *)text,
-                            f->size);
-                }
-
-                break;
-            }
-
-            default:
-                break;
-        }
+        read_column(stmt, (int)i, f, (char *)out + f->offset);
     }
 
     sqlite3_finalize(stmt);
@@ -1234,29 +1199,7 @@ static int sqlite_query(bb_model_handle_t *handle, bb_schema_t *schema, const bb
         for (size_t i = 0; i < schema->field_count; i++)
         {
             bb_field_t *f = &schema->fields[i];
-            void *field_ptr = (char *)entity + f->offset;
-
-            switch (f->type)
-            {
-                case BB_FIELD_INT:
-                    *(int *)field_ptr = sqlite3_column_int(stmt, (int)i);
-                    break;
-
-                case BB_FIELD_STRING:
-                case BB_FIELD_UUID:
-                {
-                    const unsigned char *text = sqlite3_column_text(stmt, (int)i);
-                    if (text)
-                        strncpy((char *)field_ptr, (const char *)text, f->size);
-                    break;
-                }
-
-                case BB_FIELD_BLOB:
-                    memcpy(field_ptr,
-                           sqlite3_column_blob(stmt, (int)i),
-                           f->size);
-                    break;
-            }
+            read_column(stmt, (int)i, f, (char *)entity + f->offset);
         }
 
         count++;

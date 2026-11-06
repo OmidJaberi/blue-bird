@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "blue-bird/persist/model/model_postgres.h"
+#include "../internal/text_copy.h"
 
 #include <blue-bird/utils/platform.h>
 
@@ -574,18 +575,8 @@ static void read_column(PGresult *res, int row, int col, const bb_field_t *f, vo
 
         case BB_FIELD_STRING:
         case BB_FIELD_UUID:
-        {
-            if (f->size == 0)
-                break;
-
-            size_t n = strlen(text);
-            if (n > f->size - 1)
-                n = f->size - 1;
-
-            memcpy(dst, text, n);
-            memset((char *)dst + n, 0, f->size - n); /* NUL-terminates */
+            bb_persist_copy_text_field((char *)dst, f->size, text);
             break;
-        }
 
         case BB_FIELD_BLOB:
         default:
