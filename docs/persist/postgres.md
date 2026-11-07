@@ -128,10 +128,11 @@ cmake -B build -DBB_WITH_POSTGRES=ON
 cmake --build build
 
 BB_TEST_POSTGRES_URI="postgresql://postgres:postgres@localhost:5432/postgres" \
-  ctest --test-dir build -R model_postgres -V
+  ctest --test-dir build -R "model_postgres|schema_api_postgres" -V
 ```
 
-A successful run prints `All postgres model tests passed`. If it prints `Skipping`, the variable is not set in that shell or the build was configured without `-DBB_WITH_POSTGRES=ON`.
+A successful run prints `All postgres model tests passed`, and the `schema_api`
+example's end-to-end test prints `All schema_api tests passed on postgres`. If it prints `Skipping`, the variable is not set in that shell or the build was configured without `-DBB_WITH_POSTGRES=ON`.
 
 The tests remove every row they insert and leave the empty table `bb_test_people_pg` behind. CI runs the same tests against PostgreSQL service containers on Linux and against a local server on Windows (MSVC).
 

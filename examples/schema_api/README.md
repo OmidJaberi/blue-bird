@@ -129,5 +129,19 @@ examples/schema_api/
     └── generated/            # bb-codegen output, committed
 ```
 
-`ctest` runs `bb-codegen check` (`examples.schema_api_schema_check`), which
-fails if a manifest changed without regenerating.
+## Tests
+
+`ctest` runs:
+
+- `examples.schema_api_json`, `examples.schema_api_sqlite` and
+  `examples.schema_api_postgres`: the same end-to-end test, over real HTTP,
+  against the real handlers, once per backend. It covers validation, filters,
+  bytewise sort order, paging (including stable paging when rows tie on the
+  sort key), `PUT`/`DELETE` and the error responses. Passing on every backend
+  is the check that the backends agree. The PostgreSQL run skips itself
+  unless the build has `-DBB_WITH_POSTGRES=ON` and `BB_TEST_POSTGRES_URI`
+  points at a database (see
+  [the PostgreSQL docs](../../docs/persist/postgres.md)); it tags its data
+  with a per-run marker and removes it again.
+- `examples.schema_api_schema_check`: `bb-codegen check`, which fails if a
+  manifest changed without regenerating.
