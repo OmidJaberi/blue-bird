@@ -87,13 +87,7 @@ int main(void)
 
     bb_server_t *server = bb_server_create(8080);
 
-    /* Routes are matched in order, so the fixed one comes first. */
-    bb_server_add_route(server, "GET",    "/",              api_describe);
-    bb_server_add_route(server, "GET",    "/:resource",     api_list);
-    bb_server_add_route(server, "POST",   "/:resource",     api_create);
-    bb_server_add_route(server, "GET",    "/:resource/:id", api_get);
-    bb_server_add_route(server, "PUT",    "/:resource/:id", api_replace);
-    bb_server_add_route(server, "DELETE", "/:resource/:id", api_delete);
+    api_add_routes(server);
 
     bb_server_start(server);
     bb_runtime_run_default();

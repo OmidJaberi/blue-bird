@@ -625,3 +625,18 @@ bb_error_t api_delete(bb_request_t *req, bb_response_t *res)
     bb_response_set_status(res, 204);
     return BB_SUCCESS();
 }
+
+/* ---------------------------------------------------------------------------
+ * Routes
+ * ------------------------------------------------------------------------- */
+
+void api_add_routes(bb_server_t *server)
+{
+    /* Routes are matched in order, so the fixed one comes first. */
+    bb_server_add_route(server, "GET",    "/",              api_describe);
+    bb_server_add_route(server, "GET",    "/:resource",     api_list);
+    bb_server_add_route(server, "POST",   "/:resource",     api_create);
+    bb_server_add_route(server, "GET",    "/:resource/:id", api_get);
+    bb_server_add_route(server, "PUT",    "/:resource/:id", api_replace);
+    bb_server_add_route(server, "DELETE", "/:resource/:id", api_delete);
+}
