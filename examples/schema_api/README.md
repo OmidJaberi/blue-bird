@@ -64,7 +64,7 @@ Each step reads the schema instead of knowing the entity:
 | Allocate the entity | `struct_size` |
 | JSON in and out | `bb_json_to_entity` / `bb_entity_to_json`, driven by field types and offsets |
 | Validate the body | each field's type, `size` (a string must fit), and the `REQUIRED` flag |
-| Generate ids | `AUTO_GENERATE` on a `uuid` field |
+| Generate ids | nothing: `bb_repo_insert()` fills an `AUTO_GENERATE` `uuid` field itself |
 | Parse `:id` | the primary key's type (`int` or string/uuid) |
 | Build filters | a walk over the schema's fields: `?year=1984` becomes a typed `bb_query_where` |
 | Describe the API | the same field metadata, serialised |
@@ -98,8 +98,10 @@ database: `BB_SCHEMA_API_DB=postgresql://todo:todo@127.0.0.1:5432/todo`.
 
 ## Things to know
 
-- **Flags are applied here, not by the backends.** No backend interprets
-  `REQUIRED` or `AUTO_GENERATE`; `api.c` enforces them from the schema.
+- **`REQUIRED` is checked here; `AUTO_GENERATE` is not.** No backend enforces
+  `REQUIRED` yet, so `api.c` checks it from the schema, which also lets it name
+  the field in the error. Generated ids need no code at all:
+  `bb_repo_insert()` fills them.
 - **Strings are bounded by their field size, in bytes.** Longer values are
   rejected with a `400`. `bb_json_to_entity` would truncate them silently, and
   an API should not store a shortened value without telling the client, so the

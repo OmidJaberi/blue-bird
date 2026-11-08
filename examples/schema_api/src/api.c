@@ -4,7 +4,6 @@
 #include <blue-bird/persist/repo.h>
 #include <blue-bird/persist/serialization/entity_json.h>
 #include <blue-bird/utils/json.h>
-#include <blue-bird/utils/uuid.h>
 
 #include <errno.h>
 #include <limits.h>
@@ -500,12 +499,9 @@ bb_error_t api_create(bb_request_t *req, bb_response_t *res)
         return reply_error(res, 400, "invalid entity");
     }
 
-    /* AUTO_GENERATE: nothing in the backends interprets this flag, so it is
-     * applied here, from the schema. */
-    for (size_t i = 0; i < schema->field_count; i++)
-        if (is_server_owned(schema, i, 1))
-            bb_uuid_v4_string((char *)entity + schema->fields[i].offset);
-
+    /* Fields flagged AUTO_GENERATE are still empty here (validate_body dropped
+     * whatever the client sent); bb_repo_insert fills them in, and the
+     * generated id comes back in `entity`. */
     if (bb_repo_insert(&r->repo, entity) != 0)
     {
         free(entity);

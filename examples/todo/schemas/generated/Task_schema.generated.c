@@ -15,7 +15,7 @@ bb_field_t Task_fields[] = {
         .type = BB_FIELD_UUID,
         .offset = offsetof(Task, id),
         .size = BB_UUID_BUF_LEN,
-        .flags = BB_FIELD_PRIMARY_KEY,
+        .flags = BB_FIELD_PRIMARY_KEY | BB_FIELD_AUTO_GENERATE,
         .references_schema = NULL,
         .references_field = NULL
     },
