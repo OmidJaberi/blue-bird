@@ -9,6 +9,7 @@
 #include "blue-bird/persist/model/model_sqlite.h"
 #include "blue-bird/persist/query.h"
 #include "blue-bird/persist/schema.h"
+#include <blue-bird/utils/uuid.h>
 
 /* ---------------------------
  * Model
@@ -465,6 +466,96 @@ static void test_repo_sqlite_like(void)
     printf("SQLite LIKE tests passed...\n");
 }
 
+/* ---------------------------
+ * AUTO_GENERATE through the repo, identical on every backend
+ * --------------------------- */
+
+typedef struct {
+    bb_uuid_t id;
+    char label[16];
+} Item;
+
+static bb_field_t item_fields[] = {
+    { .name = "id",    .type = BB_FIELD_UUID,   .offset = offsetof(Item, id),    .size = sizeof(bb_uuid_t),
+      .flags = BB_FIELD_PRIMARY_KEY | BB_FIELD_AUTO_GENERATE },
+    { .name = "label", .type = BB_FIELD_STRING, .offset = offsetof(Item, label), .size = 16,
+      .flags = BB_FIELD_NONE }
+};
+
+static bb_schema_t item_schema = {
+    .name = "items",
+    .fields = item_fields,
+    .field_count = 2,
+    .struct_size = sizeof(Item),
+    .primary_key_index = 0
+};
+
+static void run_auto_generate_tests(const char *file, const bb_model_api_t *api)
+{
+    bb_model_handle_t *h = api->open(file);
+    BB_ASSERT(h);
+
+    bb_repo_t repo;
+    bb_repo_init(&repo, api, h, &item_schema);
+
+    /* an empty id is generated, and handed back in the entity */
+    Item a = { .id = "", .label = "first" };
+    Item b = { .id = "", .label = "second" };
+    BB_ASSERT(bb_repo_insert(&repo, &a) == 0);
+    BB_ASSERT(bb_repo_insert(&repo, &b) == 0);
+    BB_ASSERT(strlen(a.id) == 36);
+    BB_ASSERT(strlen(b.id) == 36);
+    BB_ASSERT(strcmp(a.id, b.id) != 0);
+
+    /* and it is the key the row was stored under */
+    Item out;
+    memset(&out, 0, sizeof(out));
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, a.id) == 0);
+    BB_ASSERT(strcmp(out.label, "first") == 0);
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, b.id) == 0);
+    BB_ASSERT(strcmp(out.label, "second") == 0);
+
+    /* an id the caller chose is kept */
+    Item c = { .id = "chosen-by-caller", .label = "third" };
+    BB_ASSERT(bb_repo_insert(&repo, &c) == 0);
+    BB_ASSERT(strcmp(c.id, "chosen-by-caller") == 0);
+    memset(&out, 0, sizeof(out));
+    BB_ASSERT(bb_repo_find_by_pk(&repo, &out, "chosen-by-caller") == 0);
+    BB_ASSERT(strcmp(out.label, "third") == 0);
+
+    api->close(h);
+}
+
+static void test_repo_json_auto_generate(void)
+{
+    printf("JSON repo AUTO_GENERATE...\n");
+
+    const char *file = "test_repo_json_autogen.json";
+    cleanup(file);
+
+    const bb_model_api_t *api = bb_model_get("json");
+    BB_ASSERT(api);
+    run_auto_generate_tests(file, api);
+    cleanup(file);
+
+    printf("JSON AUTO_GENERATE tests passed...\n");
+}
+
+static void test_repo_sqlite_auto_generate(void)
+{
+    printf("SQLite repo AUTO_GENERATE...\n");
+
+    const char *db = "test_repo_sqlite_autogen.db";
+    cleanup(db);
+
+    const bb_model_api_t *api = bb_model_get("sqlite");
+    BB_ASSERT(api);
+    run_auto_generate_tests(db, api);
+    cleanup(db);
+
+    printf("SQLite AUTO_GENERATE tests passed...\n");
+}
+
 int main(void)
 {
     printf("Running repo integration tests...\n");
@@ -475,6 +566,8 @@ int main(void)
     test_repo_sqlite_query();
     test_repo_json_like();
     test_repo_sqlite_like();
+    test_repo_json_auto_generate();
+    test_repo_sqlite_auto_generate();
 
     printf("All repo tests passed!\n");
     return 0;
