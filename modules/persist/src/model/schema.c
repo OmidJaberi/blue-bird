@@ -1,5 +1,7 @@
 #include "blue-bird/persist/schema.h"
 
+#include <blue-bird/utils/uuid.h>
+
 #include <string.h>
 
 #define BB_MAX_SCHEMAS 256
@@ -94,6 +96,12 @@ int bb_schema_validate(bb_schema_t *schema)
                 return -1;
         }
 
+        /* AUTO_GENERATE generates UUIDs, so it only makes sense on a UUID field
+         * that can hold one */
+        if ((f->flags & BB_FIELD_AUTO_GENERATE) &&
+            (f->type != BB_FIELD_UUID || f->size < BB_UUID_BUF_LEN))
+            return -1;
+
         /* duplicate field names */
         for (size_t j = i + 1; j < schema->field_count; j++)
         {
@@ -131,6 +139,31 @@ int bb_schema_validate(bb_schema_t *schema)
             if (!found)
                 return -1;
         }
+    }
+
+    return 0;
+}
+
+int bb_schema_apply_auto_generate(const bb_schema_t *schema, void *entity)
+{
+    if (!schema || !entity)
+        return -1;
+
+    for (size_t i = 0; i < schema->field_count; i++)
+    {
+        const bb_field_t *f = &schema->fields[i];
+
+        if (!(f->flags & BB_FIELD_AUTO_GENERATE))
+            continue;
+
+        /* only UUID fields can be flagged (see bb_schema_validate) */
+        if (f->type != BB_FIELD_UUID || f->size < BB_UUID_BUF_LEN)
+            return -1;
+
+        char *value = (char *)entity + f->offset;
+
+        if (value[0] == '\0' && bb_uuid_v4_string(value) != 0)
+            return -1;
     }
 
     return 0;

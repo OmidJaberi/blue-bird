@@ -39,8 +39,14 @@ int bb_repo_filter(
 
 // Model Ops
 
+/* Inserts `entity`. Fields flagged BB_FIELD_AUTO_GENERATE that are still empty
+ * are filled in first (see bb_schema_apply_auto_generate), so the caller gets
+ * the generated id back in `entity`. */
 static inline int bb_repo_insert(bb_repo_t *r, void *entity)
 {
+    if (bb_schema_apply_auto_generate(r->schema, entity) != 0)
+        return -1;
+
     return r->api->insert(r->handle, r->schema, entity);
 }
 

@@ -58,6 +58,19 @@ static inline bb_field_t *bb_schema_find_field(bb_schema_t *schema, const char *
 }
 
 int bb_schema_validate(bb_schema_t *schema);
+
+/* Applies BB_FIELD_AUTO_GENERATE: every flagged field that is still empty
+ * (first byte zero) gets a fresh random UUID, written into `entity`.
+ * A value the caller already set is kept.
+ *
+ * AUTO_GENERATE is only valid on UUID fields large enough to hold one
+ * (BB_UUID_BUF_LEN); bb_schema_validate() rejects anything else.
+ *
+ * bb_repo_insert() calls this before inserting, so applications normally never
+ * do. It is not applied when the model API's insert() is called directly.
+ *
+ * Returns 0, or -1 if no random bytes were available. */
+int bb_schema_apply_auto_generate(const bb_schema_t *schema, void *entity);
 int bb_schema_register(bb_schema_t *schema);
 bb_schema_t *bb_schema_get(const char *name);
 
