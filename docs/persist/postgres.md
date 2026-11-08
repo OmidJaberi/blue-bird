@@ -81,7 +81,7 @@ Call `api->close(handle)` when done. Like the other backends, it must not be cal
 | `BB_FIELD_UUID`    | `UUID` (native type) |
 | `BB_FIELD_BLOB`    | `BYTEA` |
 
-The primary key field becomes `PRIMARY KEY`. As with the SQLite backend, the other field flags (`REQUIRED`, `UNIQUE`, `AUTO_GENERATE`) are not interpreted yet, so callers fill UUIDs themselves.
+The primary key field becomes `PRIMARY KEY`. As with the SQLite backend, `REQUIRED` and `UNIQUE` are not enforced yet (see [Field Flags](schemas.md#field-flags)). `AUTO_GENERATE` needs nothing from the backend: `bb_repo_insert()` fills the UUID before the backend sees the entity.
 
 UUID fields keep the usual `bb_uuid_t` string in your struct. PostgreSQL converts it on write and returns the canonical lowercase form on read. A malformed UUID makes the operation fail instead of storing it.
 
@@ -141,6 +141,6 @@ The tests remove every row they insert and leave the empty table `bb_test_people
 # Current Limitations
 
 - No `ALTER TABLE` or migrations for PostgreSQL; `bb-migrate` currently targets SQLite.
-- `REQUIRED`, `UNIQUE` and `AUTO_GENERATE` schema flags are ignored.
+- `REQUIRED` and `UNIQUE` schema flags are not enforced.
 - No transaction API.
 - Pool size is fixed at build time.

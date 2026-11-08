@@ -42,6 +42,20 @@ Example field metadata may include:
 
 ---
 
+# Field Flags
+
+| Flag | Effect today |
+|------|--------------|
+| `BB_FIELD_PRIMARY_KEY` | The key of the table. The SQL backends create it as `PRIMARY KEY`. |
+| `BB_FIELD_AUTO_GENERATE` | `bb_repo_insert()` fills the field with a fresh random UUID when it is still empty, and hands it back in the entity. A value the caller set is kept. Only valid on a `uuid` field big enough to hold one (`BB_UUID_BUF_LEN`); `bb_schema_validate()` rejects anything else. |
+| `BB_FIELD_REQUIRED` | Metadata only: no backend enforces it yet. Code that accepts outside input (such as the [`schema_api`](../../examples/schema_api/README.md) example) can check it from the schema. |
+| `BB_FIELD_UNIQUE` | Metadata only: no backend enforces it yet. |
+
+`AUTO_GENERATE` is applied by the repository layer, so calling a model API's
+`insert()` directly does not generate anything.
+
+---
+
 # Why Schemas Exist
 
 Schemas allow Blue-Bird to:

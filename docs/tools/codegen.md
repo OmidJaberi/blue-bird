@@ -37,7 +37,9 @@ same way a `.proto` file sits next to the service that uses it.
 
 Field options: `type` (`int`, `string`, `uuid`, `blob`), `size` (required
 for `string`/`blob`), `primary_key`, `required`, `unique`,
-`auto_generate`, `references` (`{ "schema": ..., "field": ... }`).
+`auto_generate` (only on a `uuid` field: `bb_repo_insert()` fills it when
+empty), `references` (`{ "schema": ..., "field": ... }`). See
+[Field Flags](../persist/schemas.md#field-flags) for what each flag does today.
 
 ---
 
