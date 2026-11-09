@@ -48,6 +48,7 @@ typedef struct {
     int is_private_memory;
 
     pthread_mutex_t lock;
+    pthread_cond_t returned;   /* signalled when a connection is released */
 
     bb_sqlite_conn_t conns[BB_SQLITE_POOL_MAX_CONNS];
     size_t capacity;   /* usable slots in conns[]; 1 for in-memory URIs */
@@ -114,20 +115,13 @@ static int open_one_connection(const char *uri, int is_private_memory, sqlite3 *
 /* Borrow a connection from the pool, opening a new one (up to
  * capacity) if every existing connection is checked out, and blocking
  * until one is released once capacity is reached. Returns NULL only
- * on an unrecoverable open failure.
- *
- * DIAGNOSTIC BUILD: uses only pthread_mutex_t (no pthread_cond_t), to
- * isolate whether the condition variable specifically is what's
- * breaking the Windows build. The "wait" below is a plain unlock/
- * relock spin instead of a condvar wait -- wasteful under real
- * contention, but functionally correct, and deliberately avoids any
- * pthread_cond_* symbol so this can be tested in isolation. */
+ * on an unrecoverable open failure. */
 static sqlite3 *pool_acquire(BB_ModelSQLiteHandle *h)
 {
+    pthread_mutex_lock(&h->lock);
+
     for (;;)
     {
-        pthread_mutex_lock(&h->lock);
-
         for (size_t i = 0; i < h->opened; i++)
         {
             if (!h->conns[i].in_use)
@@ -156,10 +150,10 @@ static sqlite3 *pool_acquire(BB_ModelSQLiteHandle *h)
             return db;
         }
 
-        /* Every slot is open and checked out -- release the lock and
-         * spin back around so someone else can make progress and
-         * call pool_release(), then try again. */
-        pthread_mutex_unlock(&h->lock);
+        /* Every slot is open and checked out: sleep until pool_release()
+         * signals that one came back. The loop re-checks, so a spurious
+         * wake-up is harmless. */
+        pthread_cond_wait(&h->returned, &h->lock);
     }
 }
 
@@ -179,6 +173,7 @@ static void pool_release(BB_ModelSQLiteHandle *h, sqlite3 *db)
         }
     }
 
+    pthread_cond_signal(&h->returned);
     pthread_mutex_unlock(&h->lock);
 }
 
@@ -376,12 +371,21 @@ static bb_model_handle_t *sqlite_open(const char *uri)
         return NULL;
     }
 
+    if (pthread_cond_init(&h->returned, NULL) != 0)
+    {
+        pthread_mutex_destroy(&h->lock);
+        free(h->uri);
+        free(h);
+        return NULL;
+    }
+
     /* Open (and validate) the first connection eagerly so a bad path
      * or unwritable file is reported to the caller from open(), the
      * same as the old single-connection behavior. */
     sqlite3 *db;
     if (open_one_connection(h->uri, h->is_private_memory, &db) != 0)
     {
+        pthread_cond_destroy(&h->returned);
         pthread_mutex_destroy(&h->lock);
         free(h->uri);
         free(h);
@@ -406,6 +410,7 @@ static void sqlite_close(bb_model_handle_t *handle)
     for (size_t i = 0; i < h->opened; i++)
         sqlite3_close(h->conns[i].db);
 
+    pthread_cond_destroy(&h->returned);
     pthread_mutex_destroy(&h->lock);
     free(h->uri);
     free(h);
