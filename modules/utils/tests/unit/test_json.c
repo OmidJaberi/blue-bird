@@ -2558,6 +2558,54 @@ void test_serialize_uninitialized_node(void)
     bb_json_destroy(obj);
 }
 
+void test_parse_real_outside_int_range(void)
+{
+    printf("\tTesting JSON reals whose integer part exceeds the int range...\n");
+
+    // An integer literal that does not fit in an int is rejected (see
+    // test_parse_integer_boundaries), but the same magnitude written as a real is fine.
+    struct { const char *text; float expected; } cases[] = {
+        { "2147483648.0", 2147483648.0f },
+        { "-2147483649.0", -2147483649.0f },
+        { "4294967296.5", 4294967296.5f },
+        { "12345678901234567890.25", 12345678901234567890.25f },
+        { "-99999999999.0", -99999999999.0f },
+        { "3000000000e0", 3000000000.0f },
+        { "2147483647.5", 2147483647.5f },
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        bb_json_t *json = assert_accepts(cases[i].text);
+        BB_ASSERT(bb_json_get_type(json) == BB_JSON_REAL);
+        BB_ASSERT(bb_json_get_value_real(json) == cases[i].expected);
+        bb_json_destroy(json);
+    }
+
+    // The same literals as bare integers are out of range.
+    assert_rejects("2147483648");
+    assert_rejects("12345678901234567890");
+    assert_rejects("[1, 4294967296]");
+
+    // They also work as array elements and object values, next to ordinary ints.
+    bb_json_t *doc = assert_accepts("{\"big\": 8589934592.0, \"small\": 7, \"list\": [-8589934592.0, 1]}");
+    BB_ASSERT(bb_json_get_type(bb_json_object_get_value(doc, "big")) == BB_JSON_REAL);
+    BB_ASSERT(bb_json_get_value_real(bb_json_object_get_value(doc, "big")) == 8589934592.0f);
+    BB_ASSERT(bb_json_get_type(bb_json_object_get_value(doc, "small")) == BB_JSON_INT);
+    bb_json_t *list = bb_json_object_get_value(doc, "list");
+    BB_ASSERT(bb_json_get_value_real(bb_json_array_get_index(list, 0)) == -8589934592.0f);
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(list, 1)) == BB_JSON_INT);
+
+    // Serializing keeps them reals and the result parses back to the same document.
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(doc, &buffer, &size)));
+    bb_json_t *again = assert_accepts(buffer);
+    BB_ASSERT(bb_json_equal(doc, again));
+    free(buffer);
+    bb_json_destroy(again);
+    bb_json_destroy(doc);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2655,6 +2703,7 @@ int main(void)
 
     test_serialize_indented_exact_format();
     test_serialize_uninitialized_node();
+    test_parse_real_outside_int_range();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
