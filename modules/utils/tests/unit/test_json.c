@@ -2606,6 +2606,104 @@ void test_parse_real_outside_int_range(void)
     bb_json_destroy(doc);
 }
 
+void test_json_clone_is_fully_functional(void)
+{
+    printf("\tTesting that a JSON clone is a fully working, independent container...\n");
+
+    // Cloned empty containers must be usable: they have no storage allocated yet.
+    bb_json_t *empty_arr = bb_json_new_array();
+    bb_json_t *arr_copy = bb_json_clone(empty_arr);
+    BB_ASSERT(arr_copy != NULL && arr_copy != empty_arr);
+    bb_json_destroy(empty_arr);
+    for (int i = 0; i < 100; i++)
+        BB_ASSERT(!BB_FAILED(bb_json_array_push(arr_copy, bb_json_new_int(i))));
+    BB_ASSERT(bb_json_get_size(arr_copy) == 100);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_array_get_index(arr_copy, 99)) == 99);
+    bb_json_destroy(arr_copy);
+
+    bb_json_t *empty_obj = bb_json_new_object();
+    bb_json_t *obj_copy = bb_json_clone(empty_obj);
+    BB_ASSERT(obj_copy != NULL && obj_copy != empty_obj);
+    bb_json_destroy(empty_obj);
+    for (int i = 0; i < 300; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj_copy, key, bb_json_new_int(i))));
+    }
+    BB_ASSERT(bb_json_get_size(obj_copy) == 300);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(obj_copy, "k299")) == 299);
+    bb_json_destroy(obj_copy);
+
+    // Clone a large object (its hash table has grown several times), then change the
+    // clone heavily: lookups, order, growth and removal must all behave on the copy
+    // while the original stays exactly as it was.
+    const int count = 600;
+    bb_json_t *original = bb_json_new_object();
+    for (int i = 0; i < count; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        bb_json_t *value = (i % 3 == 0) ? bb_json_new_text(key)
+                         : (i % 3 == 1) ? ARR(INTV(i), INTV(i + 1))
+                                        : OBJ(KEY("n", INTV(i)));
+        BB_ASSERT(!BB_FAILED(bb_json_object_set_value(original, key, value)));
+    }
+    bb_json_t *snapshot = NULL;
+    {
+        char *text = NULL;
+        int text_size = 0;
+        BB_ASSERT(!BB_FAILED(bb_json_serialize(original, &text, &text_size)));
+        snapshot = assert_accepts(text);
+        free(text);
+    }
+
+    bb_json_t *copy = bb_json_clone(original);
+    BB_ASSERT(copy != NULL);
+    BB_ASSERT(bb_json_get_size(copy) == (size_t)count);
+    for (int i = 0; i < count; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        BB_ASSERT(bb_json_object_get_value(copy, key) != NULL);
+        BB_ASSERT(bb_json_object_get_value(copy, key) != bb_json_object_get_value(original, key));
+    }
+
+    // Remove every other key from the copy and add new ones, forcing more growth.
+    for (int i = 0; i < count; i += 2)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(copy, key)));
+    }
+    for (int i = 0; i < 1000; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "new%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_set_value(copy, key, bb_json_new_bool(true))));
+    }
+    BB_ASSERT(bb_json_get_size(copy) == (size_t)(count / 2 + 1000));
+    BB_ASSERT(bb_json_object_get_value(copy, "k0") == NULL);
+    BB_ASSERT(bb_json_object_get_value(copy, "k1") != NULL);
+    BB_ASSERT(bb_json_object_get_value(copy, "new999") != NULL);
+
+    // The original is untouched, and still equal to the snapshot taken before cloning.
+    BB_ASSERT(bb_json_get_size(original) == (size_t)count);
+    BB_ASSERT(bb_json_object_get_value(original, "k0") != NULL);
+    BB_ASSERT(bb_json_object_get_value(original, "new0") == NULL);
+    BB_ASSERT(bb_json_equal(original, snapshot));
+
+    // Destroying the original first must not invalidate the copy.
+    bb_json_destroy(original);
+    BB_ASSERT(bb_json_object_get_value(copy, "k1") != NULL);
+    BB_ASSERT(bb_json_get_type(bb_json_object_get_value(copy, "k1")) == BB_JSON_ARRAY);
+    BB_ASSERT(bb_json_get_value_integer(
+        bb_json_array_get_index(bb_json_object_get_value(copy, "k1"), 1)) == 2);
+
+    bb_json_destroy(copy);
+    bb_json_destroy(snapshot);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2704,6 +2802,7 @@ int main(void)
     test_serialize_indented_exact_format();
     test_serialize_uninitialized_node();
     test_parse_real_outside_int_range();
+    test_json_clone_is_fully_functional();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
