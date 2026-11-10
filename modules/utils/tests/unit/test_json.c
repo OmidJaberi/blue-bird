@@ -2513,6 +2513,51 @@ void test_serialize_indented_exact_format(void)
     bb_json_destroy(json);
 }
 
+void test_serialize_uninitialized_node(void)
+{
+    printf("\tTesting serializing JSON containing an uninitialized node...\n");
+
+    // A node that was never given a real type has no JSON form.
+    bb_json_t *node = bb_json_create(BB_JSON_NOT_INITIALIZED);
+    BB_ASSERT(node != NULL);
+    BB_ASSERT(bb_json_get_type(node) == BB_JSON_NOT_INITIALIZED);
+
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(BB_FAILED(bb_json_serialize(node, &buffer, &size)));
+    BB_ASSERT(buffer == NULL);
+    BB_ASSERT(size < 0);
+
+    // The failure propagates out of arrays and objects instead of producing
+    // truncated or partially written output.
+    bb_json_t *arr = bb_json_new_array();
+    bb_json_array_push(arr, bb_json_new_int(1));
+    bb_json_array_push(arr, node);
+    BB_ASSERT(BB_FAILED(bb_json_serialize(arr, &buffer, &size)));
+    BB_ASSERT(buffer == NULL);
+    BB_ASSERT(BB_FAILED(bb_json_serialize_indented(arr, &buffer, &size)));
+    BB_ASSERT(buffer == NULL);
+
+    bb_json_t *obj = bb_json_new_object();
+    bb_json_object_set_value(obj, "ok", bb_json_new_text("fine"));
+    bb_json_object_set_value(obj, "arr", arr);
+    BB_ASSERT(BB_FAILED(bb_json_serialize(obj, &buffer, &size)));
+    BB_ASSERT(buffer == NULL);
+
+    // Removing the offending element makes the document serializable again.
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 1)));
+    assert_serializes_to(obj, "{\"ok\": \"fine\", \"arr\": [1]}");
+
+    // Such nodes are never equal to anything real, and cloning does not crash.
+    bb_json_t *other = bb_json_create(BB_JSON_NOT_INITIALIZED);
+    bb_json_t *null_node = bb_json_new_null();
+    BB_ASSERT(!bb_json_equal(other, null_node));
+    bb_json_destroy(other);
+    bb_json_destroy(null_node);
+
+    bb_json_destroy(obj);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2609,6 +2654,7 @@ int main(void)
     test_json_dump_and_load_errors();
 
     test_serialize_indented_exact_format();
+    test_serialize_uninitialized_node();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
