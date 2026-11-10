@@ -2448,6 +2448,71 @@ void test_json_dump_and_load_errors(void)
     remove(path);
 }
 
+void test_serialize_indented_exact_format(void)
+{
+    printf("\tTesting indented JSON serialization exact format...\n");
+
+    // Scalars and arrays of scalars are never broken over several lines.
+    bb_json_t *json = assert_accepts("[1, 2, 3]");
+    char *buffer = NULL;
+    int size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize_indented(json, &buffer, &size)));
+    BB_ASSERT(strcmp(buffer, "[1, 2, 3]") == 0);
+    BB_ASSERT(size == 9);
+    bb_json_destroy(json);
+
+    json = assert_accepts("\"text\"");
+    BB_ASSERT(!BB_FAILED(bb_json_serialize_indented(json, &buffer, &size)));
+    BB_ASSERT(strcmp(buffer, "\"text\"") == 0);
+    BB_ASSERT(size == 6);
+    bb_json_destroy(json);
+
+    // Objects always get one entry per line, one tab per nesting level.
+    // Each "," is followed by a space before the newline (", \n").
+    json = assert_accepts(
+        "{\"a\": [1, 2], \"b\": {}, \"c\": [], \"d\": [[1], {\"x\": null}], \"e\": \"s\\n\"}");
+    const char *expected =
+        "{\n"
+        "\t\"a\": [1, 2], \n"
+        "\t\"b\": {\n"
+        "\t}, \n"
+        "\t\"c\": [], \n"
+        "\t\"d\": [\n"
+        "\t\t[1], \n"
+        "\t\t{\n"
+        "\t\t\t\"x\": null\n"
+        "\t\t}\n"
+        "\t], \n"
+        "\t\"e\": \"s\\n\"\n"
+        "}";
+    // The buffer from the previous call is released by the serializer and replaced.
+    BB_ASSERT(!BB_FAILED(bb_json_serialize_indented(json, &buffer, &size)));
+    if (strcmp(buffer, expected) != 0)
+        fprintf(stderr, "Indented: %s\nExpected: %s\n", buffer, expected);
+    BB_ASSERT(strcmp(buffer, expected) == 0);
+    BB_ASSERT(size == (int)strlen(expected));
+
+    // The size-only pass must agree with what is actually written.
+    int size_only = -1;
+    BB_ASSERT(BB_FAILED(bb_json_serialize_indented(json, NULL, &size_only)));
+    BB_ASSERT(size_only == size);
+
+    // Indentation is whitespace only: the compact form of the document is identical.
+    char *compact = NULL;
+    int compact_size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(json, &compact, &compact_size)));
+    bb_json_t *from_indented = assert_accepts(buffer);
+    bb_json_t *from_compact = assert_accepts(compact);
+    BB_ASSERT(bb_json_equal(from_indented, from_compact));
+    BB_ASSERT(bb_json_equal(from_indented, json));
+
+    free(compact);
+    free(buffer);
+    bb_json_destroy(from_indented);
+    bb_json_destroy(from_compact);
+    bb_json_destroy(json);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2542,6 +2607,8 @@ int main(void)
     test_parse_nesting_depth_boundary();
     test_json_dump_and_load_roundtrip();
     test_json_dump_and_load_errors();
+
+    test_serialize_indented_exact_format();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
