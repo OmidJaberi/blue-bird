@@ -2831,6 +2831,56 @@ void test_json_dump_and_load_large_file(void)
     remove(path);
 }
 
+void test_json_scalar_sizes_and_node_reuse(void)
+{
+    printf("\tTesting JSON sizes of scalars and reuse of removed nodes...\n");
+
+    // Only text, arrays and objects have a meaningful size; scalars report 0.
+    bb_json_t *scalars[] = {
+        bb_json_new_null(), bb_json_new_bool(true), bb_json_new_int(12345), bb_json_new_real(1.5f)
+    };
+    for (size_t i = 0; i < sizeof(scalars) / sizeof(scalars[0]); i++)
+    {
+        BB_ASSERT(bb_json_get_size(scalars[i]) == 0);
+        bb_json_destroy(scalars[i]);
+    }
+
+    // Size tracks pushes, removals and overwrites exactly.
+    bb_json_t *obj = bb_json_new_object();
+    BB_ASSERT(bb_json_get_size(obj) == 0);
+    bb_json_object_set_value(obj, "a", bb_json_new_int(1));
+    bb_json_object_set_value(obj, "b", bb_json_new_int(2));
+    bb_json_object_set_value(obj, "a", bb_json_new_int(3));
+    BB_ASSERT(bb_json_get_size(obj) == 2);
+    bb_json_object_remove_key(obj, "a");
+    bb_json_object_remove_key(obj, "a");
+    BB_ASSERT(bb_json_get_size(obj) == 1);
+    bb_json_object_remove_key(obj, "b");
+    BB_ASSERT(bb_json_get_size(obj) == 0);
+    assert_serializes_to(obj, "{}");
+
+    // A container can be emptied and refilled repeatedly.
+    for (int round = 0; round < 5; round++)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            char key[16];
+            snprintf(key, sizeof(key), "r%d_%d", round, i);
+            BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, key, bb_json_new_int(i))));
+        }
+        BB_ASSERT(bb_json_get_size(obj) == 20);
+        for (int i = 0; i < 20; i++)
+        {
+            char key[16];
+            snprintf(key, sizeof(key), "r%d_%d", round, i);
+            BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, key)));
+        }
+        BB_ASSERT(bb_json_get_size(obj) == 0);
+    }
+    assert_serializes_to(obj, "{}");
+    bb_json_destroy(obj);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2932,6 +2982,7 @@ int main(void)
     test_json_clone_is_fully_functional();
     test_json_randomized_roundtrip();
     test_json_dump_and_load_large_file();
+    test_json_scalar_sizes_and_node_reuse();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
