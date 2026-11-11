@@ -2791,6 +2791,46 @@ void test_json_randomized_roundtrip(void)
 #undef NEXT
 }
 
+void test_json_dump_and_load_large_file(void)
+{
+    printf("\tTesting JSON dump/load of a large document...\n");
+
+    const char *path = "bb_json_large_file.json";
+    const int count = 20000;
+
+    bb_json_t *doc = bb_json_new_array();
+    for (int i = 0; i < count; i++)
+    {
+        char text[32];
+        snprintf(text, sizeof(text), "item number %d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_array_push(doc,
+            OBJ(KEY("id", INTV(i)), KEY("name", TEXTV(text)), KEY("ok", BOOLV(i % 2 == 0))))));
+    }
+
+    BB_ASSERT(!BB_FAILED(bb_json_dump(doc, path)));
+
+    // Well beyond any small fixed read buffer.
+    FILE *f = fopen(path, "rb");
+    BB_ASSERT(f != NULL);
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fclose(f);
+    BB_ASSERT(file_size > 500000);
+
+    bb_json_t *loaded = bb_json_load(path);
+    BB_ASSERT(loaded != NULL);
+    BB_ASSERT(bb_json_get_size(loaded) == (size_t)count);
+    BB_ASSERT(bb_json_equal(doc, loaded));
+
+    bb_json_t *last = bb_json_array_get_index(loaded, count - 1);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(last, "id")) == count - 1);
+    BB_ASSERT(strcmp(bb_json_get_value_text(bb_json_object_get_value(last, "name")), "item number 19999") == 0);
+
+    bb_json_destroy(loaded);
+    bb_json_destroy(doc);
+    remove(path);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2891,6 +2931,7 @@ int main(void)
     test_parse_real_outside_int_range();
     test_json_clone_is_fully_functional();
     test_json_randomized_roundtrip();
+    test_json_dump_and_load_large_file();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
