@@ -2704,6 +2704,93 @@ void test_json_clone_is_fully_functional(void)
     bb_json_destroy(snapshot);
 }
 
+void test_json_randomized_roundtrip(void)
+{
+    printf("\tTesting randomized JSON build/serialize/parse roundtrip...\n");
+
+    // Deterministic LCG so failures are reproducible.
+    unsigned int state = 12345u;
+#define NEXT() (state = state * 1664525u + 1013904223u, state >> 8)
+
+    for (int round = 0; round < 200; round++)
+    {
+        bb_json_t *root = (NEXT() % 2) ? bb_json_new_array() : bb_json_new_object();
+        bb_json_t *containers[16] = { root };
+        int container_count = 1;
+
+        for (int i = 0; i < 40; i++)
+        {
+            bb_json_t *value;
+            switch (NEXT() % 7)
+            {
+                case 0: value = bb_json_new_null(); break;
+                case 1: value = bb_json_new_bool(NEXT() % 2); break;
+                case 2: value = bb_json_new_int((int)NEXT() - 4000000); break;
+                case 3: value = bb_json_new_real((float)((int)(NEXT() % 20001) - 10000) / 8.0f); break;
+                case 4:
+                {
+                    char text[8] = { 'a', '"', '\\', '\n', '\t', (char)(1 + NEXT() % 31), 'z', '\0' };
+                    unsigned int pos = NEXT() % 7;
+                    text[pos] = (char)('b' + NEXT() % 20);
+                    value = bb_json_new_text(text);
+                    break;
+                }
+                case 5: value = bb_json_new_array(); break;
+                default: value = bb_json_new_object(); break;
+            }
+
+            bb_json_t *target = containers[NEXT() % (unsigned)container_count];
+            bb_json_t *added = value;
+            bb_json_type_t value_type = bb_json_get_type(value);
+            if (bb_json_get_type(target) == BB_JSON_ARRAY)
+            {
+                BB_ASSERT(!BB_FAILED(bb_json_array_push(target, value)));
+            }
+            else
+            {
+                char key[16];
+                snprintf(key, sizeof(key), "k%u", NEXT() % 12);
+                BB_ASSERT(!BB_FAILED(bb_json_object_set_value(target, key, value)));
+            }
+            // Only containers that are definitely still attached may receive children;
+            // an object key can be overwritten later, so use arrays only as parents.
+            if (value_type == BB_JSON_ARRAY && container_count < 16 &&
+                bb_json_get_type(target) == BB_JSON_ARRAY)
+                containers[container_count++] = added;
+        }
+
+        char *compact = NULL, *indented = NULL;
+        int compact_size = 0, indented_size = 0;
+        BB_ASSERT(!BB_FAILED(bb_json_serialize(root, &compact, &compact_size)));
+        BB_ASSERT(!BB_FAILED(bb_json_serialize_indented(root, &indented, &indented_size)));
+        BB_ASSERT(compact_size == (int)strlen(compact));
+        BB_ASSERT(indented_size == (int)strlen(indented));
+
+        bb_json_t *from_compact = assert_accepts(compact);
+        bb_json_t *from_indented = assert_accepts(indented);
+        BB_ASSERT(bb_json_equal(root, from_compact));
+        BB_ASSERT(bb_json_equal(root, from_indented));
+
+        bb_json_t *copy = bb_json_clone(root);
+        BB_ASSERT(bb_json_equal(root, copy));
+
+        // Serializing the re-parsed document gives the same text again.
+        char *again = NULL;
+        int again_size = 0;
+        BB_ASSERT(!BB_FAILED(bb_json_serialize(from_compact, &again, &again_size)));
+        BB_ASSERT(strcmp(again, compact) == 0);
+
+        free(again);
+        free(compact);
+        free(indented);
+        bb_json_destroy(copy);
+        bb_json_destroy(from_compact);
+        bb_json_destroy(from_indented);
+        bb_json_destroy(root);
+    }
+#undef NEXT
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2803,6 +2890,7 @@ int main(void)
     test_serialize_uninitialized_node();
     test_parse_real_outside_int_range();
     test_json_clone_is_fully_functional();
+    test_json_randomized_roundtrip();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
