@@ -2881,6 +2881,42 @@ void test_json_scalar_sizes_and_node_reuse(void)
     bb_json_destroy(obj);
 }
 
+void test_parse_every_truncation_rejected(void)
+{
+    printf("\tTesting that every truncated prefix of a JSON document is rejected...\n");
+
+    const char *docs[] = {
+        "{\"a\": [1, 2.5, -3e2, true, false, null], \"b\": {\"c\": \"d\\n\\u00e9\\ud83d\\ude00\", \"e\": []}, \"f\": {}}",
+        "[[[], {}], [\"x\", {\"y\": [null]}], 12345, -0.5, \"\\\\\"]",
+    };
+
+    for (size_t d = 0; d < sizeof(docs) / sizeof(docs[0]); d++)
+    {
+        size_t len = strlen(docs[d]);
+        BB_ASSERT(len < 256);
+
+        // The complete document is valid...
+        bb_json_t *full = assert_accepts(docs[d]);
+        bb_json_destroy(full);
+
+        // ...but no shorter prefix is. Rejection must also release every partially
+        // built node (checked by the leak/ASan run of this suite).
+        for (size_t cut = 0; cut < len; cut++)
+        {
+            char prefix[256];
+            memcpy(prefix, docs[d], cut);
+            prefix[cut] = '\0';
+            bb_json_t *json = bb_json_parse(prefix);
+            if (json != NULL)
+            {
+                fprintf(stderr, "Truncated document accepted (%zu bytes): %s\n", cut, prefix);
+                bb_json_destroy(json);
+            }
+            BB_ASSERT(json == NULL);
+        }
+    }
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -2983,6 +3019,7 @@ int main(void)
     test_json_randomized_roundtrip();
     test_json_dump_and_load_large_file();
     test_json_scalar_sizes_and_node_reuse();
+    test_parse_every_truncation_rejected();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
