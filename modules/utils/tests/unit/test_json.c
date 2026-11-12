@@ -2917,6 +2917,68 @@ void test_parse_every_truncation_rejected(void)
     }
 }
 
+void test_parse_corrupted_documents_are_safe(void)
+{
+    printf("\tTesting parsing of randomly corrupted documents stays safe and consistent...\n");
+
+    const char *base =
+        "{\"name\": \"blue\\tbird\", \"n\": [1, -2, 3.25, 1e3, true, null], "
+        "\"nested\": {\"k\": [{}, [], \"\\u0041\"]}}";
+    size_t len = strlen(base);
+    const char noise[] = "{}[]\",:\\-+.eE0aznul \t\n\x01\x7f\xc3\xff";
+
+    unsigned int state = 987654321u;
+    int accepted = 0;
+    for (int i = 0; i < 3000; i++)
+    {
+        char text[256];
+        memcpy(text, base, len + 1);
+
+        // One to three random byte replacements, deletions or insertions.
+        int edits = 1 + (int)((state = state * 1664525u + 1013904223u) >> 28) % 3;
+        for (int e = 0; e < edits; e++)
+        {
+            state = state * 1664525u + 1013904223u;
+            size_t pos = (state >> 8) % strlen(text);
+            state = state * 1664525u + 1013904223u;
+            char c = noise[(state >> 8) % (sizeof(noise) - 1)];
+            switch ((state >> 4) % 3)
+            {
+                case 0: text[pos] = c; break;
+                case 1: memmove(text + pos, text + pos + 1, strlen(text + pos)); break;
+                default:
+                    if (strlen(text) + 1 < sizeof(text))
+                    {
+                        memmove(text + pos + 1, text + pos, strlen(text + pos) + 1);
+                        text[pos] = c;
+                    }
+                    break;
+            }
+        }
+
+        bb_json_t *json = bb_json_parse(text);
+        if (json == NULL)
+            continue;
+
+        // Anything the parser accepts must be a coherent document: it serializes,
+        // and the output is itself valid and parses to an equal document.
+        accepted++;
+        char *out = NULL;
+        int out_size = 0;
+        BB_ASSERT(!BB_FAILED(bb_json_serialize(json, &out, &out_size)));
+        BB_ASSERT(out_size == (int)strlen(out));
+        bb_json_t *again = assert_accepts(out);
+        BB_ASSERT(bb_json_equal(json, again));
+        free(out);
+        bb_json_destroy(again);
+        bb_json_destroy(json);
+    }
+    // Some edits are harmless (whitespace, digits), so a few must be accepted;
+    // most must not be.
+    BB_ASSERT(accepted > 0);
+    BB_ASSERT(accepted < 3000);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3020,6 +3082,7 @@ int main(void)
     test_json_dump_and_load_large_file();
     test_json_scalar_sizes_and_node_reuse();
     test_parse_every_truncation_rejected();
+    test_parse_corrupted_documents_are_safe();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
