@@ -2979,6 +2979,46 @@ void test_parse_corrupted_documents_are_safe(void)
     BB_ASSERT(accepted < 3000);
 }
 
+void test_json_failed_insert_keeps_caller_ownership(void)
+{
+    printf("\tTesting that failed inserts leave the element owned by the caller...\n");
+
+    bb_json_t *element = bb_json_new_int(42);
+    bb_json_t *text = bb_json_new_text("owned");
+    bb_json_t *obj = bb_json_new_object();
+    bb_json_t *arr = bb_json_new_array();
+
+    // Wrong container type, NULL key and NULL container are all rejected...
+    BB_ASSERT(BB_FAILED(bb_json_array_push(obj, element)));
+    BB_ASSERT(BB_FAILED(bb_json_array_push(text, element)));
+    BB_ASSERT(BB_FAILED(bb_json_object_set_value(arr, "k", element)));
+    BB_ASSERT(BB_FAILED(bb_json_object_set_value(obj, NULL, element)));
+    BB_ASSERT(BB_FAILED(bb_json_object_set_value(NULL, "k", element)));
+    BB_ASSERT(BB_FAILED(bb_json_array_push(NULL, element)));
+    BB_ASSERT(BB_FAILED(bb_json_array_push(arr, NULL)));
+    BB_ASSERT(BB_FAILED(bb_json_object_set_value(obj, "k", NULL)));
+
+    // ...without changing any container...
+    BB_ASSERT(bb_json_get_size(obj) == 0);
+    BB_ASSERT(bb_json_get_size(arr) == 0);
+    BB_ASSERT(bb_json_object_get_value(obj, "k") == NULL);
+
+    // ...and the element is still valid and usable by the caller afterwards
+    // (a use-after-free or double free here is caught by ASan).
+    BB_ASSERT(bb_json_get_type(element) == BB_JSON_INT);
+    BB_ASSERT(bb_json_get_value_integer(element) == 42);
+    BB_ASSERT(!BB_FAILED(bb_json_array_push(arr, element)));
+    BB_ASSERT(bb_json_get_size(arr) == 1);
+    BB_ASSERT(bb_json_array_get_index(arr, 0) == element);
+
+    // A container that failed an operation still works normally.
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, "arr", arr)));
+    assert_serializes_to(obj, "{\"arr\": [42]}");
+
+    bb_json_destroy(text);
+    bb_json_destroy(obj);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3083,6 +3123,7 @@ int main(void)
     test_json_scalar_sizes_and_node_reuse();
     test_parse_every_truncation_rejected();
     test_parse_corrupted_documents_are_safe();
+    test_json_failed_insert_keeps_caller_ownership();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
