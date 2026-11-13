@@ -10,6 +10,9 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
 
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-bincache
+
     strategy:
       fail-fast: false
       matrix:
@@ -120,18 +123,36 @@ jobs:
           $commit = git -C $env:VCPKG_INSTALLATION_ROOT rev-parse HEAD
           echo "sha=$commit" >> $env:GITHUB_OUTPUT
 
-      - name: Cache vcpkg
+      # vcpkg binary caching (see the postgres-windows job): built packages are
+      # stored as archives in VCPKG_DEFAULT_BINARY_CACHE and restored instead
+      # of rebuilt. The path must not use ${{ env.VCPKG_INSTALLATION_ROOT }}:
+      # variables set by the runner image are not in the workflow's env
+      # context, so that path was empty and nothing was ever cached.
+      - name: Create vcpkg binary cache directory
         if: runner.os == 'Windows'
-        uses: actions/cache@v4
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+
+      - name: Restore vcpkg binary cache
+        if: runner.os == 'Windows'
+        id: vcpkg-bincache
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            ${{ env.VCPKG_INSTALLATION_ROOT }}/installed
-            ${{ env.VCPKG_INSTALLATION_ROOT }}/packages
-          key: vcpkg-${{ runner.os }}-${{ steps.vcpkg-commit.outputs.sha }}-sqlite3-pthreads
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-bin-${{ runner.os }}-${{ steps.vcpkg-commit.outputs.sha }}-sqlite3-pthreads
+          restore-keys: |
+            vcpkg-bin-${{ runner.os }}-
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         run: vcpkg install sqlite3:x64-windows pthreads:x64-windows
+
+      - name: Save vcpkg binary cache
+        if: runner.os == 'Windows' && steps.vcpkg-bincache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-bin-${{ runner.os }}-${{ steps.vcpkg-commit.outputs.sha }}-sqlite3-pthreads
 
       - name: Configure (Windows)
         if: runner.os == 'Windows'
@@ -203,8 +224,10 @@ jobs:
       - name: Check the Postgres test really ran
         working-directory: build
         run: |
-          ctest -R model_postgres -V | tee postgres-test.log
+          ctest -R "model_postgres|schema_api_postgres|migrate.test_postgres_driver" -V | tee postgres-test.log
           grep -q "All postgres model tests passed" postgres-test.log
+          grep -q "All schema_api tests passed on postgres" postgres-test.log
+          grep -q "All bb-migrate postgres tests passed" postgres-test.log
 
   # PostgreSQL model backend on Windows (MSVC + PThreads4W). The connection
   # pool waits on a pthread condition variable, which nothing else in the tree
@@ -302,9 +325,11 @@ jobs:
         working-directory: build
         shell: pwsh
         run: |
-          $out = ctest -C Release -R model_postgres -V 2>&1 | Out-String
+          $out = ctest -C Release -R "model_postgres|schema_api_postgres|migrate.test_postgres_driver" -V 2>&1 | Out-String
           Write-Host $out
-          if ($out -notmatch 'All postgres model tests passed') { throw 'Postgres test did not run to completion' }
+          if ($out -notmatch 'All postgres model tests passed') { throw 'Postgres model test did not run to completion' }
+          if ($out -notmatch 'All schema_api tests passed on postgres') { throw 'schema_api Postgres test did not run to completion' }
+          if ($out -notmatch 'All bb-migrate postgres tests passed') { throw 'bb-migrate Postgres test did not run to completion' }
 
       - name: PostgreSQL server log
         if: failure()
