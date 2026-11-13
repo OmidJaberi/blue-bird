@@ -140,7 +140,9 @@ The tests remove every row they insert and leave the empty table `bb_test_people
 
 # Current Limitations
 
-- No `ALTER TABLE` or migrations for PostgreSQL; `bb-migrate` currently targets SQLite.
+- Persist itself never alters a table. Schema changes go through
+  [`bb-migrate`](../tools/migrate.md#postgresql), which supports PostgreSQL in
+  a build with `-DBB_WITH_POSTGRES=ON`.
 - `REQUIRED` and `UNIQUE` schema flags are not enforced.
 - No transaction API.
 - Pool size is fixed at build time.

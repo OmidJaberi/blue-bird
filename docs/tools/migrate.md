@@ -9,8 +9,10 @@ but never alters one. That's fine for version 1 of an app and not enough for
 version 2. `bb-migrate` covers that gap: it owns **schema evolution**, while
 Persist owns **runtime data access**. They only meet at the database file.
 
-> **Status:** forward-only `status`, `up`, `verify` and `generate` against SQLite. See
-> [Not Yet](#not-yet) for what's deliberately left out.
+> **Status:** forward-only `status`, `up`, `verify` and `generate` against SQLite
+> and, in a build with `-DBB_WITH_POSTGRES=ON`, PostgreSQL (see
+> [PostgreSQL](#postgresql)). See [Not Yet](#not-yet) for what's deliberately
+> left out.
 
 ---
 
@@ -80,6 +82,74 @@ Exit codes: `0` success, `1` failure or a problem found, `2` bad usage.
 
 ---
 
+# PostgreSQL
+
+`--db` decides which database `bb-migrate` talks to: a `postgresql://` (or
+`postgres://`) URL means PostgreSQL, anything else is a SQLite file.
+
+```bash
+bb-migrate status --db postgresql://app:secret@localhost/appdb --dir migrations
+bb-migrate up     --db postgresql://app:secret@localhost/appdb --dir migrations
+```
+
+PostgreSQL support is an optional build, with the same option as Persist's
+PostgreSQL backend: configure with `-DBB_WITH_POSTGRES=ON` (needs libpq, see
+[the PostgreSQL backend docs](../persist/postgres.md#installing-libpq)). A
+build without it rejects a PostgreSQL URL with an error. The password never
+appears in an error message.
+
+**Migrations are plain SQL for the database they run on.** A directory of
+migrations belongs to one database engine; it is not translated. For tables
+Persist creates, match what its PostgreSQL backend emits: every identifier
+double-quoted (which makes it case-sensitive), `int` → `INTEGER`,
+`string` → `TEXT`, `uuid` → `UUID`, `blob` → `BYTEA`:
+
+```sql
+-- 0001_create_tasks.sql (PostgreSQL)
+CREATE TABLE IF NOT EXISTS "tasks" (
+    "id" UUID PRIMARY KEY,
+    "name" TEXT,
+    "status" TEXT
+);
+```
+
+**Where things go.** The ledger and the migrations' tables live in the first
+schema of the connection's `search_path` (normally `public`), the same place
+Persist's backend puts its tables. To use another schema, set it in the URL:
+`postgresql://app@localhost/appdb?options=-csearch_path%3Dmyschema`.
+
+**Transactions.** PostgreSQL rolls DDL back, so a failed migration leaves
+nothing behind, exactly as on SQLite. As on SQLite, don't put `BEGIN`/`COMMIT`
+in a migration. Statements PostgreSQL refuses inside a transaction, such as
+`CREATE INDEX CONCURRENTLY`, can't be used in a migration.
+
+**`verify` and `generate` need a scratch database.** They apply your migrations
+somewhere disposable to see what they produce. For SQLite that is an in-memory
+database. For PostgreSQL migrations, point `--scratch-db` at a database you may
+create schemas in:
+
+```bash
+bb-migrate verify   --schema schemas/task.schema.json --scratch-db postgresql://app@localhost/appdb --dir migrations
+bb-migrate generate --schema schemas/task.schema.json --scratch-db postgresql://app@localhost/appdb --dir migrations --name add_due
+```
+
+`bb-migrate` creates a uniquely named schema there (`bb_migrate_scratch_...`),
+runs everything inside it, and drops it afterwards, even when a migration
+fails. Nothing else in the database is read or changed, so a development
+database is fine; don't aim it at one you can't afford to create a schema in.
+If the process is killed before it can clean up, the leftover schema can simply
+be dropped. `--scratch-db` is also how `verify` knows to check PostgreSQL
+migrations rather than SQLite ones: the manifests are read for that dialect.
+
+**Concurrency.** Two `up` runs at once never apply the same version twice. The
+ledger row is inserted before a migration's SQL runs, so the second runner waits
+for the first one's transaction and then fails with a clear duplicate-key error,
+as with SQLite. Creating the ledger itself is serialised with an advisory lock,
+because `CREATE TABLE IF NOT EXISTS` is not safe against two sessions doing it
+at the same time.
+
+---
+
 # Keeping Schemas and Migrations in Sync
 
 Persist builds a table from a `persist.schema` manifest; migrations evolve it.
@@ -89,8 +159,10 @@ Nothing ties the two together except discipline, so `verify` does:
 bb-migrate verify --schema schemas/task.schema.json --dir migrations
 ```
 
-It applies every migration to a scratch in-memory database, then compares each
-manifest's table against the result and prints every difference:
+It applies every migration to a scratch database (in-memory SQLite, or with
+`--scratch-db` a throwaway PostgreSQL schema, see [PostgreSQL](#postgresql)),
+then compares each manifest's table against the result and prints every
+difference:
 
 ```txt
 schemas/task.schema.json (table 'tasks'):
@@ -99,13 +171,21 @@ schemas/task.schema.json (table 'tasks'):
 1 difference(s) between schemas and migrations
 ```
 
-It touches no real database, exits `1` on any difference, and also fails if the
+It touches no real data, exits `1` on any difference, and also fails if the
 migrations don't apply cleanly from an empty database, so it belongs in CI
 (the todo example has a ctest for it). `--schema` can be repeated.
 
-What is compared mirrors what Persist's SQLite backend actually creates:
-column names, types (`int`→`INTEGER`, `string`/`uuid`→`TEXT`, `blob`→`BLOB`) and
-the primary key. Column **order** is ignored, because `ALTER TABLE ADD COLUMN`
+What is compared mirrors what Persist's backend for that database actually
+creates: column names, types and the primary key.
+
+| Manifest type | SQLite    | PostgreSQL |
+|---------------|-----------|------------|
+| `int`         | `INTEGER` | `INTEGER`  |
+| `string`      | `TEXT`    | `TEXT`     |
+| `uuid`        | `TEXT`    | `UUID`     |
+| `blob`        | `BLOB`    | `BYTEA`    |
+
+Column **order** is ignored, because `ALTER TABLE ADD COLUMN`
 always appends. `size`, `required` and `unique` are ignored too, since Persist
 emits no constraints for them. If Persist starts emitting constraints, this
 check needs to learn them.
@@ -153,10 +233,18 @@ rename when you say it is one:
 | column renamed                 | `ALTER TABLE ... RENAME COLUMN ...` **with `--rename`**, otherwise refused |
 | column removed                 | **refused**                                         |
 | column type changed            | **refused** (needs a table rebuild)                 |
-| primary key changed or added   | **refused** (SQLite can't ALTER one)                |
+| primary key changed or added   | **refused** (SQLite can't ALTER one; on PostgreSQL it needs the rows backfilled first) |
 
 A refusal explains why, writes nothing at all (never half a migration), and
 leaves you to write that migration by hand, after which `verify` confirms it.
+
+For PostgreSQL (`--scratch-db`), the generated SQL is PostgreSQL's: identifiers
+double-quoted as Persist's backend writes them, and `UUID`/`BYTEA` column types:
+
+```sql
+ALTER TABLE "tasks" ADD COLUMN "priority" INTEGER;
+ALTER TABLE "tasks" ADD COLUMN "payload" BYTEA;
+```
 
 **Renames.** A renamed column looks identical to "one column dropped, another
 added", and guessing wrong destroys data. So the tool never guesses; you tell it:
@@ -254,7 +342,7 @@ Runner      orchestrates: ledger → plan → apply each pending migration
 Driver      function table; the only layer that knows a database
    │
    ▼
-SQLite driver
+SQLite driver        PostgreSQL driver (optional)
 ```
 
 | Layer   | Knows about                | Doesn't know about |
@@ -268,22 +356,28 @@ SQLite driver
 
 Because the planner and source loader are pure, every safety rule above is
 covered by fast unit tests with no database. Only the driver and the runner's
-integration tests touch SQLite.
+integration tests touch a database.
 
 The driver is a function table (`bb_migrate_driver_api_t`), the same pattern as
 Persist's `bb_model_api_t`. Supporting another database means writing one
 driver; nothing above it changes.
 
-**Why not use Persist's SQLite backend?** It's a connection pool built for
-concurrent CRUD and exposes no transactions. A migration run needs a single
+**Why not use Persist's backends?** They are connection pools built for
+concurrent CRUD and expose no transactions. A migration run needs a single
 connection and explicit `BEGIN`/`COMMIT` per step. `bb_migrate_core` therefore
-links SQLite directly and has no dependency on `bluebird_persist`.
+links SQLite (and, in a PostgreSQL build, libpq) directly and has no dependency
+on `bluebird_persist`.
+
+Each driver also reports its **dialect**, which decides how a manifest's field
+types map to column types and how generated SQL quotes identifiers; everything
+above the driver stays the same.
 
 **Concurrency.** Each migration starts with `BEGIN IMMEDIATE`, so two runners
 queue up on SQLite's write lock (5s busy timeout) instead of interleaving. The
 ledger row is inserted *before* the migration's SQL runs, so if another process
 already applied that version, the primary key rejects it before any DDL
-executes.
+executes. The PostgreSQL driver relies on the same ledger rule (see
+[PostgreSQL](#postgresql)).
 
 ---
 
@@ -293,9 +387,9 @@ Left out on purpose so step 1 stays small. The seams for each already exist:
 
 - **Rollback / `down`.** Forward-only is the safer default; the ledger already
   has what a `down` would need.
-- **Other databases.** Add a driver. Note that databases without transactional
-  DDL (e.g. MySQL) can't give the same per-migration atomicity — the driver
-  should document what it can guarantee.
+- **Other databases** (beyond SQLite and PostgreSQL). Add a driver. Note that
+  databases without transactional DDL (e.g. MySQL) can't give the same
+  per-migration atomicity — the driver should document what it can guarantee.
 - **Generating the remaining unsafe changes** (drops, type changes, primary key
   changes). Like renames, they would need the developer to say what they mean,
   for example an explicit `--drop tasks.legacy` hint, or a table-rebuild
