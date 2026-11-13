@@ -444,6 +444,89 @@ static void test_suggestions(void)
     BB_ASSERT(strstr(err.msg, "dropping a column can lose data") != NULL);
 }
 
+static void pg_task_spec(bb_migrate_table_spec_t *s)
+{
+    init_spec(s, "tasks");
+    add_col(s, "id", "UUID", 1);
+    add_col(s, "name", "TEXT", 0);
+    add_col(s, "status", "TEXT", 0);
+}
+
+static void test_postgres_dialect(void)
+{
+    printf("\tTesting the PostgreSQL dialect quotes identifiers like Persist's backend...\n");
+
+    bb_migrate_table_spec_t exp, act;
+    bb_migrate_err_t err;
+    char *sql = NULL;
+
+    /* CREATE TABLE */
+    pg_task_spec(&exp);
+    init_spec(&act, "tasks");
+    BB_ASSERT(bb_migrate_generate_sql_for(BB_MIGRATE_DIALECT_POSTGRES, &exp, &act, NULL, 0, &sql, NULL)
+              == BB_MIGRATE_GEN_OK);
+    BB_ASSERT(strcmp(sql,
+        "CREATE TABLE IF NOT EXISTS \"tasks\" (\n"
+        "    \"id\" UUID PRIMARY KEY,\n"
+        "    \"name\" TEXT,\n"
+        "    \"status\" TEXT\n"
+        ");\n") == 0);
+    free(sql);
+
+    /* ADD COLUMN, with the types the specs carry */
+    pg_task_spec(&exp);
+    add_col(&exp, "due", "INTEGER", 0);
+    add_col(&exp, "payload", "BYTEA", 0);
+    pg_task_spec(&act);
+    BB_ASSERT(bb_migrate_generate_sql_for(BB_MIGRATE_DIALECT_POSTGRES, &exp, &act, NULL, 0, &sql, NULL)
+              == BB_MIGRATE_GEN_OK);
+    BB_ASSERT(strcmp(sql,
+        "ALTER TABLE \"tasks\" ADD COLUMN \"due\" INTEGER;\n"
+        "ALTER TABLE \"tasks\" ADD COLUMN \"payload\" BYTEA;\n") == 0);
+    free(sql);
+
+    /* RENAME COLUMN */
+    bb_migrate_table_spec_t rexp, ract;
+    renamed_specs(&rexp, &ract);
+    bb_migrate_rename_t hint;
+    rename_hint(&hint, "tasks", "status", "state");
+    BB_ASSERT(bb_migrate_generate_sql_for(BB_MIGRATE_DIALECT_POSTGRES, &rexp, &ract, &hint, 1, &sql, &err)
+              == BB_MIGRATE_GEN_OK);
+    BB_ASSERT(strcmp(sql, "ALTER TABLE \"tasks\" RENAME COLUMN \"status\" TO \"state\";\n") == 0);
+    free(sql);
+
+    /* SQLite output is unchanged: bare names, and the old entry point agrees */
+    char *via_old = NULL, *via_for = NULL;
+    task_spec(&exp);
+    init_spec(&act, "tasks");
+    BB_ASSERT(bb_migrate_generate_sql(&exp, &act, NULL, 0, &via_old, NULL) == BB_MIGRATE_GEN_OK);
+    BB_ASSERT(bb_migrate_generate_sql_for(BB_MIGRATE_DIALECT_SQLITE, &exp, &act, NULL, 0, &via_for, NULL)
+              == BB_MIGRATE_GEN_OK);
+    BB_ASSERT(strcmp(via_old, via_for) == 0);
+    BB_ASSERT(strstr(via_old, "\"") == NULL);
+    free(via_old);
+    free(via_for);
+
+    /* refusals still refuse, with wording that is true for PostgreSQL */
+    pg_task_spec(&exp);
+    add_col(&exp, "uid", "UUID", 1);
+    pg_task_spec(&act);
+    BB_ASSERT(bb_migrate_generate_sql_for(BB_MIGRATE_DIALECT_POSTGRES, &exp, &act, NULL, 0, &sql, &err)
+              == BB_MIGRATE_GEN_REFUSED);
+    BB_ASSERT(sql == NULL);
+    BB_ASSERT(strstr(err.msg, "primary key") != NULL);
+    BB_ASSERT(strstr(err.msg, "backfilled") != NULL);
+    BB_ASSERT(strstr(err.msg, "SQLite") == NULL);
+
+    pg_task_spec(&exp);
+    pg_task_spec(&act);
+    act.columns[0].primary_key = 0;
+    BB_ASSERT(bb_migrate_generate_sql_for(BB_MIGRATE_DIALECT_POSTGRES, &exp, &act, NULL, 0, &sql, &err)
+              == BB_MIGRATE_GEN_REFUSED);
+    BB_ASSERT(strstr(err.msg, "primary key") != NULL);
+    BB_ASSERT(strstr(err.msg, "SQLite") == NULL);
+}
+
 int main(void)
 {
     printf("Running migration generator unit tests...\n");
@@ -462,6 +545,7 @@ int main(void)
     test_valid_rename_does_not_excuse_other_problems();
     test_hints_for_other_tables_are_ignored_here();
     test_suggestions();
+    test_postgres_dialect();
 
     printf("All migration generator tests passed!\n");
     return 0;
