@@ -29,6 +29,17 @@ target_link_libraries(bb_migrate_core
         SQLite::SQLite3
 )
 
+# PostgreSQL support is optional, like Persist's PostgreSQL backend (it uses
+# the same option). Without it, bb-migrate still reads manifests and runs
+# against SQLite, and says so if it is pointed at a PostgreSQL database.
+if(BB_WITH_POSTGRES)
+    find_package(PostgreSQL REQUIRED)
+
+    target_sources(bb_migrate_core PRIVATE src/drivers/postgres_driver.c)
+    target_link_libraries(bb_migrate_core PRIVATE PostgreSQL::PostgreSQL)
+    target_compile_definitions(bb_migrate_core PUBLIC BB_WITH_POSTGRES=1)
+endif()
+
 add_executable(bb-migrate
     src/main.c
 )
