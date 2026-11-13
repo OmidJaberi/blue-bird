@@ -1,6 +1,9 @@
 #include "driver.h"
 #include "generate.h"
 #include "drivers/sqlite_driver.h"
+#ifdef BB_WITH_POSTGRES
+#include "drivers/postgres_driver.h"
+#endif
 #include "migration.h"
 #include "plan.h"
 #include "runner.h"
@@ -21,14 +24,20 @@ static void print_usage(const char *argv0)
         "  %s verify   --schema <manifest.json> [--schema ...] [options] [migration.sql ...]\n"
         "  %s generate --schema <manifest.json> [--schema ...] --dir <directory> --name <name> [--rename <table>.<old>=<new> ...] [--dry-run]\n"
         "\n"
+        "  <database> is a SQLite file, or a PostgreSQL URL (postgresql://user:pass@host/db)\n"
+        "  if this build has PostgreSQL support. Migrations are plain SQL in the\n"
+        "  dialect of the database they run on.\n"
+        "\n"
         "  status   lists every migration and whether it is applied, pending,\n"
         "           or a problem. Read-only. Exits 1 if any problem is found.\n"
         "  up       applies pending migrations in version order, each in its\n"
         "           own transaction. Refuses to run if status shows a problem.\n"
-        "  verify   applies all migrations to a scratch in-memory database and\n"
-        "           checks that each persist.schema manifest's table matches the\n"
-        "           result (columns, types, primary key). Touches no real\n"
-        "           database. Exits 1 on any difference. Meant for CI.\n"
+        "  verify   applies all migrations to a scratch database and checks that\n"
+        "           each persist.schema manifest's table matches the result\n"
+        "           (columns, types, primary key). The scratch database is an\n"
+        "           in-memory SQLite database, or with --scratch-db a throwaway\n"
+        "           schema on PostgreSQL that is dropped afterwards. Touches no\n"
+        "           real data. Exits 1 on any difference. Meant for CI.\n"
         "  generate writes the next migration (<version>_<name>.sql) into --dir so that\n"
         "           the migrations produce what each manifest expects. It replays the\n"
         "           existing migrations, diffs against the manifest, and only generates\n"
@@ -39,6 +48,12 @@ static void print_usage(const char *argv0)
         "           --dry-run prints the SQL without writing a file.\n"
         "\n"
         "options:\n"
+        "  --scratch-db <url>    (verify, generate) a PostgreSQL URL to use as the scratch\n"
+        "                        database, for migrations written for PostgreSQL. A\n"
+        "                        uniquely named schema is created there and dropped\n"
+        "                        afterwards; nothing else in the database is touched.\n"
+        "                        Needs permission to create schemas. Without it, SQLite\n"
+        "                        migrations are checked in memory.\n"
         "  --dir <directory>     use every *.sql file in the directory (in addition to\n"
         "                        any files listed). A file whose name starts with a\n"
         "                        digit but doesn't end in .sql is an error, so a\n"
@@ -62,6 +77,34 @@ static void print_usage(const char *argv0)
         "Provide the complete set every time: an applied migration whose file\n"
         "is missing is reported as a problem.\n",
         argv0, argv0, argv0, argv0, argv0, argv0);
+}
+
+static int is_postgres_url(const char *spec)
+{
+    return spec && (strncmp(spec, "postgres://", 11) == 0 ||
+                    strncmp(spec, "postgresql://", 13) == 0);
+}
+
+/* Opens `spec` with the matching driver: a postgres:// or postgresql:// URL is
+ * PostgreSQL, anything else a SQLite file. `scratch` is for throwaway use
+ * (verify, generate): on PostgreSQL that is a private schema, dropped on
+ * close; SQLite callers pass ":memory:". */
+static bb_migrate_driver_t *open_database(const char *spec, int scratch, bb_migrate_err_t *err)
+{
+    if (is_postgres_url(spec))
+    {
+#ifdef BB_WITH_POSTGRES
+        return scratch ? bb_migrate_postgres_open_scratch(spec, err)
+                       : bb_migrate_postgres_open(spec, err);
+#else
+        (void)scratch;
+        bb_migrate_err_set(err, "this bb-migrate was built without PostgreSQL support "
+                                "(configure with -DBB_WITH_POSTGRES=ON)");
+        return NULL;
+#endif
+    }
+
+    return bb_migrate_sqlite_open(spec, err);
 }
 
 static void on_applied(const bb_migration_t *m, void *user)
@@ -133,10 +176,10 @@ static int cmd_up(bb_migrate_driver_t *drv, const bb_migration_set_t *set,
 }
 
 static int cmd_verify(const char *const *schemas, size_t schema_count,
-                      const bb_migration_set_t *set)
+                      const bb_migration_set_t *set, const char *scratch_db)
 {
     bb_migrate_err_t err;
-    bb_migrate_driver_t *scratch = bb_migrate_sqlite_open(":memory:", &err);
+    bb_migrate_driver_t *scratch = open_database(scratch_db ? scratch_db : ":memory:", 1, &err);
 
     if (!scratch)
     {
@@ -159,7 +202,7 @@ static int cmd_verify(const char *const *schemas, size_t schema_count,
         bb_migrate_table_spec_t expected;
         size_t diffs = 0;
 
-        if (bb_migrate_spec_from_manifest(schemas[i], &expected, &err) != 0)
+        if (bb_migrate_spec_from_manifest_for(scratch->api->dialect, schemas[i], &expected, &err) != 0)
         {
             fprintf(stderr, "bb-migrate: %s\n", err.msg);
             goto done;
@@ -197,6 +240,7 @@ done:
 typedef struct {
     const char *command;
     const char *db;
+    const char *scratch_db; /* verify, generate: PostgreSQL URL for the scratch schema */
     const char *dir;
     const char *name;
     const char *schemas[MAX_SCHEMAS];
@@ -290,7 +334,7 @@ static int cmd_generate(const cli_args_t *args, const bb_migration_set_t *set)
 
     snprintf(path, path_cap, "%s%s%s", args->dir, has_sep ? "" : "/", file);
 
-    bb_migrate_driver_t *scratch = bb_migrate_sqlite_open(":memory:", &err);
+    bb_migrate_driver_t *scratch = open_database(args->scratch_db ? args->scratch_db : ":memory:", 1, &err);
     char *content = NULL;
     size_t content_len = 0;
     int rc = 1;
@@ -336,7 +380,7 @@ static int cmd_generate(const cli_args_t *args, const bb_migration_set_t *set)
         bb_migrate_table_spec_t actual;
         char *sql = NULL;
 
-        if (bb_migrate_spec_from_manifest(args->schemas[i], &expected, &err) != 0)
+        if (bb_migrate_spec_from_manifest_for(scratch->api->dialect, args->schemas[i], &expected, &err) != 0)
         {
             fprintf(stderr, "bb-migrate: %s\n", err.msg);
             goto done;
@@ -354,8 +398,8 @@ static int cmd_generate(const cli_args_t *args, const bb_migration_set_t *set)
                 hint_matched[r] = 1;
         }
 
-        int gen = bb_migrate_generate_sql(&expected, &actual, args->renames, args->rename_count,
-                                          &sql, &err);
+        int gen = bb_migrate_generate_sql_for(scratch->api->dialect, &expected, &actual,
+                                              args->renames, args->rename_count, &sql, &err);
 
         if (gen == BB_MIGRATE_GEN_REFUSED)
         {
@@ -424,7 +468,7 @@ static int cmd_generate(const cli_args_t *args, const bb_migration_set_t *set)
         bb_migrate_table_spec_t expected;
         size_t diffs = 0;
 
-        if (bb_migrate_spec_from_manifest(args->schemas[i], &expected, &err) != 0 ||
+        if (bb_migrate_spec_from_manifest_for(scratch->api->dialect, args->schemas[i], &expected, &err) != 0 ||
             bb_migrate_check_table(scratch, &expected, NULL, NULL, &diffs, &err) != 0)
         {
             fprintf(stderr, "bb-migrate: %s\n", err.msg);
@@ -526,12 +570,13 @@ static int parse_args(int argc, char **argv, cli_args_t *a)
         }
 
         int is_db = strcmp(opt, "--db") == 0;
+        int is_scratch_db = strcmp(opt, "--scratch-db") == 0;
         int is_dir = strcmp(opt, "--dir") == 0;
         int is_schema = strcmp(opt, "--schema") == 0;
         int is_name = strcmp(opt, "--name") == 0;
         int is_rename = strcmp(opt, "--rename") == 0;
 
-        if (!is_db && !is_dir && !is_schema && !is_name && !is_rename)
+        if (!is_db && !is_scratch_db && !is_dir && !is_schema && !is_name && !is_rename)
             return usage_error("unknown option '%s'", opt);
 
         if (i + 1 >= argc)
@@ -545,13 +590,20 @@ static int parse_args(int argc, char **argv, cli_args_t *a)
         if (is_schema && !scratch_only)
             return usage_error("--schema only applies to verify and generate%s", "");
 
+        if (is_scratch_db && !scratch_only)
+            return usage_error("--scratch-db only applies to verify and generate%s", "");
+
+        if (is_scratch_db && !is_postgres_url(value))
+            return usage_error("--scratch-db must be a postgresql:// URL (SQLite migrations are always "
+                               "checked in memory)%s", "");
+
         if (is_name && !is_generate)
             return usage_error("--name only applies to generate%s", "");
 
         if (is_rename && !is_generate)
             return usage_error("--rename only applies to generate%s", "");
 
-        if ((is_db && a->db) || (is_dir && a->dir) || (is_name && a->name))
+        if ((is_db && a->db) || (is_scratch_db && a->scratch_db) || (is_dir && a->dir) || (is_name && a->name))
             return usage_error("%s given more than once", opt);
 
         if (is_rename)
@@ -568,6 +620,8 @@ static int parse_args(int argc, char **argv, cli_args_t *a)
         }
         else if (is_db)
             a->db = value;
+        else if (is_scratch_db)
+            a->scratch_db = value;
         else if (is_dir)
             a->dir = value;
         else if (is_name)
@@ -655,7 +709,7 @@ int main(int argc, char **argv)
 
     if (strcmp(args.command, "verify") == 0)
     {
-        rc = cmd_verify(args.schemas, args.schema_count, &set);
+        rc = cmd_verify(args.schemas, args.schema_count, &set, args.scratch_db);
     }
     else if (strcmp(args.command, "generate") == 0)
     {
@@ -663,7 +717,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        bb_migrate_driver_t *drv = bb_migrate_sqlite_open(args.db, &err);
+        bb_migrate_driver_t *drv = open_database(args.db, 0, &err);
 
         if (!drv)
         {

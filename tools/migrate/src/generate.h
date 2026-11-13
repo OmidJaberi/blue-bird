@@ -25,7 +25,8 @@
  *                                               rename; can't tell, and
  *                                               either can lose data
  *   column type changed                         needs a table rebuild
- *   primary key changed or added                SQLite can't ALTER one
+ *   primary key changed or added                SQLite can't ALTER one; on
+ *                                               PostgreSQL it needs a backfill
  *
  * A tool that guesses at a rename destroys a column, so a rename is only
  * generated when the user SAYS it is one, with a bb_migrate_rename_t:
@@ -61,7 +62,19 @@ int bb_migrate_parse_rename(const char *arg, bb_migrate_rename_t *out,
 #define BB_MIGRATE_GEN_REFUSED -1   /* can't generate; `err` lists every reason */
 
 /* `renames` may be NULL. Hints for other tables are ignored here (the
- * caller checks that every hint matched some table). */
+ * caller checks that every hint matched some table).
+ *
+ * `dialect` decides how identifiers are written: SQLite as plain names (as
+ * Persist's SQLite backend does), PostgreSQL double-quoted (as Persist's
+ * PostgreSQL backend does, which makes them case-sensitive). The column
+ * types come from the specs, which were built for the same dialect. */
+int bb_migrate_generate_sql_for(bb_migrate_dialect_t dialect,
+                                const bb_migrate_table_spec_t *expected,
+                                const bb_migrate_table_spec_t *actual,
+                                const bb_migrate_rename_t *renames, size_t rename_count,
+                                char **sql_out, bb_migrate_err_t *err);
+
+/* The same for SQLite. */
 int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
                             const bb_migrate_table_spec_t *actual,
                             const bb_migrate_rename_t *renames, size_t rename_count,

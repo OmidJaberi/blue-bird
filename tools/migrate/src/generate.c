@@ -143,6 +143,7 @@ bad:
  * --------------------------- */
 
 typedef struct {
+    bb_migrate_dialect_t dialect;
     const bb_migrate_table_spec_t *expected;
     const bb_migrate_table_spec_t *actual;
     const bb_migrate_rename_t *renames;
@@ -370,7 +371,11 @@ static void scan_for_refusals(const bb_migrate_diff_t *d, void *user)
                 break; /* a rename creates it */
 
             if (d->expected_pk)
-                refuse(c->refusals, "%s; SQLite can't add a primary key column with ALTER TABLE", desc);
+                refuse(c->refusals,
+                       c->g->dialect == BB_MIGRATE_DIALECT_POSTGRES
+                           ? "%s; adding a primary key column to an existing table needs its rows backfilled first"
+                           : "%s; SQLite can't add a primary key column with ALTER TABLE",
+                       desc);
             break;
 
         case BB_MIGRATE_DIFF_COLUMN_EXTRA:
@@ -386,7 +391,11 @@ static void scan_for_refusals(const bb_migrate_diff_t *d, void *user)
 
         case BB_MIGRATE_DIFF_PK_MISSING:
         case BB_MIGRATE_DIFF_PK_EXTRA:
-            refuse(c->refusals, "%s; SQLite can't change a primary key with ALTER TABLE", desc);
+            refuse(c->refusals,
+                   c->g->dialect == BB_MIGRATE_DIALECT_POSTGRES
+                       ? "%s; changing a primary key needs the old constraint dropped and rows checked"
+                       : "%s; SQLite can't change a primary key with ALTER TABLE",
+                   desc);
             break;
     }
 }
@@ -395,15 +404,26 @@ static void scan_for_refusals(const bb_migrate_diff_t *d, void *user)
  * Emitting SQL
  * --------------------------- */
 
-static void emit_create_table(strbuf_t *sb, const bb_migrate_table_spec_t *spec)
+/* Persist's PostgreSQL backend double-quotes every identifier, which makes
+ * them case-sensitive; its SQLite backend writes them bare. Names are plain
+ * identifiers (checked below), so quoting never needs escaping. */
+static const char *quote_for(bb_migrate_dialect_t dialect)
 {
-    sb_appendf(sb, "CREATE TABLE IF NOT EXISTS %s (\n", spec->table);
+    return dialect == BB_MIGRATE_DIALECT_POSTGRES ? "\"" : "";
+}
+
+static void emit_create_table(strbuf_t *sb, bb_migrate_dialect_t dialect,
+                              const bb_migrate_table_spec_t *spec)
+{
+    const char *q = quote_for(dialect);
+
+    sb_appendf(sb, "CREATE TABLE IF NOT EXISTS %s%s%s (\n", q, spec->table, q);
 
     for (size_t i = 0; i < spec->count; i++)
     {
         const bb_migrate_column_t *c = &spec->columns[i];
 
-        sb_appendf(sb, "    %s %s%s%s\n", c->name, c->type,
+        sb_appendf(sb, "    %s%s%s %s%s%s\n", q, c->name, q, c->type,
                    c->primary_key ? " PRIMARY KEY" : "",
                    i + 1 < spec->count ? "," : "");
     }
@@ -419,15 +439,27 @@ typedef struct {
 static void emit_alter(const bb_migrate_diff_t *d, void *user)
 {
     emit_ctx_t *c = user;
+    const char *q = quote_for(c->g->dialect);
 
     if (d->kind == BB_MIGRATE_DIFF_COLUMN_MISSING && !consumed_to(c->g, d->column))
-        sb_appendf(c->sb, "ALTER TABLE %s ADD COLUMN %s %s;\n", d->table, d->column, d->expected_type);
+        sb_appendf(c->sb, "ALTER TABLE %s%s%s ADD COLUMN %s%s%s %s;\n",
+                   q, d->table, q, q, d->column, q, d->expected_type);
 }
 
 int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
                             const bb_migrate_table_spec_t *actual,
                             const bb_migrate_rename_t *renames, size_t rename_count,
                             char **sql_out, bb_migrate_err_t *err)
+{
+    return bb_migrate_generate_sql_for(BB_MIGRATE_DIALECT_SQLITE, expected, actual,
+                                       renames, rename_count, sql_out, err);
+}
+
+int bb_migrate_generate_sql_for(bb_migrate_dialect_t dialect,
+                                const bb_migrate_table_spec_t *expected,
+                                const bb_migrate_table_spec_t *actual,
+                                const bb_migrate_rename_t *renames, size_t rename_count,
+                                char **sql_out, bb_migrate_err_t *err)
 {
     if (!expected || !actual || !sql_out || (rename_count > 0 && !renames) ||
         rename_count > BB_MIGRATE_RENAMES_MAX)
@@ -454,6 +486,7 @@ int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
 
     gen_ctx_t g;
     memset(&g, 0, sizeof g);
+    g.dialect = dialect;
     g.expected = expected;
     g.actual = actual;
     g.renames = renames;
@@ -497,7 +530,7 @@ int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
 
     if (actual->count == 0)
     {
-        emit_create_table(&sb, expected);
+        emit_create_table(&sb, dialect, expected);
     }
     else
     {
@@ -509,8 +542,10 @@ int bb_migrate_generate_sql(const bb_migrate_table_spec_t *expected,
         {
             if (g.mine[i] && g.valid[i])
             {
-                sb_appendf(&sb, "ALTER TABLE %s RENAME COLUMN %s TO %s;\n",
-                           expected->table, renames[i].from, renames[i].to);
+                const char *q = quote_for(dialect);
+
+                sb_appendf(&sb, "ALTER TABLE %s%s%s RENAME COLUMN %s%s%s TO %s%s%s;\n",
+                           q, expected->table, q, q, renames[i].from, q, q, renames[i].to, q);
             }
         }
 

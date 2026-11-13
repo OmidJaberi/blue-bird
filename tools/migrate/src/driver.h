@@ -49,6 +49,10 @@ typedef struct bb_migrate_driver bb_migrate_driver_t;
 typedef struct {
     const char *name; /* e.g. "sqlite" */
 
+    /* The SQL it speaks: column types and identifier quoting for generated
+     * migrations. */
+    bb_migrate_dialect_t dialect;
+
     void (*close)(bb_migrate_driver_t *d);
 
     /* Creates the ledger table if it doesn't exist. Idempotent. */

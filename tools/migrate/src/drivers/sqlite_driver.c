@@ -279,6 +279,7 @@ static int drv_rollback(bb_migrate_driver_t *base)
 
 static const bb_migrate_driver_api_t sqlite_api = {
     .name          = "sqlite",
+    .dialect       = BB_MIGRATE_DIALECT_SQLITE,
     .close         = drv_close,
     .ensure_ledger = drv_ensure_ledger,
     .load_applied  = drv_load_applied,

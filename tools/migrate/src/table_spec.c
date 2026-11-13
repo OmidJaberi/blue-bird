@@ -5,17 +5,23 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Keep in step with field_type_to_sql() in Persist's model_sqlite.c. */
-static const char *sql_type_for(const char *manifest_type)
+/* Keep in step with field_type_to_sql() in Persist's model_sqlite.c and
+ * model_postgres.c. */
+static const char *sql_type_for(bb_migrate_dialect_t dialect, const char *manifest_type)
 {
+    int postgres = dialect == BB_MIGRATE_DIALECT_POSTGRES;
+
     if (strcmp(manifest_type, "int") == 0)
         return "INTEGER";
 
-    if (strcmp(manifest_type, "string") == 0 || strcmp(manifest_type, "uuid") == 0)
+    if (strcmp(manifest_type, "string") == 0)
         return "TEXT";
 
+    if (strcmp(manifest_type, "uuid") == 0)
+        return postgres ? "UUID" : "TEXT";
+
     if (strcmp(manifest_type, "blob") == 0)
-        return "BLOB";
+        return postgres ? "BYTEA" : "BLOB";
 
     return NULL;
 }
@@ -43,6 +49,12 @@ static const char *text_of(bb_json_t *obj, const char *key)
 
 int bb_migrate_spec_from_manifest(const char *path, bb_migrate_table_spec_t *out,
                                   bb_migrate_err_t *err)
+{
+    return bb_migrate_spec_from_manifest_for(BB_MIGRATE_DIALECT_SQLITE, path, out, err);
+}
+
+int bb_migrate_spec_from_manifest_for(bb_migrate_dialect_t dialect, const char *path,
+                                      bb_migrate_table_spec_t *out, bb_migrate_err_t *err)
 {
     if (!path || !out)
     {
@@ -104,7 +116,7 @@ int bb_migrate_spec_from_manifest(const char *path, bb_migrate_table_spec_t *out
         bb_json_t *f = bb_json_array_get_index(fields, (unsigned int)i);
         const char *name = f && bb_json_get_type(f) == BB_JSON_OBJECT ? text_of(f, "name") : NULL;
         const char *type = name ? text_of(f, "type") : NULL;
-        const char *sql_type = type ? sql_type_for(type) : NULL;
+        const char *sql_type = type ? sql_type_for(dialect, type) : NULL;
         bb_migrate_column_t *c = &out->columns[i];
 
         if (!name || copy_checked(c->name, sizeof c->name, name) != 0)

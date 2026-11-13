@@ -17,11 +17,14 @@
  *
  * Pure logic, no database and no I/O beyond reading the manifest file.
  *
- * What is compared mirrors what Persist's SQLite backend really emits
- * (see field_type_to_sql in persist's model_sqlite.c):
+ * What is compared mirrors what Persist's backend for the database really
+ * emits (see field_type_to_sql in persist's model_sqlite.c and
+ * model_postgres.c):
  *
  *   - column names
- *   - column type: int -> INTEGER, string/uuid -> TEXT, blob -> BLOB
+ *   - column type:
+ *       SQLite      int -> INTEGER, string/uuid -> TEXT, blob -> BLOB
+ *       PostgreSQL  int -> INTEGER, string -> TEXT, uuid -> UUID, blob -> BYTEA
  *   - which column is the primary key
  *
  * Deliberately NOT compared:
@@ -31,7 +34,15 @@
  * --------------------------- */
 
 #define BB_MIGRATE_COLUMNS_MAX 64
-#define BB_MIGRATE_TYPE_MAX 16
+#define BB_MIGRATE_TYPE_MAX 32
+
+/* The SQL dialect a database speaks. It decides how manifest field types
+ * map to column types (what Persist's backend for that database emits) and
+ * how generated SQL quotes identifiers. Every driver reports its own. */
+typedef enum {
+    BB_MIGRATE_DIALECT_SQLITE = 0,
+    BB_MIGRATE_DIALECT_POSTGRES
+} bb_migrate_dialect_t;
 
 typedef struct {
     char name[BB_MIGRATE_NAME_MAX];
@@ -46,7 +57,12 @@ typedef struct {
 } bb_migrate_table_spec_t;
 
 /* Reads a "persist.schema" manifest. The table is the manifest's
- * "table" (falling back to "name", like bb-codegen). Returns 0 or -1. */
+ * "table" (falling back to "name", like bb-codegen). Column types are the
+ * ones Persist's backend for `dialect` creates. Returns 0 or -1. */
+int bb_migrate_spec_from_manifest_for(bb_migrate_dialect_t dialect, const char *path,
+                                      bb_migrate_table_spec_t *out, bb_migrate_err_t *err);
+
+/* The same for SQLite. */
 int bb_migrate_spec_from_manifest(const char *path, bb_migrate_table_spec_t *out,
                                   bb_migrate_err_t *err);
 
