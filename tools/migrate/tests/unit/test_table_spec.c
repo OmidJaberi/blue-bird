@@ -80,6 +80,49 @@ static void test_manifest_loading(void)
     remove("test_spec_noname.schema.json");
 }
 
+static void test_manifest_types_per_dialect(void)
+{
+    printf("\tTesting manifest types follow the database's dialect...\n");
+
+    write_text_file("test_spec_dialect.schema.json",
+        "{ \"version\": 1, \"kind\": \"persist.schema\", \"name\": \"Task\", \"table\": \"tasks\","
+        "  \"fields\": ["
+        "    { \"name\": \"id\", \"type\": \"uuid\", \"primary_key\": true },"
+        "    { \"name\": \"name\", \"type\": \"string\", \"size\": 64 },"
+        "    { \"name\": \"n\", \"type\": \"int\" },"
+        "    { \"name\": \"data\", \"type\": \"blob\", \"size\": 16 } ] }");
+
+    static const char *const sqlite_types[]   = { "TEXT", "TEXT", "INTEGER", "BLOB" };
+    static const char *const postgres_types[] = { "UUID", "TEXT", "INTEGER", "BYTEA" };
+
+    bb_migrate_table_spec_t spec;
+    bb_migrate_err_t err;
+
+    /* the original entry point is the SQLite one */
+    BB_ASSERT(bb_migrate_spec_from_manifest("test_spec_dialect.schema.json", &spec, &err) == 0);
+    BB_ASSERT(spec.count == 4);
+    for (size_t i = 0; i < 4; i++)
+        BB_ASSERT(strcmp(spec.columns[i].type, sqlite_types[i]) == 0);
+
+    BB_ASSERT(bb_migrate_spec_from_manifest_for(BB_MIGRATE_DIALECT_SQLITE,
+              "test_spec_dialect.schema.json", &spec, &err) == 0);
+    for (size_t i = 0; i < 4; i++)
+        BB_ASSERT(strcmp(spec.columns[i].type, sqlite_types[i]) == 0);
+
+    BB_ASSERT(bb_migrate_spec_from_manifest_for(BB_MIGRATE_DIALECT_POSTGRES,
+              "test_spec_dialect.schema.json", &spec, &err) == 0);
+    BB_ASSERT(spec.count == 4);
+    for (size_t i = 0; i < 4; i++)
+        BB_ASSERT(strcmp(spec.columns[i].type, postgres_types[i]) == 0);
+
+    /* the primary key and the table name don't depend on the dialect */
+    BB_ASSERT(strcmp(spec.table, "tasks") == 0);
+    BB_ASSERT(spec.columns[0].primary_key == 1);
+    BB_ASSERT(spec.columns[1].primary_key == 0);
+
+    remove("test_spec_dialect.schema.json");
+}
+
 static void test_manifest_errors(void)
 {
     printf("\tTesting manifest errors...\n");
@@ -188,6 +231,7 @@ int main(void)
     printf("Running migration table spec unit tests...\n");
 
     test_manifest_loading();
+    test_manifest_types_per_dialect();
     test_manifest_errors();
     test_compare_match_ignores_order();
     test_compare_differences();
