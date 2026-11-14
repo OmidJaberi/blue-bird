@@ -1668,6 +1668,54 @@ void test_pre_middleware_order_and_gate(void)
     assert_server_healthy();
 }
 
+void test_non_get_methods_with_body(void)
+{
+    printf("Testing POST, PUT and DELETE routes with bodies...\n");
+
+    static const char *const methods[] = {"POST", "PUT", "DELETE"};
+
+    bb_client_t *client = bb_client_create();
+    bb_response_t *res = bb_client_get_response(client);
+
+    for (size_t i = 0; i < sizeof(methods) / sizeof(methods[0]); i++)
+    {
+        BB_ASSERT(run_request(client, methods[i], "http://127.0.0.1:8080/echo", "payload-123", NULL, NULL).code == 0);
+
+        char expected[64];
+        snprintf(expected, sizeof(expected), "%s payload-123", methods[i]);
+
+        BB_ASSERT(bb_response_get_status(res) == 201);
+        BB_ASSERT(strcmp(bb_response_get_body(res), expected) == 0);
+        BB_ASSERT(bb_response_get_header(res, "X-Method") != NULL);
+        BB_ASSERT(strcmp(bb_response_get_header(res, "X-Method"), methods[i]) == 0);
+    }
+
+    /* the method is part of route matching: a registered path with an unregistered method is refused */
+    BB_ASSERT(run_request(client, "PATCH", "http://127.0.0.1:8080/echo", "x", NULL, NULL).code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 405 || bb_response_get_status(res) == 404);
+    BB_ASSERT(run_request(client, "GET", "http://127.0.0.1:8080/echo", NULL, NULL, NULL).code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 405 || bb_response_get_status(res) == 404);
+
+    /* a large POST body survives the round trip */
+    const size_t size = 256 * 1024;
+    char *big = malloc(size + 1);
+    BB_ASSERT(big != NULL);
+    for (size_t i = 0; i < size; i++)
+        big[i] = (char)('a' + (i % 26));
+    big[size] = '\0';
+
+    bb_error_t err = bb_client_post(client, "http://127.0.0.1:8080/echo", big);
+    BB_ASSERT(err.code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 201);
+    const char *got = bb_response_get_body(res);
+    BB_ASSERT(got != NULL);
+    BB_ASSERT(strlen(got) == size + strlen("POST "));
+    BB_ASSERT(strncmp(got, "POST ", 5) == 0 && strcmp(got + 5, big) == 0);
+
+    free(big);
+    bb_client_destroy(client);
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1922,6 +1970,7 @@ int main(void)
     test_response_header_values_roundtrip();
     test_response_splitting_is_prevented();
     test_pre_middleware_order_and_gate();
+    test_non_get_methods_with_body();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
