@@ -163,6 +163,83 @@ bb_error_t fail_post_middleware(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+/* ---- pre-middleware, non-GET routes and status/header round trips ---- */
+
+static volatile int counted_handler_calls = 0;
+
+/* Tags every response so tests can see which pre-middleware ran, and in what order. */
+bb_error_t pre_trace_a(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_header(res, "X-Trace", "a");
+    return BB_SUCCESS();
+}
+
+/* Runs after pre_trace_a. Appends to its trace and can reject the request. */
+bb_error_t pre_trace_b_and_gate(bb_request_t *req, bb_response_t *res)
+{
+    const char *prev = bb_response_get_header(res, "X-Trace");
+    bb_response_set_header(res, "X-Trace", (prev && strcmp(prev, "a") == 0) ? "ab" : "wrong-order");
+
+    const char *gate = bb_request_get_header(req, "X-Gate");
+    if (gate && strcmp(gate, "deny") == 0)
+    {
+        bb_response_set_status(res, 401);
+        bb_response_set_header(res, "Content-Type", "text/plain");
+        bb_response_set_body(res, "denied");
+        return BB_ERROR(BB_ERR_BAD_REQUEST, "gate-detail-401");
+    }
+    if (gate && strcmp(gate, "crash") == 0)
+        return BB_ERROR(BB_ERR_INTERNAL, "gate-detail-500"); /* no status chosen */
+
+    return BB_SUCCESS();
+}
+
+bb_error_t counted_handler(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    counted_handler_calls++;
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "counted");
+    return BB_SUCCESS();
+}
+
+/* Echoes "<METHOD> <body>" and answers 201 with a custom header. */
+bb_error_t echo_method_handler(bb_request_t *req, bb_response_t *res)
+{
+    const char *body = bb_request_get_body(req);
+    const char *method = bb_request_get_method(req);
+    size_t cap = strlen(method) + (body ? strlen(body) : 0) + 2;
+    char *msg = malloc(cap);
+    if (!msg)
+        return BB_ERROR(BB_ERR_INTERNAL, "alloc");
+    snprintf(msg, cap, "%s %s", method, body ? body : "");
+
+    bb_response_set_status(res, 201);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, "X-Method", method);
+    bb_response_set_body(res, msg);
+    free(msg);
+    return BB_SUCCESS();
+}
+
+/* GET /status/:code answers with that status, a Location header and a custom header. */
+bb_error_t status_handler(bb_request_t *req, bb_response_t *res)
+{
+    const char *code = bb_request_get_param(req, "code");
+    int status = code ? atoi(code) : 500;
+
+    bb_response_set_status(res, status);
+    bb_response_set_header(res, "Location", "/elsewhere");
+    bb_response_set_header(res, "X-Status-Echo", code ? code : "");
+    if (status != 204)
+    {
+        bb_response_set_header(res, "Content-Type", "text/plain");
+        bb_response_set_body(res, "status body");
+    }
+    return BB_SUCCESS();
+}
+
 void *server(void* arg)
 {
     (void) arg;
@@ -182,6 +259,13 @@ void *server(void* arg)
     bb_server_add_route(server, "GET", "/fail/explicit_404", fail_explicit_404_handler);
     bb_server_add_route(server, "GET", "/fail/explicit_500", fail_explicit_500_handler);
     bb_server_add_route(server, "GET", "/fail/no_status", fail_no_status_handler);
+    bb_server_add_route(server, "GET", "/counted", counted_handler);
+    bb_server_add_route(server, "POST", "/echo", echo_method_handler);
+    bb_server_add_route(server, "PUT", "/echo", echo_method_handler);
+    bb_server_add_route(server, "DELETE", "/echo", echo_method_handler);
+    bb_server_add_route(server, "GET", "/status/:code", status_handler);
+    bb_server_use_pre_middleware(server, pre_trace_a);
+    bb_server_use_pre_middleware(server, pre_trace_b_and_gate);
     bb_server_use_post_middleware(server, fail_post_middleware);
     bb_server_start(server);
 
@@ -1529,6 +1613,61 @@ void test_response_splitting_is_prevented(void)
     BB_ASSERT(failures == 0);
 }
 
+/* Sends `method` `url` with an optional body and request header; leaves the response in the client. */
+static bb_error_t run_request(bb_client_t *client, const char *method, const char *url,
+                              const char *body, const char *header, const char *header_value)
+{
+    bb_request_t *req = bb_client_get_request(client);
+
+    bb_client_reset(client);
+    bb_request_set_method(req, method);
+    bb_request_set_url(req, url);
+    bb_request_set_body(req, (char *)(body ? body : ""));
+    if (header)
+        bb_request_set_header(req, header, header_value);
+
+    return bb_client_execute(client);
+}
+
+void test_pre_middleware_order_and_gate(void)
+{
+    printf("Testing pre-middleware runs in order and can stop the handler...\n");
+
+    bb_client_t *client = bb_client_create();
+    bb_response_t *res = bb_client_get_response(client);
+
+    /* both pre-middleware ran, in registration order, before the handler */
+    int before = counted_handler_calls;
+    BB_ASSERT(run_request(client, "GET", "http://127.0.0.1:8080/counted", NULL, NULL, NULL).code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "counted") == 0);
+    BB_ASSERT(bb_response_get_header(res, "X-Trace") != NULL);
+    BB_ASSERT(strcmp(bb_response_get_header(res, "X-Trace"), "ab") == 0);
+    BB_ASSERT(counted_handler_calls == before + 1);
+
+    /* a pre-middleware that picks a 4xx and fails: the client sees it, the handler never runs */
+    before = counted_handler_calls;
+    BB_ASSERT(run_request(client, "GET", "http://127.0.0.1:8080/counted", NULL, "X-Gate", "deny").code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 401);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "denied") == 0);
+    BB_ASSERT(strstr(bb_response_get_body(res), "gate-detail") == NULL);
+    BB_ASSERT(counted_handler_calls == before);
+
+    /* a pre-middleware that fails without a status becomes a plain 500, handler still not run */
+    BB_ASSERT(run_request(client, "GET", "http://127.0.0.1:8080/counted", NULL, "X-Gate", "crash").code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 500);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Internal Server Error") == 0);
+    BB_ASSERT(strstr(bb_response_get_body(res), "gate-detail") == NULL);
+    BB_ASSERT(counted_handler_calls == before);
+
+    /* routes that do not match never reach the middleware, and the server is unaffected */
+    BB_ASSERT(run_request(client, "GET", "http://127.0.0.1:8080/no_such_route", NULL, "X-Gate", "deny").code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 404);
+
+    bb_client_destroy(client);
+    assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1782,6 +1921,7 @@ int main(void)
     test_parser_truncated_and_aborted_requests();
     test_response_header_values_roundtrip();
     test_response_splitting_is_prevented();
+    test_pre_middleware_order_and_gate();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
