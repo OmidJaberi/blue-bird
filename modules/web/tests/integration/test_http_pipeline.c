@@ -1716,6 +1716,49 @@ void test_non_get_methods_with_body(void)
     bb_client_destroy(client);
 }
 
+void test_response_status_and_headers_roundtrip(void)
+{
+    printf("Testing handler-chosen statuses and headers reach the client...\n");
+
+    static const int codes[] = {201, 202, 204, 301, 302, 400, 401, 403, 418, 500, 503};
+
+    bb_client_t *client = bb_client_create();
+    bb_response_t *res = bb_client_get_response(client);
+
+    for (size_t i = 0; i < sizeof(codes) / sizeof(codes[0]); i++)
+    {
+        char url[64], code_str[16];
+        snprintf(url, sizeof(url), "http://127.0.0.1:8080/status/%d", codes[i]);
+        snprintf(code_str, sizeof(code_str), "%d", codes[i]);
+
+        bb_error_t err = run_request(client, "GET", url, NULL, NULL, NULL);
+        if (err.code != 0 || bb_response_get_status(res) != codes[i])
+            fprintf(stderr, "status %d failed (err %d, got %d)\n", codes[i], err.code, bb_response_get_status(res));
+        BB_ASSERT(err.code == 0);
+        BB_ASSERT(bb_response_get_status(res) == codes[i]);
+
+        BB_ASSERT(bb_response_get_header(res, "Location") != NULL);
+        BB_ASSERT(strcmp(bb_response_get_header(res, "Location"), "/elsewhere") == 0);
+        BB_ASSERT(bb_response_get_header(res, "X-Status-Echo") != NULL);
+        BB_ASSERT(strcmp(bb_response_get_header(res, "X-Status-Echo"), code_str) == 0);
+
+        /* the server does not keep connections alive and must say so */
+        BB_ASSERT(bb_response_get_header(res, "Connection") != NULL);
+        BB_ASSERT(bb_strncasecmp(bb_response_get_header(res, "Connection"), "close", 5) == 0);
+
+        const char *body = bb_response_get_body(res);
+        if (codes[i] == 204)
+            BB_ASSERT(body == NULL || body[0] == '\0');
+        else
+        {
+            BB_ASSERT(body != NULL);
+            BB_ASSERT(strcmp(body, "status body") == 0);
+        }
+    }
+
+    bb_client_destroy(client);
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -1971,6 +2014,7 @@ int main(void)
     test_response_splitting_is_prevented();
     test_pre_middleware_order_and_gate();
     test_non_get_methods_with_body();
+    test_response_status_and_headers_roundtrip();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
