@@ -1759,6 +1759,43 @@ void test_response_status_and_headers_roundtrip(void)
     bb_client_destroy(client);
 }
 
+void test_client_connection_refused_then_reuse(void)
+{
+    printf("Testing connection refused is reported and the client stays usable...\n");
+
+    /* grab a port nothing is listening on: bind to port 0, read it back, close */
+    bb_socket_t probe = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = 0;
+    BB_ASSERT(bind(probe, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    socklen_t addr_len = sizeof(addr);
+    BB_ASSERT(getsockname(probe, (struct sockaddr *)&addr, &addr_len) == 0);
+    int dead_port = ntohs(addr.sin_port);
+    bb_socket_close(probe);
+
+    char url[64];
+    snprintf(url, sizeof(url), "http://127.0.0.1:%d/", dead_port);
+
+    bb_client_t *client = bb_client_create();
+    bb_response_t *res = bb_client_get_response(client);
+
+    for (int i = 0; i < 3; i++)
+    {
+        bb_error_t err = run_request(client, "GET", url, NULL, NULL, NULL);
+        BB_ASSERT(err.code != 0); /* reported, not hung and not a fake success */
+    }
+
+    /* the same client object works against the live server afterwards */
+    BB_ASSERT(run_request(client, "GET", "http://127.0.0.1:8080/", NULL, NULL, NULL).code == 0);
+    BB_ASSERT(bb_response_get_status(res) == 200);
+    BB_ASSERT(strcmp(bb_response_get_body(res), "Hello, Blue-Bird :)") == 0);
+
+    bb_client_destroy(client);
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -2015,6 +2052,7 @@ int main(void)
     test_pre_middleware_order_and_gate();
     test_non_get_methods_with_body();
     test_response_status_and_headers_roundtrip();
+    test_client_connection_refused_then_reuse();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
