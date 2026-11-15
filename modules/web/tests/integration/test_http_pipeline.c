@@ -1833,6 +1833,45 @@ void test_request_header_name_case(void)
     assert_server_healthy();
 }
 
+void test_idle_connections_do_not_block_server(void)
+{
+    printf("Testing idle and half-open connections do not starve other clients...\n");
+
+    enum { IDLE = 150 };
+    bb_socket_t idle[IDLE];
+
+    /* clients that connect and never send anything, or only a request-line prefix */
+    for (int i = 0; i < IDLE; i++)
+    {
+        idle[i] = raw_connect();
+        if (i % 3 == 0)
+            send(idle[i], "GET /par", 8, MSG_NOSIGNAL);
+    }
+
+    /* the server must keep answering real requests while they are open */
+    for (int i = 0; i < 50; i++)
+        assert_server_healthy();
+
+    /* a request that is slowly completed among the idle ones still works */
+    bb_socket_t slow = raw_connect();
+    send(slow, "GET / HTTP/1.1\r\n", 16, MSG_NOSIGNAL);
+    bb_usleep(20000);
+    assert_server_healthy();
+    send(slow, "Host: localhost\r\n\r\n", 20, MSG_NOSIGNAL);
+    char resp[4096];
+    size_t n = raw_read_response(slow, resp, sizeof(resp));
+    BB_ASSERT(n > 0);
+    BB_ASSERT(strstr(resp, "Hello, Blue-Bird :)") != NULL);
+    bb_socket_close(slow);
+
+    for (int i = 0; i < IDLE; i++)
+        bb_socket_close(idle[i]);
+
+    bb_usleep(50000); /* let the server observe the disconnects */
+    for (int i = 0; i < 20; i++)
+        assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -2091,6 +2130,7 @@ int main(void)
     test_response_status_and_headers_roundtrip();
     test_client_connection_refused_then_reuse();
     test_request_header_name_case();
+    test_idle_connections_do_not_block_server();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
