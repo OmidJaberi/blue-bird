@@ -1796,6 +1796,43 @@ void test_client_connection_refused_then_reuse(void)
     bb_client_destroy(client);
 }
 
+void test_request_header_name_case(void)
+{
+    /* Known gap: bb_message_get_header()/set_header() compare names with strcmp(),
+     * so only the exact spelling the peer used is found. Opt-in until fixed. */
+    if (getenv("BB_HTTP_STRICT") == NULL)
+    {
+        printf("Skipping header name case test (set BB_HTTP_STRICT=1 to run).\n");
+        return;
+    }
+
+    printf("Testing request header names are matched case-insensitively...\n");
+
+    /* HTTP field names are case-insensitive (RFC 9110 5.1), so a handler or
+     * middleware looking up "X-Gate" must see the header however the peer cased it. */
+    static const char *const spellings[] = {"X-Gate", "x-gate", "X-GATE", "x-GaTe"};
+
+    for (size_t i = 0; i < sizeof(spellings) / sizeof(spellings[0]); i++)
+    {
+        char req[256];
+        int n = snprintf(req, sizeof(req),
+                         "GET /counted HTTP/1.1\r\nHost: localhost\r\n%s: deny\r\n\r\n", spellings[i]);
+        BB_ASSERT(n > 0 && (size_t)n < sizeof(req));
+
+        int before = counted_handler_calls;
+        char resp[4096];
+        (void)raw_http_exchange(req, (size_t)n, resp, sizeof(resp));
+
+        if (strstr(resp, " 401 ") == NULL)
+            fprintf(stderr, "header spelled \"%s\" was not recognised:\n%s\n", spellings[i], resp);
+        BB_ASSERT(strstr(resp, " 401 ") != NULL);
+        BB_ASSERT(strstr(resp, "denied") != NULL);
+        BB_ASSERT(counted_handler_calls == before);
+    }
+
+    assert_server_healthy();
+}
+
 void test_many_requests(void)
 {
     printf("Testing many sequential requests...\n");
@@ -2053,6 +2090,7 @@ int main(void)
     test_non_get_methods_with_body();
     test_response_status_and_headers_roundtrip();
     test_client_connection_refused_then_reuse();
+    test_request_header_name_case();
     test_many_requests();
     test_client_reset_reuse();
     test_client_reset_different_host();
