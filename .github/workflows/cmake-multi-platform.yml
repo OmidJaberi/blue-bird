@@ -171,6 +171,28 @@ jobs:
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
 
+  # SQLite is optional (-DBB_WITH_SQLITE=OFF). This job installs no SQLite
+  # development files at all, so it fails if anything still needs them.
+  no-sqlite:
+    name: No SQLite / Ubuntu / GCC
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBB_WITH_SQLITE=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
   # PostgreSQL model backend against a real server (service container), on the
   # oldest and newest major versions we care about. The test skips itself when
   # BB_TEST_POSTGRES_URI is unset, so the job also fails if it never ran.
