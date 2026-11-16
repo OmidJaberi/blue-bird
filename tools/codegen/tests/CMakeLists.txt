@@ -3,6 +3,13 @@ bb_add_module_tests(
     bb_codegen_core
 )
 
+# The end-to-end proof below links the real SQLite backend, so it is only
+# built with SQLite (-DBB_WITH_SQLITE=OFF skips it).
+if(NOT BB_WITH_SQLITE)
+    message(STATUS "Skipping the codegen end-to-end test (needs BB_WITH_SQLITE)")
+    return()
+endif()
+
 # ---------------------------
 # End-to-end proof
 #

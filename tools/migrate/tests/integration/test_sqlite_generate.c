@@ -1,3 +1,15 @@
+#include <stdio.h>
+
+#ifndef BB_WITH_SQLITE
+
+int main(void)
+{
+    printf("Skipping bb-migrate SQLite generate tests (built without BB_WITH_SQLITE)\n");
+    return 0;
+}
+
+#else
+
 #include "drivers/sqlite_driver.h"
 #include "generate.h"
 #include "migration.h"
@@ -324,3 +336,5 @@ int main(void)
     printf("All migration SQLite generate tests passed!\n");
     return 0;
 }
+
+#endif /* BB_WITH_SQLITE */

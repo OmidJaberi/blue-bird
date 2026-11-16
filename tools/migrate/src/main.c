@@ -1,6 +1,8 @@
 #include "driver.h"
 #include "generate.h"
+#ifdef BB_WITH_SQLITE
 #include "drivers/sqlite_driver.h"
+#endif
 #ifdef BB_WITH_POSTGRES
 #include "drivers/postgres_driver.h"
 #endif
@@ -104,7 +106,14 @@ static bb_migrate_driver_t *open_database(const char *spec, int scratch, bb_migr
 #endif
     }
 
+#ifdef BB_WITH_SQLITE
     return bb_migrate_sqlite_open(spec, err);
+#else
+    bb_migrate_err_set(err, "this bb-migrate was built without SQLite support "
+                            "(configure with -DBB_WITH_SQLITE=ON), so it can't open the SQLite file '%s'",
+                       spec ? spec : "(null)");
+    return NULL;
+#endif
 }
 
 static void on_applied(const bb_migration_t *m, void *user)

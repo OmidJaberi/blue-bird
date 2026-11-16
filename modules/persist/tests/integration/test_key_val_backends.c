@@ -7,7 +7,9 @@
 #include "blue-bird/persist/key_val.h"
 #include "blue-bird/persist/key_val/persist_file.h"
 #include "blue-bird/persist/key_val/persist_json.h"
+#ifdef BB_WITH_SQLITE
 #include "blue-bird/persist/key_val/persist_sqlite.h"
+#endif
 
 /* ---------------------------
  * Backend Helpers
@@ -45,12 +47,14 @@ static backend_t backends[] = {
         .register_backend = bb_persist_kv_json_register,
         .cleanup = cleanup_file
     },
+#ifdef BB_WITH_SQLITE
     {
         .name = "sqlite",
         .uri = "test_sqlite_backend.db",
         .register_backend = bb_persist_kv_sqlite_register,
         .cleanup = cleanup_file
-    }
+    },
+#endif
 };
 
 #define NUM_BACKENDS (sizeof(backends) / sizeof(backends[0]))

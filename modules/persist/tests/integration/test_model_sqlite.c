@@ -1,3 +1,15 @@
+#include <stdio.h>
+
+#ifndef BB_WITH_SQLITE
+
+int main(void)
+{
+    printf("Skipping SQLite model tests (built without BB_WITH_SQLITE)\n");
+    return 0;
+}
+
+#else
+
 #include <blue-bird/error/assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -732,3 +744,5 @@ int main(void)
     printf("All SQLite model tests passed!\n");
     return 0;
 }
+
+#endif /* BB_WITH_SQLITE */

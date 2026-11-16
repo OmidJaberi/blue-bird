@@ -6,7 +6,9 @@
 #include "blue-bird/persist/repo.h"
 #include "blue-bird/persist/model.h"
 #include "blue-bird/persist/model/model_json.h"
+#ifdef BB_WITH_SQLITE
 #include "blue-bird/persist/model/model_sqlite.h"
+#endif
 #include "blue-bird/persist/query.h"
 #include "blue-bird/persist/schema.h"
 #include <blue-bird/utils/uuid.h>
@@ -276,6 +278,7 @@ static void test_repo_json_crud(void)
     printf("JSON Tests passed...\n");
 }
 
+#ifdef BB_WITH_SQLITE
 static void test_repo_sqlite_crud(void)
 {
     printf("SQLite repo CRUD...\n");
@@ -292,6 +295,7 @@ static void test_repo_sqlite_crud(void)
 
     printf("SQLite Tests passed...\n");
 }
+#endif /* BB_WITH_SQLITE */
 
 /* ---------------------------
  * LIKE semantics, identical on every backend
@@ -417,6 +421,7 @@ static void test_repo_json_query(void)
     printf("JSON query tests passed...\n");
 }
 
+#ifdef BB_WITH_SQLITE
 static void test_repo_sqlite_query(void)
 {
     printf("SQLite repo query (native pushdown)...\n");
@@ -432,6 +437,7 @@ static void test_repo_sqlite_query(void)
 
     printf("SQLite query tests passed...\n");
 }
+#endif /* BB_WITH_SQLITE */
 
 static void test_repo_json_like(void)
 {
@@ -449,6 +455,7 @@ static void test_repo_json_like(void)
     printf("JSON LIKE tests passed...\n");
 }
 
+#ifdef BB_WITH_SQLITE
 static void test_repo_sqlite_like(void)
 {
     printf("SQLite repo LIKE semantics (native pushdown)...\n");
@@ -465,6 +472,7 @@ static void test_repo_sqlite_like(void)
 
     printf("SQLite LIKE tests passed...\n");
 }
+#endif /* BB_WITH_SQLITE */
 
 /* ---------------------------
  * AUTO_GENERATE through the repo, identical on every backend
@@ -541,6 +549,7 @@ static void test_repo_json_auto_generate(void)
     printf("JSON AUTO_GENERATE tests passed...\n");
 }
 
+#ifdef BB_WITH_SQLITE
 static void test_repo_sqlite_auto_generate(void)
 {
     printf("SQLite repo AUTO_GENERATE...\n");
@@ -555,19 +564,28 @@ static void test_repo_sqlite_auto_generate(void)
 
     printf("SQLite AUTO_GENERATE tests passed...\n");
 }
+#endif /* BB_WITH_SQLITE */
 
 int main(void)
 {
     printf("Running repo integration tests...\n");
 
     test_repo_json_crud();
+#ifdef BB_WITH_SQLITE
     test_repo_sqlite_crud();
+#endif
     test_repo_json_query();
+#ifdef BB_WITH_SQLITE
     test_repo_sqlite_query();
+#endif
     test_repo_json_like();
+#ifdef BB_WITH_SQLITE
     test_repo_sqlite_like();
+#endif
     test_repo_json_auto_generate();
+#ifdef BB_WITH_SQLITE
     test_repo_sqlite_auto_generate();
+#endif
 
     printf("All repo tests passed!\n");
     return 0;

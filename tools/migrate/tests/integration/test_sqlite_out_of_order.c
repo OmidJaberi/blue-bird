@@ -1,3 +1,15 @@
+#include <stdio.h>
+
+#ifndef BB_WITH_SQLITE
+
+int main(void)
+{
+    printf("Skipping bb-migrate out-of-order tests (built without BB_WITH_SQLITE)\n");
+    return 0;
+}
+
+#else
+
 #include "driver.h"
 #include "drivers/sqlite_driver.h"
 #include "migration.h"
@@ -113,3 +125,5 @@ int main(void)
     printf("All migration out-of-order tests passed!\n");
     return 0;
 }
+
+#endif /* BB_WITH_SQLITE */

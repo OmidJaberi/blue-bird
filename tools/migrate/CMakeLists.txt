@@ -1,5 +1,3 @@
-find_package(SQLite3 REQUIRED)
-
 # Core is a library (like bb_codegen_core) so tests can link it directly;
 # bb-migrate itself is just argument parsing around it.
 add_library(bb_migrate_core
@@ -10,7 +8,6 @@ add_library(bb_migrate_core
     src/table_spec.c
     src/generate.c
     src/runner.c
-    src/drivers/sqlite_driver.c
 )
 
 target_include_directories(bb_migrate_core
@@ -24,14 +21,21 @@ target_link_libraries(bb_migrate_core
     PUBLIC
         bluebird_error
         bluebird_utils
-
-    PRIVATE
-        SQLite::SQLite3
 )
 
-# PostgreSQL support is optional, like Persist's PostgreSQL backend (it uses
-# the same option). Without it, bb-migrate still reads manifests and runs
-# against SQLite, and says so if it is pointed at a PostgreSQL database.
+# Both database drivers are optional and use the same options as Persist's
+# backends. Without SQLite (-DBB_WITH_SQLITE=OFF) bb-migrate says so if it is
+# pointed at a SQLite file; without PostgreSQL it says so if it is pointed at
+# a PostgreSQL database. It still reads manifests either way, and a build
+# with neither driver can only report that.
+if(BB_WITH_SQLITE)
+    find_package(SQLite3 REQUIRED)
+
+    target_sources(bb_migrate_core PRIVATE src/drivers/sqlite_driver.c)
+    target_link_libraries(bb_migrate_core PRIVATE SQLite::SQLite3)
+    target_compile_definitions(bb_migrate_core PUBLIC BB_WITH_SQLITE=1)
+endif()
+
 if(BB_WITH_POSTGRES)
     find_package(PostgreSQL REQUIRED)
 
