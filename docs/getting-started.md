@@ -8,7 +8,7 @@ This guide walks through building and running your first Blue-Bird application.
 
 - C11 compatible compiler
 - CMake 3.20+
-- SQLite3 (optional)
+- SQLite3 (optional: configure with `-DBB_WITH_SQLITE=OFF` to build without it)
 - OpenSSL (optional, for HTTPS/WSS support)
 
 ---

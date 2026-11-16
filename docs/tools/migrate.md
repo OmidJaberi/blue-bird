@@ -11,8 +11,8 @@ Persist owns **runtime data access**. They only meet at the database file.
 
 > **Status:** forward-only `status`, `up`, `verify` and `generate` against SQLite
 > and, in a build with `-DBB_WITH_POSTGRES=ON`, PostgreSQL (see
-> [PostgreSQL](#postgresql)). See [Not Yet](#not-yet) for what's deliberately
-> left out.
+> [PostgreSQL](#postgresql)). A build with `-DBB_WITH_SQLITE=OFF` has no SQLite
+> driver. See [Not Yet](#not-yet) for what's deliberately left out.
 
 ---
 
