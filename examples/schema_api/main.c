@@ -4,7 +4,9 @@
 #include "Note_schema.generated.h"
 
 #include <blue-bird/persist/model/model_json.h>
+#ifdef BB_WITH_SQLITE
 #include <blue-bird/persist/model/model_sqlite.h>
+#endif
 #ifdef BB_WITH_POSTGRES
 #include <blue-bird/persist/model/model_postgres.h>
 #endif
@@ -18,15 +20,21 @@
 /* Which backend stores the data is chosen at run time from BB_SCHEMA_API_DB:
  *
  *   (unset)                          SQLite, schema_api.db in the working directory
- *   sqlite:<path>                    SQLite
+ *                                    (a JSON file, schema_api.json, if built without SQLite)
+ *   sqlite:<path>                    SQLite (build with -DBB_WITH_SQLITE=ON, the default)
  *   json:<path>                      a JSON file
  *   postgresql://user:pass@host/db   PostgreSQL (build with -DBB_WITH_POSTGRES=ON)
  *
  * Only this function knows about the choice. */
 static int open_backend(const char *spec, const bb_model_api_t **api, bb_model_handle_t **handle)
 {
+#ifdef BB_WITH_SQLITE
     const char *name = "sqlite";
     const char *location = "schema_api.db";
+#else
+    const char *name = "json";
+    const char *location = "schema_api.json";
+#endif
 
     if (spec && *spec)
     {
@@ -46,7 +54,9 @@ static int open_backend(const char *spec, const bb_model_api_t **api, bb_model_h
         return -1;
     }
 
+#ifdef BB_WITH_SQLITE
     bb_model_register(bb_model_sqlite_api());
+#endif
     bb_model_register(bb_model_json_api());
 #ifdef BB_WITH_POSTGRES
     bb_model_register(bb_model_postgres_api());
@@ -55,7 +65,7 @@ static int open_backend(const char *spec, const bb_model_api_t **api, bb_model_h
     *api = bb_model_get(name);
     if (!*api)
     {
-        fprintf(stderr, "This build has no '%s' backend (PostgreSQL needs -DBB_WITH_POSTGRES=ON).\n", name);
+        fprintf(stderr, "This build has no '%s' backend (SQLite needs -DBB_WITH_SQLITE=ON, PostgreSQL needs -DBB_WITH_POSTGRES=ON).\n", name);
         return -1;
     }
 

@@ -7,8 +7,9 @@
  * same stable paging. The server runs in-process; requests go through the
  * framework's own HTTP client.
  *
- * postgres needs a build with BB_WITH_POSTGRES and BB_TEST_POSTGRES_URI set;
- * without them the run is skipped. All data is tagged with a per-run marker and
+ * sqlite needs a build with BB_WITH_SQLITE (the default), and postgres one with
+ * BB_WITH_POSTGRES plus BB_TEST_POSTGRES_URI set; without them the run is
+ * skipped. All data is tagged with a per-run marker and
  * removed again, so a shared database can be reused. */
 
 #include "api.h"
@@ -18,7 +19,9 @@
 
 #include <blue-bird/error/assert.h>
 #include <blue-bird/persist/model/model_json.h>
+#ifdef BB_WITH_SQLITE
 #include <blue-bird/persist/model/model_sqlite.h>
+#endif
 #ifdef BB_WITH_POSTGRES
 #include <blue-bird/persist/model/model_postgres.h>
 #endif
@@ -513,8 +516,13 @@ static int open_backend(const char *which, const char *file)
     }
     else if (strcmp(which, "sqlite") == 0)
     {
+#ifdef BB_WITH_SQLITE
         g_model = bb_model_sqlite_api();
         g_handle = g_model->open(file);
+#else
+        printf("Skipping schema_api tests on sqlite (built without BB_WITH_SQLITE)\n");
+        exit(0);
+#endif
     }
     else if (strcmp(which, "postgres") == 0)
     {

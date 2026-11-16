@@ -6,7 +6,9 @@
 #include <blue-bird/web/server.h>
 #include <blue-bird/log/console_logger.h>
 #include <blue-bird/persist/model/model_json.h>
+#ifdef BB_WITH_SQLITE
 #include <blue-bird/persist/model/model_sqlite.h>
+#endif
 #ifdef BB_WITH_POSTGRES
 #include <blue-bird/persist/model/model_postgres.h>
 #endif
@@ -19,7 +21,8 @@
 /* Which backend stores the tasks is chosen at run time from BB_TODO_DB:
  *
  *   (unset)                          SQLite, todo_sqlite.db next to the binary
- *   sqlite:<path>                    SQLite
+ *                                    (a JSON file, todo.json, if built without SQLite)
+ *   sqlite:<path>                    SQLite (build with -DBB_WITH_SQLITE=ON, the default)
  *   json:<path>                      a JSON file
  *   postgresql://user:pass@host/db   PostgreSQL (build with -DBB_WITH_POSTGRES=ON)
  *
@@ -33,7 +36,12 @@ static int open_backend(const char *spec, const bb_model_api_t **api, bb_model_h
 
     if (!spec || !*spec)
     {
+#ifdef BB_WITH_SQLITE
         bb_asset_resolve_path("todo_sqlite.db", default_path, sizeof(default_path));
+#else
+        name = "json";
+        bb_asset_resolve_path("todo.json", default_path, sizeof(default_path));
+#endif
         location = default_path;
     }
     else if (strncmp(spec, "sqlite:", 7) == 0)
@@ -49,7 +57,9 @@ static int open_backend(const char *spec, const bb_model_api_t **api, bb_model_h
         return -1;
     }
 
+#ifdef BB_WITH_SQLITE
     bb_model_register(bb_model_sqlite_api());
+#endif
     bb_model_register(bb_model_json_api());
 #ifdef BB_WITH_POSTGRES
     bb_model_register(bb_model_postgres_api());
@@ -58,7 +68,7 @@ static int open_backend(const char *spec, const bb_model_api_t **api, bb_model_h
     *api = bb_model_get(name);
     if (!*api)
     {
-        fprintf(stderr, "This build has no '%s' backend (PostgreSQL needs -DBB_WITH_POSTGRES=ON).\n", name);
+        fprintf(stderr, "This build has no '%s' backend (SQLite needs -DBB_WITH_SQLITE=ON, PostgreSQL needs -DBB_WITH_POSTGRES=ON).\n", name);
         return -1;
     }
 

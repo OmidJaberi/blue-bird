@@ -1,3 +1,10 @@
+# The chat example stores its messages in SQLite, so it is only built when
+# the SQLite backend is (-DBB_WITH_SQLITE=OFF skips it).
+if(NOT BB_WITH_SQLITE)
+    message(STATUS "Skipping example_chat (needs BB_WITH_SQLITE)")
+    return()
+endif()
+
 add_executable(example_chat
     main.c
 

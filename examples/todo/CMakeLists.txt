@@ -60,13 +60,17 @@ if(BUILD_TOOLS)
 
         # Migrations must reproduce the table Persist expects from the
         # manifest. Fails if task.schema.json changed without a matching
-        # migration (or the reverse). See docs/tools/migrate.md.
-        add_test(
-            NAME "examples.todo_migrations_match_schema"
-            COMMAND
-                $<TARGET_FILE:bb-migrate> verify
-                    --schema ${CMAKE_CURRENT_SOURCE_DIR}/schemas/task.schema.json
-                    --dir ${CMAKE_CURRENT_SOURCE_DIR}/migrations
-        )
+        # migration (or the reverse). See docs/tools/migrate.md. The
+        # migrations are SQLite SQL and are checked in an in-memory SQLite
+        # database, so this needs a build with SQLite.
+        if(BB_WITH_SQLITE)
+            add_test(
+                NAME "examples.todo_migrations_match_schema"
+                COMMAND
+                    $<TARGET_FILE:bb-migrate> verify
+                        --schema ${CMAKE_CURRENT_SOURCE_DIR}/schemas/task.schema.json
+                        --dir ${CMAKE_CURRENT_SOURCE_DIR}/migrations
+            )
+        endif()
     endif()
 endif()

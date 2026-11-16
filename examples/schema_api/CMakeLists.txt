@@ -27,7 +27,8 @@ target_link_libraries(example_schema_api
 #
 # The same end-to-end test runs on each persistence backend (HTTP requests
 # against the real handlers), so passing on all of them is the check that
-# the backends agree. The PostgreSQL run skips itself unless the build has
+# the backends agree. The SQLite run exists only in a build with SQLite (the
+# default, -DBB_WITH_SQLITE=OFF removes it). The PostgreSQL run skips itself unless the build has
 # -DBB_WITH_POSTGRES=ON and BB_TEST_POSTGRES_URI points at a database.
 # Each run has its own port, none shared with another test, so ctest can run
 # them in parallel.
@@ -54,7 +55,12 @@ if(BUILD_TESTS)
             ${BLUEBIRD_THREADS_TARGET}
     )
 
-    foreach(backend_port json:19181 sqlite:19182 postgres:19183)
+    set(SCHEMA_API_TEST_BACKENDS json:19181 postgres:19183)
+    if(BB_WITH_SQLITE)
+        list(APPEND SCHEMA_API_TEST_BACKENDS sqlite:19182)
+    endif()
+
+    foreach(backend_port ${SCHEMA_API_TEST_BACKENDS})
         string(REPLACE ":" ";" backend_port_list ${backend_port})
         list(GET backend_port_list 0 backend)
         list(GET backend_port_list 1 port)
