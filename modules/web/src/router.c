@@ -242,6 +242,10 @@ bb_route_t *bb_route_list_match(bb_route_list_t *route_list, bb_request_t *req)
 
 void bb_route_list_destroy(bb_route_list_t *route_list)
 {
+    if (!route_list)
+    {
+        return;
+    }
     bb_route_t *current = route_list->head;
     while (current)
     {
