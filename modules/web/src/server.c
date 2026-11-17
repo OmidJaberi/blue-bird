@@ -37,41 +37,77 @@ static bb_error_t default_400(bb_request_t *req, bb_response_t *res)
  */
 static bb_server_t *_bb_server_create_common(bb_runtime_t *runtime, int port, bb_tls_context_t *tls_ctx)
 {
+    bb_server_t *server = NULL;
+
     if (!runtime)
     {
-        bb_tls_context_destroy(tls_ctx);
-        return NULL;
+        goto fail;
     }
 
-    bb_server_t *server = calloc(1, sizeof(*server));
+    server = calloc(1, sizeof(*server));
     if (!server)
     {
-        bb_tls_context_destroy(tls_ctx);
-        return NULL;
+        goto fail;
     }
 
+    // Ownership of tls_ctx transfers to the server only once it is
+    // assigned; before that point the fail path destroys it directly.
     server->runtime = runtime;
     server->tls_ctx = tls_ctx;
 
+    // Cheap, purely in-memory resources first.
+    server->route_list = bb_route_list_create();
+    if (!server->route_list)
+    {
+        goto fail;
+    }
+
+    server->pre_middleware_list = bb_middleware_list_create();
+    if (!server->pre_middleware_list)
+    {
+        goto fail;
+    }
+
+    server->post_middleware_list = bb_middleware_list_create();
+    if (!server->post_middleware_list)
+    {
+        goto fail;
+    }
+
+    server->conn_list = bb_conn_list_create();
+    if (!server->conn_list)
+    {
+        goto fail;
+    }
+
+    server->ws_list = bb_ws_list_create();
+    if (!server->ws_list)
+    {
+        goto fail;
+    }
+
+    server->accept_task = NULL;
+    server->accept_task_data = NULL;
+
     // The listening socket itself is always plain TCP -- TLS is applied
     // per accepted client connection, not to the accept() socket.
+    // Acquired last: it's the only externally visible side effect
+    // (binds the port), so no earlier failure ever has to undo it.
     server->async_conn = bb_async_connection_serve(runtime, port);
     if (!server->async_conn)
     {
-        bb_server_destroy(server);
-        return NULL;
+        goto fail;
     }
-
-    server->route_list = bb_route_list_create();
-    server->pre_middleware_list = bb_middleware_list_create();
-    server->post_middleware_list = bb_middleware_list_create();
-    server->accept_task = NULL;
-    server->accept_task_data = NULL;
-    server->conn_list = bb_conn_list_create();
-    server->ws_list = bb_ws_list_create();
 
     BB_LOG_INFO("Blue-Bird %sserver initialized on port %d\n", tls_ctx ? "TLS " : "", port);
     return server;
+
+fail:
+    if (server)
+        bb_server_destroy(server);   // must destroy tls_ctx too, and tolerate NULL members
+    else
+        bb_tls_context_destroy(tls_ctx);
+    return NULL;
 }
 
 bb_server_t *bb_server_create_on_runtime(bb_runtime_t *runtime, int port)
