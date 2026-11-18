@@ -43,6 +43,10 @@ bb_response_t *bb_response_create(void)
 
 void bb_response_destroy(bb_response_t *res)
 {
+    if (!res)
+    {
+        return;
+    }
     bb_message_destroy(res->msg);
     free(res);
 }

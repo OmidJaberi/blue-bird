@@ -111,6 +111,9 @@ static void drv_close(bb_migrate_driver_t *base)
 {
     pg_driver_t *d = (pg_driver_t *)base;
 
+    if (!d)
+        return;
+
     if (d->conn)
     {
         if (d->scratch_schema[0] != '\0' && PQstatus(d->conn) == CONNECTION_OK)

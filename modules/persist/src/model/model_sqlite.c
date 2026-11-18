@@ -303,6 +303,8 @@ static int sql_buf_append(sql_buf_t *b, const char *s)
 
 static void sql_buf_free(sql_buf_t *b)
 {
+    if (!b)
+        return;
     free(b->data);
     b->data = NULL;
     b->len = 0;

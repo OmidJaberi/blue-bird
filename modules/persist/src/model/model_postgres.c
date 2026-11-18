@@ -102,6 +102,8 @@ static int sql_buf_append(sql_buf_t *b, const char *s)
 
 static void sql_buf_free(sql_buf_t *b)
 {
+    if (!b)
+        return;
     free(b->data);
     b->data = NULL;
     b->len = 0;
@@ -183,6 +185,8 @@ static int params_init(pg_params_t *p, size_t n)
 
 static void params_free(pg_params_t *p)
 {
+    if (!p)
+        return;
     free(p->values);
     free(p->lengths);
     free(p->formats);

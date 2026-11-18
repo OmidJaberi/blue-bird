@@ -77,6 +77,10 @@ size_t bb_ws_list_count(const bb_ws_list_t *list)
 
 void bb_ws_list_destroy(bb_ws_list_t *list)
 {
+    if (!list)
+    {
+        return;
+    }
     bb_ws_node_t *node = list->head;
     while (node != NULL)
     {

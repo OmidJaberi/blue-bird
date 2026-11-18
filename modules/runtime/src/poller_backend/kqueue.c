@@ -16,6 +16,10 @@ int _bb_poller_backend_create(bb_poller_t *poller)
 
 void _bb_poller_backend_destroy(bb_poller_t *poller)
 {
+    if (!poller)
+    {
+        return;
+    }
     close(poller->kq);
 }
 

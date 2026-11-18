@@ -54,6 +54,10 @@ bb_error_t bb_middleware_list_run(bb_middleware_list_t *list, bb_request_t *req,
 
 void bb_middleware_list_destroy(bb_middleware_list_t *list)
 {
+    if (!list)
+    {
+        return;
+    }
     bb_middleware_t *current = *list;
     while (current)
     {

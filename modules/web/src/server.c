@@ -625,6 +625,11 @@ static void _server_conn_cleanup(void *userdata)
 {
     bb_server_task_data_t *data = userdata;
 
+    if (!data)
+    {
+        return;
+    }
+
     /* Server shutdown destroys the connection itself; don't let its disconnect hook clean up again. */
     _server_clear_disconnect_hook(data->async_conn);
 

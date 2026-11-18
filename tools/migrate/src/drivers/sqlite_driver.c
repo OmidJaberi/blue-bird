@@ -46,6 +46,9 @@ static void drv_close(bb_migrate_driver_t *base)
 {
     sqlite_driver_t *d = (sqlite_driver_t *)base;
 
+    if (!d)
+        return;
+
     if (d->db)
         sqlite3_close(d->db);
 

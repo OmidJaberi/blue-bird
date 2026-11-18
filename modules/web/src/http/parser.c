@@ -104,6 +104,8 @@ static void free_headers(bb_http_header_t *headers, size_t count)
 
 static void free_request(bb_http_request_t *req)
 {
+    if (!req)
+        return;
     free_headers(req->headers, req->header_count);
     free_headers(req->trailers, req->trailer_count);
     free(req->body);
@@ -112,6 +114,8 @@ static void free_request(bb_http_request_t *req)
 
 static void free_response(bb_http_response_t *res)
 {
+    if (!res)
+        return;
     free_headers(res->headers, res->header_count);
     free_headers(res->trailers, res->trailer_count);
     free(res->body);
