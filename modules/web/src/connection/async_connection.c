@@ -20,10 +20,48 @@ bb_async_connection_t *bb_async_connection_create(bb_runtime_t *runtime)
     return async_conn;
 }
 
+/*
+ * Callback re-entrancy guard.
+ *
+ * The disconnect callback (and the read/write completion callbacks) are
+ * allowed to destroy the connection that is invoking them -- a WebSocket
+ * close callback does exactly that to tear its session down. The code that
+ * dispatched the callback usually keeps using the connection afterwards, so
+ * freeing it from inside the callback leaves that code holding a dangling
+ * pointer (and an outer bb_async_connection_destroy() would free it twice).
+ *
+ * Every entry point that can run such a callback brackets the dispatch with
+ * _bb_async_guard_enter()/_bb_async_guard_leave(). While a guard is held,
+ * destroy only marks the connection; the last guard to leave frees it.
+ */
+static void _bb_async_guard_enter(bb_async_connection_t *async_conn)
+{
+    async_conn->guard_depth++;
+}
+
+/* Returns true if the connection was freed: the caller must not touch it. */
+static bool _bb_async_guard_leave(bb_async_connection_t *async_conn)
+{
+    if (--async_conn->guard_depth == 0 && async_conn->destroy_pending)
+    {
+        free(async_conn);
+        return true;
+    }
+    return false;
+}
+
 void bb_async_connection_destroy(bb_async_connection_t *async_conn)
 {
+    if (!async_conn || async_conn->destroy_pending)
+    {
+        return;
+    }
+
+    async_conn->destroy_pending = true;
+
+    _bb_async_guard_enter(async_conn);
     bb_async_connection_close(async_conn);
-    free(async_conn);
+    _bb_async_guard_leave(async_conn);
 }
 
 void bb_async_connection_set_disconnect_callback(bb_async_connection_t *async_conn, bb_async_close_fn callback, void *userdata)
@@ -137,10 +175,15 @@ void bb_async_connection_close(bb_async_connection_t *async_conn)
         return;
     }
 
+    _bb_async_guard_enter(async_conn);
+
     bb_connection_destroy(async_conn->connection);
     async_conn->connection = NULL;
 
     _bb_async_connection_handle_disconnect(async_conn);
+
+    /* The disconnect callback may have destroyed us; this frees it if so. */
+    _bb_async_guard_leave(async_conn);
 }
 
 static void _bb_write_task_cleanup(bb_task_t *task, void *userdata, bb_task_result_t result)
@@ -193,13 +236,8 @@ static void _bb_async_connection_rewatch_write(bb_async_connection_t *async_conn
     async_conn->write_watch_events = events;
 }
 
-static void _bb_write_task(bb_task_t *task, void *userdata)
+static void _bb_write_task_step(bb_task_t *task, bb_async_connection_t *async_conn)
 {
-    bb_async_connection_t *async_conn = userdata;
-    if (!async_conn)
-    {
-        return;
-    }
     if (!async_conn->connection)
     {
         bb_runtime_cancel_task(async_conn->runtime, task);
@@ -216,7 +254,10 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
             _bb_async_connection_handle_disconnect(async_conn);
         }
 
-        if (async_conn->write_failure)
+        /* The disconnect callback may have destroyed the connection and the
+         * owner behind write_userdata along with it; there is nobody left to
+         * report the failure to. */
+        if (!async_conn->destroy_pending && async_conn->write_failure)
         {
             async_conn->write_failure(task, async_conn->write_userdata);
         }
@@ -243,6 +284,19 @@ static void _bb_write_task(bb_task_t *task, void *userdata)
     {
         async_conn->write_success(task, async_conn->write_userdata);
     }
+}
+
+static void _bb_write_task(bb_task_t *task, void *userdata)
+{
+    bb_async_connection_t *async_conn = userdata;
+    if (!async_conn)
+    {
+        return;
+    }
+
+    _bb_async_guard_enter(async_conn);
+    _bb_write_task_step(task, async_conn);
+    _bb_async_guard_leave(async_conn);
 }
 
 bb_error_t bb_async_connection_create_write_task(bb_async_connection_t *async_conn, bb_async_callback_t success, bb_async_callback_t failure, void *userdata)
@@ -314,15 +368,8 @@ static void _bb_async_connection_rewatch_read(bb_async_connection_t *async_conn,
     async_conn->read_watch_events = events;
 }
 
-static void _bb_read_task(bb_task_t *task, void *userdata)
+static void _bb_read_task_step(bb_task_t *task, bb_async_connection_t *async_conn)
 {
-    bb_async_connection_t *async_conn = userdata;
-
-    if (!async_conn)
-    {
-        return;
-    }
-
     if (!async_conn->connection)
     {
         bb_runtime_cancel_task(async_conn->runtime, task);
@@ -344,7 +391,7 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
             default:
             {
                 bb_runtime_cancel_task(async_conn->runtime, task);
-                if (async_conn->read_error)
+                if (!async_conn->destroy_pending && async_conn->read_error)
                 {
                     async_conn->read_error(err, async_conn->read_userdata);
                 }
@@ -373,10 +420,25 @@ static void _bb_read_task(bb_task_t *task, void *userdata)
 
     bb_read_status_t status = async_conn->read_step(async_conn->read_userdata);
 
-    if (status.result == BB_READ_ERROR && async_conn->read_error)
+    /* read_step may have destroyed the connection (and its owner). */
+    if (status.result == BB_READ_ERROR && !async_conn->destroy_pending && async_conn->read_error)
     {
         async_conn->read_error(status.err, async_conn->read_userdata);
     }
+}
+
+static void _bb_read_task(bb_task_t *task, void *userdata)
+{
+    bb_async_connection_t *async_conn = userdata;
+
+    if (!async_conn)
+    {
+        return;
+    }
+
+    _bb_async_guard_enter(async_conn);
+    _bb_read_task_step(task, async_conn);
+    _bb_async_guard_leave(async_conn);
 }
 
 void bb_async_connection_pause_read(bb_async_connection_t *async_conn)

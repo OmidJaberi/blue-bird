@@ -31,6 +31,16 @@ typedef struct bb_websocket {
     uint32_t max_missed_pongs;
     uint32_t missed_pongs;
     bool waiting_for_pong;
+
+    /* The message/pong/close callbacks may destroy the session that is
+     * invoking them (bb_websocket_close() from a handler ends up in the
+     * server's close callback, which destroys the websocket). guard_depth
+     * counts the dispatchers still on the stack that will touch the websocket
+     * after the callback returns; while it is non-zero bb_websocket_destroy()
+     * tears the session down but only sets destroy_pending, and the outermost
+     * dispatcher frees the memory when it unwinds. */
+    unsigned guard_depth;
+    bool destroy_pending;
 } bb_websocket_t;
 
 // Accept

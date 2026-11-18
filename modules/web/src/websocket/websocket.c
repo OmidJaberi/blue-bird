@@ -160,6 +160,24 @@ error:
     return -1;
 }
 
+/* See bb_websocket_t: callbacks may destroy the websocket that dispatched
+ * them, so dispatchers hold a guard and the last one out frees it. */
+static void _bb_ws_guard_enter(bb_websocket_t *ws)
+{
+    ws->guard_depth++;
+}
+
+/* Returns true if the websocket was freed: the caller must not touch it. */
+static bool _bb_ws_guard_leave(bb_websocket_t *ws)
+{
+    if (--ws->guard_depth == 0 && ws->destroy_pending)
+    {
+        free(ws);
+        return true;
+    }
+    return false;
+}
+
 static bb_read_status_t _bb_ws_handshake_read_step(void *userdata)
 {
     _bb_ws_client_task_data_t *data = userdata;
@@ -216,14 +234,26 @@ static void _bb_ws_handshake_read_error(bb_error_t err, void *userdata)
     (void)err;
 
     _bb_ws_client_task_data_t *data = userdata;
+    bb_websocket_t *ws = data->ws;
 
     if (data->http_parser)
         bb_http_parser_destroy(data->http_parser);
-    bb_async_connection_destroy(data->ws->async_conn);
 
-    data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
+    /* The teardown fires the close callback and connect_cb follows; either may
+     * destroy the websocket, so keep it alive until both have run. */
+    _bb_ws_guard_enter(ws);
+
+    /* Detach the connection before destroying it: left in place, ws->async_conn
+     * dangles and bb_websocket_destroy() later writes to freed memory. */
+    bb_async_connection_t *async_conn = ws->async_conn;
+    ws->async_conn = NULL;
+    bb_async_connection_destroy(async_conn);
+
+    data->connect_cb(ws, BB_ERROR(BB_ERR_NETWORK, "Handshake failed"), data->connect_userdata);
 
     free(data);
+
+    _bb_ws_guard_leave(ws);
 }
 
 static void _bb_ws_handshake_write_done(bb_task_t *task, void *userdata)
@@ -240,16 +270,22 @@ static void _bb_ws_handshake_write_failed(bb_task_t *task, void *userdata)
     (void)task;
 
     _bb_ws_client_task_data_t *data = userdata;
+    bb_websocket_t *ws = data->ws;
 
-    if (data->ws->async_conn->connection)
+    _bb_ws_guard_enter(ws);
+
+    if (ws->async_conn && ws->async_conn->connection)
     {
-        bb_async_connection_destroy(data->ws->async_conn);
-        data->ws->async_conn = NULL;
+        bb_async_connection_t *async_conn = ws->async_conn;
+        ws->async_conn = NULL;
+        bb_async_connection_destroy(async_conn);
     }
 
-    data->connect_cb(data->ws, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
+    data->connect_cb(ws, BB_ERROR(BB_ERR_NETWORK, "Handshake write failed"), data->connect_userdata);
 
     free(data);
+
+    _bb_ws_guard_leave(ws);
 }
 
 static void _bb_websocket_handle_disconnect(void *userdata)
@@ -324,6 +360,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         free(path);
         free(data);
         bb_async_connection_destroy(async_conn);
+        ws->async_conn = NULL;
         return;
     }
 
@@ -335,6 +372,7 @@ void bb_websocket_connect(bb_websocket_t *ws, const char *url, bb_ws_connect_cb 
         free(path);
         free(data);
         bb_async_connection_destroy(async_conn);
+        ws->async_conn = NULL;
         return;
     }
 
@@ -560,7 +598,9 @@ bb_websocket_t *bb_websocket_create_on_runtime(bb_runtime_t *runtime)
 
 void bb_websocket_destroy(bb_websocket_t *ws)
 {
-    if (!ws) return;
+    if (!ws || ws->destroy_pending) return;
+
+    ws->destroy_pending = true;
 
     if (ws->heartbeat_task)
     {
@@ -572,10 +612,17 @@ void bb_websocket_destroy(bb_websocket_t *ws)
     {
         /* Explicit destroy shouldn't re-trigger the close callback. */
         bb_async_connection_set_disconnect_callback(ws->async_conn, NULL, NULL);
+        bb_async_connection_destroy(ws->async_conn);
+
+        /* From here on the session reads as "not connected" to any
+         * dispatcher still on the stack. */
+        ws->async_conn = NULL;
     }
 
-    bb_async_connection_destroy(ws->async_conn);
-    free(ws);
+    if (ws->guard_depth == 0)
+    {
+        free(ws);
+    }
 }
 
 void bb_websocket_set_message_callback(bb_websocket_t *ws, bb_ws_handler_cb callback, void *userdata)
@@ -1163,10 +1210,8 @@ static void _websocket_read_error(bb_error_t err, void *userdata)
     bb_async_connection_close(ws->async_conn);
 }
 
-static bb_read_status_t _websocket_read_step(void *userdata)
+static bb_read_status_t _websocket_read_step_impl(bb_websocket_t *ws)
 {
-    bb_websocket_t *ws = userdata;
-
     bb_ws_frame_t frame = {0};
 
     bb_error_t err = bb_websocket_read_frames(ws, &frame);
@@ -1183,6 +1228,12 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     for (bb_ws_frame_t *current = &frame; current; current = current->next)
     {
+        /* A handler/callback below may have destroyed the session. */
+        if (ws->destroy_pending)
+        {
+            break;
+        }
+
         ws->waiting_for_pong = false;
         ws->missed_pongs = 0;
 
@@ -1226,6 +1277,11 @@ static bb_read_status_t _websocket_read_step(void *userdata)
 
     bb_ws_frame_destroy(&frame);
 
+    if (ws->destroy_pending)
+    {
+        return (bb_read_status_t){ BB_READ_DONE, BB_SUCCESS() };
+    }
+
     if (ws->async_conn && ws->async_conn->connection && ws->async_conn->connection->write_data && ws->async_conn->connection->write_data->write_buffer)
     {
         if (BB_FAILED(bb_async_connection_create_write_task(ws->async_conn, _websocket_after_write, _websocket_write_error, ws)))
@@ -1235,6 +1291,17 @@ static bb_read_status_t _websocket_read_step(void *userdata)
     }
 
     return (bb_read_status_t){ BB_READ_MORE, BB_SUCCESS() };
+}
+
+static bb_read_status_t _websocket_read_step(void *userdata)
+{
+    bb_websocket_t *ws = userdata;
+
+    _bb_ws_guard_enter(ws);
+    bb_read_status_t status = _websocket_read_step_impl(ws);
+    _bb_ws_guard_leave(ws);
+
+    return status;
 }
 
 bb_error_t bb_websocket_create_read_task(bb_websocket_t *ws)

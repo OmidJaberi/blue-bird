@@ -32,6 +32,15 @@ typedef struct bb_async_connection {
 
     bool disconnected;
 
+    /* A callback dispatched by this connection (disconnect, read/write
+     * completion) may destroy it. guard_depth counts the dispatchers that are
+     * still on the stack and will touch the connection after the callback
+     * returns; while it is non-zero bb_async_connection_destroy() tears the
+     * connection down but only sets destroy_pending, and the outermost
+     * dispatcher frees the memory when it unwinds. */
+    unsigned guard_depth;
+    bool destroy_pending;
+
     bb_task_t *write_task;
     int write_watch_events;    // which BB_EVENT_* the write task is currently registered for
     bool write_rewatching;     // true while cancelling+recreating write_task for a direction flip
