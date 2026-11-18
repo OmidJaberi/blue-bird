@@ -119,6 +119,30 @@ static void write_failure_callback(bb_task_t *task, void *userdata)
     error_called = 1;
 }
 
+
+/* A disconnect callback that destroys the connection it fires on, the way a
+ * WebSocket close callback (_server_ws_closed) tears its session down. */
+static bb_async_connection_t *self_destroying_conn = NULL;
+static volatile int failure_after_destroy_called = 0;
+
+static void self_destroying_disconnect_callback(void *userdata)
+{
+    (void)userdata;
+    disconnect_called++;
+
+    bb_async_connection_destroy(self_destroying_conn);
+    self_destroying_conn = NULL;
+}
+
+static void failure_after_destroy_callback(bb_task_t *task, void *userdata)
+{
+    (void)task;
+    (void)userdata;
+
+    /* The owner already gave the connection up in the disconnect callback. */
+    failure_after_destroy_called = 1;
+}
+
 /* ============================================================
  * Tests
  * ============================================================ */
@@ -451,6 +475,61 @@ static void async_write_disconnect_test(void)
     bb_runtime_destroy(runtime);
 }
 
+
+/* The disconnect callback may destroy the async connection. The write task
+ * that reported the disconnect must not touch the connection (or run the
+ * failure callback for an owner that is already gone) once it returns. */
+static void async_write_disconnect_destroys_connection_test(void)
+{
+    printf("\tTesting disconnect callback that destroys the connection (write path)...\n");
+
+    disconnect_called = 0;
+    failure_after_destroy_called = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
+
+    bb_async_connection_t *client = bb_async_connection_connect(runtime, "127.0.0.1", "18081");
+    BB_ASSERT(client);
+
+    bb_async_connection_t *server_side = NULL;
+
+    while (!server_side)
+    {
+        server_side = bb_async_connection_accept(runtime, listener->connection->fd);
+        bb_runtime_tick(runtime);
+    }
+
+    self_destroying_conn = client;
+    bb_async_connection_set_disconnect_callback(client, self_destroying_disconnect_callback, NULL);
+
+    /* Close the remote endpoint. */
+    bb_async_connection_destroy(server_side);
+
+    while (client->connection->state != BB_CONNECTION_CLOSED)
+    {
+        bb_connection_read(client->connection);
+        bb_usleep(1000);
+    }
+
+    char *msg = bb_strdup("hello");
+    BB_ASSERT(bb_connection_buffer_add(client->connection, msg, 6) == 0);
+    BB_ASSERT(!BB_FAILED(bb_async_connection_create_write_task(client, write_success, failure_after_destroy_callback, NULL)));
+
+    int ticks = 0;
+    while (!disconnect_called && ticks++ < 5000)
+    {
+        bb_runtime_tick(runtime);
+        bb_usleep(1000);
+    }
+
+    BB_ASSERT(disconnect_called == 1);
+    BB_ASSERT(self_destroying_conn == NULL);
+    BB_ASSERT(failure_after_destroy_called == 0);
+
+    bb_runtime_destroy(runtime);
+}
+
 /* ============================================================
  * Main
  * ============================================================ */
@@ -475,6 +554,7 @@ int main(void)
     async_payload_too_large_test();
     async_remote_disconnect_test();
     async_write_disconnect_test();
+    async_write_disconnect_destroys_connection_test();
 
     finished = 1;
 

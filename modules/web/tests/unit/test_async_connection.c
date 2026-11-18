@@ -34,6 +34,16 @@ static void disconnect_callback(void *userdata)
     disconnect_called++;
 }
 
+/* A disconnect callback that destroys the connection it fires on, the way a
+ * WebSocket close callback tears its session down. */
+static void destroying_disconnect_callback(void *userdata)
+{
+    bb_async_connection_t *conn = userdata;
+    disconnect_called++;
+    bb_async_connection_destroy(conn);
+    bb_async_connection_destroy(conn);   /* a second destroy must be a no-op */
+}
+
 static void async_connection_create_test(void)
 {
     printf("\tTesting async connection creation...\n");
@@ -187,6 +197,46 @@ static void async_disconnect_only_once_test(void)
     bb_runtime_destroy(runtime);
 }
 
+/* close() runs the disconnect callback, which destroys the connection: the
+ * connection must be freed exactly once (no use-after-free, no leak). */
+static void async_close_with_destroying_callback_test(void)
+{
+    printf("\tTesting disconnect callback that destroys the connection (close)...\n");
+
+    disconnect_called = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_async_connection_t *conn = bb_async_connection_create(runtime);
+
+    bb_async_connection_set_disconnect_callback(conn, destroying_disconnect_callback, conn);
+
+    bb_async_connection_close(conn);
+
+    BB_ASSERT(disconnect_called == 1);
+
+    bb_runtime_destroy(runtime);
+}
+
+/* destroy() runs the disconnect callback, which destroys the connection again:
+ * the connection must not be freed twice. */
+static void async_destroy_with_destroying_callback_test(void)
+{
+    printf("\tTesting disconnect callback that destroys the connection (destroy)...\n");
+
+    disconnect_called = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_async_connection_t *conn = bb_async_connection_create(runtime);
+
+    bb_async_connection_set_disconnect_callback(conn, destroying_disconnect_callback, conn);
+
+    bb_async_connection_destroy(conn);
+
+    BB_ASSERT(disconnect_called == 1);
+
+    bb_runtime_destroy(runtime);
+}
+
 int main(void)
 {
     printf("Running async connection unit tests...\n");
@@ -199,6 +249,8 @@ int main(void)
     async_connection_close_test();
     async_disconnect_callback_test();
     async_disconnect_only_once_test();
+    async_close_with_destroying_callback_test();
+    async_destroy_with_destroying_callback_test();
 
     printf("All async connection tests passed.\n");
 

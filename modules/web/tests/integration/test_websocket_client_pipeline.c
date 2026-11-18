@@ -789,6 +789,11 @@ static void test_client_reports_connect_failures(void)
         client_finish(&c);
     }
 
+    /* A handshake rejected as malformed tears the connection down inside the
+     * client. Destroying the client afterwards used to write to that freed
+     * connection (heap use-after-free); ASan aborts the process if it regresses. */
+    (void)failure_case_reported("server answers with non-HTTP bytes", script_garbage);
+
     /* Malformed URLs fail synchronously with an error and without touching the network. */
     static const char *const bad_urls[] = {
         "", "ws://", "ws:///path", "ws://host:99999/", "ws://host:0/", "ws://host:abc/",
@@ -1036,10 +1041,7 @@ static void test_client_strict_rfc_conformance(void)
     STRICT_CHECK("half a handshake response followed by a close is reported via the connect callback",
                  failure_case_reported("server sends half a response then closes", script_partial_response));
 
-    /* Keep this one last: after a handshake rejected as malformed, destroying the
-     * client touches the already-freed connection (heap use-after-free), which
-     * aborts the process under ASan. */
-    STRICT_CHECK("client can be destroyed safely after a malformed handshake response",
+    STRICT_CHECK("garbage handshake response is reported via the connect callback",
                  failure_case_reported("server answers with non-HTTP bytes", script_garbage));
 
     BB_ASSERT(strict_failures == 0);

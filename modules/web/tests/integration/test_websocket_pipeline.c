@@ -40,6 +40,15 @@ static bb_error_t echo_handler(bb_websocket_t *ws, const bb_ws_message_t *msg)
     return BB_SUCCESS();
 }
 
+/* Closes the session from inside the message callback. The server's close
+ * callback destroys the WebSocket while its read step is still running. */
+static bb_error_t close_on_message_handler(bb_websocket_t *ws, const bb_ws_message_t *msg)
+{
+    (void)msg;
+
+    return bb_websocket_close(ws);
+}
+
 static void *server_thread(void *arg)
 {
     (void)arg;
@@ -49,6 +58,7 @@ static void *server_thread(void *arg)
     server = bb_server_create_on_runtime(server_runtime, TEST_PORT);
 
     bb_server_add_websocket(server, "/echo", echo_handler);
+    bb_server_add_websocket(server, "/close-on-message", close_on_message_handler);
 
     bb_server_start(server);
 
@@ -696,6 +706,57 @@ static void websocket_close_test(void)
 
     // after close, no new messages should arrive unexpectedly
     BB_ASSERT(message_after_close == 0);
+
+    bb_websocket_destroy(client);
+    bb_runtime_destroy(runtime);
+}
+
+// Handler closes the session test
+
+static volatile int handler_close_client_closed = 0;
+
+static void _handler_close_connect_cb(bb_websocket_t *ws, bb_error_t err, void *userdata)
+{
+    (void)userdata;
+
+    BB_ASSERT(!BB_FAILED(err));
+    BB_ASSERT(!BB_FAILED(bb_websocket_send_text(ws, "bye")));
+}
+
+static void _handler_close_client_closed_cb(bb_websocket_t *ws, void *userdata)
+{
+    (void)ws;
+    (void)userdata;
+
+    handler_close_client_closed = 1;
+}
+
+/* The server-side handler closes the session while the WebSocket's read step
+ * is still on the stack. The close callback destroys the WebSocket there, so
+ * nothing may touch it once the handler returns. */
+static void websocket_handler_closes_session_test(void)
+{
+    printf("\tTesting WebSocket closed from inside the message handler...\n");
+
+    handler_close_client_closed = 0;
+
+    bb_runtime_t *runtime = bb_runtime_create();
+    bb_runtime_set_running(runtime);
+
+    bb_websocket_t *client = bb_websocket_create_on_runtime(runtime);
+
+    bb_websocket_set_close_callback(client, _handler_close_client_closed_cb, NULL);
+    bb_websocket_connect(client, "ws://127.0.0.1:8081/close-on-message", _handler_close_connect_cb, NULL);
+
+    for (int i = 0; i < 20 && !handler_close_client_closed; i++)
+    {
+        bb_runtime_tick(runtime);
+    }
+
+    BB_ASSERT(handler_close_client_closed == 1);
+
+    /* The server must have dropped the session. */
+    check_server();
 
     bb_websocket_destroy(client);
     bb_runtime_destroy(runtime);
@@ -2165,6 +2226,7 @@ int main(void)
     websocket_many_messages_test();
     websocket_ping_pong_test();
     websocket_close_test();
+    websocket_handler_closes_session_test();
     websocket_dead_connection_test();
     websocket_multiple_dead_connections_test();
     websocket_silent_dead_connection_test();
