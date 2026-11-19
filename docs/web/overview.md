@@ -66,6 +66,19 @@ bb_server_start(server);
 bb_runtime_run_default();
 ```
 
+`bb_server_start()` returns a `bb_error_t`. It fails (and leaves the server
+unstarted, still safe to destroy) if it runs out of memory or the runtime
+refuses to watch the listening socket, so check it:
+
+```c
+bb_error_t err = bb_server_start(server);
+if (BB_FAILED(err))
+{
+    fprintf(stderr, "Could not start the server: %s\n", err.msg);
+    return 1;
+}
+```
+
 A HTTP route consists of:
 - HTTP method
 - URL path
