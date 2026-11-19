@@ -547,17 +547,30 @@ static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *
         return 1;
     }
 
+    /* A connection the server cannot track would never be released at
+     * shutdown, so refuse it rather than serve it untracked. */
+    if (server->conn_list)
+    {
+        data->conn_node = bb_conn_list_add(server->conn_list, data);
+        if (!data->conn_node)
+        {
+            bb_http_parser_destroy(data->http_parser);
+            free(data);
+            return 1;
+        }
+    }
+
     bb_async_connection_set_disconnect_callback(async_conn, _server_on_disconnect, data);
 
     if (BB_FAILED(bb_async_connection_create_read_task(async_conn, _server_read_step, _server_read_error, data)))
     {
+        /* The caller destroys async_conn next, which fires its disconnect
+         * hook: unhook first, or it runs a cleanup on the data freed here. */
+        _server_clear_disconnect_hook(async_conn);
+        bb_conn_list_remove(server->conn_list, data->conn_node);
+        bb_http_parser_destroy(data->http_parser);
         free(data);
         return 1;
-    }
-
-    if (server->conn_list)
-    {
-        data->conn_node = bb_conn_list_add(server->conn_list, data);
     }
 
     return 0;
@@ -596,13 +609,28 @@ int bb_server_get_metrics(const bb_server_t *server, bb_metrics_snapshot_t *out)
     return 0;
 }
 
-void bb_server_start(bb_server_t *server)
+bb_error_t bb_server_start(bb_server_t *server)
 {
+    if (!server)
+    {
+        return BB_ERROR(BB_ERR_NULL, "No server.");
+    }
+
+    if (!server->async_conn || !server->async_conn->connection)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Server has no listening socket.");
+    }
+
+    if (server->accept_task)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Server already started.");
+    }
+
     bb_server_task_data_t *data = malloc(sizeof(*data));
     if (!data)
     {
         BB_LOG_ERROR("Failed to allocate server task.\n");
-        return;
+        return BB_ERROR(BB_ERR_ALLOC, "Failed to allocate server task.");
     }
 
     data->server = server;
@@ -614,11 +642,21 @@ void bb_server_start(bb_server_t *server)
     data->request_start_ms = -1;
     // not a per-connection object; not tracked in conn_list
 
-    server->accept_task_data = data;
+    bb_task_t *task = bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _server_accept_task, data);
+    if (!task)
+    {
+        /* Nothing has been published to the server yet, so undoing is just
+         * releasing the task data. */
+        free(data);
+        BB_LOG_ERROR("Failed to register the listening socket with the runtime.\n");
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to register the listening socket with the runtime.");
+    }
 
-    server->accept_task = bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _server_accept_task, data);
+    server->accept_task_data = data;
+    server->accept_task = task;
 
     BB_LOG_INFO("Blue-Bird async server started.\n");
+    return BB_SUCCESS();
 }
 
 static void _server_conn_cleanup(void *userdata)

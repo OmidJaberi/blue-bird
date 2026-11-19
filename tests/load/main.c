@@ -144,7 +144,14 @@ int main(int argc, char **argv)
     signal(SIGTERM, on_signal);
     bb_runtime_set_interval(runtime, STOP_POLL_MS, stop_check_cb, runtime);
 
-    bb_server_start(server);
+    bb_error_t start_err = bb_server_start(server);
+    if (BB_FAILED(start_err))
+    {
+        fprintf(stderr, "bb-loadtest-server: could not start: %s\n", start_err.msg);
+        bb_server_destroy(server);
+        bb_runtime_destroy(runtime);
+        return 1;
+    }
 
     printf("bb-loadtest-server listening on port %d\n", port);
     fflush(stdout);

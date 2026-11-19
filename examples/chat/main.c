@@ -1,4 +1,5 @@
 #include "app_handlers.h"
+#include <stdio.h>
 #include "app_ws.h"
 #include "app_repo.h"
 
@@ -40,7 +41,12 @@ int main(void)
     /* Live chat */
     bb_server_add_websocket(server, "/ws", chat_ws_handler);
 
-    bb_server_start(server);
+    bb_error_t start_err = bb_server_start(server);
+    if (BB_FAILED(start_err))
+    {
+        fprintf(stderr, "Could not start the server: %s\n", start_err.msg);
+        return 1;
+    }
 
     BB_LOG_INFO("Blue-Bird chat example running on http://localhost:8080\n");
 

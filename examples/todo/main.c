@@ -105,7 +105,12 @@ int main(void)
     bb_server_add_route(server, "GET", "/:id/status", get_task);
     bb_server_add_route(server, "GET", "/list_tasks", list_tasks);
  
-    bb_server_start(server);
+    bb_error_t start_err = bb_server_start(server);
+    if (BB_FAILED(start_err))
+    {
+        fprintf(stderr, "Could not start the server: %s\n", start_err.msg);
+        return 1;
+    }
     bb_runtime_run_default();
     return 0;
 }

@@ -53,7 +53,12 @@ static void *server_thread(void *arg)
 
     bb_server_t *server = bb_server_create_on_runtime(g_runtime, g_port);
     api_add_routes(server);
-    bb_server_start(server);
+    if (BB_FAILED(bb_server_start(server)))
+    {
+        bb_server_destroy(server);
+        bb_runtime_destroy(g_runtime);
+        return NULL;
+    }
 
     bb_runtime_run(g_runtime);
 

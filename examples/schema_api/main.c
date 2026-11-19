@@ -99,7 +99,12 @@ int main(void)
 
     api_add_routes(server);
 
-    bb_server_start(server);
+    bb_error_t start_err = bb_server_start(server);
+    if (BB_FAILED(start_err))
+    {
+        fprintf(stderr, "Could not start the server: %s\n", start_err.msg);
+        return 1;
+    }
     bb_runtime_run_default();
     return 0;
 }

@@ -23,7 +23,19 @@ void bb_server_add_websocket(bb_server_t *server, const char *path, bb_ws_handle
 void bb_server_set_websocket_heartbeat(bb_server_t *server, uint32_t interval_ms, uint32_t max_missed_pongs); // max_missed_pongs == 0 -> disable
 void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw);
 void bb_server_use_post_middleware(bb_server_t *server, bb_http_handler_cb mw);
-void bb_server_start(bb_server_t *server);
+/*
+ * Start accepting connections: registers the listening socket with the
+ * server's runtime.
+ *
+ * Returns BB_SUCCESS() once the server is accepting, otherwise an error and
+ * the server is left exactly as it was before the call (not started, still
+ * safe to destroy, and bb_server_start() may be called again):
+ *   BB_ERR_NULL      server is NULL
+ *   BB_ERR_ALLOC     out of memory
+ *   BB_ERR_INTERNAL  the server is already started, has no listening socket,
+ *                    or the runtime refused to watch the listening socket
+ */
+bb_error_t bb_server_start(bb_server_t *server);
 
 /*
  * Copy the server's current metrics into *out.
