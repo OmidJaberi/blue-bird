@@ -3105,6 +3105,56 @@ void test_json_object_remove_from_collision_chain(void)
     }
 }
 
+void test_parse_does_not_modify_or_keep_input_buffer(void)
+{
+    printf("\tTesting that parsing neither modifies nor keeps pointers into the input...\n");
+
+    const char *source =
+        "{\"name\": \"Bob\\n\\u00e9\", \"tags\": [\"x\", \"y\"], \"n\": 12, \"r\": 2.5, "
+        "\"ok\": true, \"none\": null, \"nested\": {\"k\": \"v\"}}";
+    size_t len = strlen(source);
+
+    // bb_json_parse takes a non-const buffer, but must treat it as read-only.
+    char *buffer = (char *)malloc(len + 1);
+    BB_ASSERT(buffer != NULL);
+    memcpy(buffer, source, len + 1);
+
+    bb_json_t *json = bb_json_parse(buffer);
+    BB_ASSERT(json != NULL);
+    BB_ASSERT(memcmp(buffer, source, len + 1) == 0);
+
+    // Failed parses must leave the input alone as well.
+    char *broken = (char *)malloc(len);
+    BB_ASSERT(broken != NULL);
+    memcpy(broken, source, len - 1);
+    broken[len - 1] = '\0';
+    BB_ASSERT(bb_json_parse(broken) == NULL);
+    BB_ASSERT(memcmp(broken, source, len - 1) == 0 && broken[len - 1] == '\0');
+    free(broken);
+
+    // Keys and text values are copies: scribbling over the input, then freeing
+    // it, must not change the parsed document (ASan flags any dangling pointer).
+    memset(buffer, 'X', len);
+    free(buffer);
+
+    BB_ASSERT(strcmp(bb_json_get_value_text(bb_json_object_get_value(json, "name")), "Bob\n\xc3\xa9") == 0);
+    bb_json_t *tags = bb_json_object_get_value(json, "tags");
+    BB_ASSERT(bb_json_get_size(tags) == 2);
+    BB_ASSERT(strcmp(bb_json_get_value_text(bb_json_array_get_index(tags, 0)), "x") == 0);
+    BB_ASSERT(strcmp(bb_json_get_value_text(bb_json_array_get_index(tags, 1)), "y") == 0);
+    BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(json, "n")) == 12);
+    BB_ASSERT(bb_json_get_value_real(bb_json_object_get_value(json, "r")) == 2.5f);
+    BB_ASSERT(bb_json_get_value_bool(bb_json_object_get_value(json, "ok")));
+    BB_ASSERT(bb_json_get_type(bb_json_object_get_value(json, "none")) == BB_JSON_NULL);
+    BB_ASSERT(strcmp(bb_json_get_value_text(
+        bb_json_object_get_value(bb_json_object_get_value(json, "nested"), "k")), "v") == 0);
+
+    bb_json_t *expected = assert_accepts(source);
+    BB_ASSERT(bb_json_equal(json, expected));
+    bb_json_destroy(expected);
+    bb_json_destroy(json);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3211,6 +3261,7 @@ int main(void)
     test_parse_corrupted_documents_are_safe();
     test_json_failed_insert_keeps_caller_ownership();
     test_json_object_remove_from_collision_chain();
+    test_parse_does_not_modify_or_keep_input_buffer();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
