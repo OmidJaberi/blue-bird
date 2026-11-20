@@ -3019,6 +3019,92 @@ void test_json_failed_insert_keeps_caller_ownership(void)
     bb_json_destroy(obj);
 }
 
+// Mirrors the djb2 hash used by the object implementation, so the test below can
+// build keys that land in the same bucket. If the implementation's hash ever
+// changes the keys merely stop colliding and the test degrades to a plain
+// insert/remove check; it never fails because of that.
+static size_t test_djb2_bucket(const char *key, size_t bucket_count)
+{
+    size_t hash = 5381;
+    for (; *key; key++)
+        hash = ((hash << 5) + hash) + (unsigned char)*key;
+    return hash & (bucket_count - 1);
+}
+
+void test_json_object_remove_from_collision_chain(void)
+{
+    printf("\tTesting JSON object removal from a hash collision chain...\n");
+
+    // A fresh object has 8 buckets and only grows once it holds more than 5 keys,
+    // so a handful of keys that share a bucket form a single chain.
+    enum { CHAIN = 5 };
+    const size_t buckets = 8;
+    char keys[CHAIN][16];
+    int found = 0;
+    for (int i = 0; i < 10000 && found < CHAIN; i++)
+    {
+        char candidate[16];
+        snprintf(candidate, sizeof(candidate), "c%d", i);
+        if (test_djb2_bucket(candidate, buckets) == 3)
+            snprintf(keys[found++], sizeof(keys[0]), "%s", candidate);
+    }
+    BB_ASSERT(found == CHAIN);
+
+    // Remove the newest entry (chain head), a middle entry, the oldest entry (chain
+    // tail) and then the rest, checking after every step that the survivors are still
+    // reachable, sized correctly and serialized in insertion order.
+    const int removal_orders[][CHAIN] = {
+        { 4, 2, 0, 1, 3 },
+        { 0, 1, 2, 3, 4 },
+        { 2, 4, 0, 3, 1 },
+    };
+    for (size_t o = 0; o < sizeof(removal_orders) / sizeof(removal_orders[0]); o++)
+    {
+        bb_json_t *obj = bb_json_new_object();
+        for (int i = 0; i < CHAIN; i++)
+            BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, keys[i], bb_json_new_int(i))));
+        BB_ASSERT(bb_json_get_size(obj) == CHAIN);
+
+        bool alive[CHAIN] = { true, true, true, true, true };
+        for (int step = 0; step < CHAIN; step++)
+        {
+            int victim = removal_orders[o][step];
+            BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, keys[victim])));
+            alive[victim] = false;
+            BB_ASSERT(bb_json_object_remove_key(obj, keys[victim]).code == BB_ERR_NOT_FOUND);
+
+            char expected[CHAIN * 24] = "{";
+            size_t remaining = 0;
+            for (int i = 0; i < CHAIN; i++)
+            {
+                bb_json_t *value = bb_json_object_get_value(obj, keys[i]);
+                if (!alive[i])
+                {
+                    BB_ASSERT(value == NULL);
+                    continue;
+                }
+                BB_ASSERT(value != NULL);
+                BB_ASSERT(bb_json_get_value_integer(value) == i);
+                char entry[32];
+                snprintf(entry, sizeof(entry), "%s\"%s\": %d", remaining ? ", " : "", keys[i], i);
+                strcat(expected, entry);
+                remaining++;
+            }
+            strcat(expected, "}");
+            BB_ASSERT(bb_json_get_size(obj) == remaining);
+            assert_serializes_to(obj, expected);
+        }
+
+        // The emptied object, whose chain is gone, accepts the same keys again.
+        for (int i = 0; i < CHAIN; i++)
+            BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, keys[i], bb_json_new_int(i + 100))));
+        BB_ASSERT(bb_json_get_size(obj) == CHAIN);
+        for (int i = 0; i < CHAIN; i++)
+            BB_ASSERT(bb_json_get_value_integer(bb_json_object_get_value(obj, keys[i])) == i + 100);
+        bb_json_destroy(obj);
+    }
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3124,6 +3210,7 @@ int main(void)
     test_parse_every_truncation_rejected();
     test_parse_corrupted_documents_are_safe();
     test_json_failed_insert_keeps_caller_ownership();
+    test_json_object_remove_from_collision_chain();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
