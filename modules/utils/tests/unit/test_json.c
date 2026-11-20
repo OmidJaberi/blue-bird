@@ -3155,6 +3155,54 @@ void test_parse_does_not_modify_or_keep_input_buffer(void)
     bb_json_destroy(json);
 }
 
+void test_json_dump_failure_paths(void)
+{
+    printf("\tTesting JSON dump failure paths...\n");
+
+    const char *path = "bb_json_dump_failure.json";
+    bb_json_t *doc = assert_accepts("{\"a\": [1, 2, 3]}");
+
+    // The target is a directory, so it cannot be opened for writing.
+    bb_error_t err = bb_json_dump(doc, ".");
+    BB_ASSERT(BB_FAILED(err));
+    BB_ASSERT(err.code == BB_ERR_IO);
+
+    // A document that cannot be serialized is reported as a failure, not
+    // written out half-finished and not reported as success.
+    bb_json_t *bad = bb_json_new_array();
+    BB_ASSERT(!BB_FAILED(bb_json_array_push(bad, bb_json_new_int(1))));
+    BB_ASSERT(!BB_FAILED(bb_json_array_push(bad, bb_json_create(BB_JSON_NOT_INITIALIZED))));
+    BB_ASSERT(BB_FAILED(bb_json_dump(bad, path)));
+    BB_ASSERT(BB_FAILED(bb_json_dump(NULL, path)));
+    bb_json_destroy(bad);
+
+    // Whatever the failed attempts left behind (an empty file, say), they never
+    // leave a loadable document that differs from what was last dumped...
+    bb_json_t *loaded = bb_json_load(path);
+    BB_ASSERT(loaded == NULL);
+
+    // ...and the API still works normally afterwards, including for an existing file.
+    BB_ASSERT(!BB_FAILED(bb_json_dump(doc, path)));
+    loaded = bb_json_load(path);
+    BB_ASSERT(loaded != NULL);
+    BB_ASSERT(bb_json_equal(doc, loaded));
+    bb_json_destroy(loaded);
+
+    bb_json_t *bad_again = bb_json_new_object();
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(bad_again, "x", bb_json_create(BB_JSON_NOT_INITIALIZED))));
+    BB_ASSERT(BB_FAILED(bb_json_dump(bad_again, path)));
+    bb_json_destroy(bad_again);
+
+    BB_ASSERT(!BB_FAILED(bb_json_dump(doc, path)));
+    loaded = bb_json_load(path);
+    BB_ASSERT(loaded != NULL);
+    BB_ASSERT(bb_json_equal(doc, loaded));
+    bb_json_destroy(loaded);
+
+    bb_json_destroy(doc);
+    remove(path);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3262,6 +3310,7 @@ int main(void)
     test_json_failed_insert_keeps_caller_ownership();
     test_json_object_remove_from_collision_chain();
     test_parse_does_not_modify_or_keep_input_buffer();
+    test_json_dump_failure_paths();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
