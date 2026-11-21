@@ -9,6 +9,8 @@
  * never by waiting for the connection to close, which is what makes it
  * possible to tell "answered and still open" from "answered and closed".
  */
+#if !defined(_WIN32)
+
 #include "blue-bird/runtime/runtime.h"
 #include "blue-bird/web/server.h"
 #include "blue-bird/web/http/message.h"
@@ -897,3 +899,16 @@ int main(void)
     printf("All HTTP keep-alive tests passed.\n");
     return 0;
 }
+
+#else /* _WIN32 */
+
+/* These tests drive the server through raw POSIX sockets. */
+#include <stdio.h>
+
+int main(void)
+{
+    printf("Skipping: POSIX-socket test, not built on Windows.\n");
+    return 0;
+}
+
+#endif /* !_WIN32 */

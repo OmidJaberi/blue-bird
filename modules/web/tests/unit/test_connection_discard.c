@@ -2,6 +2,8 @@
  * bb_connection_discard_read(): dropping a handled request from the read
  * buffer while keeping any bytes behind it (a pipelined next request).
  */
+#if !defined(_WIN32)
+
 #include "connection/connection.h"
 
 #include <blue-bird/error/assert.h>
@@ -150,3 +152,16 @@ int main(void)
     printf("All connection discard tests passed.\n");
     return 0;
 }
+
+#else /* _WIN32 */
+
+/* These tests drive the server through raw POSIX sockets. */
+#include <stdio.h>
+
+int main(void)
+{
+    printf("Skipping: POSIX-socket test, not built on Windows.\n");
+    return 0;
+}
+
+#endif /* !_WIN32 */
