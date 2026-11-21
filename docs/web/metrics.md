@@ -146,7 +146,7 @@ All metrics are per server process and begin at zero when the server starts.
 
 | Metric | Type | Description |
 |---|---|---|
-| `bluebird_http_connections_active` | Gauge | Open HTTP connections, excluding connections upgraded to WebSocket. |
+| `bluebird_http_connections_active` | Gauge | Open HTTP connections, including idle keep-alive connections waiting for their next request, excluding connections upgraded to WebSocket. |
 | `bluebird_websocket_sessions_active` | Gauge | Open WebSocket sessions. |
 | `bluebird_connections_accepted_total` | Counter | TCP connections accepted since server start. |
 | `bluebird_websocket_sessions_opened_total` | Counter | WebSocket sessions opened since server start. |
@@ -225,7 +225,7 @@ Durations are measured in whole milliseconds, so requests faster than 1 ms are n
 - **WebSocket upgrades:** An upgrade is counted as one HTTP request with status `101` (`1xx`). Subsequent WebSocket frames are not HTTP requests and do not contribute to the HTTP request counters or latency histogram.
 - **Unanswered requests:** Parse errors, handler or middleware errors that prevent a response from being queued, and clients that disconnect before a response is queued are not counted as answered requests. They may still contribute to the accepted-connection counter.
 - **Metrics scrapes:** A scrape sees the state from just before its own response is completed. Its connection appears in the active HTTP connection gauge, but the scrape request is not yet included in the totals returned by that response.
-- **Connection behavior:** The server closes the connection after each HTTP response and sends `Connection: close`. Each request therefore uses a new connection, so `bluebird_connections_accepted_total` grows with request volume under normal HTTP traffic.
+- **Connection behavior:** By default the server keeps HTTP connections open for further requests (see `bb_server_set_keepalive()`), so `bluebird_connections_accepted_total` counts connections, not requests, and grows more slowly than the request counters when clients reuse connections. With keep-alive disabled, or for clients that send `Connection: close`, every request uses a new connection. Idle keep-alive connections are included in `bluebird_http_connections_active`.
 
 A pre-middleware error that closes the connection without sending a response causes a failed scrape rather than an HTTP status response. This is distinct from a request that receives an HTTP error status.
 
@@ -257,7 +257,7 @@ scrape_configs:
 
 The example assumes Prometheus can reach the server at `localhost:8080`. Replace the target with the address reachable from the Prometheus process or container.
 
-Because the server closes each HTTP connection after the response, each scrape opens a new connection. This is normal for Prometheus.
+Prometheus keeps its scrape connection open when it can, and the server allows that (see `bb_server_set_keepalive()`); a scraper that sends `Connection: close` opens a new connection for each scrape. Both are normal.
 
 ## Useful PromQL Queries
 

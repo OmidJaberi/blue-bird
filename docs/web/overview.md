@@ -86,6 +86,39 @@ A HTTP route consists of:
 
 The server internally matches incoming requests against registered routes.
 
+## Persistent connections (keep-alive)
+
+The server keeps an HTTP connection open after a response, so a client can send
+its next request on the same connection instead of opening a new one. This is on
+by default:
+
+```c
+bb_server_set_keepalive(server, 15000, 1000); /* the defaults: idle timeout in ms, max requests */
+bb_server_set_keepalive(server, 0, 0);        /* off: every response says "Connection: close" */
+```
+
+Call it before `bb_server_start()`.
+
+- A connection is closed after `idle_timeout_ms` without activity, or after
+  `max_requests` requests (`0` = no limit). The response that ends a connection
+  says `Connection: close`. Other responses carry `Keep-Alive: timeout=N`.
+- The client can opt out per request (`Connection: close`); HTTP/1.0 clients are
+  persistent only when they send `Connection: keep-alive`.
+- A handler can end the connection by setting `Connection: close` on its response.
+- Pipelined requests are answered in order, each after the previous response has
+  been fully written.
+- Responses that must not carry a body (to `HEAD`, and `1xx`/`204`/`304`) are sent
+  without one, so the next response on the connection is never corrupted.
+- WebSocket upgrades take the connection over and are not kept alive as HTTP.
+- The idle timeout starts once the first response has been written. A connection
+  that has not completed a request yet is not timed out.
+- Idle connections are reclaimed by a periodic sweep that is created with the
+  first persistent connection. If it cannot be created, that connection is closed
+  after its response rather than kept open.
+
+The built-in HTTP client ends each exchange by closing its connection and sends
+`Connection: close`; it does not reuse connections.
+
 ---
 
 # Route Handlers
