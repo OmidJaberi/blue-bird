@@ -121,6 +121,45 @@ int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t l
     return 0;
 }
 
+/* An emptied read buffer larger than this goes back to its initial size. */
+#define BB_CONNECTION_SHRINK_THRESHOLD (4 * BB_CONNECTION_INITIAL_BUFFER_SIZE)
+
+void bb_connection_discard_read(bb_connection_t *connection, size_t n)
+{
+    if (!connection || !connection->buffer)
+    {
+        return;
+    }
+
+    if (n > connection->buffer_length)
+    {
+        n = connection->buffer_length;
+    }
+
+    if (n > 0)
+    {
+        size_t remaining = connection->buffer_length - n;
+        if (remaining > 0)
+        {
+            memmove(connection->buffer, connection->buffer + n, remaining);
+        }
+        connection->buffer_length = remaining;
+        connection->buffer[remaining] = '\0';
+    }
+
+    if (connection->buffer_length == 0 && connection->buffer_capacity > BB_CONNECTION_SHRINK_THRESHOLD)
+    {
+        /* Best effort: if the smaller block cannot be had, keep the big one. */
+        char *smaller = realloc(connection->buffer, BB_CONNECTION_INITIAL_BUFFER_SIZE);
+        if (smaller)
+        {
+            connection->buffer = smaller;
+            connection->buffer_capacity = BB_CONNECTION_INITIAL_BUFFER_SIZE;
+            connection->buffer[0] = '\0';
+        }
+    }
+}
+
 bb_connection_t *bb_connection_serve(int port)
 {
     bb_socket_t server_fd = -1;

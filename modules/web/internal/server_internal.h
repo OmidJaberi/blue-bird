@@ -11,6 +11,10 @@
 #include "middleware.h"
 #include "metrics.h"
 
+/* Persistent-connection defaults; see bb_server_set_keepalive(). */
+#define BB_SERVER_DEFAULT_KEEPALIVE_IDLE_MS      15000
+#define BB_SERVER_DEFAULT_KEEPALIVE_MAX_REQUESTS 1000
+
 typedef struct {
     bb_server_t *server;
     bb_async_connection_t *async_conn;
@@ -20,6 +24,10 @@ typedef struct {
     bb_http_parser_t *http_parser;
     size_t parsed_offset;
     int64_t request_start_ms; // monotonic time of the first read step; -1 until then
+
+    bool keep_alive;           // the response being written leaves the connection open for another request
+    uint32_t requests_served;  // responses already written on this connection
+    int64_t last_activity_ms;  // monotonic: last read activity, or when the connection went idle
 } bb_server_task_data_t;
 
 struct bb_server {
@@ -39,6 +47,10 @@ struct bb_server {
 
     uint32_t ws_heartbeat_interval_ms;
     uint32_t ws_heartbeat_max_missed_pongs;
+
+    uint32_t keepalive_idle_timeout_ms; // 0 = keep-alive disabled
+    uint32_t keepalive_max_requests;    // per connection; 0 = unlimited
+    bb_task_t *keepalive_sweep_task;    // closes idle persistent connections; created with the first one
 
     bb_tls_context_t *tls_ctx; // NULL for a plain-TCP server
 };

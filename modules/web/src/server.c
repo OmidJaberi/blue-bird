@@ -7,6 +7,7 @@
 #include "blue-bird/log/log.h"
 #include "blue-bird/utils/time.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -54,6 +55,8 @@ static bb_server_t *_bb_server_create_common(bb_runtime_t *runtime, int port, bb
     // assigned; before that point the fail path destroys it directly.
     server->runtime = runtime;
     server->tls_ctx = tls_ctx;
+    server->keepalive_idle_timeout_ms = BB_SERVER_DEFAULT_KEEPALIVE_IDLE_MS;
+    server->keepalive_max_requests = BB_SERVER_DEFAULT_KEEPALIVE_MAX_REQUESTS;
 
     // Cheap, purely in-memory resources first.
     server->route_list = bb_route_list_create();
@@ -220,6 +223,238 @@ static void _server_on_disconnect(void *userdata)
     _server_task_data_cleanup((bb_server_task_data_t *) userdata);
 }
 
+static bb_read_status_t _server_read_step(void *userdata);
+static void _server_read_error(bb_error_t err, void *userdata);
+
+/* ------------------------------------------------------------------------ */
+/* Persistent connections                                                    */
+/* ------------------------------------------------------------------------ */
+
+/* True if the comma-separated header value contains `token` (case-insensitive). */
+static bool _header_value_has_token(const char *value, const char *token)
+{
+    size_t token_len = strlen(token);
+    const char *p = value;
+
+    while (p && *p)
+    {
+        while (*p == ' ' || *p == '\t' || *p == ',')
+        {
+            p++;
+        }
+
+        const char *start = p;
+        while (*p && *p != ',')
+        {
+            p++;
+        }
+
+        const char *end = p;
+        while (end > start && (end[-1] == ' ' || end[-1] == '\t'))
+        {
+            end--;
+        }
+
+        if ((size_t)(end - start) == token_len && bb_strncasecmp(start, token, token_len) == 0)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/* RFC 9112 section 9.3: HTTP/1.1 connections are persistent unless the client says
+ * "close"; older ones only when the client asks for "keep-alive". */
+static bool _request_wants_keep_alive(const bb_http_request_t *req)
+{
+    bool close_requested = false;
+    bool keep_alive_requested = false;
+
+    for (size_t i = 0; i < req->header_count; i++)
+    {
+        if (bb_strcasecmp(req->headers[i].name, "Connection") != 0)
+        {
+            continue;
+        }
+        if (_header_value_has_token(req->headers[i].value, "close"))
+        {
+            close_requested = true;
+        }
+        if (_header_value_has_token(req->headers[i].value, "keep-alive"))
+        {
+            keep_alive_requested = true;
+        }
+    }
+
+    if (close_requested)
+    {
+        return false;
+    }
+
+    if (req->version_major > 1 || (req->version_major == 1 && req->version_minor >= 1))
+    {
+        return true;
+    }
+
+    return keep_alive_requested;
+}
+
+static void _server_keepalive_sweep(bb_task_t *task, void *userdata);
+
+/* Idle persistent connections are reclaimed by a periodic sweep. It is created
+ * lazily, when the first connection wants to stay open; if it cannot be, that
+ * connection is simply not kept alive, so a persistent connection can never
+ * outlive the thing that would close it. */
+static bool _server_ensure_keepalive_sweep(bb_server_t *server)
+{
+    if (server->keepalive_sweep_task)
+    {
+        return true;
+    }
+
+    uint64_t interval_ms = server->keepalive_idle_timeout_ms / 4;
+    if (interval_ms < 10)
+    {
+        interval_ms = 10;
+    }
+    if (interval_ms > 1000)
+    {
+        interval_ms = 1000;
+    }
+
+    server->keepalive_sweep_task = bb_runtime_set_interval(server->runtime, interval_ms, _server_keepalive_sweep, server);
+    return server->keepalive_sweep_task != NULL;
+}
+
+/* Whether the connection stays open after the response being built for `raw`. */
+static bool _server_should_keep_alive(bb_server_task_data_t *data, const bb_http_request_t *raw, bb_response_t *res)
+{
+    bb_server_t *server = data->server;
+
+    if (server->keepalive_idle_timeout_ms == 0)
+    {
+        return false;
+    }
+
+    if (!_request_wants_keep_alive(raw))
+    {
+        return false;
+    }
+
+    const char *connection_header = bb_response_get_header(res, "Connection");
+    if (connection_header && _header_value_has_token(connection_header, "close"))
+    {
+        return false;
+    }
+
+    if (server->keepalive_max_requests != 0 && data->requests_served + 1 >= server->keepalive_max_requests)
+    {
+        return false;
+    }
+
+    return _server_ensure_keepalive_sweep(server);
+}
+
+/*
+ * The response has been written and the connection stays open: get it ready
+ * for the next request, or close it if that cannot be done. Consumes `data`
+ * either way (it is freed when the connection is closed).
+ */
+static void _server_next_request(bb_server_task_data_t *data)
+{
+    bb_async_connection_t *async_conn = data->async_conn;
+    bb_connection_t *conn = async_conn ? async_conn->connection : NULL;
+
+    if (!conn)
+    {
+        _server_task_data_cleanup(data);
+        return;
+    }
+
+    data->requests_served++;
+    data->keep_alive = false;
+    data->request_start_ms = -1;
+    data->last_activity_ms = bb_time_monotonic_ms();
+
+    /* Forget the request just answered, but keep what follows it: with
+     * pipelining that is the start of the next request. */
+    if (data->http_parser)
+    {
+        bb_http_parser_reset(data->http_parser);
+    }
+    bb_connection_discard_read(conn, data->parsed_offset);
+    data->parsed_offset = 0;
+    conn->state = BB_CONNECTION_READING;
+
+    /* The hook was removed when the write started; while the connection waits
+     * for its next request a peer that hangs up must release it again. */
+    bb_async_connection_set_disconnect_callback(async_conn, _server_on_disconnect, data);
+
+    /* Reading was paused while the response went out. */
+    if (BB_FAILED(bb_async_connection_create_read_task(async_conn, _server_read_step, _server_read_error, data)))
+    {
+        _server_task_data_cleanup(data);
+        return;
+    }
+
+    /* A pipelined request may already be buffered. No new bytes will arrive
+     * to wake the read task for it, so run it now. */
+    if (conn->buffer_length > 0)
+    {
+        bb_read_status_t status = _server_read_step(data);
+        if (status.result == BB_READ_ERROR)
+        {
+            _server_read_error(status.err, data);
+        }
+    }
+}
+
+typedef struct
+{
+    int64_t now_ms;
+    int64_t idle_timeout_ms;
+} _server_sweep_ctx_t;
+
+static void _server_sweep_visit(void *item, void *ctx_ptr)
+{
+    bb_server_task_data_t *data = item;
+    const _server_sweep_ctx_t *ctx = ctx_ptr;
+
+    /* The timeout only applies to a connection that has already completed a
+     * request, and never while a response is going out. */
+    if (data->requests_served == 0)
+    {
+        return;
+    }
+
+    if (!data->async_conn || !data->async_conn->connection || data->async_conn->connection->state == BB_CONNECTION_WRITING)
+    {
+        return;
+    }
+
+    if (ctx->now_ms - data->last_activity_ms < ctx->idle_timeout_ms)
+    {
+        return;
+    }
+
+    _server_task_data_cleanup(data);
+}
+
+static void _server_keepalive_sweep(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    bb_server_t *server = userdata;
+
+    if (!server->conn_list || server->keepalive_idle_timeout_ms == 0)
+    {
+        return;
+    }
+
+    _server_sweep_ctx_t ctx = { bb_time_monotonic_ms(), server->keepalive_idle_timeout_ms };
+    bb_conn_list_foreach(server->conn_list, _server_sweep_visit, &ctx);
+}
+
 static void _server_after_write(bb_task_t *task, void *userdata)
 {
     (void) task;
@@ -264,6 +499,12 @@ static void _server_after_write(bb_task_t *task, void *userdata)
             bb_conn_list_remove(data->server->conn_list, data->conn_node);
         }
         free(data);
+        return;
+    }
+
+    if (data->keep_alive)
+    {
+        _server_next_request(data);
         return;
     }
 
@@ -421,9 +662,11 @@ static bb_read_status_t _server_read_step(void *userdata)
     bb_async_connection_t *async_conn = data->async_conn;
     bb_connection_t *conn = async_conn->connection;
 
+    int64_t now_ms = bb_time_monotonic_ms();
+    data->last_activity_ms = now_ms;
     if (data->request_start_ms < 0)
     {
-        data->request_start_ms = bb_time_monotonic_ms();
+        data->request_start_ms = now_ms;
     }
 
     if (!data->http_parser)
@@ -478,13 +721,44 @@ static bb_read_status_t _server_read_step(void *userdata)
         }
     }
 
-    // This server closes the connection after every HTTP response (no keep-alive),
-    // so tell the client; otherwise an HTTP/1.1 client assumes the connection is
-    // reusable and reports the close as a read error. The 101 upgrade response
-    // must keep the connection open.
-    if (bb_response_get_status(res) != 101 && !bb_response_get_header(res, "Connection"))
+    const bb_http_request_t *raw = bb_http_parser_get_request(data->http_parser);
+    int status = bb_response_get_status(res);
+
+    /* On a persistent connection anything sent beyond the response's real
+     * framing would be read by the client as the start of the next response.
+     * 1xx/204/304 have no body at all; a HEAD response keeps the headers (and
+     * the Content-Length the body would have had) but not the body itself. */
+    if (status < 200 || status == 204 || status == 304)
     {
-        bb_response_set_header(res, "Connection", "close");
+        bb_response_set_body(res, NULL);
+    }
+
+    /* The 101 upgrade response leaves the connection open for the WebSocket
+     * and says so itself. Every other response states what happens next. */
+    bool keep_alive = false;
+    if (status != 101)
+    {
+        keep_alive = !data->ws && _server_should_keep_alive(data, raw, res);
+
+        if (!keep_alive)
+        {
+            /* Also overrides a handler that asked for keep-alive when the server
+             * is closing anyway. */
+            bb_response_set_header(res, "Connection", "close");
+        }
+        else
+        {
+            /* HTTP/1.1 connections are persistent by default; an HTTP/1.0 client
+             * has to be told. */
+            if (raw->version_major == 1 && raw->version_minor == 0)
+            {
+                bb_response_set_header(res, "Connection", "keep-alive");
+            }
+
+            char hint[48];
+            snprintf(hint, sizeof(hint), "timeout=%u", (unsigned)((data->server->keepalive_idle_timeout_ms + 999) / 1000));
+            bb_response_set_header(res, "Keep-Alive", hint);
+        }
     }
 
     char *buffer = NULL;
@@ -498,6 +772,16 @@ static bb_read_status_t _server_read_step(void *userdata)
         bb_response_destroy(res);
 
         return (bb_read_status_t){ BB_READ_ERROR, BB_ERROR(BB_ERR_ALLOC, "Failed to serialize HTTP response.") };
+    }
+
+    if (strcmp(raw->method, "HEAD") == 0)
+    {
+        char *headers_end = strstr(buffer, "\r\n\r\n");
+        if (headers_end)
+        {
+            length = (size_t)(headers_end - buffer) + 4;
+            buffer[length] = '\0';
+        }
     }
 
     if (bb_connection_buffer_add(async_conn->connection, buffer, length) != 0)
@@ -517,6 +801,7 @@ static bb_read_status_t _server_read_step(void *userdata)
     bb_request_destroy(req);
     bb_response_destroy(res);
 
+    data->keep_alive = keep_alive;
     async_conn->connection->state = BB_CONNECTION_WRITING;
 
     bb_async_connection_pause_read(async_conn);
@@ -541,6 +826,9 @@ static int _server_create_read_task(bb_server_t *server, bb_async_connection_t *
     data->http_parser = bb_http_parser_create();
     data->parsed_offset = 0;
     data->request_start_ms = -1;
+    data->keep_alive = false;
+    data->requests_served = 0;
+    data->last_activity_ms = bb_time_monotonic_ms();
     if (!data->http_parser)
     {
         free(data);
@@ -640,6 +928,9 @@ bb_error_t bb_server_start(bb_server_t *server)
     data->parsed_offset = 0;
     data->http_parser = NULL;
     data->request_start_ms = -1;
+    data->keep_alive = false;
+    data->requests_served = 0;
+    data->last_activity_ms = 0;
     // not a per-connection object; not tracked in conn_list
 
     bb_task_t *task = bb_runtime_watch_fd(server->runtime, server->async_conn->connection->fd, BB_EVENT_READ, BB_WATCH_PERSISTENT, _server_accept_task, data);
@@ -700,6 +991,12 @@ void bb_server_destroy(bb_server_t *server)
     {
         bb_runtime_cancel_task(server->runtime, server->accept_task);
         server->accept_task = NULL;
+    }
+
+    if (server->keepalive_sweep_task)
+    {
+        bb_runtime_cancel_task(server->runtime, server->keepalive_sweep_task);
+        server->keepalive_sweep_task = NULL;
     }
 
     if (server->conn_list)
@@ -788,6 +1085,17 @@ void bb_server_set_websocket_heartbeat(bb_server_t *server, uint32_t interval_ms
 
     server->ws_heartbeat_interval_ms = interval_ms;
     server->ws_heartbeat_max_missed_pongs = max_missed_pongs;
+}
+
+void bb_server_set_keepalive(bb_server_t *server, uint32_t idle_timeout_ms, uint32_t max_requests)
+{
+    if (!server)
+    {
+        return;
+    }
+
+    server->keepalive_idle_timeout_ms = idle_timeout_ms;
+    server->keepalive_max_requests = max_requests;
 }
 
 void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw)

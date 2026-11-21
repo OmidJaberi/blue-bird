@@ -197,5 +197,15 @@ int bb_request_serialize(bb_request_t *req, char **buffer, size_t *size)
 
     // Temporary:
     bb_message_set_start_line(bb_request_get_message(req), start_line);
+
+    /* A client here always ends an exchange by closing its connection, and the
+     * blocking receive reads until the peer closes. Say so: a server that keeps
+     * connections open would otherwise hold this one open while the client sits
+     * waiting for that to end. A caller that set its own Connection header keeps it. */
+    if (!bb_message_get_header(req->inner_req.c_req.msg, "Connection"))
+    {
+        bb_message_set_header(req->inner_req.c_req.msg, "Connection", "close");
+    }
+
     return bb_message_serialize(req->inner_req.c_req.msg, buffer, size);
 }

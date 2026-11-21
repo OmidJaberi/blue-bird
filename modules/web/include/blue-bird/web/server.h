@@ -21,6 +21,30 @@ bb_server_t *bb_server_create_tls_on_runtime(bb_runtime_t *runtime, int port, co
 void bb_server_add_route(bb_server_t *server, const char *method, const char *path, bb_http_handler_cb handler);
 void bb_server_add_websocket(bb_server_t *server, const char *path, bb_ws_handler_cb handler);
 void bb_server_set_websocket_heartbeat(bb_server_t *server, uint32_t interval_ms, uint32_t max_missed_pongs); // max_missed_pongs == 0 -> disable
+/*
+ * Persistent (keep-alive) connections. By default the server keeps an HTTP
+ * connection open after a response so the client can send its next request on
+ * it, and closes it after idle_timeout_ms of inactivity or after max_requests
+ * requests.
+ *
+ *   idle_timeout_ms  how long a persistent connection may sit idle before the
+ *                    server closes it. 0 disables keep-alive: every response
+ *                    then carries "Connection: close" and the connection is
+ *                    closed once it is written. Default 15000.
+ *   max_requests     requests served on one connection before it is closed;
+ *                    0 = no limit. Default 1000.
+ *
+ * The connection is closed regardless when the client asks for it ("Connection:
+ * close", or an HTTP/1.0 request without "Connection: keep-alive"), when a
+ * handler sets "Connection: close" on its response, and for WebSocket upgrades.
+ * Pipelined requests are answered in order, each after the previous response
+ * has been written.
+ *
+ * The idle timeout starts once the first response has been written; a
+ * connection that has not completed a request yet is not timed out. Call this
+ * before bb_server_start().
+ */
+void bb_server_set_keepalive(bb_server_t *server, uint32_t idle_timeout_ms, uint32_t max_requests);
 void bb_server_use_pre_middleware(bb_server_t *server, bb_http_handler_cb mw);
 void bb_server_use_post_middleware(bb_server_t *server, bb_http_handler_cb mw);
 /*

@@ -88,6 +88,23 @@ size_t bb_conn_list_count(const bb_conn_list_t *list)
     return list ? list->count : 0;
 }
 
+void bb_conn_list_foreach(bb_conn_list_t *list, bb_conn_visit_fn visit, void *ctx)
+{
+    if (!list || !visit)
+    {
+        return;
+    }
+
+    bb_conn_node_t *node = list->head;
+    while (node)
+    {
+        /* Read the successor first: visit may remove this node. */
+        bb_conn_node_t *next = node->next;
+        visit(node->data, ctx);
+        node = next;
+    }
+}
+
 void bb_conn_list_destroy_all(bb_conn_list_t *list, bb_conn_cleanup_fn cleanup)
 {
     if (!list)

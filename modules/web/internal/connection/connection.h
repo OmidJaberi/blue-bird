@@ -85,6 +85,15 @@ void bb_connection_destroy(bb_connection_t *connection);
 
 int bb_connection_buffer_add(bb_connection_t *connection, char *buffer, size_t length);
 
+/*
+ * Drops the first `n` bytes of the read buffer (clamped to what is there) and
+ * keeps whatever follows them: on a persistent connection that is the start of
+ * the next, possibly pipelined, request. When this empties a buffer that an
+ * earlier large request grew, the memory is handed back so an idle connection
+ * does not keep holding it.
+ */
+void bb_connection_discard_read(bb_connection_t *connection, size_t n);
+
 bb_connection_t *bb_connection_serve(int port);
 bb_connection_t *bb_connection_accept(bb_socket_t server_fd);
 bb_connection_t *bb_connection_connect(const char *host, const char *port_str);
