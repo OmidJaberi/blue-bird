@@ -56,7 +56,7 @@ static void noop_timer(bb_task_t *task, void *userdata)
     (void)userdata;
 }
 
-static int client_connect(void)
+static int client_open(void)
 {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     BB_ASSERT(fd >= 0);
@@ -71,9 +71,24 @@ static int client_connect(void)
     BB_ASSERT(connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0);
     BB_ASSERT(fcntl(fd, F_SETFL, O_NONBLOCK) == 0);
 
-    static const char request[] = "GET /ping HTTP/1.1\r\nHost: localhost\r\n\r\n";
-    BB_ASSERT(send(fd, request, sizeof(request) - 1, 0) == (ssize_t)(sizeof(request) - 1));
+    return fd;
+}
 
+static void client_send_ping(int fd, bool close_after)
+{
+    static const char persistent[] = "GET /ping HTTP/1.1\r\nHost: localhost\r\n\r\n";
+    static const char closing[] = "GET /ping HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+
+    const char *request = close_after ? closing : persistent;
+    size_t len = close_after ? sizeof(closing) - 1 : sizeof(persistent) - 1;
+    BB_ASSERT(send(fd, request, len, 0) == (ssize_t)len);
+}
+
+/* A connection that is read through to its end: one request, "Connection: close". */
+static int client_connect(void)
+{
+    int fd = client_open();
+    client_send_ping(fd, true);
     return fd;
 }
 
@@ -390,6 +405,173 @@ static void test_accept_registration_sweep(void)
 }
 
 /* ============================================================
+ * Persistent connections: allocation, registration and timer failures
+ * ============================================================ */
+
+/* How many complete "pong" responses the client has seen, and whether the
+ * server has closed the connection. */
+typedef struct
+{
+    char data[2048];
+    size_t len;
+    unsigned responses;
+    bool eof;
+} reader_t;
+
+static void reader_poll(reader_t *r, int fd)
+{
+    for (;;)
+    {
+        ssize_t n = recv(fd, r->data + r->len, sizeof(r->data) - 1 - r->len, 0);
+        if (n > 0)
+        {
+            r->len += (size_t)n;
+            r->data[r->len] = '\0';
+            continue;
+        }
+        if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR))
+        {
+            r->eof = true;
+        }
+        break;
+    }
+
+    r->responses = 0;
+    for (const char *p = strstr(r->data, "pong"); p; p = strstr(p + 4, "pong"))
+    {
+        r->responses++;
+    }
+}
+
+/* Drives the runtime until `want` responses have arrived, the server closes,
+ * or the deadline passes. */
+static void reader_await(bb_runtime_t *runtime, int fd, reader_t *r, unsigned want, int timeout_ms)
+{
+    int64_t deadline = bb_time_monotonic_ms() + timeout_ms;
+
+    for (;;)
+    {
+        bb_runtime_tick(runtime);
+        reader_poll(r, fd);
+
+        if (r->responses >= want || r->eof || bb_time_monotonic_ms() > deadline)
+        {
+            return;
+        }
+    }
+}
+
+typedef struct
+{
+    bool injected;
+    unsigned answered; /* responses received before the connection ended */
+    bool first_said_close;
+} keepalive_run_t;
+
+/* Two requests down one persistent connection, with a failure armed. */
+static keepalive_run_t run_keepalive_iteration(unsigned fail_alloc_at, unsigned fail_watch_at, unsigned fail_timer_at, unsigned n)
+{
+    keepalive_run_t run = { false, 0, false };
+    int fds_before = fault_count_open_fds();
+
+    fixture_t f;
+    fixture_init(&f);
+    fault_check(!BB_FAILED(bb_server_start(f.server)), "start succeeds", n);
+
+    if (fail_alloc_at) bb_fi_fail_alloc_at(fail_alloc_at);
+    if (fail_watch_at) bb_fi_fail_watch_at(fail_watch_at);
+    if (fail_timer_at) bb_fi_fail_timer_at(fail_timer_at);
+
+    int fd = client_open();
+    reader_t reader;
+    memset(&reader, 0, sizeof(reader));
+
+    client_send_ping(fd, false);
+    reader_await(f.runtime, fd, &reader, 1, 500);
+    run.first_said_close = strstr(reader.data, "Connection: close") != NULL;
+
+    if (reader.responses >= 1 && !reader.eof)
+    {
+        client_send_ping(fd, false);
+        reader_await(f.runtime, fd, &reader, 2, 500);
+    }
+
+    run.answered = reader.responses;
+    run.injected = bb_fi_alloc_failures() + bb_fi_watch_failures() + bb_fi_timer_failures() > 0;
+    bool stalled = !reader.eof && reader.responses < 2;
+    bb_fi_reset();
+
+    fault_check(!(run.injected && stalled), "a connection hit by a failure is closed, never left hanging half-served", n);
+
+    close(fd);
+
+    fault_check(server_is_healthy(&f), "server still serves after the failure", n);
+
+    fixture_destroy(&f);
+    fault_check(fault_count_open_fds() == fds_before, "no descriptor leaked", n);
+
+    return run;
+}
+
+static void test_keepalive_allocation_sweep(void)
+{
+    printf("\tTesting persistent connections under allocation failures...\n");
+
+    unsigned failures_swept = 0;
+
+    for (unsigned n = 1; n <= MAX_SWEEP; n++)
+    {
+        keepalive_run_t run = run_keepalive_iteration(n, 0, 0, n);
+        if (!run.injected)
+        {
+            fault_check(run.answered == 2, "an uninjected run answers both requests", n);
+            break;
+        }
+        failures_swept++;
+    }
+
+    /* Two requests' worth of allocations, well beyond a single exchange. */
+    BB_ASSERT(failures_swept >= 12);
+    printf("\t  (%u allocation points failed in turn)\n", failures_swept);
+}
+
+static void test_keepalive_registration_sweep(void)
+{
+    printf("\tTesting persistent connections under runtime registration failures...\n");
+
+    unsigned failures_swept = 0;
+
+    for (unsigned n = 1; n <= MAX_SWEEP; n++)
+    {
+        keepalive_run_t run = run_keepalive_iteration(0, n, 0, n);
+        if (!run.injected)
+        {
+            fault_check(run.answered == 2, "an uninjected run answers both requests", n);
+            break;
+        }
+        failures_swept++;
+    }
+
+    /* Read and write watch for the first request, the read watch re-armed for
+     * the next one, then the write watch for the second answer. */
+    BB_ASSERT(failures_swept >= 4);
+    printf("\t  (%u registration points failed in turn)\n", failures_swept);
+}
+
+/* No sweep timer means no way to reclaim an idle connection, so the server
+ * must not keep one open: the first request is still answered, then it closes. */
+static void test_keepalive_degrades_without_sweep_timer(void)
+{
+    printf("\tTesting a persistent connection degrades to close when the sweep timer cannot be created...\n");
+
+    keepalive_run_t run = run_keepalive_iteration(0, 0, 1, 1);
+
+    BB_ASSERT(run.injected);
+    BB_ASSERT(run.answered == 1);
+    BB_ASSERT(run.first_said_close);
+}
+
+/* ============================================================
  * Main
  * ============================================================ */
 
@@ -406,6 +588,9 @@ int main(void)
     test_start_registration_failure();
     test_accept_allocation_sweep();
     test_accept_registration_sweep();
+    test_keepalive_allocation_sweep();
+    test_keepalive_registration_sweep();
+    test_keepalive_degrades_without_sweep_timer();
 
     printf("All server failure-injection tests passed.\n");
     return 0;

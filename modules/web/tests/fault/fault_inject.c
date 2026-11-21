@@ -8,6 +8,7 @@
 /* Matches the prototype runtime.h gets when bb_runtime_watch_fd_ex is renamed
  * to bb_fi_watch_fd_ex by fi_intercept.h. */
 bb_task_t *bb_fi_watch_fd_ex(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch_mode_t mode, const bb_task_config_t *config);
+bb_task_t *bb_fi_interval_ex(bb_runtime_t *runtime, uint64_t interval_ms, const bb_task_config_t *config);
 
 typedef struct
 {
@@ -18,6 +19,7 @@ typedef struct
 
 static site_t g_alloc;
 static site_t g_watch;
+static site_t g_timer;
 
 static void arm(site_t *s, unsigned n)
 {
@@ -44,15 +46,19 @@ void bb_fi_reset(void)
 {
     arm(&g_alloc, 0);
     arm(&g_watch, 0);
+    arm(&g_timer, 0);
 }
 
 void bb_fi_fail_alloc_at(unsigned n)  { arm(&g_alloc, n); }
 void bb_fi_fail_watch_at(unsigned n)  { arm(&g_watch, n); }
+void bb_fi_fail_timer_at(unsigned n)  { arm(&g_timer, n); }
 
 unsigned bb_fi_alloc_calls(void)      { return g_alloc.calls; }
 unsigned bb_fi_alloc_failures(void)   { return g_alloc.failures; }
 unsigned bb_fi_watch_calls(void)      { return g_watch.calls; }
 unsigned bb_fi_watch_failures(void)   { return g_watch.failures; }
+unsigned bb_fi_timer_calls(void)      { return g_timer.calls; }
+unsigned bb_fi_timer_failures(void)   { return g_timer.failures; }
 
 void *bb_fi_malloc(size_t size)
 {
@@ -92,4 +98,13 @@ bb_task_t *bb_fi_watch_fd_ex(bb_runtime_t *runtime, bb_socket_t fd, int events, 
         return NULL;
     }
     return bb_runtime_watch_fd_ex(runtime, fd, events, mode, config);
+}
+
+bb_task_t *bb_fi_interval_ex(bb_runtime_t *runtime, uint64_t interval_ms, const bb_task_config_t *config)
+{
+    if (should_fail(&g_timer))
+    {
+        return NULL;
+    }
+    return bb_runtime_set_interval_ex(runtime, interval_ms, config);
 }

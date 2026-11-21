@@ -6,8 +6,8 @@
  *
  * The system headers that declare the allocator come first so their
  * prototypes are not renamed; the macros apply to everything after.
- * bb_runtime_watch_fd_ex is renamed before runtime.h is parsed so that the
- * static inline bb_runtime_watch_fd() wrapper in that header is intercepted
+ * bb_runtime_watch_fd_ex and bb_runtime_set_interval_ex are renamed before runtime.h is parsed so that the
+ * static inline bb_runtime_watch_fd()/bb_runtime_set_interval() wrappers in that header is intercepted
  * too.
  */
 
@@ -27,6 +27,7 @@
 #define realloc(ptr, size) bb_fi_realloc((ptr), (size))
 #define bb_strdup          bb_fi_strdup
 #define bb_runtime_watch_fd_ex bb_fi_watch_fd_ex
+#define bb_runtime_set_interval_ex bb_fi_interval_ex
 
 #include <blue-bird/runtime/runtime.h>
 #include <blue-bird/utils/platform.h>

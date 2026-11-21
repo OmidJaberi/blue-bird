@@ -10,7 +10,7 @@ it had acquired.
 `connection/conn_list.c` and `http/parser.c` are compiled a second time into
 each test executable, through the one-line wrappers `fi_*.c`. Each wrapper
 includes `fi_intercept.h` first, which renames `malloc`, `calloc`, `realloc`,
-`bb_strdup` and `bb_runtime_watch_fd_ex` *inside that file only* to the
+`bb_strdup`, `bb_runtime_watch_fd_ex` and `bb_runtime_set_interval_ex` *inside that file only* to the
 interposers in `fault_inject.c`. The test executable then defines every symbol
 of those files itself, so the linker never takes the regular copies from
 `libbluebird_web.a`.
@@ -28,7 +28,8 @@ test's own code) always runs against the real allocator.
 fail, once. A test sweeps `n = 1, 2, 3, ...` and stops at the first run where
 the failure never fires, which means every allocation on the path has been
 failed in turn. `bb_fi_fail_watch_at(n)` does the same for runtime
-registrations (`bb_runtime_watch_fd_ex`).
+registrations (`bb_runtime_watch_fd_ex`), and `bb_fi_fail_timer_at(n)` for timer
+registrations (`bb_runtime_set_interval_ex`).
 
 After each failed run the tests check that the operation reported the
 failure, that the object is unchanged (so the call can be retried), that a

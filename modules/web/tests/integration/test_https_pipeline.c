@@ -268,6 +268,26 @@ static void https_large_response_test(void)
     SSL_CTX_free(ctx);
 }
 
+/* Reads until `needle` has arrived (or the peer ends the session). */
+static size_t _ssl_read_until(SSL *ssl, char *buf, size_t capacity, const char *needle)
+{
+    size_t total = 0;
+    buf[0] = '\0';
+
+    while (total + 1 < capacity && strstr(buf, needle) == NULL)
+    {
+        int n = SSL_read(ssl, buf + total, (int)(capacity - 1 - total));
+        if (n <= 0)
+        {
+            break;
+        }
+        total += (size_t)n;
+        buf[total] = '\0';
+    }
+
+    return total;
+}
+
 static void https_multiple_requests_one_connection_test(void)
 {
     printf("\tTesting multiple requests on one TLS connection...\n");
@@ -276,17 +296,34 @@ static void https_multiple_requests_one_connection_test(void)
     bb_socket_t fd = _connect_tcp();
     SSL *ssl = _tls_connect(fd, ctx);
 
-    /* No Connection: close here -- the second request must still be
-     * readable over the same already-established TLS session. */
-    const char *req = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
-    _ssl_send_all(ssl, req, strlen(req));
+    /* The connection is persistent: the same established TLS session carries
+     * three requests, and the one that asks to close ends it. */
+    for (int i = 1; i <= 3; i++)
+    {
+        const char *req = (i < 3)
+            ? "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+            : "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+        _ssl_send_all(ssl, req, strlen(req));
 
-    char buf[4096];
-    int n = SSL_read(ssl, buf, sizeof(buf) - 1);
-    BB_ASSERT(n > 0);
-    buf[n] = '\0';
-    BB_ASSERT(strstr(buf, "200") != NULL);
-    BB_ASSERT(strstr(buf, "Hello over TLS") != NULL);
+        char buf[4096];
+        size_t n = _ssl_read_until(ssl, buf, sizeof(buf), "Hello over TLS");
+        BB_ASSERT(n > 0);
+        BB_ASSERT(strstr(buf, " 200 ") != NULL);
+        BB_ASSERT(strstr(buf, "Hello over TLS") != NULL);
+
+        if (i < 3)
+        {
+            BB_ASSERT(strstr(buf, "Connection: close") == NULL);
+        }
+        else
+        {
+            BB_ASSERT(strstr(buf, "Connection: close") != NULL);
+        }
+    }
+
+    /* After the closing response the server ends the session. */
+    char tail[16];
+    BB_ASSERT(SSL_read(ssl, tail, sizeof(tail)) <= 0);
 
     SSL_shutdown(ssl);
     SSL_free(ssl);

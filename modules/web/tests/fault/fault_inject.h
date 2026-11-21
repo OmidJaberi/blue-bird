@@ -9,7 +9,7 @@
  * in this directory (fi_*.c), which include fi_intercept.h before the real
  * source. That header renames malloc/calloc/realloc/bb_strdup and
  * bb_runtime_watch_fd_ex inside those files only, so every allocation and
- * every runtime registration they make goes through the interposers defined in
+ * every runtime registration (fd watch or timer) they make goes through the interposers defined in
  * fault_inject.c. Nothing else in the process is affected, and no linker or
  * loader tricks are needed, so it behaves the same under GCC and AppleClang.
  *
@@ -34,10 +34,15 @@ void bb_fi_fail_alloc_at(unsigned n);
 /* The n-th intercepted bb_runtime_watch_fd_ex() from now on returns NULL. */
 void bb_fi_fail_watch_at(unsigned n);
 
+/* The n-th intercepted bb_runtime_set_interval_ex() from now on returns NULL. */
+void bb_fi_fail_timer_at(unsigned n);
+
 unsigned bb_fi_alloc_calls(void);
 unsigned bb_fi_alloc_failures(void);
 unsigned bb_fi_watch_calls(void);
 unsigned bb_fi_watch_failures(void);
+unsigned bb_fi_timer_calls(void);
+unsigned bb_fi_timer_failures(void);
 
 /* Interposers; only ever referenced through the fi_intercept.h macros. */
 void *bb_fi_malloc(size_t size);

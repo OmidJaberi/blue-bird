@@ -1339,23 +1339,30 @@ void test_parser_pipelined_requests(void)
 {
     printf("Testing back-to-back (pipelined) requests on one connection...\n");
 
-    /* The server answers one request per connection and then closes. A second
-     * request that arrives in the same TCP segment must not be executed, must
-     * not corrupt the first response, and must not crash or wedge the server. */
+    /* The connection is persistent, so a second request that arrives in the
+     * same TCP segment is answered as well -- after the first, in order, and
+     * without corrupting it. The last request asks to close so the exchange
+     * ends as soon as it has been answered. */
     const char *two_requests =
         "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-        "GET /param/second HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        "GET /param/second HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
 
     char resp[4096];
     raw_result_t r = raw_http_exchange(two_requests, strlen(two_requests), resp, sizeof(resp));
 
     BB_ASSERT(r == RAW_PEER_CLOSED);
-    BB_ASSERT(strstr(resp, " 200 ") != NULL);
+    BB_ASSERT(count_occurrences(resp, " 200 ") == 2);
     BB_ASSERT(count_occurrences(resp, "Hello, Blue-Bird :)") == 1);
-    BB_ASSERT(strstr(resp, "name: second") == NULL);
+    BB_ASSERT(count_occurrences(resp, "name: second") == 1);
+    BB_ASSERT(strstr(resp, "Hello, Blue-Bird :)") < strstr(resp, "name: second"));
 
-    /* A pipelined request that is itself malformed must not turn the first,
-     * valid response into an error or leak the bad request's effects. */
+    /* Only the response that ends the connection says so. */
+    BB_ASSERT(count_occurrences(resp, "Connection: close") == 1);
+    BB_ASSERT(strstr(resp, "Connection: close") > strstr(resp, "Hello, Blue-Bird :)"));
+
+    /* A pipelined request that is itself rejected must not turn the first,
+     * valid response into an error or leak the bad request's effects: the first
+     * response is delivered, the bad request is never executed. */
     const char *good_then_bad =
         "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
         "GET /../etc/passwd HTTP/1.1\r\nHost: localhost\r\n\r\n";
