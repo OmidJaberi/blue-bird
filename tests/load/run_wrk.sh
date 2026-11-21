@@ -20,9 +20,9 @@
 #   BB_SERVER_WRAPPER    command prefix for the server, e.g. valgrind (see lib.sh)
 #   BB_START_TIMEOUT_S / BB_STOP_TIMEOUT_S   see lib.sh
 #
-# The server closes the connection after every response, so wrk is run with
-# "Connection: close": each request is a fresh connection, which also exercises
-# the accept/close path and the connection-list bookkeeping.
+# wrk is run with "Connection: close" even though the server supports keep-alive:
+# each request is then a fresh connection, which exercises the accept/close path
+# and the connection-list bookkeeping.
 
 set -euo pipefail
 

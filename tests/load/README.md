@@ -51,8 +51,10 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
   tests/load/run_wrk.sh build-asan/tests/load/bb-loadtest-server
 ```
 
-The server closes the connection after every response, so wrk runs with
-`Connection: close` and each request is a fresh connection.
+wrk runs with `Connection: close`, so each request is a fresh connection. That
+exercises the accept/close path and the connection-list bookkeeping; it does not
+exercise persistent connections (drop the `-H "Connection: close"` in
+`run_wrk.sh` to measure those).
 
 ## Valgrind under load
 
