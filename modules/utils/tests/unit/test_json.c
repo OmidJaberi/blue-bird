@@ -3230,6 +3230,64 @@ void test_json_object_merge_key_order(void)
     bb_json_destroy(src);
 }
 
+void test_json_clone_preserves_object_history(void)
+{
+    printf("\tTesting JSON clone of objects with removed, overwritten and re-added keys...\n");
+
+    // Build an object whose order list differs from plain insertion order.
+    bb_json_t *obj = bb_json_new_object();
+    for (int i = 0; i < 40; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, key, bb_json_new_int(i))));
+    }
+    for (int i = 0; i < 40; i += 3)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(obj, key)));
+    }
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, "k1", bb_json_new_text("overwritten"))));
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(obj, "k0", bb_json_new_text("re-added"))));
+
+    bb_json_t *copy = bb_json_clone(obj);
+    BB_ASSERT(copy != NULL && copy != obj);
+    BB_ASSERT(bb_json_get_size(copy) == bb_json_get_size(obj));
+    BB_ASSERT(bb_json_equal(obj, copy));
+
+    // Same key order in both, which shows up in the serialized form.
+    char *a = NULL, *b = NULL;
+    int size_a = 0, size_b = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(obj, &a, &size_a)));
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(copy, &b, &size_b)));
+    BB_ASSERT(size_a == size_b && strcmp(a, b) == 0);
+    BB_ASSERT(strncmp(a, "{\"k1\": \"overwritten\", \"k2\": 2, \"k4\": 4", 38) == 0);
+    const char *tail = "\"k0\": \"re-added\"}";
+    BB_ASSERT(size_a > (int)strlen(tail));
+    BB_ASSERT(strcmp(a + size_a - strlen(tail), tail) == 0);
+    free(a);
+    free(b);
+
+    // Removed keys stay gone in the clone, the rest is reachable, and mutating one
+    // object leaves the other alone.
+    for (int i = 0; i < 40; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "k%d", i);
+        BB_ASSERT((bb_json_object_get_value(copy, key) != NULL) == (i % 3 != 0 || i == 0));
+    }
+    BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(copy, "k2")));
+    BB_ASSERT(bb_json_object_get_value(obj, "k2") != NULL);
+    BB_ASSERT(!bb_json_equal(obj, copy));
+
+    bb_json_destroy(obj);
+    // The clone outlives the original and is still fully usable.
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(copy, "extra", bb_json_new_bool(true))));
+    BB_ASSERT(bb_json_get_value_bool(bb_json_object_get_value(copy, "extra")));
+    bb_json_destroy(copy);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3339,6 +3397,7 @@ int main(void)
     test_parse_does_not_modify_or_keep_input_buffer();
     test_json_dump_failure_paths();
     test_json_object_merge_key_order();
+    test_json_clone_preserves_object_history();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
