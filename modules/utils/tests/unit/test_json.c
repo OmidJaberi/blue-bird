@@ -3288,6 +3288,41 @@ void test_json_clone_preserves_object_history(void)
     bb_json_destroy(copy);
 }
 
+void test_json_array_remove_container_elements(void)
+{
+    printf("\tTesting JSON array removal of nested container elements...\n");
+
+    bb_json_t *arr = assert_accepts(
+        "[{\"a\": [1, 2, {\"b\": \"deep\"}]}, [[], [\"x\", \"y\"]], \"keep\", {}, [true, null], 7]");
+    BB_ASSERT(bb_json_get_size(arr) == 6);
+
+    // Removing a nested object frees the whole subtree and shifts its neighbours down.
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 0)));
+    BB_ASSERT(bb_json_get_size(arr) == 5);
+    assert_serializes_to(arr, "[[[], [\"x\", \"y\"]], \"keep\", {}, [true, null], 7]");
+
+    // Middle element that is an empty object, then one that is a nested array.
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 2)));
+    assert_serializes_to(arr, "[[[], [\"x\", \"y\"]], \"keep\", [true, null], 7]");
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 0)));
+    assert_serializes_to(arr, "[\"keep\", [true, null], 7]");
+
+    // Elements that are still in the array are intact and reachable.
+    bb_json_t *inner = bb_json_array_get_index(arr, 1);
+    BB_ASSERT(bb_json_get_type(inner) == BB_JSON_ARRAY && bb_json_get_size(inner) == 2);
+    BB_ASSERT(bb_json_get_value_bool(bb_json_array_get_index(inner, 0)));
+    BB_ASSERT(bb_json_get_type(bb_json_array_get_index(inner, 1)) == BB_JSON_NULL);
+
+    // The tail can be removed and the array pushed into again afterwards.
+    BB_ASSERT(!BB_FAILED(bb_json_array_remove_at_index(arr, 2)));
+    BB_ASSERT(bb_json_array_get_index(arr, 2) == NULL);
+    BB_ASSERT(!BB_FAILED(bb_json_array_push(arr, assert_accepts("{\"new\": [0]}"))));
+    assert_serializes_to(arr, "[\"keep\", [true, null], {\"new\": [0]}]");
+
+    // Everything left is released with the array (checked by ASan/LeakSanitizer).
+    bb_json_destroy(arr);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3398,6 +3433,7 @@ int main(void)
     test_json_dump_failure_paths();
     test_json_object_merge_key_order();
     test_json_clone_preserves_object_history();
+    test_json_array_remove_container_elements();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
