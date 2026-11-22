@@ -3203,6 +3203,33 @@ void test_json_dump_failure_paths(void)
     remove(path);
 }
 
+void test_json_object_merge_key_order(void)
+{
+    printf("\tTesting JSON object merge key order...\n");
+
+    // Overwritten keys keep their position in dst; new keys are appended in the order
+    // they appear in src.
+    bb_json_t *dst = assert_accepts("{\"a\": 1, \"b\": 2, \"c\": 3}");
+    bb_json_t *src = assert_accepts("{\"z\": 26, \"c\": \"C\", \"y\": 25, \"a\": \"A\"}");
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    BB_ASSERT(bb_json_get_size(dst) == 5);
+    assert_serializes_to(dst, "{\"a\": \"A\", \"b\": 2, \"c\": \"C\", \"z\": 26, \"y\": 25}");
+    // src is not reordered or changed by being merged.
+    assert_serializes_to(src, "{\"z\": 26, \"c\": \"C\", \"y\": 25, \"a\": \"A\"}");
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+
+    // Merging twice in a row is idempotent, also for order.
+    dst = assert_accepts("{\"k\": 0}");
+    src = assert_accepts("{\"x\": [1], \"k\": null, \"w\": {\"v\": true}}");
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    BB_ASSERT(!BB_FAILED(bb_json_object_merge(dst, src)));
+    BB_ASSERT(bb_json_get_size(dst) == 3);
+    assert_serializes_to(dst, "{\"k\": null, \"x\": [1], \"w\": {\"v\": true}}");
+    bb_json_destroy(dst);
+    bb_json_destroy(src);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3311,6 +3338,7 @@ int main(void)
     test_json_object_remove_from_collision_chain();
     test_parse_does_not_modify_or_keep_input_buffer();
     test_json_dump_failure_paths();
+    test_json_object_merge_key_order();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
