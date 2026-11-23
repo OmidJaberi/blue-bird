@@ -62,6 +62,71 @@ void bb_server_use_post_middleware(bb_server_t *server, bb_http_handler_cb mw);
 bb_error_t bb_server_start(bb_server_t *server);
 
 /*
+ * Server lifecycle.
+ *
+ *   CREATED   bb_server_create*() returned; not accepting yet.
+ *   RUNNING   bb_server_start() succeeded; accepting connections.
+ *   DRAINING  bb_server_shutdown() was called: no longer accepting, finishing
+ *             the work already in progress.
+ *   STOPPED   shutdown has completed: no listening socket, no connections.
+ *
+ * CREATED -> RUNNING -> DRAINING -> STOPPED only ever moves forward, and a
+ * server that has been shut down cannot be started again; create a new one.
+ */
+typedef enum
+{
+    BB_SERVER_STATE_CREATED,
+    BB_SERVER_STATE_RUNNING,
+    BB_SERVER_STATE_DRAINING,
+    BB_SERVER_STATE_STOPPED
+} bb_server_state_t;
+
+/* STOPPED for a NULL server. */
+bb_server_state_t bb_server_get_state(const bb_server_t *server);
+
+/* Called once when a shutdown has completed (state is then STOPPED). */
+typedef void (*bb_server_shutdown_cb)(bb_server_t *server, void *userdata);
+
+/*
+ * Gracefully shuts the server down.
+ *
+ * Immediately:
+ *   - the listening socket is closed, so the port is released and new clients
+ *     are refused;
+ *   - connections that have not started a request (idle keep-alive ones
+ *     included) are closed;
+ *   - every WebSocket session is sent a close frame with code 1001 (going
+ *     away) and closed.
+ *
+ * Requests already in progress are completed. Their responses carry
+ * "Connection: close" and the connection closes once the response is written;
+ * a WebSocket upgrade that arrives meanwhile is refused with 503.
+ *
+ * grace_ms bounds how long that may take. When it expires, whatever is still
+ * open is closed without further ado. 0 means no grace at all.
+ *
+ * on_done (may be NULL) is called exactly once, from the runtime, when no
+ * connection is left -- never from inside bb_server_shutdown() itself, and not
+ * at all if the server is destroyed first. It may destroy the server and stop
+ * the runtime, which is how a program normally ends:
+ *
+ *     static void done(bb_server_t *s, void *rt) { bb_runtime_stop(rt); }
+ *     bb_server_shutdown(server, 5000, done, runtime);
+ *     bb_runtime_run(runtime);            // returns once the server drained
+ *     bb_server_destroy(server);
+ *
+ * Returns BB_SUCCESS() once the shutdown has begun. On error nothing has
+ * changed and the server keeps running:
+ *   BB_ERR_NULL      server is NULL
+ *   BB_ERR_INTERNAL  already shutting down or stopped, or the runtime could not
+ *                    schedule the shutdown
+ *
+ * Works from any state; a server that was never started simply has its
+ * listening socket released.
+ */
+bb_error_t bb_server_shutdown(bb_server_t *server, uint32_t grace_ms, bb_server_shutdown_cb on_done, void *userdata);
+
+/*
  * Copy the server's current metrics into *out.
  * Returns 0 on success, -1 if server or out is NULL.
  *
@@ -84,6 +149,12 @@ int bb_server_get_metrics(const bb_server_t *server, bb_metrics_snapshot_t *out)
  * once per server).
  */
 int bb_server_enable_metrics(bb_server_t *server, const char *path);
+/*
+ * Immediate teardown: every connection is dropped as it is (responses in
+ * flight are cut off, WebSocket sessions get no close frame). Valid in every
+ * state; during a shutdown it cancels the shutdown, and its on_done callback is
+ * not called. Use bb_server_shutdown() first for an orderly stop.
+ */
 void bb_server_destroy(bb_server_t *server);
 
 static inline bb_server_t *bb_server_create(int port)

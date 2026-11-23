@@ -52,6 +52,12 @@ struct bb_server {
     uint32_t keepalive_max_requests;    // per connection; 0 = unlimited
     bb_task_t *keepalive_sweep_task;    // closes idle persistent connections; created with the first one
 
+    bb_server_state_t state;
+    bb_task_t *shutdown_task;           // polls for the drain to finish / the grace period to end
+    int64_t shutdown_deadline_ms;       // monotonic; whatever is still open then is closed
+    bb_server_shutdown_cb shutdown_cb;
+    void *shutdown_userdata;
+
     bb_tls_context_t *tls_ctx; // NULL for a plain-TCP server
 };
 

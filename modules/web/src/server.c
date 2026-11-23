@@ -332,6 +332,12 @@ static bool _server_should_keep_alive(bb_server_task_data_t *data, const bb_http
 {
     bb_server_t *server = data->server;
 
+    /* A draining server finishes the request in hand and lets go of the connection. */
+    if (server->state == BB_SERVER_STATE_DRAINING)
+    {
+        return false;
+    }
+
     if (server->keepalive_idle_timeout_ms == 0)
     {
         return false;
@@ -650,6 +656,14 @@ bb_error_t _run_request_pipeline(bb_server_t *server, bb_async_connection_t *asy
         case BB_ROUTE_HTTP:
             return _run_http_route(server, route, req, res);
         case BB_ROUTE_WEBSOCKET:
+            if (server->state == BB_SERVER_STATE_DRAINING)
+            {
+                /* Not a session the server could keep: it is about to close them all. */
+                bb_response_set_status(res, 503);
+                bb_response_set_header(res, "Content-Type", "text/plain");
+                bb_response_set_body(res, "Server is shutting down");
+                return BB_SUCCESS();
+            }
             return _run_websocket_route(async_conn, route, ws, req, res);
         default:
             return BB_ERROR(BB_ERR_INTERNAL, "Unknown route type");
@@ -904,14 +918,19 @@ bb_error_t bb_server_start(bb_server_t *server)
         return BB_ERROR(BB_ERR_NULL, "No server.");
     }
 
+    if (server->state == BB_SERVER_STATE_RUNNING || server->accept_task)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Server already started.");
+    }
+
+    if (server->state != BB_SERVER_STATE_CREATED)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Server has been shut down.");
+    }
+
     if (!server->async_conn || !server->async_conn->connection)
     {
         return BB_ERROR(BB_ERR_INTERNAL, "Server has no listening socket.");
-    }
-
-    if (server->accept_task)
-    {
-        return BB_ERROR(BB_ERR_INTERNAL, "Server already started.");
     }
 
     bb_server_task_data_t *data = malloc(sizeof(*data));
@@ -945,6 +964,7 @@ bb_error_t bb_server_start(bb_server_t *server)
 
     server->accept_task_data = data;
     server->accept_task = task;
+    server->state = BB_SERVER_STATE_RUNNING;
 
     BB_LOG_INFO("Blue-Bird async server started.\n");
     return BB_SUCCESS();
@@ -980,12 +1000,203 @@ static void _server_conn_cleanup(void *userdata)
     free(data);
 }
 
+/* ------------------------------------------------------------------------ */
+/* Lifecycle and shutdown                                                    */
+/* ------------------------------------------------------------------------ */
+
+/* How often a draining server checks whether it is done or out of time. Only
+ * runs while a shutdown is in progress. */
+#define BB_SERVER_SHUTDOWN_POLL_MS 10
+
+bb_server_state_t bb_server_get_state(const bb_server_t *server)
+{
+    return server ? server->state : BB_SERVER_STATE_STOPPED;
+}
+
+/* A connection that has not begun a request, and is not writing a response, has
+ * nothing in progress to finish. */
+static bool _server_conn_is_idle(const bb_server_task_data_t *data)
+{
+    if (!data->async_conn || !data->async_conn->connection)
+    {
+        return true;
+    }
+
+    return data->request_start_ms < 0 && data->async_conn->connection->state != BB_CONNECTION_WRITING;
+}
+
+static void _server_drain_conn_visit(void *item, void *ctx)
+{
+    (void) ctx;
+    bb_server_task_data_t *data = item;
+
+    if (_server_conn_is_idle(data))
+    {
+        _server_task_data_cleanup(data);
+    }
+}
+
+static void _server_drain_ws_visit(bb_websocket_t *ws, void *ctx)
+{
+    (void) ctx;
+
+    /* 1001: going away. Sends the frame and hangs up; the close callback then
+     * removes and destroys the session. If the frame cannot be sent the session
+     * stays until the grace period runs out. */
+    bb_websocket_send_close(ws, 1001, "Server shutting down");
+}
+
+typedef struct
+{
+    bb_server_t *server;
+    size_t closed;
+} _server_force_ctx_t;
+
+static void _server_force_conn_visit(void *item, void *ctx_ptr)
+{
+    _server_force_ctx_t *ctx = ctx_ptr;
+    ctx->closed++;
+    _server_task_data_cleanup(item);
+}
+
+static void _server_force_ws_visit(bb_websocket_t *ws, void *ctx_ptr)
+{
+    _server_force_ctx_t *ctx = ctx_ptr;
+    ctx->closed++;
+    _server_ws_closed(ws, ctx->server);
+}
+
+/* The last thing a shutdown does. on_done may destroy the server, so nothing
+ * touches it afterwards. */
+static void _server_shutdown_finish(bb_server_t *server, size_t closed_at_deadline)
+{
+    if (server->shutdown_task)
+    {
+        bb_runtime_cancel_task(server->runtime, server->shutdown_task);
+        server->shutdown_task = NULL;
+    }
+
+    if (server->keepalive_sweep_task)
+    {
+        bb_runtime_cancel_task(server->runtime, server->keepalive_sweep_task);
+        server->keepalive_sweep_task = NULL;
+    }
+
+    server->state = BB_SERVER_STATE_STOPPED;
+
+    bb_server_shutdown_cb cb = server->shutdown_cb;
+    void *userdata = server->shutdown_userdata;
+    server->shutdown_cb = NULL;
+    server->shutdown_userdata = NULL;
+
+    if (closed_at_deadline > 0)
+    {
+        BB_LOG_INFO("Blue-Bird server stopped; %zu connection(s) were still open at the deadline and were closed.\n", closed_at_deadline);
+    }
+    else
+    {
+        BB_LOG_INFO("Blue-Bird server stopped.\n");
+    }
+
+    if (cb)
+    {
+        cb(server, userdata);
+    }
+}
+
+static void _server_shutdown_tick(bb_task_t *task, void *userdata)
+{
+    (void) task;
+    bb_server_t *server = userdata;
+
+    if (server->state != BB_SERVER_STATE_DRAINING)
+    {
+        return;
+    }
+
+    size_t open = bb_conn_list_count(server->conn_list) + bb_ws_list_count(server->ws_list);
+    if (open == 0)
+    {
+        _server_shutdown_finish(server, 0);
+        return;
+    }
+
+    if (bb_time_monotonic_ms() < server->shutdown_deadline_ms)
+    {
+        return;
+    }
+
+    /* Out of time. */
+    _server_force_ctx_t ctx = { server, 0 };
+    bb_conn_list_foreach(server->conn_list, _server_force_conn_visit, &ctx);
+    bb_ws_list_foreach(server->ws_list, _server_force_ws_visit, &ctx);
+
+    _server_shutdown_finish(server, ctx.closed);
+}
+
+bb_error_t bb_server_shutdown(bb_server_t *server, uint32_t grace_ms, bb_server_shutdown_cb on_done, void *userdata)
+{
+    if (!server)
+    {
+        return BB_ERROR(BB_ERR_NULL, "No server.");
+    }
+
+    if (server->state == BB_SERVER_STATE_DRAINING || server->state == BB_SERVER_STATE_STOPPED)
+    {
+        return BB_ERROR(BB_ERR_INTERNAL, "Server is already shutting down.");
+    }
+
+    /* Schedule the follow-up first: if that cannot be done nothing has changed
+     * and the server keeps running. */
+    bb_task_t *task = bb_runtime_set_interval(server->runtime, BB_SERVER_SHUTDOWN_POLL_MS, _server_shutdown_tick, server);
+    if (!task)
+    {
+        BB_LOG_ERROR("Failed to schedule the server shutdown.\n");
+        return BB_ERROR(BB_ERR_INTERNAL, "Failed to schedule the server shutdown.");
+    }
+
+    server->shutdown_task = task;
+    server->shutdown_cb = on_done;
+    server->shutdown_userdata = userdata;
+    server->shutdown_deadline_ms = bb_time_monotonic_ms() + (int64_t) grace_ms;
+    server->state = BB_SERVER_STATE_DRAINING;
+
+    BB_LOG_INFO("Blue-Bird server shutting down (grace %u ms).\n", (unsigned) grace_ms);
+
+    /* Stop accepting and release the port. */
+    if (server->accept_task)
+    {
+        bb_runtime_cancel_task(server->runtime, server->accept_task);
+        server->accept_task = NULL;
+    }
+    if (server->async_conn)
+    {
+        bb_async_connection_close(server->async_conn);
+    }
+
+    /* Let go of what has nothing in progress, and say goodbye to the sessions. */
+    bb_conn_list_foreach(server->conn_list, _server_drain_conn_visit, NULL);
+    bb_ws_list_foreach(server->ws_list, _server_drain_ws_visit, NULL);
+
+    return BB_SUCCESS();
+}
+
 void bb_server_destroy(bb_server_t *server)
 {
     if (!server)
     {
         return;
     }
+
+    /* Whatever shutdown was under way is over; its callback is not called. */
+    server->shutdown_cb = NULL;
+    server->shutdown_userdata = NULL;
+    if (server->shutdown_task)
+    {
+        bb_runtime_cancel_task(server->runtime, server->shutdown_task);
+        server->shutdown_task = NULL;
+    }
+    server->state = BB_SERVER_STATE_STOPPED;
 
     if (server->accept_task)
     {

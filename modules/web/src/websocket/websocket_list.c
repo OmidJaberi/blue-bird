@@ -70,6 +70,23 @@ int bb_ws_list_remove(bb_ws_list_t *list, bb_websocket_t *ws)
     return -1;
 }
 
+void bb_ws_list_foreach(bb_ws_list_t *list, bb_ws_visit_fn visit, void *ctx)
+{
+    if (!list || !visit)
+    {
+        return;
+    }
+
+    bb_ws_node_t *node = list->head;
+    while (node)
+    {
+        /* Read the successor first: visit may remove this node. */
+        bb_ws_node_t *next = node->next;
+        visit(node->ws, ctx);
+        node = next;
+    }
+}
+
 size_t bb_ws_list_count(const bb_ws_list_t *list)
 {
     return list ? list->count : 0;

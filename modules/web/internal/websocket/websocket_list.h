@@ -21,6 +21,16 @@ bb_ws_list_t *bb_ws_list_create(void);
 int bb_ws_list_add(bb_ws_list_t *list, bb_websocket_t *ws);
 int bb_ws_list_remove(bb_ws_list_t *list, bb_websocket_t *ws);
 
+typedef void (*bb_ws_visit_fn)(bb_websocket_t *ws, void *ctx);
+
+/*
+ * Calls visit(ws, ctx) for every tracked session, oldest first. visit may
+ * remove -- and destroy -- the session it is called for (closing a session
+ * does exactly that), but must not remove any other node or add one while the
+ * walk is in progress.
+ */
+void bb_ws_list_foreach(bb_ws_list_t *list, bb_ws_visit_fn visit, void *ctx);
+
 /* Number of WebSocket sessions currently tracked (0 for a NULL list). O(1). */
 size_t bb_ws_list_count(const bb_ws_list_t *list);
 
