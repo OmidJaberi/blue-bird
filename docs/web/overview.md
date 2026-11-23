@@ -380,3 +380,68 @@ It is suitable for:
 - [websockets.md](websockets.md)
 - [tls.md](tls.md)
 - [metrics.md](metrics.md)
+
+## Lifecycle and shutdown
+
+A server moves forward through four states, readable with
+`bb_server_get_state()`:
+
+| State      | Meaning                                                        |
+|------------|----------------------------------------------------------------|
+| `CREATED`  | created, not accepting yet                                     |
+| `RUNNING`  | `bb_server_start()` succeeded; accepting connections           |
+| `DRAINING` | `bb_server_shutdown()` was called; finishing work in progress  |
+| `STOPPED`  | shutdown complete: no listening socket, no connections         |
+
+A server that has been shut down cannot be started again; create a new one.
+
+### Graceful shutdown
+
+```c
+static void done(bb_server_t *server, void *runtime)
+{
+    bb_runtime_stop(runtime);
+}
+
+bb_server_shutdown(server, 5000, done, runtime);   // 5 s grace period
+bb_runtime_run(runtime);                           // returns once drained
+bb_server_destroy(server);
+```
+
+`bb_server_shutdown(server, grace_ms, on_done, userdata)`:
+
+- **Immediately** closes the listening socket (the port is released and new
+  clients are refused), closes every connection that has not started a request
+  (idle keep-alive connections included), and sends each WebSocket session a
+  close frame with code 1001 (going away).
+- **Lets requests in progress finish.** Their responses carry
+  `Connection: close` and the connection closes once the response is written.
+  A WebSocket upgrade that arrives meanwhile is refused with `503`.
+- **Enforces the grace period.** Whatever is still open when `grace_ms` expires
+  is closed. `0` means no grace at all.
+- **Calls `on_done` once**, from the runtime, when nothing is left. It is never
+  called from inside `bb_server_shutdown()` itself, and it may destroy the
+  server and stop the runtime. It is not called if the server is destroyed
+  first.
+
+It returns an error, and changes nothing, if the server is already shutting
+down or the runtime cannot schedule the shutdown (the server keeps running and
+the call can be repeated).
+
+A connection counts as "not started a request" until the first byte of a
+request has been read, so a request that is already on the wire but not yet read
+when the shutdown begins is lost with its connection; clients retry idempotent
+requests as they would for any closed keep-alive connection.
+
+### Immediate teardown
+
+`bb_server_destroy()` drops every connection as it is: responses in flight are
+cut off and WebSocket sessions get no close frame. It is valid in every state;
+during a shutdown it cancels the shutdown. Use `bb_server_shutdown()` first for
+an orderly stop.
+
+### Signals
+
+Signal handlers may only set a flag. Check it from a runtime timer and start the
+shutdown from there; `tests/load/main.c` does this (first signal drains, a
+second stops at once).
