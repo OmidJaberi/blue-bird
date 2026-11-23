@@ -16,9 +16,11 @@ cmake --build build --target bb-loadtest-server
 ```
 
 The server prints `bb-loadtest-server listening on port N` when it is ready.
-`SIGINT`/`SIGTERM` stop the event loop and the server is destroyed before the
-process exits, so leak checkers report real leaks rather than everything still
-reachable at kill time.
+`SIGINT`/`SIGTERM` start a graceful shutdown (`bb_server_shutdown()`): the
+listener closes, requests in progress get up to 5 seconds to finish and
+WebSocket sessions receive a 1001 close frame. A second signal stops at once.
+The server is then destroyed before the process exits, so leak checkers report
+real leaks rather than everything still reachable at kill time.
 
 ## wrk load test
 

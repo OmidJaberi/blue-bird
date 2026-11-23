@@ -1,5 +1,6 @@
 #include "websocket/websocket_list.h"
 #include <blue-bird/error/assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 /*
@@ -63,11 +64,67 @@ static void test_count_unknown_remove(void)
     bb_ws_list_destroy(list);
 }
 
+typedef struct
+{
+    bb_ws_list_t *list;
+    bb_websocket_t *seen[8];
+    int seen_count;
+    bool remove_visited;
+} ws_walk_t;
+
+static void ws_record_visit(bb_websocket_t *ws, void *ctx)
+{
+    ws_walk_t *w = ctx;
+    w->seen[w->seen_count++] = ws;
+    if (w->remove_visited)
+    {
+        bb_ws_list_remove(w->list, ws);
+    }
+}
+
+static void test_foreach_order_and_removal(void)
+{
+    printf("Testing ws_list foreach order and removal of the visited node...\n");
+
+    int ids[4];
+    ws_walk_t w = { .list = bb_ws_list_create() };
+    BB_ASSERT(w.list != NULL);
+    for (int i = 0; i < 4; i++)
+    {
+        BB_ASSERT(bb_ws_list_add(w.list, (bb_websocket_t *)&ids[i]) == 0);
+    }
+
+    bb_ws_list_foreach(w.list, ws_record_visit, &w);
+    BB_ASSERT(w.seen_count == 4);
+    for (int i = 0; i < 4; i++)
+    {
+        BB_ASSERT(w.seen[i] == (bb_websocket_t *)&ids[i]);
+    }
+    BB_ASSERT(bb_ws_list_count(w.list) == 4);
+
+    /* Closing a session removes it from the list as it is being visited. */
+    w.seen_count = 0;
+    w.remove_visited = true;
+    bb_ws_list_foreach(w.list, ws_record_visit, &w);
+    BB_ASSERT(w.seen_count == 4);
+    BB_ASSERT(bb_ws_list_count(w.list) == 0);
+
+    /* Empty, NULL list, NULL visitor. */
+    w.seen_count = 0;
+    bb_ws_list_foreach(w.list, ws_record_visit, &w);
+    bb_ws_list_foreach(NULL, ws_record_visit, &w);
+    bb_ws_list_foreach(w.list, NULL, &w);
+    BB_ASSERT(w.seen_count == 0);
+
+    bb_ws_list_destroy(w.list);
+}
+
 int main(void)
 {
     test_count_null_list();
     test_count_add_remove();
     test_count_unknown_remove();
+    test_foreach_order_and_removal();
     printf("All ws_list tests passed.\n");
     return 0;
 }

@@ -20,6 +20,7 @@
 #include <blue-bird/web/websocket/websocket.h>
 
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,21 +28,60 @@
 #define DEFAULT_PORT 8090
 #define STOP_POLL_MS 100
 
-static volatile sig_atomic_t g_stop_requested = 0;
+/* How long in-flight requests get to finish after SIGINT/SIGTERM. */
+#define SHUTDOWN_GRACE_MS 5000
+
+static volatile sig_atomic_t g_stop_signals = 0;
 
 static void on_signal(int sig)
 {
     (void) sig;
-    g_stop_requested = 1;
+    g_stop_signals++;
 }
 
-/* Runs on the event loop: turns the async-signal flag into a clean runtime stop. */
+typedef struct
+{
+    bb_runtime_t *runtime;
+    bb_server_t *server;
+    bool shutdown_started;
+} stop_ctx_t;
+
+static void on_shutdown_done(bb_server_t *server, void *userdata)
+{
+    (void) server;
+    bb_runtime_stop((bb_runtime_t *) userdata);
+}
+
+/*
+ * Runs on the event loop: turns the async-signal counter into a shutdown. The
+ * first signal drains the server (stop accepting, let requests in progress
+ * finish, close the rest after the grace period); a second one means "now".
+ */
 static void stop_check_cb(bb_task_t *task, void *userdata)
 {
     (void) task;
-    if (g_stop_requested)
+    stop_ctx_t *ctx = userdata;
+
+    if (g_stop_signals == 0)
     {
-        bb_runtime_stop((bb_runtime_t *) userdata);
+        return;
+    }
+
+    /* A second signal: stop waiting. */
+    if (g_stop_signals > 1)
+    {
+        bb_runtime_stop(ctx->runtime);
+        return;
+    }
+
+    /* The first one starts the shutdown, once; on_shutdown_done ends the run. */
+    if (!ctx->shutdown_started)
+    {
+        ctx->shutdown_started = true;
+        if (BB_FAILED(bb_server_shutdown(ctx->server, SHUTDOWN_GRACE_MS, on_shutdown_done, ctx->runtime)))
+        {
+            bb_runtime_stop(ctx->runtime);
+        }
     }
 }
 
@@ -140,9 +180,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    static stop_ctx_t stop_ctx;
+    stop_ctx.runtime = runtime;
+    stop_ctx.server = server;
+    stop_ctx.shutdown_started = false;
+
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
-    bb_runtime_set_interval(runtime, STOP_POLL_MS, stop_check_cb, runtime);
+    bb_runtime_set_interval(runtime, STOP_POLL_MS, stop_check_cb, &stop_ctx);
 
     bb_error_t start_err = bb_server_start(server);
     if (BB_FAILED(start_err))

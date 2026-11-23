@@ -11,6 +11,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
+
 bb_runtime_t *server_runtime = NULL;
 
 bb_error_t root_handler(bb_request_t *req, bb_response_t *res)
@@ -1027,6 +1031,21 @@ void test_partial_request(void)
 /* ------------------------------------------------------------------ */
 
 /* True if the last failed recv() was our SO_RCVTIMEO expiring (as opposed to a reset). */
+/* Connects, or says why it could not: a bare assertion cannot tell a refused
+ * connection from an exhausted descriptor table. */
+static void raw_connect_or_die(bb_socket_t fd, const struct sockaddr_in *addr)
+{
+    if (connect(fd, (const struct sockaddr *)addr, sizeof(*addr)) != 0)
+    {
+#ifdef _WIN32
+        fprintf(stderr, "connect() to the test server failed (socket error %d)\n", bb_socket_last_error());
+#else
+        fprintf(stderr, "connect() to the test server failed: %s (fd=%d)\n", strerror(errno), (int)fd);
+#endif
+        BB_ASSERT(0 && "connect to the test server failed");
+    }
+}
+
 static bool raw_recv_timed_out(void)
 {
 #ifdef _WIN32
@@ -1057,7 +1076,7 @@ static raw_result_t raw_http_exchange(const void *req, size_t req_len, char *res
     addr.sin_port = htons(8080);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    BB_ASSERT(connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    raw_connect_or_die(fd, &addr);
 
 #ifdef _WIN32
     DWORD tv = 2000;
@@ -1295,7 +1314,7 @@ static bb_socket_t raw_connect(void)
     addr.sin_port = htons(8080);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    BB_ASSERT(connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0);
+    raw_connect_or_die(fd, &addr);
 
 #ifdef _WIN32
     DWORD tv = 2000;
@@ -1305,6 +1324,61 @@ static bb_socket_t raw_connect(void)
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
     return fd;
+}
+
+
+/*
+ * How many idle client sockets this process can hold at once.
+ *
+ * The server runs in this process, so every idle client costs two descriptors
+ * (its own socket and the one the server accepts for it), on top of the
+ * listener, the poller, logging and whatever the other tests still hold. 150
+ * idle clients therefore need about 300 descriptors, but macOS defaults to a
+ * soft limit of 256: connect() (or the server's accept) then failed depending on
+ * how quickly the server thread happened to accept. Raise the soft limit where
+ * the hard limit allows, and where it does not, use fewer idle clients -- the
+ * test is about the server staying responsive, not about the exact number.
+ */
+static int idle_connection_budget(int wanted)
+{
+#ifdef _WIN32
+    return wanted;
+#else
+    enum { RESERVE = 128 };
+
+    struct rlimit rl;
+    if (getrlimit(RLIMIT_NOFILE, &rl) != 0)
+    {
+        return wanted;
+    }
+
+    rlim_t need = (rlim_t)(2 * wanted + RESERVE);
+    if (rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < need)
+    {
+        struct rlimit raised = rl;
+        raised.rlim_cur = need;
+        if (rl.rlim_max != RLIM_INFINITY && raised.rlim_cur > rl.rlim_max)
+        {
+            raised.rlim_cur = rl.rlim_max;
+        }
+        if (setrlimit(RLIMIT_NOFILE, &raised) == 0)
+        {
+            rl = raised;
+        }
+    }
+
+    if (rl.rlim_cur == RLIM_INFINITY)
+    {
+        return wanted;
+    }
+
+    long usable = ((long)rl.rlim_cur - RESERVE) / 2;
+    if (usable >= wanted)
+    {
+        return wanted;
+    }
+    return usable > 10 ? (int)usable : 10;
+#endif
 }
 
 /* Reads until the peer closes, the receive timeout fires or `cap` is full. */
@@ -1844,11 +1918,12 @@ void test_idle_connections_do_not_block_server(void)
 {
     printf("Testing idle and half-open connections do not starve other clients...\n");
 
-    enum { IDLE = 150 };
-    bb_socket_t idle[IDLE];
+    enum { MAX_IDLE = 150 };
+    bb_socket_t idle[MAX_IDLE];
+    int idle_count = idle_connection_budget(MAX_IDLE);
 
     /* clients that connect and never send anything, or only a request-line prefix */
-    for (int i = 0; i < IDLE; i++)
+    for (int i = 0; i < idle_count; i++)
     {
         idle[i] = raw_connect();
         if (i % 3 == 0)
@@ -1864,14 +1939,19 @@ void test_idle_connections_do_not_block_server(void)
     send(slow, "GET / HTTP/1.1\r\n", 16, MSG_NOSIGNAL);
     bb_usleep(20000);
     assert_server_healthy();
-    send(slow, "Host: localhost\r\n\r\n", 20, MSG_NOSIGNAL);
+    /* Asks to close so the response read below ends when the response is
+     * complete, not when the receive timeout fires. (The length must not count
+     * the literal's terminating NUL: on a persistent connection that stray byte
+     * would be read as the start of the next request.) */
+    static const char slow_rest[] = "Host: localhost\r\nConnection: close\r\n\r\n";
+    send(slow, slow_rest, sizeof(slow_rest) - 1, MSG_NOSIGNAL);
     char resp[4096];
     size_t n = raw_read_response(slow, resp, sizeof(resp));
     BB_ASSERT(n > 0);
     BB_ASSERT(strstr(resp, "Hello, Blue-Bird :)") != NULL);
     bb_socket_close(slow);
 
-    for (int i = 0; i < IDLE; i++)
+    for (int i = 0; i < idle_count; i++)
         bb_socket_close(idle[i]);
 
     bb_usleep(50000); /* let the server observe the disconnects */

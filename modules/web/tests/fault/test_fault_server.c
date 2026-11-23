@@ -572,6 +572,49 @@ static void test_keepalive_degrades_without_sweep_timer(void)
 }
 
 /* ============================================================
+ * Shutdown: scheduling failure
+ * ============================================================ */
+
+/* The shutdown is driven by a timer. If that cannot be scheduled, nothing may
+ * have changed: the server keeps running and serving, and the call can simply
+ * be repeated. */
+static void test_shutdown_scheduling_failure(void)
+{
+    printf("\tTesting a shutdown whose timer cannot be scheduled leaves the server running...\n");
+
+    int fds_before = fault_count_open_fds();
+
+    fixture_t f;
+    fixture_init(&f);
+    BB_ASSERT(!BB_FAILED(bb_server_start(f.server)));
+
+    bb_fi_fail_timer_at(1);
+    bb_error_t err = bb_server_shutdown(f.server, 200, NULL, NULL);
+    BB_ASSERT(bb_fi_timer_failures() == 1);
+    bb_fi_reset();
+
+    BB_ASSERT(BB_FAILED(err));
+    BB_ASSERT(err.code == BB_ERR_INTERNAL);
+    BB_ASSERT(bb_server_get_state(f.server) == BB_SERVER_STATE_RUNNING);
+    BB_ASSERT(f.server->accept_task != NULL);
+    BB_ASSERT(server_is_healthy(&f));
+
+    /* Repeating it works, and runs to completion. */
+    BB_ASSERT(!BB_FAILED(bb_server_shutdown(f.server, 200, NULL, NULL)));
+    BB_ASSERT(bb_server_get_state(f.server) == BB_SERVER_STATE_DRAINING);
+
+    int64_t deadline = bb_time_monotonic_ms() + 2000;
+    while (bb_server_get_state(f.server) != BB_SERVER_STATE_STOPPED && bb_time_monotonic_ms() < deadline)
+    {
+        bb_runtime_tick(f.runtime);
+    }
+    BB_ASSERT(bb_server_get_state(f.server) == BB_SERVER_STATE_STOPPED);
+
+    fixture_destroy(&f);
+    BB_ASSERT(fault_count_open_fds() == fds_before);
+}
+
+/* ============================================================
  * Main
  * ============================================================ */
 
@@ -591,6 +634,7 @@ int main(void)
     test_keepalive_allocation_sweep();
     test_keepalive_registration_sweep();
     test_keepalive_degrades_without_sweep_timer();
+    test_shutdown_scheduling_failure();
 
     printf("All server failure-injection tests passed.\n");
     return 0;
