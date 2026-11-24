@@ -3323,6 +3323,68 @@ void test_json_array_remove_container_elements(void)
     bb_json_destroy(arr);
 }
 
+void test_json_equal_ignores_internal_layout(void)
+{
+    printf("\tTesting JSON equality with same-size objects and different internal layouts...\n");
+
+    // Same number of keys, but not the same keys: neither direction may be equal.
+    struct { const char *x; const char *y; } different[] = {
+        { "{\"a\": 1, \"b\": 2}", "{\"a\": 1, \"c\": 2}" },
+        { "{\"a\": 1}", "{\"A\": 1}" },
+        { "{\"ab\": 1}", "{\"a\": 1}" },
+        { "{\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4, \"e\": 5, \"f\": 6, \"g\": 7}",
+          "{\"a\": 1, \"b\": 2, \"c\": 3, \"d\": 4, \"e\": 5, \"f\": 6, \"h\": 7}" },
+        { "{\"a\": {\"x\": 1}, \"b\": 2}", "{\"a\": {\"y\": 1}, \"b\": 2}" },
+    };
+    for (size_t i = 0; i < sizeof(different) / sizeof(different[0]); i++)
+    {
+        bb_json_t *a = assert_accepts(different[i].x);
+        bb_json_t *b = assert_accepts(different[i].y);
+        BB_ASSERT(bb_json_get_size(a) == bb_json_get_size(b));
+        BB_ASSERT(!bb_json_equal(a, b));
+        BB_ASSERT(!bb_json_equal(b, a));
+        bb_json_destroy(a);
+        bb_json_destroy(b);
+    }
+
+    // One object is grown far past its initial bucket count and then shrunk back down
+    // with a different insertion history; the other is built directly. They hold the
+    // same entries, so they compare equal in both directions despite the different
+    // internal layout and key order.
+    bb_json_t *grown = bb_json_new_object();
+    for (int i = 0; i < 300; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "key%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_set_value(grown, key, bb_json_new_int(i))));
+    }
+    bb_json_t *direct = bb_json_new_object();
+    for (int i = 299; i >= 295; i--)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "key%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_set_value(direct, key, bb_json_new_int(i))));
+    }
+    BB_ASSERT(!bb_json_equal(grown, direct));
+    for (int i = 0; i < 295; i++)
+    {
+        char key[16];
+        snprintf(key, sizeof(key), "key%d", i);
+        BB_ASSERT(!BB_FAILED(bb_json_object_remove_key(grown, key)));
+    }
+    BB_ASSERT(bb_json_get_size(grown) == 5 && bb_json_get_size(direct) == 5);
+    BB_ASSERT(bb_json_equal(grown, direct));
+    BB_ASSERT(bb_json_equal(direct, grown));
+
+    // A change to a single value in either one breaks the equality again.
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(direct, "key297", bb_json_new_int(-1))));
+    BB_ASSERT(!bb_json_equal(grown, direct));
+    BB_ASSERT(!bb_json_equal(direct, grown));
+
+    bb_json_destroy(grown);
+    bb_json_destroy(direct);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3434,6 +3496,7 @@ int main(void)
     test_json_object_merge_key_order();
     test_json_clone_preserves_object_history();
     test_json_array_remove_container_elements();
+    test_json_equal_ignores_internal_layout();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
