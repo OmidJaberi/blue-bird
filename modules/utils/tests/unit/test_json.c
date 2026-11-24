@@ -3385,6 +3385,76 @@ void test_json_equal_ignores_internal_layout(void)
     bb_json_destroy(direct);
 }
 
+void test_json_large_text_and_key_roundtrip(void)
+{
+    printf("\tTesting JSON roundtrip of very long text values and keys...\n");
+
+    // 1 MiB of text with characters that need escaping scattered through it.
+    const size_t length = 1u << 20;
+    char *text = (char *)malloc(length + 1);
+    BB_ASSERT(text != NULL);
+    for (size_t i = 0; i < length; i++)
+    {
+        switch (i % 997)
+        {
+            case 0:   text[i] = '"'; break;
+            case 1:   text[i] = '\\'; break;
+            case 2:   text[i] = '\n'; break;
+            case 3:   text[i] = '\x01'; break;
+            default:  text[i] = (char)('a' + (i % 26)); break;
+        }
+    }
+    text[length] = '\0';
+
+    // A 64 KiB key, without characters that need escaping.
+    const size_t key_length = 1u << 16;
+    char *key = (char *)malloc(key_length + 1);
+    BB_ASSERT(key != NULL);
+    for (size_t i = 0; i < key_length; i++)
+        key[i] = (char)('A' + (i % 26));
+    key[key_length] = '\0';
+
+    bb_json_t *doc = bb_json_new_object();
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(doc, key, bb_json_new_text(text))));
+    BB_ASSERT(!BB_FAILED(bb_json_object_set_value(doc, "short", bb_json_new_int(1))));
+    BB_ASSERT(bb_json_get_size(bb_json_object_get_value(doc, key)) == length);
+
+    // Compact and indented serialization both parse back to an equal document.
+    char *compact = NULL;
+    int compact_size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize(doc, &compact, &compact_size)));
+    BB_ASSERT(compact_size > (int)(length + key_length));
+    BB_ASSERT((size_t)compact_size == strlen(compact));
+    bb_json_t *reparsed = assert_accepts(compact);
+    BB_ASSERT(bb_json_equal(doc, reparsed));
+    const char *round_trip = bb_json_get_value_text(bb_json_object_get_value(reparsed, key));
+    BB_ASSERT(round_trip != NULL && strlen(round_trip) == length);
+    BB_ASSERT(memcmp(round_trip, text, length) == 0);
+
+    char *indented = NULL;
+    int indented_size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize_indented(doc, &indented, &indented_size)));
+    bb_json_t *reparsed_indented = assert_accepts(indented);
+    BB_ASSERT(bb_json_equal(doc, reparsed_indented));
+
+    // Clones copy the whole buffer rather than aliasing or truncating it.
+    bb_json_t *copy = bb_json_clone(doc);
+    BB_ASSERT(copy != NULL && bb_json_equal(doc, copy));
+    const char *original_text = bb_json_get_value_text(bb_json_object_get_value(doc, key));
+    const char *copied_text = bb_json_get_value_text(bb_json_object_get_value(copy, key));
+    BB_ASSERT(original_text != copied_text);
+    BB_ASSERT(memcmp(copied_text, text, length) == 0);
+
+    bb_json_destroy(copy);
+    bb_json_destroy(reparsed_indented);
+    bb_json_destroy(reparsed);
+    bb_json_destroy(doc);
+    free(indented);
+    free(compact);
+    free(key);
+    free(text);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3497,6 +3567,7 @@ int main(void)
     test_json_clone_preserves_object_history();
     test_json_array_remove_container_elements();
     test_json_equal_ignores_internal_layout();
+    test_json_large_text_and_key_roundtrip();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
