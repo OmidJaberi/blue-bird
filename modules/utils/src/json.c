@@ -211,24 +211,24 @@ bb_error_t bb_json_set_value_text(bb_json_t *json, const char *value)
     {
         return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Invalid JSON type");
     }
-    if (json->text_val)
+    if (!value)
     {
         free(json->text_val);
         json->text_val = NULL;
         json->size = 0;
-    }
-    if (!value)
-    {
         return BB_ERROR(BB_ERR_NULL, "NULL string");
     }
+    // Copy before releasing the old text: value may point into it.
     size_t len = strlen(value);
-    json->text_val = (char *)malloc(len + 1);
-    if (!json->text_val)
+    char *copy = (char *)malloc(len + 1);
+    if (!copy)
     {
         return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
     }
-    memcpy(json->text_val, value, len);
-    json->text_val[len] = '\0';
+    memcpy(copy, value, len);
+    copy[len] = '\0';
+    free(json->text_val);
+    json->text_val = copy;
     json->size = len;
     return BB_SUCCESS();
 }
