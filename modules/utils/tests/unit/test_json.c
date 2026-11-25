@@ -3455,6 +3455,29 @@ void test_json_large_text_and_key_roundtrip(void)
     free(text);
 }
 
+void test_json_null_handle_safety(void)
+{
+    printf("\tTesting JSON scalar accessors and file functions with NULL arguments...\n");
+
+    BB_ASSERT(bb_json_set_value_bool(NULL, true).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_set_value_integer(NULL, 1).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_set_value_real(NULL, 1.5f).code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_set_value_text(NULL, "x").code == BB_ERR_NULL);
+    BB_ASSERT(bb_json_set_value_text(NULL, NULL).code == BB_ERR_NULL);
+
+    BB_ASSERT(!bb_json_get_value_bool(NULL));
+    BB_ASSERT(bb_json_get_value_integer(NULL) == 0);
+    BB_ASSERT(bb_json_get_value_real(NULL) == 0.0f);
+    BB_ASSERT(bb_json_get_value_text(NULL) == NULL);
+
+    BB_ASSERT(bb_json_array_remove_at_index(NULL, 0).code == BB_ERR_NULL);
+
+    BB_ASSERT(bb_json_load(NULL) == NULL);
+    bb_json_t *doc = assert_accepts("[1]");
+    BB_ASSERT(bb_json_dump(doc, NULL).code == BB_ERR_NULL);
+    bb_json_destroy(doc);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3568,6 +3591,7 @@ int main(void)
     test_json_array_remove_container_elements();
     test_json_equal_ignores_internal_layout();
     test_json_large_text_and_key_roundtrip();
+    test_json_null_handle_safety();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
