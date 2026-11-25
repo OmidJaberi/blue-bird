@@ -3549,6 +3549,58 @@ void test_json_set_value_text_aliasing(void)
     bb_json_destroy(text);
 }
 
+void test_json_dump_failure_keeps_existing_file(void)
+{
+    printf("\tTesting that a failed JSON dump leaves an existing file untouched...\n");
+
+    const char *path = "bb_json_dump_keep.json";
+    bb_json_t *good = assert_accepts("{\"keep\": [1, 2, 3], \"me\": \"intact\"}");
+    BB_ASSERT(!BB_FAILED(bb_json_dump(good, path)));
+
+    char *before = NULL;
+    {
+        FILE *f = fopen(path, "rb");
+        BB_ASSERT(f != NULL);
+        fseek(f, 0, SEEK_END);
+        long size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        before = (char *)malloc((size_t)size + 1);
+        BB_ASSERT(before != NULL && fread(before, 1, (size_t)size, f) == (size_t)size);
+        before[size] = '\0';
+        fclose(f);
+    }
+
+    // Documents that cannot be serialized must not clobber the file on disk.
+    bb_json_t *bad = bb_json_new_array();
+    BB_ASSERT(!BB_FAILED(bb_json_array_push(bad, bb_json_create(BB_JSON_NOT_INITIALIZED))));
+    BB_ASSERT(BB_FAILED(bb_json_dump(bad, path)));
+    BB_ASSERT(BB_FAILED(bb_json_dump(NULL, path)));
+    bb_json_destroy(bad);
+
+    bb_json_t *loaded = bb_json_load(path);
+    BB_ASSERT(loaded != NULL);
+    BB_ASSERT(bb_json_equal(good, loaded));
+    bb_json_destroy(loaded);
+
+    char *after = NULL;
+    int after_size = 0;
+    BB_ASSERT(!BB_FAILED(bb_json_serialize_indented(good, &after, &after_size)));
+    BB_ASSERT(strcmp(before, after) == 0);
+    free(after);
+    free(before);
+
+    // A failure that happens while opening the target also leaves the old file alone,
+    // and loading a path that is not a regular file fails instead of returning garbage.
+    BB_ASSERT(bb_json_dump(good, ".").code == BB_ERR_IO);
+    BB_ASSERT(bb_json_load(".") == NULL);
+    loaded = bb_json_load(path);
+    BB_ASSERT(loaded != NULL && bb_json_equal(good, loaded));
+    bb_json_destroy(loaded);
+
+    bb_json_destroy(good);
+    remove(path);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3665,6 +3717,7 @@ int main(void)
     test_json_null_handle_safety();
     test_json_scalar_accessors_on_wrong_type();
     test_json_set_value_text_aliasing();
+    test_json_dump_failure_keeps_existing_file();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
