@@ -161,6 +161,10 @@ bb_json_type_t bb_json_get_type(bb_json_t *json)
 
 bb_error_t bb_json_set_value_bool(bb_json_t *json, bool value)
 {
+    if (!json)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL JSON object");
+    }
     if (json->type != BB_JSON_BOOL)
     {
         return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Invalid JSON type");
@@ -171,6 +175,10 @@ bb_error_t bb_json_set_value_bool(bb_json_t *json, bool value)
 
 bb_error_t bb_json_set_value_integer(bb_json_t *json, int value)
 {
+    if (!json)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL JSON object");
+    }
     if (json->type != BB_JSON_INT)
     {
         return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Invalid JSON type");
@@ -181,6 +189,10 @@ bb_error_t bb_json_set_value_integer(bb_json_t *json, int value)
 
 bb_error_t bb_json_set_value_real(bb_json_t *json, float value)
 {
+    if (!json)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL JSON object");
+    }
     if (json->type != BB_JSON_REAL)
     {
         return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Invalid JSON type");
@@ -191,6 +203,10 @@ bb_error_t bb_json_set_value_real(bb_json_t *json, float value)
 
 bb_error_t bb_json_set_value_text(bb_json_t *json, const char *value)
 {
+    if (!json)
+    {
+        return BB_ERROR(BB_ERR_NULL, "NULL JSON object");
+    }
     if (json->type != BB_JSON_TEXT)
     {
         return BB_ERROR(BB_ERR_JSON_TYPE_MISMATCH, "Invalid JSON type");
@@ -219,6 +235,10 @@ bb_error_t bb_json_set_value_text(bb_json_t *json, const char *value)
 
 bool bb_json_get_value_bool(bb_json_t *json)
 {
+    if (!json)
+    {
+        return false;
+    }
     if (json->type != BB_JSON_BOOL)
     {
         return false;
@@ -228,6 +248,10 @@ bool bb_json_get_value_bool(bb_json_t *json)
 
 int bb_json_get_value_integer(bb_json_t *json)
 {
+    if (!json)
+    {
+        return 0;
+    }
     if (json->type != BB_JSON_INT)
     {
         return 0;
@@ -237,6 +261,10 @@ int bb_json_get_value_integer(bb_json_t *json)
 
 float bb_json_get_value_real(bb_json_t *json)
 {
+    if (!json)
+    {
+        return 0.0;
+    }
     if (json->type != BB_JSON_REAL)
     {
         return 0.0;
@@ -246,6 +274,10 @@ float bb_json_get_value_real(bb_json_t *json)
 
 char *bb_json_get_value_text(bb_json_t *json)
 {
+    if (!json)
+    {
+        return NULL;
+    }
     if (json->type != BB_JSON_TEXT)
     {
         return NULL;
