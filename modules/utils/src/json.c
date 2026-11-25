@@ -1545,6 +1545,8 @@ bb_json_t *bb_json_clone(bb_json_t *json)
 
 bb_json_t *bb_json_load(const char *path)
 {
+    if (!path) return NULL;
+
     FILE *f = fopen(path, "rb");
 
     if (!f) return NULL;
@@ -1555,7 +1557,9 @@ bb_json_t *bb_json_load(const char *path)
         return NULL;
     }
     long size = ftell(f);
-    if (size < 0 || fseek(f, 0, SEEK_SET) != 0)
+    // A directory or other non-regular file can report an absurd size; documents are
+    // limited to INT_MAX bytes anyway (sizes are ints elsewhere in this API).
+    if (size < 0 || size > INT_MAX || fseek(f, 0, SEEK_SET) != 0)
     {
         fclose(f);
         return NULL;
@@ -1592,24 +1596,35 @@ bb_json_t *bb_json_load(const char *path)
 
 bb_error_t bb_json_dump(bb_json_t *json, const char *path)
 {
-    FILE *f = fopen(path, "wb");
-
-    if (!f)
+    if (!path)
     {
-        return BB_ERROR(BB_ERR_IO, "File can't be opened.");
+        return BB_ERROR(BB_ERR_NULL, "NULL path");
     }
 
-    int size;
+    // Serialize before touching the file, so a document that can't be serialized
+    // never truncates or replaces what is already on disk.
+    int size = 0;
     char *buffer = NULL;
     if (BB_FAILED(bb_json_serialize_indented(json, &buffer, &size)))
     {
-        if (buffer) free(buffer);
+        free(buffer);
         return BB_ERROR(BB_ERR_INTERNAL, "Failed to serialize.");
     }
-    if (size > 0)
-        fwrite(buffer, 1, size, f);
 
+    FILE *f = fopen(path, "wb");
+    if (!f)
+    {
+        free(buffer);
+        return BB_ERROR(BB_ERR_IO, "File can't be opened.");
+    }
+
+    bool ok = size <= 0 || fwrite(buffer, 1, (size_t)size, f) == (size_t)size;
     free(buffer);
-    fclose(f);
+    if (fclose(f) != 0)
+        ok = false;
+    if (!ok)
+    {
+        return BB_ERROR(BB_ERR_IO, "File can't be written.");
+    }
     return BB_SUCCESS();
 }
