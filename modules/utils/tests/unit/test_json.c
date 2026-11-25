@@ -3478,6 +3478,51 @@ void test_json_null_handle_safety(void)
     bb_json_destroy(doc);
 }
 
+void test_json_scalar_accessors_on_wrong_type(void)
+{
+    printf("\tTesting JSON scalar accessors on every non-matching type...\n");
+
+    bb_json_t *nodes[] = {
+        bb_json_new_bool(true),   bb_json_new_int(7),       bb_json_new_real(2.5f),
+        bb_json_new_text("text"), bb_json_new_null(),       bb_json_new_array(),
+        bb_json_new_object(),
+    };
+    bb_json_type_t types[] = {
+        BB_JSON_BOOL, BB_JSON_INT, BB_JSON_REAL, BB_JSON_TEXT, BB_JSON_NULL, BB_JSON_ARRAY, BB_JSON_OBJECT,
+    };
+    size_t count = sizeof(nodes) / sizeof(nodes[0]);
+
+    for (size_t i = 0; i < count; i++)
+    {
+        BB_ASSERT(nodes[i] != NULL && bb_json_get_type(nodes[i]) == types[i]);
+
+        // Setters only work on their own type, and a rejected call changes nothing.
+        BB_ASSERT((bb_json_set_value_bool(nodes[i], false).code == BB_ERR_JSON_TYPE_MISMATCH) == (types[i] != BB_JSON_BOOL));
+        BB_ASSERT((bb_json_set_value_integer(nodes[i], 99).code == BB_ERR_JSON_TYPE_MISMATCH) == (types[i] != BB_JSON_INT));
+        BB_ASSERT((bb_json_set_value_real(nodes[i], 9.5f).code == BB_ERR_JSON_TYPE_MISMATCH) == (types[i] != BB_JSON_REAL));
+        BB_ASSERT((bb_json_set_value_text(nodes[i], "other").code == BB_ERR_JSON_TYPE_MISMATCH) == (types[i] != BB_JSON_TEXT));
+
+        // Getters return a neutral value for any other type.
+        BB_ASSERT((bb_json_get_value_bool(nodes[i]) == false) || types[i] == BB_JSON_BOOL);
+        BB_ASSERT(bb_json_get_value_integer(nodes[i]) == (types[i] == BB_JSON_INT ? 99 : 0));
+        BB_ASSERT(bb_json_get_value_real(nodes[i]) == (types[i] == BB_JSON_REAL ? 9.5f : 0.0f));
+        BB_ASSERT((bb_json_get_value_text(nodes[i]) != NULL) == (types[i] == BB_JSON_TEXT));
+        BB_ASSERT(bb_json_get_type(nodes[i]) == types[i]);
+    }
+
+    // The matching setters took effect only on their own node.
+    BB_ASSERT(!bb_json_get_value_bool(nodes[0]));
+    BB_ASSERT(strcmp(bb_json_get_value_text(nodes[3]), "other") == 0);
+
+    // Array removal on anything that is not an array is a type error.
+    for (size_t i = 0; i < count; i++)
+    {
+        if (types[i] != BB_JSON_ARRAY)
+            BB_ASSERT(bb_json_array_remove_at_index(nodes[i], 0).code == BB_ERR_JSON_TYPE_MISMATCH);
+        bb_json_destroy(nodes[i]);
+    }
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3592,6 +3637,7 @@ int main(void)
     test_json_equal_ignores_internal_layout();
     test_json_large_text_and_key_roundtrip();
     test_json_null_handle_safety();
+    test_json_scalar_accessors_on_wrong_type();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
