@@ -3523,6 +3523,32 @@ void test_json_scalar_accessors_on_wrong_type(void)
     }
 }
 
+void test_json_set_value_text_aliasing(void)
+{
+    printf("\tTesting JSON text setter with a value pointing into the current text...\n");
+
+    bb_json_t *text = bb_json_new_text("hello world");
+    BB_ASSERT(text != NULL);
+
+    // Setting the text to itself is a no-op.
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, bb_json_get_value_text(text))));
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "hello world") == 0);
+    BB_ASSERT(bb_json_get_size(text) == 11);
+
+    // Setting it to a suffix of itself keeps just that suffix.
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, bb_json_get_value_text(text) + 6)));
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "world") == 0);
+    BB_ASSERT(bb_json_get_size(text) == 5);
+    assert_serializes_to(text, "\"world\"");
+
+    // And to the empty tail.
+    BB_ASSERT(!BB_FAILED(bb_json_set_value_text(text, bb_json_get_value_text(text) + 5)));
+    BB_ASSERT(strcmp(bb_json_get_value_text(text), "") == 0);
+    BB_ASSERT(bb_json_get_size(text) == 0);
+
+    bb_json_destroy(text);
+}
+
 int main(void)
 {
     printf("Running JSON tests...\n");
@@ -3638,6 +3664,7 @@ int main(void)
     test_json_large_text_and_key_roundtrip();
     test_json_null_handle_safety();
     test_json_scalar_accessors_on_wrong_type();
+    test_json_set_value_text_aliasing();
 
     test_dump_and_bb_json_load();
     test_json_load_missing_file();
