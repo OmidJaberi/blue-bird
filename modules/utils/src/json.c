@@ -297,12 +297,15 @@ bb_error_t bb_json_array_push(bb_json_t *json_array, bb_json_t *element)
     }
     if (json_array->dynamic_array.alloc_size == 0)
     {
-        json_array->dynamic_array.alloc_size = 1;
-        json_array->dynamic_array.array = (bb_json_t **)malloc(json_array->dynamic_array.alloc_size * sizeof(*json_array->dynamic_array.array));
-        if (!json_array->dynamic_array.array)
+        // Only record the capacity once the allocation has succeeded, otherwise a
+        // failure would leave alloc_size > 0 with no storage behind it.
+        bb_json_t **new_arr = (bb_json_t **)malloc(sizeof(*json_array->dynamic_array.array));
+        if (!new_arr)
         {
             return BB_ERROR(BB_ERR_ALLOC, "Allocation failed");
         }
+        json_array->dynamic_array.array = new_arr;
+        json_array->dynamic_array.alloc_size = 1;
     }
     else if (json_array->dynamic_array.alloc_size == json_array->size)
     {
