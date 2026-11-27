@@ -43,3 +43,7 @@ add_library(BlueBird::runtime ALIAS bluebird_runtime)
 if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
+if(BB_BUILD_BENCHMARKS AND NOT WIN32)
+    add_subdirectory(bench)
+endif()

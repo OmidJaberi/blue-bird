@@ -17,6 +17,7 @@ option(BUILD_TOOLS "Build developer tools (codegen, migrate, etc.)" ON)
 option(BLUEBIRD_INSTALL "Install Blue-Bird" OFF)
 
 option(BB_ENABLE_SANITIZERS "Enable sanitizers" OFF)
+option(BB_BUILD_BENCHMARKS "Build the micro-benchmarks (POSIX only; use a Release build)" OFF)
 option(BB_WITH_TLS "Build with TLS/HTTPS/WSS support (requires OpenSSL)" OFF)
 option(BB_WITH_SQLITE "Build the SQLite persistence backends (requires SQLite3)" ON)
 option(BB_WITH_POSTGRES "Build the PostgreSQL model backend (requires libpq)" OFF)
