@@ -49,11 +49,13 @@ void _bb_poller_backend_destroy(bb_poller_t *poller)
         return;
     }
     close(poller->epfd);
+    free(poller->ep_scratch);
+    free(poller->ready_scratch);
 }
 
 int _bb_poller_backend_register(bb_poller_t *poller, bb_socket_t fd, int events)
 {
-    int idx = _bb_find_fd(poller->fds, poller->count, fd);
+    int idx = _bb_poller_find(poller, fd);
     int existing = idx >= 0 ? poller->fds[idx].events : 0;
     int merged = existing | events;
 
@@ -68,7 +70,7 @@ int _bb_poller_backend_register(bb_poller_t *poller, bb_socket_t fd, int events)
 
 int _bb_poller_backend_unregister(bb_poller_t *poller, bb_socket_t fd, int events)
 {
-    int idx = _bb_find_fd(poller->fds, poller->count, fd);
+    int idx = _bb_poller_find(poller, fd);
 
     if (idx < 0)
     {
@@ -115,15 +117,34 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
      */
     int cap = poller->count > max_events ? poller->count : max_events;
 
-    struct epoll_event *epevents = malloc((size_t)cap * sizeof(*epevents));
-    bb_poll_event_t *ready = malloc((size_t)cap * sizeof(*ready));
-
-    if (!epevents || !ready)
+    /* The buffers live as long as the poller: with many descriptors they are
+     * large enough to be mmap()ed and unmapped by the allocator, and doing that
+     * on every tick costs more than the wait itself. */
+    if (cap > poller->scratch_capacity)
     {
-        free(epevents);
-        free(ready);
-        return -1;
+        struct epoll_event *grown_ep = realloc(poller->ep_scratch, (size_t)cap * sizeof(*grown_ep));
+        if (grown_ep)
+        {
+            poller->ep_scratch = grown_ep;
+        }
+
+        bb_poll_event_t *grown_ready = realloc(poller->ready_scratch, (size_t)cap * sizeof(*grown_ready));
+        if (grown_ready)
+        {
+            poller->ready_scratch = grown_ready;
+        }
+
+        if (!grown_ep || !grown_ready)
+        {
+            /* Whatever did grow is kept; but only a pair that both fit may be used. */
+            return -1;
+        }
+
+        poller->scratch_capacity = cap;
     }
+
+    struct epoll_event *epevents = poller->ep_scratch;
+    bb_poll_event_t *ready = poller->ready_scratch;
 
     int n;
     do
@@ -133,8 +154,6 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
 
     if (n <= 0)
     {
-        free(epevents);
-        free(ready);
         return n;
     }
 
@@ -144,7 +163,7 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
     {
         bb_socket_t fd = (bb_socket_t)epevents[i].data.fd;
 
-        int idx = _bb_find_fd(poller->fds, poller->count, fd);
+        int idx = _bb_poller_find(poller, fd);
         int interest = idx >= 0 ? poller->fds[idx].events : (BB_EVENT_READ | BB_EVENT_WRITE);
 
         int triggered = _from_epoll_events(epevents[i].events, interest);
@@ -156,8 +175,6 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
             ready_count++;
         }
     }
-
-    free(epevents);
 
     int event_count;
 
@@ -189,8 +206,6 @@ int _bb_poller_backend_wait(bb_poller_t *poller, bb_poll_event_t *events, int ma
         event_count = max_events;
         poller->scan_fd = events[max_events - 1].fd;
     }
-
-    free(ready);
 
     return event_count;
 }

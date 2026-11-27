@@ -3,6 +3,8 @@
 
 #include "blue-bird/runtime/task.h"
 
+struct _bb_runtime_watcher;
+
 typedef enum {
     BB_TASK_IDLE       = 0,
     BB_TASK_SCHEDULED  = 1 << 0,
@@ -17,6 +19,10 @@ struct bb_task
     bb_task_config_t config;
 
     unsigned state;
+
+    /* The fd watcher this task is registered as, or NULL. Lets the runtime
+     * drop a cancelled task's watcher directly instead of searching for it. */
+    struct _bb_runtime_watcher *watcher;
 };
 
 bb_task_t *bb_task_create(const bb_task_config_t *config);

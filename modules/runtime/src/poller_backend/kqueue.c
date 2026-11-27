@@ -25,7 +25,7 @@ void _bb_poller_backend_destroy(bb_poller_t *poller)
 
 int _bb_poller_backend_register(bb_poller_t *poller, bb_socket_t fd, int events)
 {
-    int idx = _bb_find_fd(poller->fds, poller->count, fd);
+    int idx = _bb_poller_find(poller, fd);
     int existing = idx >= 0 ? poller->fds[idx].events : 0;
 
     /* kqueue registers READ/WRITE as independent filters (unlike epoll's
@@ -57,7 +57,7 @@ int _bb_poller_backend_register(bb_poller_t *poller, bb_socket_t fd, int events)
 
 int _bb_poller_backend_unregister(bb_poller_t *poller, bb_socket_t fd, int events)
 {
-    int idx = _bb_find_fd(poller->fds, poller->count, fd);
+    int idx = _bb_poller_find(poller, fd);
 
     if (idx < 0)
     {

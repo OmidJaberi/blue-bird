@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "blue-bird/utils/time.h"
@@ -15,6 +16,152 @@ bb_runtime_t *bb_runtime_default(void)
         g_runtime = bb_runtime_create();
     }
     return g_runtime;
+}
+
+/* ======================================================================= */
+/* fd watcher table                                                        */
+/*                                                                         */
+/* A hash table keyed by fd (see _bb_runtime_watcher_t). Everything that   */
+/* used to scan every watcher -- dispatching an event, working out what    */
+/* the poller must be registered for, replacing a watch, cancelling a      */
+/* task -- now touches only the chain for one fd, or none at all.          */
+/* ======================================================================= */
+
+static inline unsigned _bb_runtime_bucket_for(unsigned bucket_count, bb_socket_t fd)
+{
+    /* Multiplicative (Fibonacci) hashing: spreads both the small consecutive
+     * descriptors of POSIX and the large, patterned SOCKET values of Windows. */
+    uint64_t h = (uint64_t)(uintptr_t)fd * 0x9E3779B97F4A7C15ull;
+    return (unsigned)(h >> 32) & (bucket_count - 1);
+}
+
+static void _bb_runtime_chain_append(_bb_runtime_watcher_t **head, _bb_runtime_watcher_t *node)
+{
+    /* Appended, not prepended, so watchers on one fd are always visited in the
+     * order they were registered. */
+    _bb_runtime_watcher_t **link = head;
+
+    while (*link)
+    {
+        link = &(*link)->chain_next;
+    }
+
+    node->chain_next = NULL;
+    node->chain_prev = link;
+    *link = node;
+}
+
+/* Doubles the table once there are more watchers than buckets, keeping chains
+ * short. Best effort: if the memory is not there the old, merely more crowded,
+ * table keeps working. */
+static void _bb_runtime_watchers_grow(bb_runtime_t *runtime)
+{
+    unsigned new_count = runtime->watcher_bucket_count * 2;
+    _bb_runtime_watcher_t **grown = calloc(new_count, sizeof(*grown));
+
+    if (!grown)
+    {
+        return;
+    }
+
+    for (unsigned b = 0; b < runtime->watcher_bucket_count; b++)
+    {
+        _bb_runtime_watcher_t *node = runtime->watcher_buckets[b];
+
+        while (node)
+        {
+            _bb_runtime_watcher_t *next = node->chain_next;
+            _bb_runtime_chain_append(&grown[_bb_runtime_bucket_for(new_count, node->fd)], node);
+            node = next;
+        }
+    }
+
+    free(runtime->watcher_buckets);
+    runtime->watcher_buckets = grown;
+    runtime->watcher_bucket_count = new_count;
+}
+
+static _bb_runtime_watcher_t *_bb_runtime_watcher_acquire(bb_runtime_t *runtime)
+{
+    _bb_runtime_watcher_t *node = runtime->free_watchers;
+
+    if (node)
+    {
+        runtime->free_watchers = node->chain_next;
+        return node;
+    }
+
+    return malloc(sizeof(*node));
+}
+
+static void _bb_runtime_watcher_release(bb_runtime_t *runtime, _bb_runtime_watcher_t *node)
+{
+    node->chain_next = runtime->free_watchers;
+    runtime->free_watchers = node;
+}
+
+static void _bb_runtime_watcher_link(bb_runtime_t *runtime, _bb_runtime_watcher_t *node)
+{
+    if ((unsigned)runtime->watcher_count >= runtime->watcher_bucket_count)
+    {
+        _bb_runtime_watchers_grow(runtime);
+    }
+
+    _bb_runtime_chain_append(&runtime->watcher_buckets[_bb_runtime_bucket_for(runtime->watcher_bucket_count, node->fd)], node);
+    runtime->watcher_count++;
+}
+
+/* Takes the watcher out of the table and hands its node back for reuse. Does
+ * not touch the poller. */
+static void _bb_runtime_watcher_remove(bb_runtime_t *runtime, _bb_runtime_watcher_t *node)
+{
+    *node->chain_prev = node->chain_next;
+    if (node->chain_next)
+    {
+        node->chain_next->chain_prev = node->chain_prev;
+    }
+
+    if (node->task && node->task->watcher == node)
+    {
+        node->task->watcher = NULL;
+    }
+
+    runtime->watcher_count--;
+    _bb_runtime_watcher_release(runtime, node);
+}
+
+static _bb_runtime_watcher_t *_bb_runtime_fd_chain(bb_runtime_t *runtime, bb_socket_t fd)
+{
+    return runtime->watcher_buckets[_bb_runtime_bucket_for(runtime->watcher_bucket_count, fd)];
+}
+
+_bb_runtime_watcher_t *_bb_runtime_find_watcher_exact(bb_runtime_t *runtime, bb_socket_t fd, int events)
+{
+    for (_bb_runtime_watcher_t *w = _bb_runtime_fd_chain(runtime, fd); w; w = w->chain_next)
+    {
+        if (w->fd == fd && w->events == events)
+        {
+            return w;
+        }
+    }
+
+    return NULL;
+}
+
+/* Union of the event masks everything watching fd has asked for. */
+static int _bb_runtime_fd_registered_mask(bb_runtime_t *runtime, bb_socket_t fd)
+{
+    int mask = 0;
+
+    for (_bb_runtime_watcher_t *w = _bb_runtime_fd_chain(runtime, fd); w; w = w->chain_next)
+    {
+        if (w->fd == fd)
+        {
+            mask |= w->events;
+        }
+    }
+
+    return mask;
 }
 
 bb_runtime_t *bb_runtime_create(void)
@@ -45,9 +192,9 @@ bb_runtime_t *bb_runtime_create(void)
         return NULL;
     }
 
-    runtime->watchers = malloc(BB_RUNTIME_WATCHERS_INITIAL_CAPACITY * sizeof(*runtime->watchers));
+    runtime->watcher_buckets = calloc(BB_RUNTIME_WATCHER_BUCKETS_INITIAL, sizeof(*runtime->watcher_buckets));
 
-    if (!runtime->watchers)
+    if (!runtime->watcher_buckets)
     {
         bb_poller_destroy(runtime->poller);
         bb_scheduler_destroy(runtime->scheduler);
@@ -55,13 +202,13 @@ bb_runtime_t *bb_runtime_create(void)
         return NULL;
     }
 
-    runtime->watcher_capacity = BB_RUNTIME_WATCHERS_INITIAL_CAPACITY;
+    runtime->watcher_bucket_count = BB_RUNTIME_WATCHER_BUCKETS_INITIAL;
 
     runtime->timers = bb_timer_heap_create();
 
     if (!runtime->timers)
     {
-        free(runtime->watchers);
+        free(runtime->watcher_buckets);
         bb_poller_destroy(runtime->poller);
         bb_scheduler_destroy(runtime->scheduler);
         free(runtime);
@@ -101,14 +248,29 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
     // Clean-up watchers
     // Anything still here was never (re)scheduled above, so it hasn't
     // been destroyed yet. Unregister from the poller and free the task.
-    for (int i = 0; i < runtime->watcher_count; i++)
+    for (unsigned b = 0; b < runtime->watcher_bucket_count; b++)
     {
-        _bb_runtime_watcher_t *watcher = &runtime->watchers[i];
+        _bb_runtime_watcher_t *watcher;
 
-        bb_poller_unregister(runtime->poller, watcher->fd, watcher->events);
-        bb_task_destroy(watcher->task);
+        /* Out of the table before the task is destroyed: a task's cleanup
+         * callback runs inside bb_task_destroy() and may call back into the
+         * runtime, which must find a consistent table. */
+        while ((watcher = runtime->watcher_buckets[b]))
+        {
+            bb_task_t *watched = watcher->task;
+
+            bb_poller_unregister(runtime->poller, watcher->fd, watcher->events);
+            _bb_runtime_watcher_remove(runtime, watcher);
+            bb_task_destroy(watched);
+        }
     }
-    runtime->watcher_count = 0;
+
+    while (runtime->free_watchers)
+    {
+        _bb_runtime_watcher_t *node = runtime->free_watchers;
+        runtime->free_watchers = node->chain_next;
+        free(node);
+    }
 
     // Clean-up timers
     for (int i = 0; i < bb_timer_heap_count(runtime->timers); i++)
@@ -124,7 +286,7 @@ void bb_runtime_destroy(bb_runtime_t *runtime)
 
     bb_poller_destroy(runtime->poller);
 
-    free(runtime->watchers);
+    free(runtime->watcher_buckets);
 
     bb_platform_net_cleanup();
 
@@ -160,16 +322,15 @@ static void _bb_runtime_remove_timers(bb_runtime_t *runtime, bb_task_t *task)
 
 static void _bb_runtime_remove_watchers(bb_runtime_t *runtime, bb_task_t *task)
 {
-    for (int i = 0; i < runtime->watcher_count; i++)
+    _bb_runtime_watcher_t *watcher = task->watcher;
+
+    if (!watcher)
     {
-        if (runtime->watchers[i].task == task)
-        {
-            bb_poller_unregister(runtime->poller, runtime->watchers[i].fd, runtime->watchers[i].events);
-            runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
-            runtime->watcher_count--;
-            i--;
-        }
+        return;
     }
+
+    bb_poller_unregister(runtime->poller, watcher->fd, watcher->events);
+    _bb_runtime_watcher_remove(runtime, watcher);
 }
 
 int bb_runtime_cancel_task(bb_runtime_t *runtime, bb_task_t *task)
@@ -220,9 +381,13 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
 
     for (int i = 0; i < ready; i++)
     {
-        for (int j = 0; j < runtime->watcher_count; j++)
+        _bb_runtime_watcher_t *watcher = _bb_runtime_fd_chain(runtime, events[i].fd);
+
+        while (watcher)
         {
-            _bb_runtime_watcher_t *watcher = &runtime->watchers[j];
+            /* Scheduling only queues the task (nothing runs here), but a
+             * one-shot watcher is removed below, so read the successor first. */
+            _bb_runtime_watcher_t *next = watcher->chain_next;
 
             if (watcher->fd == events[i].fd && (watcher->events & events[i].events))
             {
@@ -230,11 +395,11 @@ static void _bb_runtime_wait(bb_runtime_t *runtime, int timeout_ms)
                 if (watcher->mode == BB_WATCH_ONESHOT)
                 {
                     bb_poller_unregister(runtime->poller, watcher->fd, watcher->events);
-                    runtime->watchers[j] = runtime->watchers[runtime->watcher_count - 1];
-                    runtime->watcher_count--;
-                    j--;
+                    _bb_runtime_watcher_remove(runtime, watcher);
                 }
             }
+
+            watcher = next;
         }
     }
 }
@@ -375,48 +540,6 @@ bool bb_runtime_is_running(bb_runtime_t *runtime)
     return runtime->running;
 }
 
-static int _bb_runtime_find_watcher_exact(bb_runtime_t *runtime, bb_socket_t fd, int events)
-{
-    for (int i = 0; i < runtime->watcher_count; i++)
-    {
-        if (runtime->watchers[i].fd == fd && runtime->watchers[i].events == events)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static int _bb_runtime_fd_registered_mask(bb_runtime_t *runtime, bb_socket_t fd)
-{
-    int mask = 0;
-
-    for (int i = 0; i < runtime->watcher_count; i++)
-    {
-        if (runtime->watchers[i].fd == fd)
-        {
-            mask |= runtime->watchers[i].events;
-        }
-    }
-    return mask;
-}
-
-static int _bb_runtime_grow_watchers(bb_runtime_t *runtime)
-{
-    int new_capacity = runtime->watcher_capacity * 2;
-    _bb_runtime_watcher_t *grown = realloc(runtime->watchers, (size_t)new_capacity * sizeof(*grown));
-
-    if (!grown)
-    {
-        return -1;
-    }
-
-    runtime->watchers = grown;
-    runtime->watcher_capacity = new_capacity;
-
-    return 0;
-}
-
 static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch_mode_t mode, bb_task_t *task)
 {
     if (!runtime || !task)
@@ -424,15 +547,15 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
         return -1;
     }
 
-    int idx = _bb_runtime_find_watcher_exact(runtime, fd, events);
+    _bb_runtime_watcher_t *watcher = _bb_runtime_find_watcher_exact(runtime, fd, events);
 
-    if (idx >= 0)
+    if (watcher)
     {
-        _bb_runtime_watcher_t *watcher = &runtime->watchers[idx];
         bb_task_t *old_task = watcher->task;
 
         watcher->mode = mode;
         watcher->task = task;
+        task->watcher = watcher;
         if (mode == BB_WATCH_PERSISTENT)
         {
             task->state |= BB_TASK_PERSISTENT;
@@ -440,12 +563,16 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
 
         if (old_task != task)
         {
+            old_task->watcher = NULL; // the watcher is the new task's now
             bb_runtime_cancel_task(runtime, old_task); //cancelled AND re-enqueued for destruction
         }
         return 0;
     }
 
-    if (runtime->watcher_count >= runtime->watcher_capacity && _bb_runtime_grow_watchers(runtime) != 0)
+    /* Get the node first: nothing has been changed yet, so failing here needs
+     * no rollback. */
+    watcher = _bb_runtime_watcher_acquire(runtime);
+    if (!watcher)
     {
         return -1;
     }
@@ -465,6 +592,7 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
             {
                 bb_poller_register(runtime->poller, fd, existing_mask); /* best-effort restore */
             }
+            _bb_runtime_watcher_release(runtime, watcher);
             return -1;
         }
     }
@@ -474,14 +602,13 @@ static int _watch_fd(bb_runtime_t *runtime, bb_socket_t fd, int events, bb_watch
         task->state |= BB_TASK_PERSISTENT;
     }
 
-    _bb_runtime_watcher_t *watcher = &runtime->watchers[runtime->watcher_count];
-
     watcher->fd = fd;
     watcher->events = events;
     watcher->mode = mode;
     watcher->task = task;
+    task->watcher = watcher;
 
-    runtime->watcher_count++;
+    _bb_runtime_watcher_link(runtime, watcher);
 
     return 0;
 }
@@ -518,20 +645,29 @@ int bb_runtime_unwatch_fd(bb_runtime_t *runtime, bb_socket_t fd)
     int res = -1;
     bb_poller_unregister(runtime->poller, fd, BB_EVENT_READ | BB_EVENT_WRITE);
 
-    for (int i = 0; i < runtime->watcher_count; i++)
+    for (;;)
     {
-        if (runtime->watchers[i].fd == fd)
+        /* Restart from the chain head each time: cancelling a task runs its
+         * cleanup, which may itself add or remove watchers. */
+        _bb_runtime_watcher_t *watcher = _bb_runtime_fd_chain(runtime, fd);
+
+        while (watcher && watcher->fd != fd)
         {
-            res = 0;
-            bb_task_t *task = runtime->watchers[i].task;
-
-            bb_task_cancel(task);
-            runtime->watchers[i] = runtime->watchers[runtime->watcher_count - 1];
-            runtime->watcher_count--;
-            i--;
-
-            bb_scheduler_schedule(runtime->scheduler, task); // Schedule for Destruction
+            watcher = watcher->chain_next;
         }
+
+        if (!watcher)
+        {
+            break;
+        }
+
+        res = 0;
+        bb_task_t *task = watcher->task;
+
+        _bb_runtime_watcher_remove(runtime, watcher);
+        bb_task_cancel(task);
+
+        bb_scheduler_schedule(runtime->scheduler, task); // Schedule for Destruction
     }
 
     return res;

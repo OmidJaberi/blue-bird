@@ -3,23 +3,41 @@
 
 #include "poller.h"
 
+#if defined(BB_POLLER_BACKEND_EPOLL)
+struct epoll_event;
+#endif
+
 #define BB_POLLER_INITIAL_CAPACITY 16
+
+/* Buckets in the fd index to start with; always a power of two. */
+#define BB_POLLER_INITIAL_BUCKETS 64
 
 /*
  * fd -> requested BB_EVENT_* mask. This is the single source of truth for
  * "what is fd X currently registered for"; every backend reads it (via
- * _bb_find_fd) to figure out what changed, rather than keeping its own
+ * _bb_poller_find) to figure out what changed, rather than keeping its own
  * shadow copy.
  */
 typedef struct {
     bb_socket_t fd;
     int events;
+    int hnext; // next entry in this fd's index bucket (an index into fds[]), or -1
 } _bb_poll_fd_t;
 
 struct bb_poller {
-    _bb_poll_fd_t *fds; // heap-allocated, grown as needed
+    _bb_poll_fd_t *fds; // dense, heap-allocated, grown as needed
     int count;
     int capacity;
+
+    /*
+     * Index over fds[]: bucket -> index of the first entry hashing there,
+     * chained through _bb_poll_fd_t::hnext. It makes "where is fd X" O(1)
+     * instead of a scan of fds[]. The chains hold indices rather than
+     * pointers, so growing fds[] does not invalidate them. fds[] itself stays
+     * dense and ordered because the poll() backend walks it.
+     */
+    int *hbuckets;
+    unsigned hbucket_count; // power of two
 
 /*
  * OS-specific state, selected at compile time by whichever single
@@ -32,6 +50,13 @@ struct bb_poller {
 #if defined(BB_POLLER_BACKEND_EPOLL)
     int epfd;
     int scan_fd; // last fd reported when the ready set exceeded max_events (fairness cursor)
+
+    /* Reused by every wait: sized for the whole ready set, which can be as
+     * large as the number of registered fds, so allocating it per call is
+     * expensive. Grown on demand, released with the poller. */
+    struct epoll_event *ep_scratch;
+    bb_poll_event_t *ready_scratch;
+    int scratch_capacity;
 #elif defined(BB_POLLER_BACKEND_KQUEUE)
     int kq;
 #elif defined(BB_POLLER_BACKEND_POLL)
@@ -54,8 +79,9 @@ struct bb_poller {
 };
 
 /* Shared lookup helper. Implemented once in poller.c; used by poller.c
- * itself and by every backend file to look up an fd's pre-update mask. */
-int _bb_find_fd(_bb_poll_fd_t *fds, int count, bb_socket_t fd);
+ * itself and by every backend file to look up an fd's pre-update mask.
+ * Returns the index of fd in poller->fds[], or -1. O(1) on average. */
+int _bb_poller_find(const bb_poller_t *poller, bb_socket_t fd);
 
 /* ----------------------------------------------------------------------
  * Backend interface.
@@ -77,7 +103,7 @@ void _bb_poller_backend_destroy(bb_poller_t *poller);
  * poller->fds[] still holds fd's pre-update mask at the time this is
  * called (poller.c only merges the bits into the table after this
  * returns success), so the backend can look up the old mask via
- * _bb_find_fd() to decide e.g. epoll ADD vs MOD, or which kqueue filters
+ * _bb_poller_find() to decide e.g. epoll ADD vs MOD, or which kqueue filters
  * are genuinely new. Returns 0 on success, -1 on failure (in which case
  * poller.c leaves its bookkeeping untouched).
  */
