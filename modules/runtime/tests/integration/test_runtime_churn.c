@@ -20,12 +20,13 @@
  * single fd at a time, which never exercises the parts of the runtime
  * that only misbehave at scale:
  *
- *   - watchers[] and the poller's fds[] both start at capacity 16 and
- *     grow by doubling (realloc). Nothing below 17 concurrent fds ever
- *     triggers a growth, so a stale-pointer-after-realloc bug or an
- *     off-by-one in the grow path is invisible to those tests.
+ *   - The runtime's watcher hash table and the poller's fd index both
+ *     start at 64 buckets, and the poller's fds[] at capacity 16; each
+ *     grows by doubling. Nothing below 65 concurrent fds ever triggers
+ *     a rehash, so a chain that is mangled by a rehash, or a stale
+ *     pointer after a realloc, is invisible to those tests.
  *
- *   - Both arrays are compacted by *swap-remove* (move the last entry
+ *   - The poller's fds[] is compacted by *swap-remove* (move the last entry
  *     into the freed slot). With one watcher that's a no-op; with
  *     hundreds being added and removed in arbitrary order it's the most
  *     likely place for a watcher to be skipped, dropped, or dispatched
@@ -309,12 +310,13 @@ static int _odd_survivors_fired(void *ctx)
 /*
  * Many fds watched at once, all readable simultaneously.
  *
- * Forces watchers[] and the poller's fds[] well past their initial
- * capacity of 16 (several realloc doublings each), and puts more ready
- * fds in flight than BB_RUNTIME_MAX_EVENTS can report in a single
- * bb_poller_wait(). Every watcher must still fire: none may be lost to
- * the event-batch cap, and none may be left stranded by a realloc that
- * moved the arrays out from under an in-flight pointer.
+ * Forces the runtime's watcher table and the poller's fd index past
+ * their initial bucket count (a rehash each), and the poller's fds[]
+ * past its initial capacity of 16, and puts more ready fds in flight
+ * than BB_RUNTIME_MAX_EVENTS can report in a single bb_poller_wait().
+ * Every watcher must still fire: none may be lost to the event-batch
+ * cap, and none may be left stranded by a rehash or realloc that moved
+ * things out from under an in-flight pointer.
  */
 static void test_churn_many_concurrent_watchers_all_fire(void)
 {
@@ -330,12 +332,12 @@ static void test_churn_many_concurrent_watchers_all_fire(void)
 
     int count = _make_pairs(pairs, CHURN_PAIRS);
 
-    // Below this there aren't enough fds to force even one array growth,
+    // Below this there aren't enough fds to force even one table growth,
     // so the test would pass without testing anything.
-    if (count <= BB_RUNTIME_WATCHERS_INITIAL_CAPACITY)
+    if (count <= BB_RUNTIME_WATCHER_BUCKETS_INITIAL)
     {
         printf("\t\tskipped: only %d socket pairs available (need > %d)\n",
-               count, BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+               count, BB_RUNTIME_WATCHER_BUCKETS_INITIAL);
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);
@@ -353,12 +355,13 @@ static void test_churn_many_concurrent_watchers_all_fire(void)
         BB_ASSERT(send(pairs[i].client, "x", 1, 0) == 1);
     }
 
-    // Both arrays must have grown past their initial capacity to hold
-    // this many entries -- i.e. the realloc path really was exercised.
+    // Every table must have grown past its initial size to hold this
+    // many entries -- i.e. the rehash and realloc paths really were exercised.
     BB_ASSERT(runtime->watcher_count == count);
-    BB_ASSERT(runtime->watcher_capacity > BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+    BB_ASSERT(runtime->watcher_bucket_count > BB_RUNTIME_WATCHER_BUCKETS_INITIAL);
     BB_ASSERT(runtime->poller->count == count);
     BB_ASSERT(runtime->poller->capacity > BB_POLLER_INITIAL_CAPACITY);
+    BB_ASSERT(runtime->poller->hbucket_count > BB_POLLER_INITIAL_BUCKETS);
 
     runtime->running = true;
 
@@ -394,7 +397,7 @@ static void test_churn_many_concurrent_watchers_all_fire(void)
  * This is the shape a busy server actually produces: connections arrive
  * and depart continuously while the watcher table stays roughly the
  * same size. Each round re-registers every fd from scratch, so any
- * entry the previous round failed to clear out of watchers[] or the
+ * entry the previous round failed to clear out of the watcher table or the
  * poller's fds[] accumulates -- and the exact-count assertions at the
  * top of each round catch that drift on the very next iteration rather
  * than letting it silently pile up.
@@ -411,10 +414,10 @@ static void test_churn_repeated_watch_unwatch_rounds(void)
 
     int count = _make_pairs(pairs, CHURN_PAIRS);
 
-    if (count <= BB_RUNTIME_WATCHERS_INITIAL_CAPACITY)
+    if (count <= BB_RUNTIME_WATCHER_BUCKETS_INITIAL)
     {
         printf("\t\tskipped: only %d socket pairs available (need > %d)\n",
-               count, BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+               count, BB_RUNTIME_WATCHER_BUCKETS_INITIAL);
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);
@@ -485,11 +488,10 @@ static void test_churn_repeated_watch_unwatch_rounds(void)
 /*
  * Half the watchers removed while the other half are mid-dispatch.
  *
- * _bb_runtime_wait() walks watchers[] while dispatching, and a oneshot
- * watcher removes itself from that same array during the walk by
- * swapping the last entry into its slot. Removing a large, interleaved
- * subset up front means the surviving watchers are exactly the ones
- * most likely to be relocated by those swaps. Every survivor must still
+ * _bb_runtime_wait() walks a watcher chain while dispatching, and a
+ * oneshot watcher unlinks itself from that same chain during the walk.
+ * Removing a large, interleaved subset up front means the survivors are
+ * exactly the nodes whose neighbours keep disappearing around them. Every survivor must still
  * fire, and every removed watcher must stay silent.
  */
 static void test_churn_interleaved_removal_preserves_survivors(void)
@@ -506,10 +508,10 @@ static void test_churn_interleaved_removal_preserves_survivors(void)
 
     int count = _make_pairs(pairs, CHURN_PAIRS);
 
-    if (count <= BB_RUNTIME_WATCHERS_INITIAL_CAPACITY)
+    if (count <= BB_RUNTIME_WATCHER_BUCKETS_INITIAL)
     {
         printf("\t\tskipped: only %d socket pairs available (need > %d)\n",
-               count, BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+               count, BB_RUNTIME_WATCHER_BUCKETS_INITIAL);
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);
@@ -589,7 +591,7 @@ static void test_churn_interleaved_removal_preserves_survivors(void)
  *
  * The OS hands out the lowest free descriptor, so under churn a closed
  * connection's fd number is immediately reused by the next accepted
- * one. Both watchers[] and the poller's fds[] are keyed on that raw
+ * one. Both the watcher table and the poller's fd index are keyed on that raw
  * number, so if unwatch leaves anything behind, the *new* connection
  * inherits the old one's registration: _bb_runtime_fd_registered_mask()
  * reports the fd as already registered and skips the poller registration
@@ -684,10 +686,10 @@ static void test_churn_add_remove_without_intervening_ticks(void)
 
     int count = _make_pairs(pairs, CHURN_PAIRS);
 
-    if (count <= BB_RUNTIME_WATCHERS_INITIAL_CAPACITY)
+    if (count <= BB_RUNTIME_WATCHER_BUCKETS_INITIAL)
     {
         printf("\t\tskipped: only %d socket pairs available (need > %d)\n",
-               count, BB_RUNTIME_WATCHERS_INITIAL_CAPACITY);
+               count, BB_RUNTIME_WATCHER_BUCKETS_INITIAL);
         _close_pairs(pairs, count);
         free(pairs);
         bb_runtime_destroy(runtime);

@@ -1257,7 +1257,7 @@ static void test_watch_fd_replace_cancels_old_task(void)
 
 // bb_runtime_unwatch_fd() removes a watcher's task from the poller/watcher
 // bookkeeping. A watcher task that has never fired is only ever referenced
-// from watchers[], so unwatch_fd() must itself route the task to
+// from the watcher table, so unwatch_fd() must itself route the task to
 // destruction (via the scheduler) -- otherwise it's cancelled but never
 // freed, i.e. leaked on every call.
 static int unwatch_destroyed_count = 0;
@@ -1966,8 +1966,14 @@ static void test_watch_fd_replace_changes_mode(void)
     BB_ASSERT(bb_task_is_cancelled(old_task) == 1);
     BB_ASSERT(new_task->state & BB_TASK_PERSISTENT);
     BB_ASSERT(runtime->watcher_count == 1);
-    BB_ASSERT(runtime->watchers[0].mode == BB_WATCH_PERSISTENT);
-    BB_ASSERT(runtime->watchers[0].task == new_task);
+
+    // The one remaining watcher is the replacement, and it and its task agree.
+    _bb_runtime_watcher_t *replaced = _bb_runtime_find_watcher_exact(runtime, server, BB_EVENT_READ);
+    BB_ASSERT(replaced != NULL);
+    BB_ASSERT(replaced->mode == BB_WATCH_PERSISTENT);
+    BB_ASSERT(replaced->task == new_task);
+    BB_ASSERT(new_task->watcher == replaced);
+    BB_ASSERT(old_task->watcher == NULL);
 
     // Data left unread: the persistent watcher must keep firing.
     BB_ASSERT(send(client, "x", 1, 0) == 1);

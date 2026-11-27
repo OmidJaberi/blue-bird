@@ -3,6 +3,10 @@
 
 #include "poller.h"
 
+/* struct bb_poller is opaque in poller.h; the index test below reads its
+ * bookkeeping directly. */
+#include "poller_backend.h"
+
 #if !defined(_WIN32)
 #include <unistd.h>
 #include <sys/resource.h>
@@ -396,6 +400,228 @@ static void test_poller_register_merges_repeat_calls_into_one_entry(void)
     close(pipefd[1]);
 }
 
+/*
+ * The poller keeps its fds[] dense (the poll() backend walks it) and finds an fd
+ * by value through a hash index chained through the entries. Unregistering swaps
+ * the last entry into the hole, so the index has to be repaired around both the
+ * removed entry and the one that moved. A random workload, checked against a
+ * plain model after every single operation, is how a mistake there shows up.
+ */
+#define INDEX_FDS 200
+#define INDEX_OPS 6000
+
+static unsigned int g_rng = 12345u;
+
+static unsigned int next_random(void)
+{
+    g_rng ^= g_rng << 13;
+    g_rng ^= g_rng >> 17;
+    g_rng ^= g_rng << 5;
+    return g_rng;
+}
+
+static void check_index_matches_model(bb_poller_t *poller, const int *fds, const int *model, int n)
+{
+    int expected = 0;
+
+    for (int i = 0; i < n; i++)
+    {
+        int idx = _bb_poller_find(poller, fds[i]);
+
+        if (model[i] == 0)
+        {
+            BB_ASSERT(idx < 0);
+        }
+        else
+        {
+            expected++;
+            BB_ASSERT(idx >= 0 && idx < poller->count);
+            BB_ASSERT(poller->fds[idx].fd == fds[i]);
+            BB_ASSERT(poller->fds[idx].events == model[i]);
+        }
+    }
+
+    BB_ASSERT(poller->count == expected);
+
+    /* And the other direction: every dense entry is reachable through the
+     * index, at its own position. */
+    for (int idx = 0; idx < poller->count; idx++)
+    {
+        BB_ASSERT(_bb_poller_find(poller, poller->fds[idx].fd) == idx);
+    }
+}
+
+static void test_poller_fd_index_matches_a_reference_model(void)
+{
+    printf("\tRunning test_poller_fd_index_matches_a_reference_model...\n");
+
+    int read_end[INDEX_FDS];
+    int write_end[INDEX_FDS];
+    int model[INDEX_FDS];
+
+    for (int i = 0; i < INDEX_FDS; i++)
+    {
+        int p[2];
+        BB_ASSERT(pipe(p) == 0);
+        read_end[i] = p[0];
+        write_end[i] = p[1];
+        model[i] = 0;
+    }
+
+    bb_poller_t *poller = bb_poller_create();
+    BB_ASSERT(poller != NULL);
+
+    int grew_index = 0;
+
+    for (int op = 0; op < INDEX_OPS; op++)
+    {
+        int i = (int)(next_random() % INDEX_FDS);
+        int events = 1 + (int)(next_random() % 3); /* READ, WRITE or both */
+        int fd = read_end[i];
+
+        if (next_random() % 5 < 3)
+        {
+            BB_ASSERT(bb_poller_register(poller, fd, events) == 0);
+            model[i] |= events;
+        }
+        else if (model[i] == 0)
+        {
+            BB_ASSERT(bb_poller_unregister(poller, fd, events) == -1); /* not registered */
+        }
+        else
+        {
+            BB_ASSERT(bb_poller_unregister(poller, fd, events) == 0);
+            model[i] &= ~events;
+        }
+
+        if (poller->hbucket_count > BB_POLLER_INITIAL_BUCKETS)
+        {
+            grew_index = 1;
+        }
+
+        check_index_matches_model(poller, read_end, model, INDEX_FDS);
+    }
+
+    /* The workload really did push the index through a rehash. */
+    BB_ASSERT(grew_index);
+
+    /* Drain it: every entry out, the index empty, nothing left reachable. */
+    for (int i = 0; i < INDEX_FDS; i++)
+    {
+        if (model[i] != 0)
+        {
+            BB_ASSERT(bb_poller_unregister(poller, read_end[i], model[i]) == 0);
+            model[i] = 0;
+        }
+        check_index_matches_model(poller, read_end, model, INDEX_FDS);
+    }
+    BB_ASSERT(poller->count == 0);
+
+    bb_poller_destroy(poller);
+
+    for (int i = 0; i < INDEX_FDS; i++)
+    {
+        close(read_end[i]);
+        close(write_end[i]);
+    }
+}
+
+/* A descriptor number that is closed and reopened is a different object: the
+ * index must not hand back the old entry's slot for the new registration. */
+static void test_poller_fd_index_handles_descriptor_reuse(void)
+{
+    printf("\tRunning test_poller_fd_index_handles_descriptor_reuse...\n");
+
+    bb_poller_t *poller = bb_poller_create();
+    BB_ASSERT(poller != NULL);
+
+    for (int round = 0; round < 50; round++)
+    {
+        int p[2];
+        BB_ASSERT(pipe(p) == 0);
+
+        BB_ASSERT(bb_poller_register(poller, p[0], BB_EVENT_READ) == 0);
+        int idx = _bb_poller_find(poller, p[0]);
+        BB_ASSERT(idx >= 0 && poller->fds[idx].events == BB_EVENT_READ);
+
+        /* Closed and unregistered, as a connection teardown does; the number
+         * is then reused by the next pipe. */
+        BB_ASSERT(bb_poller_unregister(poller, p[0], BB_EVENT_READ) == 0);
+        BB_ASSERT(_bb_poller_find(poller, p[0]) < 0);
+        BB_ASSERT(poller->count == 0);
+
+        close(p[0]);
+        close(p[1]);
+    }
+
+    bb_poller_destroy(poller);
+}
+
+#if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_POLL)
+/*
+ * With more ready fds than one wait may report, repeated waits must still get
+ * to every one of them (the backends keep a cursor so low-numbered fds cannot
+ * starve the rest). Also drives the epoll backend's reusable scratch buffers
+ * through growth: the first wait needs room for the whole ready set, later ones
+ * reuse it.
+ */
+static void test_poller_reports_every_ready_fd_across_waits(void)
+{
+    printf("\tRunning test_poller_reports_every_ready_fd_across_waits...\n");
+
+    enum { N = 150, BATCH = 16 };
+    int read_end[N];
+    int write_end[N];
+    char seen[N];
+
+    bb_poller_t *poller = bb_poller_create();
+    BB_ASSERT(poller != NULL);
+
+    for (int i = 0; i < N; i++)
+    {
+        int p[2];
+        BB_ASSERT(pipe(p) == 0);
+        read_end[i] = p[0];
+        write_end[i] = p[1];
+        seen[i] = 0;
+        BB_ASSERT(bb_poller_register(poller, read_end[i], BB_EVENT_READ) == 0);
+        BB_ASSERT(write(write_end[i], "x", 1) == 1);
+    }
+
+    bb_poll_event_t events[BATCH];
+    int distinct = 0;
+
+    /* Nothing is drained, so the same fds stay ready; only the cursor moves. */
+    for (int wait = 0; wait < 4 * (N / BATCH + 1) && distinct < N; wait++)
+    {
+        int n = bb_poller_wait(poller, events, BATCH, 0);
+        BB_ASSERT(n > 0 && n <= BATCH);
+
+        for (int k = 0; k < n; k++)
+        {
+            for (int i = 0; i < N; i++)
+            {
+                if (read_end[i] == events[k].fd && !seen[i])
+                {
+                    seen[i] = 1;
+                    distinct++;
+                }
+            }
+        }
+    }
+
+    BB_ASSERT(distinct == N);
+
+    bb_poller_destroy(poller);
+
+    for (int i = 0; i < N; i++)
+    {
+        close(read_end[i]);
+        close(write_end[i]);
+    }
+}
+#endif
+
 #endif // !defined(_WIN32)
 
 int main(void)
@@ -413,6 +639,11 @@ int main(void)
     test_poller_wait_reports_readable_fd();
     test_poller_wait_times_out_when_nothing_ready();
     test_poller_register_merges_repeat_calls_into_one_entry();
+    test_poller_fd_index_matches_a_reference_model();
+    test_poller_fd_index_handles_descriptor_reuse();
+#if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_POLL)
+    test_poller_reports_every_ready_fd_across_waits();
+#endif
 
 #if defined(BB_POLLER_BACKEND_EPOLL) || defined(BB_POLLER_BACKEND_KQUEUE)
     test_poller_create_fails_gracefully_under_fd_exhaustion();
