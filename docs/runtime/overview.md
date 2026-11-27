@@ -196,6 +196,38 @@ Watchers may be:
 - persistent
 - one-shot
 
+### How watchers are found
+
+A descriptor can carry several watchers (one for reading, one for writing, or a
+replacement for an existing one), and the poller holds one registration per
+descriptor covering all of them. Both layers find a descriptor by value in
+constant time on average:
+
+- the runtime keeps its watchers in a hash table keyed by descriptor, and each
+  task points directly at its own watcher, so dispatching an event, registering
+  a watch, replacing one, or cancelling a task never searches the full set of
+  watchers;
+- the poller keeps its descriptor array dense and adds a hash index over it.
+
+The cost of an operation therefore does not grow with the number of watched
+descriptors. This matters for a server holding thousands of connections, where
+every response cancels and re-arms a watcher.
+
+`modules/runtime/bench/fd_lookup_bench.c` measures this. It is off by default
+and meant for a Release build:
+
+```sh
+cmake -B build-rel -DCMAKE_BUILD_TYPE=Release -DBB_BUILD_BENCHMARKS=ON
+cmake --build build-rel --target bb_runtime_fd_bench
+build-rel/bench/bb_runtime_fd_bench          # or: bb_runtime_fd_bench 2000 8000
+```
+
+It prints per-operation costs at several descriptor counts; flat rows mean
+constant-time lookup. (Event dispatch still costs more per event as many
+descriptors become ready at once: on Linux the epoll backend deliberately
+collects the whole ready set each tick so that low-numbered descriptors cannot
+starve the others. That is a fairness choice, not a lookup cost.)
+
 ---
 
 ## Timers
