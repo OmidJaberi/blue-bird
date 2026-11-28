@@ -244,6 +244,53 @@ bb_error_t status_handler(bb_request_t *req, bb_response_t *res)
     return BB_SUCCESS();
 }
 
+/* ---- handlers for the routing, header and framing tests ---- */
+
+/* GET /header?name=X answers with the value of request header X, or "<none>". */
+bb_error_t header_echo_handler(bb_request_t *req, bb_response_t *res)
+{
+    const char *name = bb_request_get_query_param(req, "name");
+    if (!name)
+    {
+        bb_response_set_status(res, 400);
+        return BB_SUCCESS();
+    }
+    const char *value = bb_request_get_header(req, name);
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, (char *)(value ? value : "<none>")); /* copied by the response */
+    return BB_SUCCESS();
+}
+
+/* /prec/static and /prec/:id (and the reverse) overlap: the first registered route wins. */
+bb_error_t prec_static_handler(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, "static");
+    return BB_SUCCESS();
+}
+
+bb_error_t prec_param_handler(bb_request_t *req, bb_response_t *res)
+{
+    const char *id = bb_request_get_param(req, "id");
+    char msg[512];
+    snprintf(msg, sizeof(msg), "param:%s", id ? id : "");
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_body(res, msg);
+    return BB_SUCCESS();
+}
+
+/* Tries to take over the response framing: a wrong Content-Length and a second one. */
+bb_error_t lying_framing_handler(bb_request_t *req, bb_response_t *res)
+{
+    (void) req;
+    bb_response_set_header(res, "Content-Type", "text/plain");
+    bb_response_set_header(res, "Content-Length", "3");
+    bb_response_set_header(res, "Transfer-Encoding", "chunked");
+    bb_response_set_body(res, "0123456789");
+    return BB_SUCCESS();
+}
+
 void *server(void* arg)
 {
     (void) arg;
@@ -268,6 +315,12 @@ void *server(void* arg)
     bb_server_add_route(server, "PUT", "/echo", echo_method_handler);
     bb_server_add_route(server, "DELETE", "/echo", echo_method_handler);
     bb_server_add_route(server, "GET", "/status/:code", status_handler);
+    bb_server_add_route(server, "GET", "/header", header_echo_handler);
+    bb_server_add_route(server, "GET", "/prec/static", prec_static_handler);
+    bb_server_add_route(server, "GET", "/prec/:id", prec_param_handler);
+    bb_server_add_route(server, "GET", "/prec2/:id", prec_param_handler);
+    bb_server_add_route(server, "GET", "/prec2/static", prec_static_handler);
+    bb_server_add_route(server, "GET", "/lying_framing", lying_framing_handler);
     bb_server_use_pre_middleware(server, pre_trace_a);
     bb_server_use_pre_middleware(server, pre_trace_b_and_gate);
     bb_server_use_post_middleware(server, fail_post_middleware);
@@ -2157,6 +2210,150 @@ void test_async_many_clients(void)
     free(client_list);
 }
 
+/* ------------------------------------------------------------------ */
+/* Routing, request headers, response framing, decoding, concurrency   */
+/* ------------------------------------------------------------------ */
+
+/* Start of the body (just past the blank line that ends the head), or NULL. */
+static const char *resp_body(const char *resp)
+{
+    const char *end = strstr(resp, "\r\n\r\n");
+    return end ? end + 4 : NULL;
+}
+
+static int resp_status(const char *resp)
+{
+    return strncmp(resp, "HTTP/1.1 ", 9) == 0 ? atoi(resp + 9) : -1;
+}
+
+/* How many times `name` appears as a header field in the response head. */
+static size_t resp_header_count(const char *resp, const char *name)
+{
+    const char *body = resp_body(resp);
+    BB_ASSERT(body != NULL);
+    size_t name_len = strlen(name);
+    size_t count = 0;
+
+    const char *line = strstr(resp, "\r\n");
+    while (line && line + 2 < body)
+    {
+        line += 2;
+        if (bb_strncasecmp(line, name, name_len) == 0 && line[name_len] == ':')
+            count++;
+        line = strstr(line, "\r\n");
+    }
+    return count;
+}
+
+/* Value of a header in the response head, copied into `out` (empty if absent). */
+static void resp_header_value(const char *resp, const char *name, char *out, size_t cap)
+{
+    const char *body = resp_body(resp);
+    BB_ASSERT(body != NULL);
+    size_t name_len = strlen(name);
+    out[0] = '\0';
+
+    const char *line = strstr(resp, "\r\n");
+    while (line && line + 2 < body)
+    {
+        line += 2;
+        if (bb_strncasecmp(line, name, name_len) == 0 && line[name_len] == ':')
+        {
+            const char *value = line + name_len + 1;
+            while (*value == ' ')
+                value++;
+            const char *eol = strstr(value, "\r\n");
+            size_t len = eol ? (size_t)(eol - value) : strlen(value);
+            BB_ASSERT(len < cap);
+            memcpy(out, value, len);
+            out[len] = '\0';
+            return;
+        }
+        line = strstr(line, "\r\n");
+    }
+}
+
+/* GET `target` over a fresh connection that asks to be closed; fills `resp`. */
+static void exchange_get(const char *method, const char *target, char *resp, size_t cap)
+{
+    char req[16384];
+    int n = snprintf(req, sizeof(req),
+                     "%s %s HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n", method, target);
+    BB_ASSERT(n > 0 && (size_t)n < sizeof(req));
+    raw_result_t r = raw_http_exchange(req, (size_t)n, resp, cap);
+    BB_ASSERT(r == RAW_PEER_CLOSED);
+}
+
+static void assert_get_answers(const char *target, int status, const char *body)
+{
+    char resp[4096];
+    exchange_get("GET", target, resp, sizeof(resp));
+    if (resp_status(resp) != status || resp_body(resp) == NULL || strcmp(resp_body(resp), body) != 0)
+        fprintf(stderr, "GET %s: expected %d \"%s\", got:\n%s\n", target, status, body, resp);
+    BB_ASSERT(resp_status(resp) == status);
+    BB_ASSERT(resp_body(resp) != NULL);
+    BB_ASSERT(strcmp(resp_body(resp), body) == 0);
+}
+
+void test_route_matching_semantics(void)
+{
+    printf("Testing route matching rules (order, case, method, segments)...\n");
+
+    /* Overlapping routes: the first one registered wins, whichever way round. */
+    assert_get_answers("/prec/static", 200, "static");
+    assert_get_answers("/prec/other", 200, "param:other");
+    assert_get_answers("/prec2/static", 200, "param:static");
+    assert_get_answers("/prec2/other", 200, "param:other");
+
+    /* A :param is exactly one segment: never none, never several. */
+    assert_get_answers("/prec", 404, "Route Not Found");
+    assert_get_answers("/prec/a/b", 404, "Route Not Found");
+    assert_get_answers("/param", 404, "Route Not Found");
+    assert_get_answers("/param/a/b/c", 404, "Route Not Found");
+
+    /* Paths are case-sensitive. */
+    assert_get_answers("/PREC/static", 404, "Route Not Found");
+    assert_get_answers("/Prec/static", 404, "Route Not Found");
+    assert_get_answers("/PARAM/x", 404, "Route Not Found");
+
+    /* Empty path segments are ignored, so these all reach the same route. */
+    assert_get_answers("//prec//static", 200, "static");
+    assert_get_answers("/prec/static/", 200, "static");
+    assert_get_answers("//", 200, "Hello, Blue-Bird :)");
+
+    /* Methods are case-sensitive, and a route only answers its own method. */
+    char resp[4096];
+    exchange_get("get", "/prec/static", resp, sizeof(resp));
+    BB_ASSERT(resp_status(resp) == 404);
+
+    int before = counted_handler_calls;
+    static const char *const wrong_methods[] = {"POST", "PUT", "DELETE", "PATCH", "OPTIONS"};
+    for (size_t i = 0; i < sizeof(wrong_methods) / sizeof(wrong_methods[0]); i++)
+    {
+        char request[256];
+        int n = snprintf(request, sizeof(request),
+                         "%s /counted HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n"
+                         "Connection: close\r\n\r\n", wrong_methods[i]);
+        BB_ASSERT(n > 0);
+        BB_ASSERT(raw_http_exchange(request, (size_t)n, resp, sizeof(resp)) == RAW_PEER_CLOSED);
+        BB_ASSERT(resp_status(resp) == 404);
+        BB_ASSERT(strcmp(resp_body(resp), "Route Not Found") == 0);
+    }
+    BB_ASSERT(counted_handler_calls == before); /* none of them reached the handler */
+
+    /* HEAD finds no route of its own here: a 404 whose head says how long the
+     * body would have been, followed by no body at all. */
+    exchange_get("HEAD", "/counted", resp, sizeof(resp));
+    BB_ASSERT(resp_status(resp) == 404);
+    BB_ASSERT(resp_body(resp) != NULL && resp_body(resp)[0] == '\0');
+    char length[32];
+    resp_header_value(resp, "Content-Length", length, sizeof(length));
+    BB_ASSERT(strcmp(length, "15") == 0);
+    BB_ASSERT(counted_handler_calls == before);
+
+    assert_server_healthy();
+}
+
 int main(void)
 {
     pthread_t thread_id;
@@ -2215,6 +2412,7 @@ int main(void)
     test_pre_middleware_order_and_gate();
     test_non_get_methods_with_body();
     test_response_status_and_headers_roundtrip();
+    test_route_matching_semantics();
     test_client_connection_refused_then_reuse();
     test_request_header_name_case();
     test_idle_connections_do_not_block_server();
