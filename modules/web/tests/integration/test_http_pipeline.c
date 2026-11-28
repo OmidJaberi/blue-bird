@@ -2354,6 +2354,254 @@ void test_route_matching_semantics(void)
     assert_server_healthy();
 }
 
+/* Sends one request carrying `header_line` (a full "Name: value" line, or "" for none)
+ * to GET /header?name=<lookup> and returns the echoed value in `out`. */
+static void echo_request_header(const char *lookup, const char *header_line, char *out, size_t cap)
+{
+    size_t req_cap = strlen(header_line) + 512;
+    char *req = (char *)malloc(req_cap);
+    BB_ASSERT(req != NULL);
+    int n = snprintf(req, req_cap,
+                     "GET /header?name=%s HTTP/1.1\r\nHost: example.test:1234\r\n%s%sConnection: close\r\n\r\n",
+                     lookup, header_line, header_line[0] ? "\r\n" : "");
+    BB_ASSERT(n > 0 && (size_t)n < req_cap);
+
+    size_t resp_cap = cap + 1024;
+    char *resp = (char *)malloc(resp_cap);
+    BB_ASSERT(resp != NULL);
+    BB_ASSERT(raw_http_exchange(req, (size_t)n, resp, resp_cap) == RAW_PEER_CLOSED);
+    BB_ASSERT(resp_status(resp) == 200);
+    BB_ASSERT(resp_body(resp) != NULL);
+    BB_ASSERT(strlen(resp_body(resp)) < cap);
+    snprintf(out, cap, "%s", resp_body(resp));
+    free(resp);
+    free(req);
+}
+
+void test_request_header_values(void)
+{
+    printf("Testing request header values reach handlers intact...\n");
+
+    char out[16384];
+
+    /* Optional whitespace around the value is not part of it. */
+    echo_request_header("X-A", "X-A:    padded value   ", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "padded value") == 0);
+    echo_request_header("X-A", "X-A:\t tab\t ", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "tab") == 0);
+
+    /* An empty value is present and empty, which is not the same as absent. */
+    echo_request_header("X-A", "X-A:", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "") == 0);
+    echo_request_header("X-A", "", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "<none>") == 0);
+    echo_request_header("X-Other", "X-A: v", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "<none>") == 0);
+
+    /* Only the first colon separates name from value; inner whitespace and
+     * non-ASCII bytes pass through untouched. */
+    echo_request_header("X-A", "X-A: a:b:c", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "a:b:c") == 0);
+    echo_request_header("X-A", "X-A: two  inner   spaces", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "two  inner   spaces") == 0);
+    echo_request_header("X-A", "X-A: caf\xc3\xa9", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "caf\xc3\xa9") == 0);
+
+    /* The Host header is visible to the handler as sent. */
+    echo_request_header("Host", "", out, sizeof(out));
+    BB_ASSERT(strcmp(out, "example.test:1234") == 0);
+
+    /* A large (but legal) value arrives whole. */
+    char line[9000];
+    size_t prefix = (size_t)snprintf(line, sizeof(line), "X-A: ");
+    for (size_t i = 0; i < 8000; i++)
+        line[prefix + i] = (char)('a' + (i % 26));
+    line[prefix + 8000] = '\0';
+    echo_request_header("X-A", line, out, sizeof(out));
+    BB_ASSERT(strlen(out) == 8000);
+    BB_ASSERT(memcmp(out, line + prefix, 8000) == 0);
+
+    /* The same field sent twice yields one of the two values (or both), never
+     * garbage or a failed request. */
+    char two[64];
+    {
+        char req[512];
+        int n = snprintf(req, sizeof(req),
+                         "GET /header?name=X-A HTTP/1.1\r\nHost: localhost\r\nX-A: one\r\nX-A: two\r\n"
+                         "Connection: close\r\n\r\n");
+        char resp[4096];
+        BB_ASSERT(raw_http_exchange(req, (size_t)n, resp, sizeof(resp)) == RAW_PEER_CLOSED);
+        BB_ASSERT(resp_status(resp) == 200);
+        snprintf(two, sizeof(two), "%s", resp_body(resp));
+        BB_ASSERT(strcmp(two, "one") == 0 || strcmp(two, "two") == 0 || strcmp(two, "one, two") == 0);
+    }
+
+    assert_server_healthy();
+}
+
+void test_response_framing(void)
+{
+    printf("Testing every response is framed by an accurate Content-Length...\n");
+
+    struct
+    {
+        const char *method;
+        const char *target;
+        int status;
+        size_t body_len;
+    } cases[] = {
+        {"GET", "/", 200, 19},
+        {"GET", "/missing", 404, 15},
+        {"GET", "/status/204", 204, 0},
+        {"GET", "/status/418", 418, 11},
+        {"GET", "/fail/no_status", 500, 0},
+        {"GET", "/large_response", 200, 1024 * 1024},
+    };
+
+    size_t cap = 2 * 1024 * 1024;
+    char *resp = (char *)malloc(cap);
+    BB_ASSERT(resp != NULL);
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        exchange_get(cases[i].method, cases[i].target, resp, cap);
+        const char *body = resp_body(resp);
+        if (resp_status(resp) != cases[i].status || body == NULL)
+            fprintf(stderr, "%s %s: unexpected response head:\n%.300s\n", cases[i].method, cases[i].target, resp);
+        BB_ASSERT(resp_status(resp) == cases[i].status);
+        BB_ASSERT(body != NULL);
+
+        /* One Content-Length, saying exactly how many bytes follow the head. */
+        BB_ASSERT(resp_header_count(resp, "Content-Length") == 1);
+        char length[32];
+        resp_header_value(resp, "Content-Length", length, sizeof(length));
+        size_t declared = (size_t)strtoull(length, NULL, 10);
+        size_t actual = strlen(resp) - (size_t)(body - resp);
+        BB_ASSERT(declared == actual);
+        if (cases[i].status != 500)
+            BB_ASSERT(actual == cases[i].body_len);
+
+        /* We asked for the connection to be closed, and the server says it will. */
+        BB_ASSERT(resp_header_count(resp, "Connection") == 1);
+        char connection[32];
+        resp_header_value(resp, "Connection", connection, sizeof(connection));
+        BB_ASSERT(bb_strncasecmp(connection, "close", 5) == 0);
+    }
+
+    /* The large body made it across byte for byte. */
+    exchange_get("GET", "/large_response", resp, cap);
+    const char *large = resp_body(resp);
+    BB_ASSERT(large != NULL);
+    for (size_t i = 0; i < 1024 * 1024; i++)
+        BB_ASSERT(large[i] == 'A');
+
+    /* A handler cannot override the server's own framing: whatever it sets, the
+     * client sees one Content-Length that matches the body. */
+    exchange_get("GET", "/lying_framing", resp, cap);
+    BB_ASSERT(resp_status(resp) == 200);
+    BB_ASSERT(resp_header_count(resp, "Content-Length") == 1);
+    char length[32];
+    resp_header_value(resp, "Content-Length", length, sizeof(length));
+    BB_ASSERT(strcmp(length, "10") == 0);
+    BB_ASSERT(strcmp(resp_body(resp), "0123456789") == 0);
+
+    free(resp);
+    assert_server_healthy();
+}
+
+void test_target_percent_decoding(void)
+{
+    printf("Testing percent-decoding of paths and query strings...\n");
+
+    /* Path segments: '+' is an ordinary character, escapes are decoded to bytes. */
+    assert_get_answers("/param/a+b", 200, "name: a+b");
+    assert_get_answers("/param/%62%6c%75%65", 200, "name: blue");
+    assert_get_answers("/param/caf%C3%A9", 200, "name: caf\xc3\xa9");
+    assert_get_answers("/param/caf%c3%a9", 200, "name: caf\xc3\xa9");
+
+    /* Query values: '+' means space, %2B means '+', and escaped delimiters
+     * are data rather than structure. */
+    assert_get_answers("/q_param?val=a+b", 200, "val: a b");
+    assert_get_answers("/q_param?val=a%20b", 200, "val: a b");
+    assert_get_answers("/q_param?val=a%2Bb", 200, "val: a+b");
+    assert_get_answers("/q_param?val=a%26b", 200, "val: a&b");
+    assert_get_answers("/q_param?val=a%3Db", 200, "val: a=b");
+    assert_get_answers("/q_param?val=a=b", 200, "val: a=b");
+    assert_get_answers("/q_param?val=%C3%A9", 200, "val: \xc3\xa9");
+    assert_get_answers("/q_param?val=%c3%a9", 200, "val: \xc3\xa9");
+
+    /* Query names are decoded too. */
+    assert_get_answers("/q_param?v%61l=enc", 200, "val: enc");
+
+    /* Several parameters keep their own values. */
+    assert_get_answers("/q_param/multi?val_1=a%26b&val_2=c+d", 200, "a&b-c d");
+
+    assert_server_healthy();
+}
+
+#define DISTINCT_CLIENT_THREADS 8
+#define DISTINCT_CLIENT_ROUNDS 40
+
+static void *distinct_requests_client(void *arg)
+{
+    int id = (int)(intptr_t)arg;
+    bb_client_t *client = bb_client_create();
+    bb_response_t *res = bb_client_get_response(client);
+
+    for (int round = 0; round < DISTINCT_CLIENT_ROUNDS; round++)
+    {
+        char url[256], expected[256], body[128];
+
+        /* path parameter */
+        snprintf(url, sizeof(url), "http://127.0.0.1:8080/param/t%d_r%d", id, round);
+        snprintf(expected, sizeof(expected), "name: t%d_r%d", id, round);
+        BB_ASSERT(run_request(client, "GET", url, NULL, NULL, NULL).code == 0);
+        BB_ASSERT(bb_response_get_status(res) == 200);
+        BB_ASSERT(strcmp(bb_response_get_body(res), expected) == 0);
+
+        /* query parameter */
+        snprintf(url, sizeof(url), "http://127.0.0.1:8080/q_param?val=q%d-%d", id, round);
+        snprintf(expected, sizeof(expected), "val: q%d-%d", id, round);
+        BB_ASSERT(run_request(client, "GET", url, NULL, NULL, NULL).code == 0);
+        BB_ASSERT(bb_response_get_status(res) == 200);
+        BB_ASSERT(strcmp(bb_response_get_body(res), expected) == 0);
+
+        /* body and method, answered with 201 */
+        snprintf(body, sizeof(body), "payload from %d round %d", id, round);
+        snprintf(expected, sizeof(expected), "POST %s", body);
+        BB_ASSERT(run_request(client, "POST", "http://127.0.0.1:8080/echo", body, NULL, NULL).code == 0);
+        BB_ASSERT(bb_response_get_status(res) == 201);
+        BB_ASSERT(strcmp(bb_response_get_body(res), expected) == 0);
+
+        /* a request header carried through to the handler */
+        snprintf(body, sizeof(body), "h%d.%d", id, round);
+        BB_ASSERT(run_request(client, "GET", "http://127.0.0.1:8080/header?name=X-Who", NULL, "X-Who", body).code == 0);
+        BB_ASSERT(bb_response_get_status(res) == 200);
+        BB_ASSERT(strcmp(bb_response_get_body(res), body) == 0);
+
+        /* an error answer in the middle of the successes */
+        snprintf(url, sizeof(url), "http://127.0.0.1:8080/nope/%d/%d", id, round);
+        BB_ASSERT(run_request(client, "GET", url, NULL, NULL, NULL).code == 0);
+        BB_ASSERT(bb_response_get_status(res) == 404);
+    }
+
+    bb_client_destroy(client);
+    return NULL;
+}
+
+void test_concurrent_distinct_requests(void)
+{
+    printf("Testing concurrent clients each get their own answers...\n");
+
+    pthread_t threads[DISTINCT_CLIENT_THREADS];
+    for (int i = 0; i < DISTINCT_CLIENT_THREADS; i++)
+        BB_ASSERT(pthread_create(&threads[i], NULL, distinct_requests_client, (void *)(intptr_t)i) == 0);
+    for (int i = 0; i < DISTINCT_CLIENT_THREADS; i++)
+        pthread_join(threads[i], NULL);
+
+    assert_server_healthy();
+}
+
 int main(void)
 {
     pthread_t thread_id;
@@ -2413,6 +2661,10 @@ int main(void)
     test_non_get_methods_with_body();
     test_response_status_and_headers_roundtrip();
     test_route_matching_semantics();
+    test_request_header_values();
+    test_response_framing();
+    test_target_percent_decoding();
+    test_concurrent_distinct_requests();
     test_client_connection_refused_then_reuse();
     test_request_header_name_case();
     test_idle_connections_do_not_block_server();
